@@ -1,0 +1,99 @@
+import React, { useState, useEffect } from 'react';
+import { AgeGroup, Team } from '../types';
+import * as storage from '../services/storageService';
+
+interface TeamManagementProps {
+  league: AgeGroup;
+  onBack: () => void;
+}
+
+export const TeamManagement: React.FC<TeamManagementProps> = ({ league, onBack }) => {
+  const [teams, setTeams] = useState<Team[]>([]);
+  const [newTeamName, setNewTeamName] = useState('');
+  const [playerNames, setPlayerNames] = useState(['', '', '']);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => { loadTeams(); }, [league]);
+
+  const loadTeams = async () => {
+    setLoading(true);
+    const data = await storage.getTeams(league);
+    setTeams(data);
+    setLoading(false);
+  };
+
+  const handleCreate = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newTeamName.trim() || playerNames.some(p => !p.trim())) return;
+    setLoading(true);
+    await storage.createTeam(newTeamName, league, playerNames);
+    await loadTeams();
+    setNewTeamName('');
+    setPlayerNames(['', '', '']);
+    setLoading(false);
+  };
+
+  const handleDelete = async (id: string, name: string) => {
+    if(confirm(`Delete team "${name}"?`)) {
+        setLoading(true);
+        await storage.deleteTeam(id);
+        await loadTeams();
+    }
+  };
+
+  const handlePlayerNameChange = (index: number, value: string) => {
+    const newNames = [...playerNames];
+    newNames[index] = value;
+    setPlayerNames(newNames);
+  };
+
+  return (
+    <div className="p-4 sm:p-6 max-w-4xl mx-auto">
+      <div className="flex justify-between items-center mb-6">
+        <div>
+            <h2 className="text-2xl font-bold text-slate-800">Manage Teams</h2>
+            <p className="text-slate-500 text-sm font-bold uppercase tracking-wider">{league} League</p>
+        </div>
+        <button onClick={onBack} className="px-4 py-2 rounded-lg bg-slate-200 hover:bg-slate-300 text-slate-700 font-medium transition-colors">Back to Dashboard</button>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+        <div className="bg-white p-6 rounded-xl shadow-md border border-slate-100 h-fit">
+          <h3 className="text-lg font-semibold mb-4 flex items-center gap-2 text-slate-800">Add New Team</h3>
+          <form onSubmit={handleCreate} className="space-y-5">
+            <div>
+              <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Team Name</label>
+              <input type="text" className="w-full border border-slate-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 outline-none" placeholder="e.g. Tigers" value={newTeamName} onChange={e => setNewTeamName(e.target.value)} required />
+            </div>
+            <div className="space-y-3">
+              <label className="block text-xs font-bold text-slate-500 uppercase">Names (3 Players)</label>
+              {playerNames.map((name, idx) => (
+                <div key={idx} className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs font-bold">#{idx + 1}</span>
+                    <input type="text" className="w-full border border-slate-300 rounded-lg pl-8 pr-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none" placeholder={`Name`} value={name} onChange={e => handlePlayerNameChange(idx, e.target.value)} required />
+                </div>
+              ))}
+            </div>
+            <button type="submit" disabled={loading} className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-slate-300 text-white font-bold py-3 px-4 rounded-lg shadow-lg shadow-blue-200 transition-all active:scale-95">{loading ? 'Saving...' : 'Create Team'}</button>
+          </form>
+        </div>
+        <div className="space-y-4">
+          <h3 className="text-lg font-semibold text-slate-700 border-b pb-2">Current Teams ({teams.length})</h3>
+          {teams.map(team => (
+            <div key={team.id} className="bg-white p-4 rounded-xl shadow-sm border border-slate-200 flex justify-between items-center group hover:border-blue-300 transition-colors">
+              <div>
+                <h4 className="font-bold text-lg text-slate-800">{team.name}</h4>
+                <div className="flex flex-wrap gap-2 mt-2">
+                  {team.players.map(p => (
+                    <span key={p.id} className="text-xs font-medium bg-slate-100 text-slate-600 px-2.5 py-1 rounded-md border border-slate-200">{p.name}</span>
+                  ))}
+                </div>
+              </div>
+              <button onClick={() => handleDelete(team.id, team.name)} className="text-slate-300 hover:text-red-500 p-2 transition-colors">Delete</button>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+};

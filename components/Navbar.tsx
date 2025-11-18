@@ -13,8 +13,8 @@ export const Navbar: React.FC<NavbarProps> = ({ currentLeague, onGoHome, onSwitc
     <nav className="bg-slate-900 text-white p-4 shadow-lg sticky top-0 z-50">
       <div className="max-w-7xl mx-auto flex justify-between items-center">
         <div className="flex items-center gap-4 cursor-pointer" onClick={onGoHome}>
-            <div className="bg-red-600 w-8 h-8 rounded-full flex items-center justify-center font-bold border-2 border-white">SZ</div>
-            <h1 className="text-xl font-bold tracking-tight">StrikeZone <span className="font-light opacity-80">Manager</span></h1>
+            <div className="bg-red-600 w-8 h-8 rounded-full flex items-center justify-center font-bold border-2 border-white">DH</div>
+            <h1 className="text-xl font-bold tracking-tight">Dugout Hitting League <span className="font-light opacity-80">Manager</span></h1>
         </div>
         <div className="flex items-center gap-4">
           {currentLeague && (

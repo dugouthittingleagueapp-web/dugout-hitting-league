@@ -18,7 +18,7 @@ export const AdminDashboard: React.FC<{ onBack: () => void }> = ({ onBack }) => 
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `strikezone_data.json`;
+    a.download = `dugout_hitting_league_data.json`;
     a.click();
   };
 

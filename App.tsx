@@ -40,7 +40,7 @@ const App: React.FC = () => {
   if (state.view === 'league_select') {
     return (
       <div className="min-h-screen bg-slate-900 flex flex-col items-center justify-center p-4">
-        <div className="text-center mb-12"><h1 className="text-4xl font-bold text-white tracking-tight mb-2">StrikeZone</h1></div>
+        <div className="text-center mb-12"><h1 className="text-4xl font-bold text-white tracking-tight mb-2">Dugout Hitting League</h1></div>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 w-full max-w-2xl">
           {(['9u', '10u', '11u'] as AgeGroup[]).map(group => (
             <button key={group} onClick={() => setState({ view: 'dashboard', currentLeague: group, currentMatchId: null })} className="bg-white hover:bg-slate-50 text-slate-900 p-8 rounded-2xl shadow-2xl transition-transform hover:scale-105 group">

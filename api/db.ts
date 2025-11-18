@@ -1,5 +1,8 @@
-import pg from 'pg';
-const { Pool } = pg;
+import { Pool, neonConfig } from '@neondatabase/serverless';
+import ws from 'ws';
+
+// Required for Node.js environments (like Vercel Serverless) to handle WebSockets
+neonConfig.webSocketConstructor = ws;
 
 // connectionString MUST be set in environment variables (Vercel Settings or .env file)
 // Do not hardcode credentials here to prevent security leaks on GitHub
@@ -10,10 +13,7 @@ if (!connectionString) {
 }
 
 const pool = new Pool({
-  connectionString,
-  ssl: {
-    rejectUnauthorized: false
-  }
+  connectionString
 });
 
 // Error handling for the pool to prevent server crashes on idle connection loss

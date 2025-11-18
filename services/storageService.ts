@@ -28,7 +28,10 @@ export const createLeague = async (id: string): Promise<League> => {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ id })
   });
-  if (!res.ok) throw new Error('Failed to create league');
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || 'Failed to create league');
+  }
   return await res.json();
 };
 

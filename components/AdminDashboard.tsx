@@ -31,8 +31,8 @@ export const AdminDashboard: React.FC<{ onBack: () => void }> = ({ onBack }) => 
       await storage.createLeague(newLeagueName.trim());
       alert('League created! It will now appear on the main screen.');
       setNewLeagueName('');
-    } catch (e) {
-      alert('Failed to create league');
+    } catch (e: any) {
+      alert('Failed to create league: ' + (e.message || 'Unknown error'));
     } finally {
       setCreatingLeague(false);
     }

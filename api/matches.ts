@@ -3,6 +3,20 @@ import pool from './db';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   try {
+    // Ensure table exists
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS matches (
+        id UUID PRIMARY KEY,
+        league TEXT NOT NULL REFERENCES leagues(id) ON DELETE CASCADE,
+        home_team_id UUID REFERENCES teams(id) ON DELETE CASCADE,
+        away_team_id UUID REFERENCES teams(id) ON DELETE CASCADE,
+        date TIMESTAMPTZ NOT NULL,
+        is_complete BOOLEAN DEFAULT FALSE,
+        innings JSONB NOT NULL,
+        created_at TIMESTAMPTZ DEFAULT NOW()
+      )
+    `);
+
     if (req.method === 'GET') {
       const { league, id } = req.query;
       if (id) {

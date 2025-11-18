@@ -1,9 +1,11 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import pool from './db';
+import pool from './db.js';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
+  console.log(`League API accessed: ${req.method}`);
+  
   try {
-    // Ensure table exists (Lazy migration to fix missing schema issues)
+    // Ensure table exists (Lazy migration)
     await pool.query(`
       CREATE TABLE IF NOT EXISTS leagues (
         id TEXT PRIMARY KEY,
@@ -17,6 +19,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     } 
     else if (req.method === 'POST') {
       const { id } = req.body;
+      console.log(`Attempting to create league: ${id}`);
+      
       if (!id || typeof id !== 'string') {
         return res.status(400).json({ error: 'League Name ID is required' });
       }
@@ -24,12 +28,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const query = `INSERT INTO leagues (id) VALUES ($1) ON CONFLICT (id) DO NOTHING RETURNING *`;
       const { rows } = await pool.query(query, [id]);
       
-      // If row exists (conflict), just return the ID object
+      console.log(`League creation result: ${JSON.stringify(rows[0])}`);
+      
       return res.status(201).json(rows[0] || { id, created_at: new Date().toISOString() });
     }
     return res.status(405).json({ error: 'Method not allowed' });
   } catch (error: any) {
-    console.error("Database Error in api/leagues:", error);
+    console.error("Detailed DB Error in api/leagues:", error);
     return res.status(500).json({ error: error.message || 'Internal Server Error' });
   }
 }

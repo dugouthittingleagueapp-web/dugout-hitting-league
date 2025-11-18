@@ -1,4 +1,4 @@
-import { AgeGroup, Match, Team, Inning, PlayerInningScore } from '../types';
+import { AgeGroup, Match, Team, Inning, PlayerInningScore, League, PlayerStats } from '../types';
 
 const mapTeamFromDB = (dbTeam: any): Team => ({
   ...dbTeam,
@@ -15,6 +15,24 @@ const mapMatchFromDB = (dbMatch: any): Match => ({
   innings: typeof dbMatch.innings === 'string' ? JSON.parse(dbMatch.innings) : dbMatch.innings
 });
 
+// League Methods
+export const getLeagues = async (): Promise<League[]> => {
+  const res = await fetch('/api/leagues');
+  if (!res.ok) return [];
+  return await res.json();
+};
+
+export const createLeague = async (id: string): Promise<League> => {
+  const res = await fetch('/api/leagues', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ id })
+  });
+  if (!res.ok) throw new Error('Failed to create league');
+  return await res.json();
+};
+
+// Team Methods
 export const getTeams = async (league: AgeGroup): Promise<Team[]> => {
   const res = await fetch(`/api/teams?league=${league}`);
   if (!res.ok) return [];
@@ -50,6 +68,7 @@ export const deleteTeam = async (teamId: string) => {
   await fetch(`/api/teams?id=${teamId}`, { method: 'DELETE' });
 };
 
+// Match Methods
 export const getMatches = async (league: AgeGroup): Promise<Match[]> => {
   const res = await fetch(`/api/matches?league=${league}`);
   if (!res.ok) return [];
@@ -120,4 +139,52 @@ export const exportData = async () => {
   const teams = await getAllTeams();
   const matches = await getAllMatches();
   return JSON.stringify({ teams, matches }, null, 2);
+};
+
+// Stats Calculation
+export const getTeamStats = async (team: Team, league: AgeGroup): Promise<PlayerStats[]> => {
+  const matches = await getMatches(league);
+  // Initialize stats map
+  const statsMap = new Map<string, PlayerStats>();
+  
+  team.players.forEach(p => {
+    statsMap.set(p.id, {
+      playerId: p.id,
+      name: p.name,
+      totalPoints: 0,
+      hits4: 0,
+      hits3: 0,
+      hits2: 0,
+      hits1: 0,
+      pitchesSeen: 0
+    });
+  });
+
+  // Iterate over completed matches
+  matches.filter(m => m.isComplete).forEach(match => {
+    // Find team's data in innings
+    match.innings.forEach(inning => {
+      let teamScores: PlayerInningScore[] = [];
+      if (inning.home.teamId === team.id) teamScores = inning.home.playerScores;
+      else if (inning.away.teamId === team.id) teamScores = inning.away.playerScores;
+
+      teamScores.forEach(ps => {
+        const stats = statsMap.get(ps.playerId);
+        if (stats) {
+          ps.pitches.forEach(pitch => {
+            if (pitch.points !== null) {
+              stats.pitchesSeen++;
+              stats.totalPoints += pitch.points;
+              if (pitch.points === 4) stats.hits4++;
+              if (pitch.points === 3) stats.hits3++;
+              if (pitch.points === 2) stats.hits2++;
+              if (pitch.points === 1) stats.hits1++;
+            }
+          });
+        }
+      });
+    });
+  });
+
+  return Array.from(statsMap.values());
 };

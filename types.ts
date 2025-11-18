@@ -1,4 +1,9 @@
-export type AgeGroup = '9u' | '10u' | '11u';
+export type AgeGroup = string;
+
+export interface League {
+  id: string;
+  created_at?: string;
+}
 
 export interface Player {
   id: string;
@@ -40,6 +45,17 @@ export interface Match {
   date: string;
   isComplete: boolean;
   innings: Inning[];
+}
+
+export interface PlayerStats {
+  playerId: string;
+  name: string;
+  totalPoints: number;
+  hits4: number;
+  hits3: number;
+  hits2: number;
+  hits1: number;
+  pitchesSeen: number;
 }
 
 export interface AppState {

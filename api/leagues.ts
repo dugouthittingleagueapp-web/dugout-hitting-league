@@ -25,12 +25,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         return res.status(400).json({ error: 'League Name ID is required' });
       }
 
-      const query = `INSERT INTO leagues (id) VALUES ($1) ON CONFLICT (id) DO NOTHING RETURNING *`;
+      // Use UPSERT (Do Update) to ensure RETURNING * always returns a row, even if it exists
+      const query = `
+        INSERT INTO leagues (id) VALUES ($1) 
+        ON CONFLICT (id) DO UPDATE SET id=EXCLUDED.id 
+        RETURNING *
+      `;
       const { rows } = await pool.query(query, [id]);
       
       console.log(`League creation result: ${JSON.stringify(rows[0])}`);
       
-      return res.status(201).json(rows[0] || { id, created_at: new Date().toISOString() });
+      return res.status(201).json(rows[0]);
     }
     return res.status(405).json({ error: 'Method not allowed' });
   } catch (error: any) {

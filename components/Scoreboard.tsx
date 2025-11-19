@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Match, Inning, Team, TieBreakerRound } from '../types';
 import * as storage from '../services/storageService';
@@ -75,7 +76,7 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
     if (matchData.tieBreaker) {
         matchData.tieBreaker.forEach(round => {
             const scores = side === 'home' ? round.homeScores : round.awayScores;
-            tieScore += scores.reduce((a, b) => a + b, 0);
+            tieScore += scores.reduce((a, b) => (a || 0) + (b || 0), 0);
         });
     }
     return baseScore + tieScore;
@@ -107,8 +108,8 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
           pitchLimit: nextLimit,
           homePlayerId: tbHomePlayerId,
           awayPlayerId: tbAwayPlayerId,
-          homeScores: Array(nextLimit).fill(0),
-          awayScores: Array(nextLimit).fill(0)
+          homeScores: Array(nextLimit).fill(null),
+          awayScores: Array(nextLimit).fill(null)
       };
 
       const updatedMatch = { ...match };
@@ -234,7 +235,7 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
       const round = newMatch.tieBreaker![roundIdx];
       
       const existingVal = side === 'home' ? round.homeScores[pitchIdx] : round.awayScores[pitchIdx];
-      const isEdit = existingVal !== 0 && existingVal !== undefined && existingVal !== null;
+      const isEdit = existingVal !== null;
 
       if (side === 'home') round.homeScores[pitchIdx] = val;
       else round.awayScores[pitchIdx] = val;
@@ -432,8 +433,8 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
                   const homePlayer = teams.home?.players.find(p => p.id === round.homePlayerId);
                   const awayPlayer = teams.away?.players.find(p => p.id === round.awayPlayerId);
                   
-                  const homeSum = round.homeScores.reduce((a,b)=>a+b,0);
-                  const awaySum = round.awayScores.reduce((a,b)=>a+b,0);
+                  const homeSum = round.homeScores.reduce((a,b)=>(a||0)+(b||0),0);
+                  const awaySum = round.awayScores.reduce((a,b)=>(a||0)+(b||0),0);
                   
                   return (
                     <div key={idx}>

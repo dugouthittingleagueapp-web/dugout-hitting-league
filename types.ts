@@ -1,3 +1,4 @@
+
 export type AgeGroup = string;
 
 export interface League {
@@ -43,8 +44,8 @@ export interface TieBreakerRound {
   pitchLimit: number;
   homePlayerId: string;
   awayPlayerId: string;
-  homeScores: number[];
-  awayScores: number[];
+  homeScores: (number | null)[];
+  awayScores: (number | null)[];
 }
 
 export interface Match {

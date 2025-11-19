@@ -49,9 +49,11 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit }) => {
     storage.updateMatch(newMatch).catch(err => console.error("Failed to save score", err));
 
     // Auto-advance logic:
-    // If we are EDITING, we do NOT advance. We just close the window.
-    // If it is NEW input, we advance.
-    if (!isEdit && pitchIdx < 9) {
+    // If we are EDITING, we do NOT advance.
+    // If it is NEW input, we advance, unless it's the last pitch for that player.
+    const totalPitches = teamData.playerScores[lineupIdx].pitches.length;
+    
+    if (!isEdit && pitchIdx < totalPitches - 1) {
         setActiveCell({ side, lineupIdx, pitchIdx: pitchIdx + 1 });
     } else {
         setActiveCell(null);
@@ -89,14 +91,26 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit }) => {
           <div className="text-2xl font-mono font-bold">{calculateTeamInningTotal(side, currentInning)} <span className="text-sm font-normal opacity-60">pts</span></div>
         </div>
         <div className="bg-white rounded-b-lg shadow-sm border border-slate-200 overflow-x-auto scrollbar-hide">
-          <table className="w-full min-w-[600px]">
+          {/* Removed rigid min-width to allow shrinking on mobile if possible, or scrolling naturally */}
+          <table className="w-full">
             <tbody className="divide-y divide-slate-100">
               {inningData.playerScores.map((playerScore, lineupIdx) => {
                  const player = team.players.find(p => p.id === playerScore.playerId);
                  return (
                   <tr key={playerScore.playerId} className="hover:bg-slate-50/50">
-                    <td className="px-4 py-3 font-medium text-slate-700 sticky left-0 bg-white z-10"><div className="flex items-center gap-2"><span className="text-[10px] font-bold text-slate-400 bg-slate-100 w-5 h-5 rounded-full flex items-center justify-center">{lineupIdx + 1}</span><span className="truncate">{player ? player.name : 'Unknown'}</span></div></td>
-                    <td className="px-2 py-3"><div className="flex gap-2 justify-start">{playerScore.pitches.map((pitch, pitchIdx) => (<ScoreInput key={pitchIdx} pitchNumber={pitchIdx + 1} value={pitch.points} readOnly={match.isComplete} isEditing={activeCell?.side === side && activeCell.lineupIdx === lineupIdx && activeCell.pitchIdx === pitchIdx} onOpen={() => setActiveCell({ side, lineupIdx, pitchIdx })} onClose={() => setActiveCell(null)} onChange={(val) => handleScoreUpdate(side, lineupIdx, pitchIdx, val)} />))}</div></td>
+                    <td className="px-2 sm:px-4 py-3 font-medium text-slate-700 sticky left-0 bg-white z-10 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)] border-r border-slate-100 w-[100px] sm:w-auto max-w-[120px]">
+                        <div className="flex items-center gap-2">
+                            <span className="text-[9px] sm:text-[10px] font-bold text-slate-400 bg-slate-100 w-5 h-5 rounded-full flex items-center justify-center shrink-0">{lineupIdx + 1}</span>
+                            <span className="truncate text-xs sm:text-sm">{player ? player.name : 'Unknown'}</span>
+                        </div>
+                    </td>
+                    <td className="px-2 py-3">
+                        <div className="flex gap-1 sm:gap-2 justify-start">
+                            {playerScore.pitches.map((pitch, pitchIdx) => (
+                                <ScoreInput key={pitchIdx} pitchNumber={pitchIdx + 1} value={pitch.points} readOnly={match.isComplete} isEditing={activeCell?.side === side && activeCell.lineupIdx === lineupIdx && activeCell.pitchIdx === pitchIdx} onOpen={() => setActiveCell({ side, lineupIdx, pitchIdx })} onClose={() => setActiveCell(null)} onChange={(val) => handleScoreUpdate(side, lineupIdx, pitchIdx, val)} />
+                            ))}
+                        </div>
+                    </td>
                   </tr>
                  );
               })}

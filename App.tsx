@@ -46,13 +46,15 @@ const App: React.FC = () => {
     catch (e) { console.error(e); } finally { setLoading(false); }
   };
 
-  const handleStartGame = async (homeLineup: Player[], awayLineup: Player[]) => {
-    if (!state.currentLeague || !selectedHomeId || !selectedAwayId) return;
+  const handleStartGame = async (finalHomeId: string, finalAwayId: string, homeLineup: Player[], awayLineup: Player[]) => {
+    if (!state.currentLeague) return;
     try {
         setLoading(true);
         const homeIds = homeLineup.map(p => p.id);
         const awayIds = awayLineup.map(p => p.id);
-        const newMatch = await storage.createMatch(state.currentLeague, selectedHomeId, selectedAwayId, homeIds, awayIds, state.season);
+        // Pass the specifically selected IDs (allows for swapping in MatchSetup)
+        const newMatch = await storage.createMatch(state.currentLeague, finalHomeId, finalAwayId, homeIds, awayIds, state.season);
+        
         setSelectedHomeId(''); setSelectedAwayId(''); setLoading(false);
         setState({ ...state, view: 'scoring', currentMatchId: newMatch.id });
     } catch (e) { alert("Error starting match: " + e); setLoading(false); }

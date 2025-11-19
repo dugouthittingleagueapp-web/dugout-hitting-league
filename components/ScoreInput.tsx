@@ -52,12 +52,12 @@ export const ScoreInput: React.FC<ScoreInputProps> = ({ pitchNumber, value, onCh
 
   return (
     <>
-      <div className="flex flex-col items-center gap-1 min-w-[40px]">
-        <div className="bg-slate-200 text-slate-500 text-[10px] font-bold px-1.5 rounded-full select-none">{pitchNumber}</div>
+      <div className="flex flex-col items-center gap-0.5 sm:gap-1 min-w-[32px] sm:min-w-[40px]">
+        <div className="bg-slate-200 text-slate-500 text-[9px] sm:text-[10px] font-bold px-1.5 rounded-full select-none">{pitchNumber}</div>
         <button
           disabled={readOnly}
           onClick={() => !readOnly && onOpen()}
-          className={`w-10 h-12 rounded-lg flex items-center justify-center text-lg font-bold shadow-sm border-2 transition-all duration-150 ${value !== null ? getValueColor(value) : 'border-dashed border-slate-300 hover:border-slate-400 bg-slate-50 text-slate-300'}`}
+          className={`w-8 h-9 text-sm sm:w-10 sm:h-12 sm:text-lg rounded-lg flex items-center justify-center font-bold shadow-sm border-2 transition-all duration-150 ${value !== null ? getValueColor(value) : 'border-dashed border-slate-300 hover:border-slate-400 bg-slate-50 text-slate-300'}`}
         >
           {value !== null ? value : '-'}
         </button>

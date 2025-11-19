@@ -110,11 +110,16 @@ export const deleteMatch = async (matchId: string) => {
   await fetch(`/api/matches?id=${matchId}`, { method: 'DELETE' });
 };
 
+// Updated to handle variable pitch counts (15 for 2 players, 10 for others)
 const createEmptyInning = (number: number, homeTeamId: string, awayTeamId: string, homeLineupIds: string[], awayLineupIds: string[]): Inning => {
   const createPlayerScores = (playerIds: string[]): PlayerInningScore[] => {
+    // Determine pitches per player. Standard is 30 total. 
+    // If 2 players, 15 each. If 3 players, 10 each. Default to 10 otherwise.
+    const pitchCount = playerIds.length === 2 ? 15 : 10;
+    
     return playerIds.map(pId => ({
       playerId: pId,
-      pitches: Array(10).fill(null).map(() => ({ points: null }))
+      pitches: Array(pitchCount).fill(null).map(() => ({ points: null }))
     }));
   };
   return {

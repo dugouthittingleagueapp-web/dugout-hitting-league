@@ -46,7 +46,7 @@ export const Navbar: React.FC<NavbarProps> = ({
       <div className="max-w-7xl mx-auto flex justify-between items-center">
         <div className="flex items-center gap-4 cursor-pointer" onClick={onGoHome}>
             {/* Logo Update: Neon Green DH Circle */}
-            <div className="w-12 h-12 bg-lime-400 rounded-full flex items-center justify-center border-2 border-white shadow-lg shrink-0">
+            <div className="w-12 h-12 bg-[#40F540] rounded-full flex items-center justify-center border-2 border-white shadow-lg shrink-0">
                 <span className="font-black text-slate-900 text-lg tracking-tighter font-sans">DH</span>
             </div>
             <div className="hidden lg:block">

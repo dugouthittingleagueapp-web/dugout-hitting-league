@@ -283,9 +283,6 @@ export const getTeamStats = async (team: Team, league: AgeGroup, season: string)
     const matches = await getMatches(league, season);
     const teamMatches = matches.filter(m => (m.homeTeamId === team.id || m.awayTeamId === team.id) && m.isComplete);
     
-    // Need all teams to cross-reference names if not in 'team' object (e.g. opponents)
-    // But for getTeamStats we mainly care about 'team'.
-    // Actually, calculateMatchStats needs both teams.
     const allTeams = await getAllTeams();
 
     const aggStats = new Map<string, PlayerStats>();

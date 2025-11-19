@@ -18,7 +18,6 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
   const [loading, setLoading] = useState(true);
   
   // Track active cell for scoring modal. 
-  // Added roundIdx to distinguish between regular innings and specific tie breaker rounds.
   const [activeCell, setActiveCell] = useState<{ side: 'home' | 'away'; lineupIdx: number; pitchIdx: number; roundIdx?: number } | null>(null);
 
   // Tie Breaker Setup State
@@ -37,8 +36,8 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
         setTeams({ home, away });
         
         // Default selection for Tie Breaker dropdowns
-        if (home && !tbHomePlayerId) setTbHomePlayerId(home.players[0].id);
-        if (away && !tbAwayPlayerId) setTbAwayPlayerId(away.players[0].id);
+        if (home && !tbHomePlayerId && home.players.length > 0) setTbHomePlayerId(home.players[0].id);
+        if (away && !tbAwayPlayerId && away.players.length > 0) setTbAwayPlayerId(away.players[0].id);
       }
   };
 
@@ -87,7 +86,6 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
 
   // --- Actions ---
 
-  // 1. Start Tie Breaker (Called from Modal)
   const startTieBreakerRound = async () => {
       if (!teams.home || !teams.away || !tbHomePlayerId || !tbAwayPlayerId) return;
 
@@ -106,7 +104,6 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
           pitchLimit: nextLimit,
           homePlayerId: tbHomePlayerId,
           awayPlayerId: tbAwayPlayerId,
-          // Initialize with nulls so we can distinguish new entry vs edit
           homeScores: Array(nextLimit).fill(null),
           awayScores: Array(nextLimit).fill(null)
       };
@@ -137,7 +134,6 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
     teamData.playerScores[lineupIdx].pitches[pitchIdx].points = val;
     setMatch(newMatch); 
     
-    // Determine next step before async save
     // --- Auto-detect End of Regulation ---
     const isFinalInning = activeInningIdx === 5; 
     let shouldOpenTieBreaker = false;
@@ -157,31 +153,34 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
     }
 
     // --- Auto-advance logic ---
+    // CRITICAL: Only advance if we are NOT editing an existing score.
+    // AND strict check against total pitches for THIS player.
+    // 3v3 = 10 pitches. 2v2 Strict = 10 pitches. Ghost = 15 pitches.
+    
     let nextCell = null;
 
     if (!isEdit && !shouldOpenTieBreaker) {
-        // Always advance within the player's pitch count (whether 10 or 15).
-        // Never advance to the next player automatically.
         const totalPitches = teamData.playerScores[lineupIdx].pitches.length;
+        
+        // If there are pitches left for THIS player, advance.
         if (pitchIdx < totalPitches - 1) {
             nextCell = { side, lineupIdx, pitchIdx: pitchIdx + 1 };
         } else {
-            // End of pitches for this player. Close modal.
+            // We have reached the end of pitches for this player.
+            // CLOSE THE MODAL. Do not advance to next player.
             nextCell = null;
         }
     }
 
-    // Apply next cell immediately - THIS IS CRITICAL for snappy UI
+    // Apply next cell immediately
     setActiveCell(nextCell);
 
     if (shouldOpenTieBreaker) {
          setTimeout(() => setShowTieBreakerSetup(true), 500);
     }
 
-    // Persist asynchronously after UI update
     await storage.updateMatch(newMatch).catch(err => {
         console.error("Failed to save score", err);
-        // Optionally revert optimistic update here if needed
     });
   };
 
@@ -225,7 +224,6 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
            nextCell = { side, lineupIdx: 0, pitchIdx: pitchIdx + 1, roundIdx };
       }
       
-      // Apply immediately before await
       setActiveCell(nextCell);
 
       await storage.updateMatch(newMatch);

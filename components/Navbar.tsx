@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { AgeGroup, League } from '../types';
 
@@ -6,6 +7,7 @@ interface NavbarProps {
   currentSeason: string;
   leagues: League[];
   userRole: 'fan' | 'umpire' | 'admin';
+  showLeagueHomeButton?: boolean;
   onGoHome: () => void;
   onSwitchLeague: () => void;
   onSelectLeague: (leagueId: string) => void;
@@ -20,6 +22,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   currentSeason, 
   leagues, 
   userRole,
+  showLeagueHomeButton = true,
   onGoHome, 
   onSwitchLeague, 
   onSelectLeague, 
@@ -54,8 +57,8 @@ export const Navbar: React.FC<NavbarProps> = ({
             </div>
         </div>
         <div className="flex items-center gap-2 sm:gap-4">
-          {/* New Button: League Home - Only show if we are in a league */}
-          {currentLeague && (
+          {/* League Home - Only show if configured and we are in a league */}
+          {currentLeague && showLeagueHomeButton && (
             <button onClick={onSwitchLeague} className="bg-slate-800 hover:bg-slate-700 text-white border border-slate-600 px-3 py-1.5 rounded-lg text-xs sm:text-sm font-bold transition-colors font-sans whitespace-nowrap">
                League Home
             </button>

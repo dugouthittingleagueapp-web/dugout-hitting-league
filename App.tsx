@@ -323,6 +323,7 @@ const App: React.FC = () => {
       currentSeason: state.season,
       leagues: leagues,
       userRole: userRole,
+      showLeagueHomeButton: state.view !== 'dashboard' && !!state.currentLeague, // Logic: Only show button if we have a league but are NOT on the dashboard
       onGoHome: () => setState({ ...state, view: 'dashboard' }),
       onSwitchLeague: () => setState({ ...state, view: 'league_select', currentLeague: null, currentMatchId: null }),
       onSelectLeague: handleSelectLeague,

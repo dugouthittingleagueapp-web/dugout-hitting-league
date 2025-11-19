@@ -72,61 +72,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       // We accept tieBreaker via the 'innings' field (merged in FE) or if passed as a prop we merge it here
       const { id, isComplete, innings, tieBreaker } = req.body;
       
-      let inningsData = innings;
-      // If tieBreaker data exists, inject it into the innings JSON blob to save schema changes
-      if (tieBreaker && Array.isArray(innings)) {
-          // HACK: Store tieBreaker as a property on the JSON object we save
-          // Since innings is usually an array, we can wrap it or attach a property if we were storing an object.
-          // But 'innings' column expects JSON.
-          // To support this without breaking types, we will cast the array to an object in the DB if needed, 
-          // OR simpler: We assume 'innings' coming from FE *includes* the tieBreaker if we modified the FE logic correctly.
-          // However, the FE sends `updatedMatch` which has `tieBreaker` as a separate field.
-          // Let's wrap it if needed, or just save it.
-          
-          // Actually, easiest way: The 'innings' column is JSONB. We can just store { innings: [], tieBreaker: [] } ?
-          // No, existing code expects an array. 
-          // Let's attach it to the array. Arrays in JSON can't have named properties.
-          // Plan B: We rely on `updatedMatch.innings` containing the data. 
-          // The Storage Service sends `updatedMatch`.
-          
-          // If we want to persist `tieBreaker`, we need to modify the `innings` payload.
-          // Let's append a special "inning" object that acts as metadata? No.
-          
-          // Correct approach for this request: 
-          // We will store the tieBreaker data inside the `innings` JSONB column by converting the column content
-          // from `Inning[]` to `{ innings: Inning[], tieBreaker: ... }`. 
-          // BUT that breaks every GET request that expects an array.
-          
-          // Solution: We will treat the `tieBreaker` property in `Match` as part of the `innings` column data in a hacky way?
-          // No, we will assume the `innings` argument passed to this API *already has* the tie breaker data embedded if possible?
-          // Since I cannot change the DB schema easily to add a column without migrations,
-          // I will update `storageService.ts` to handle this.
-      }
-
-      // Update: I've updated `storageService.ts` to send `JSON.stringify(updatedMatch)` ? No, it sends specific fields.
-      // `const values = [id, isComplete, JSON.stringify(innings)];`
-      // This means `tieBreaker` is LOST unless I put it in `innings`.
-      
-      // FIX: I will modify `innings` here. If `tieBreaker` is present in body, I will add it as a special entry in the innings JSON array with a distinct flag?
-      // Or, since `innings` is JSONB, I can change the query to save `tieBreaker` if I had a column.
-      
-      // REAL FIX:
-      // I will update the SQL to allow updating `tieBreaker` if I could...
-      // Given constraints, I will make `innings` store an object `{ main: Inning[], tieBreaker: ... }` ? No, breaks frontend.
-      
-      // Let's just add a column blindly. It's the most robust way.
-      const queryCheck = `SELECT jsonb_typeof(innings) as type FROM matches WHERE id = $1`;
-      // ... Too complex for this step.
-      
-      // ALTERNATIVE: The user asked for a Tie Breaker. I will append the tie breaker rounds as "Inning 7", "Inning 8" etc with a special flag?
-      // No, that messes up stats.
-      
-      // I will update the DB Schema in the `api/matches.ts` init block to add `tie_breaker JSONB`.
-      
-      const query = `UPDATE matches SET is_complete = $2, innings = $3, tie_breaker = $4 WHERE id = $1 RETURNING *`;
-      // We need to pass tieBreaker. If not present, pass null.
-      const values = [id, isComplete, JSON.stringify(innings), tieBreaker ? JSON.stringify(tieBreaker) : null];
-      
       // We need to ensure the column exists
       await pool.query(`
         DO $$ 
@@ -138,6 +83,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       `);
       
       const queryUpdate = `UPDATE matches SET is_complete = $2, innings = $3, tie_breaker = $4 WHERE id = $1 RETURNING *`;
+      const values = [id, isComplete, JSON.stringify(innings), tieBreaker ? JSON.stringify(tieBreaker) : null];
+
       const { rows } = await pool.query(queryUpdate, values);
       
       // Map back for response

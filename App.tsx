@@ -340,23 +340,23 @@ const App: React.FC = () => {
         <Navbar {...navbarProps} />
         
         <div className="text-center mb-8 mt-12">
-            <h1 className="text-4xl font-bold text-white tracking-tight mb-2">Dugout Hitting League</h1>
-            <p className="text-slate-400 text-lg">Select a league to view <span className="text-blue-400 font-bold">{state.season}</span> season</p>
-            {userRole === 'fan' && <p className="text-xs text-slate-500 mt-2">Read-Only Fan Mode</p>}
-            {userRole !== 'fan' && <div className="mt-2"><span className="bg-blue-600 text-white px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider">Logged in as {userRole}</span></div>}
+            <h1 className="text-4xl font-bold text-white tracking-tight mb-2 font-sans">Dugout Hitting League</h1>
+            <p className="text-slate-400 text-lg font-sans">Select a league to view <span className="text-blue-400 font-bold font-sans">{state.season}</span> season</p>
+            {userRole === 'fan' && <p className="text-xs text-slate-500 mt-2 font-sans">Read-Only Fan Mode</p>}
+            {userRole !== 'fan' && <div className="mt-2"><span className="bg-blue-600 text-white px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider font-sans">Logged in as {userRole}</span></div>}
         </div>
         
         {leagues.length === 0 ? (
-            <div className="text-center bg-slate-800 p-8 rounded-xl border border-slate-700 max-w-md">
-                <p className="text-slate-300 mb-4">No leagues found.</p>
-                <button onClick={openLoginModal} className="px-4 py-2 bg-blue-600 text-white rounded-lg font-bold hover:bg-blue-500 transition-colors">Log In to Create League</button>
+            <div className="text-center bg-slate-800 p-8 rounded-xl border border-slate-700 max-w-md font-sans">
+                <p className="text-slate-300 mb-4 font-sans">No leagues found.</p>
+                <button onClick={openLoginModal} className="px-4 py-2 bg-blue-600 text-white rounded-lg font-bold hover:bg-blue-500 transition-colors font-sans">Log In to Create League</button>
             </div>
         ) : (
             <div className="flex flex-wrap justify-center gap-6 w-full max-w-6xl px-4">
             {sortedLeagues.map(league => (
                 <button key={league.id} onClick={() => handleSelectLeague(league.id)} className="bg-white hover:bg-slate-50 text-slate-900 p-6 rounded-2xl shadow-2xl transition-transform hover:scale-105 group w-full sm:w-64 aspect-[4/3] sm:aspect-square flex flex-col items-center justify-center">
                     <span className="block text-3xl sm:text-4xl font-black mb-2 group-hover:text-blue-600 transition-colors uppercase text-center w-full break-words leading-tight font-sans">{league.id}</span>
-                    <span className="block text-xs font-bold text-slate-400 uppercase tracking-widest whitespace-nowrap">{state.season} Season</span>
+                    <span className="block text-xs font-bold text-slate-400 uppercase tracking-widest whitespace-nowrap font-sans">{state.season} Season</span>
                 </button>
             ))}
             </div>
@@ -364,15 +364,15 @@ const App: React.FC = () => {
         
         {showLoginModal && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm animate-in fade-in duration-200" onClick={() => setShowLoginModal(false)}>
-            <div className="bg-white p-8 rounded-2xl shadow-2xl w-full max-w-sm transform scale-100 animate-in zoom-in-95 duration-200" onClick={e => e.stopPropagation()}>
-              <h3 className="text-xl font-bold text-slate-800 mb-4 text-center">Access Control</h3>
-              <p className="text-sm text-slate-500 mb-4 text-center">Enter password for Umpire or Admin access.</p>
+            <div className="bg-white p-8 rounded-2xl shadow-2xl w-full max-w-sm transform scale-100 animate-in zoom-in-95 duration-200 font-sans" onClick={e => e.stopPropagation()}>
+              <h3 className="text-xl font-bold text-slate-800 mb-4 text-center font-sans">Access Control</h3>
+              <p className="text-sm text-slate-500 mb-4 text-center font-sans">Enter password for Umpire or Admin access.</p>
               <form onSubmit={handleLoginSubmit}>
                 <div className="mb-4">
                   <input type="password" autoFocus className={`w-full border rounded-lg px-4 py-3 text-lg outline-none focus:ring-2 ${loginError ? 'border-red-300 focus:ring-red-200' : 'border-slate-300 focus:ring-blue-200'}`} value={passwordInput} onChange={e => setPasswordInput(e.target.value)} placeholder="Password" />
-                  {loginError && <p className="text-red-500 text-xs mt-2 font-bold">{loginError}</p>}
+                  {loginError && <p className="text-red-500 text-xs mt-2 font-bold font-sans">{loginError}</p>}
                 </div>
-                <button type="submit" disabled={loading} className="w-full bg-slate-900 text-white font-bold py-3 rounded-lg hover:bg-slate-800 transition-colors">{loading ? 'Verifying...' : 'Log In'}</button>
+                <button type="submit" disabled={loading} className="w-full bg-slate-900 text-white font-bold py-3 rounded-lg hover:bg-slate-800 transition-colors font-sans">{loading ? 'Verifying...' : 'Log In'}</button>
               </form>
             </div>
           </div>
@@ -398,70 +398,70 @@ const App: React.FC = () => {
             {userRole !== 'fan' && (
             <div className="space-y-6">
                 <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
-                    <h2 className="text-lg font-bold text-slate-700 mb-4">League Status ({state.season})</h2>
-                    <div className="flex justify-between text-center"><div><div className="text-3xl font-black text-slate-900">{teams.length}</div><div className="text-xs text-slate-500 uppercase font-bold">Teams</div></div></div>
-                    <button onClick={() => setState({ ...state, view: 'team_management' })} className="w-full mt-6 py-2 px-4 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-lg transition-colors">Manage Teams & Stats</button>
+                    <h2 className="text-lg font-bold text-slate-700 mb-4 font-sans">League Status ({state.season})</h2>
+                    <div className="flex justify-between text-center"><div><div className="text-3xl font-black text-slate-900 font-sans">{teams.length}</div><div className="text-xs text-slate-500 uppercase font-bold font-sans">Teams</div></div></div>
+                    <button onClick={() => setState({ ...state, view: 'team_management' })} className="w-full mt-6 py-2 px-4 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-lg transition-colors font-sans">Manage Teams & Stats</button>
                 </div>
                 <div className="bg-blue-600 p-6 rounded-xl shadow-lg text-white">
-                    <h2 className="text-xl font-bold mb-4">Start New Match</h2>
+                    <h2 className="text-xl font-bold mb-4 font-sans">Start New Match</h2>
                     <div className="space-y-3">
-                        <select className="w-full p-2 rounded text-slate-900" value={selectedHomeId} onChange={(e) => setSelectedHomeId(e.target.value)}><option value="">Select Home Team...</option>{teams.map(t => <option key={t.id} value={t.id} disabled={t.id === selectedAwayId}>{t.name}</option>)}</select>
-                        <select className="w-full p-2 rounded text-slate-900" value={selectedAwayId} onChange={(e) => setSelectedAwayId(e.target.value)}><option value="">Select Away Team...</option>{teams.map(t => <option key={t.id} value={t.id} disabled={t.id === selectedHomeId}>{t.name}</option>)}</select>
-                        <button disabled={!selectedHomeId || !selectedAwayId} onClick={() => setState({ ...state, view: 'match_setup' })} className="w-full bg-white text-blue-600 font-bold py-3 rounded-lg mt-4 hover:bg-blue-50 disabled:opacity-50 transition-colors">Next: Set Lineup</button>
+                        <select className="w-full p-2 rounded text-slate-900 font-sans" value={selectedHomeId} onChange={(e) => setSelectedHomeId(e.target.value)}><option value="">Select Home Team...</option>{teams.map(t => <option key={t.id} value={t.id} disabled={t.id === selectedAwayId}>{t.name}</option>)}</select>
+                        <select className="w-full p-2 rounded text-slate-900 font-sans" value={selectedAwayId} onChange={(e) => setSelectedAwayId(e.target.value)}><option value="">Select Away Team...</option>{teams.map(t => <option key={t.id} value={t.id} disabled={t.id === selectedHomeId}>{t.name}</option>)}</select>
+                        <button disabled={!selectedHomeId || !selectedAwayId} onClick={() => setState({ ...state, view: 'match_setup' })} className="w-full bg-white text-blue-600 font-bold py-3 rounded-lg mt-4 hover:bg-blue-50 disabled:opacity-50 transition-colors font-sans">Next: Set Lineup</button>
                     </div>
                 </div>
                 <div className="text-center">
-                     <span className="bg-slate-200 text-slate-600 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider">Role: {userRole}</span>
-                     <button onClick={handleLogout} className="text-xs text-red-400 hover:text-red-600 ml-2 underline">Log Out</button>
+                     <span className="bg-slate-200 text-slate-600 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider font-sans">Role: {userRole}</span>
+                     <button onClick={handleLogout} className="text-xs text-red-400 hover:text-red-600 ml-2 underline font-sans">Log Out</button>
                 </div>
             </div>
             )}
 
             <div className={`${userRole !== 'fan' ? 'lg:col-span-2' : 'col-span-1'}`}>
                 <div className="bg-gradient-to-r from-indigo-500 to-purple-600 rounded-xl shadow-md p-6 mb-8 text-white">
-                    <h3 className="font-bold text-white/90 uppercase tracking-wider text-sm mb-4 border-b border-white/20 pb-2">Weekly Leaders ({state.currentLeague})</h3>
+                    <h3 className="font-bold text-white/90 uppercase tracking-wider text-sm mb-4 border-b border-white/20 pb-2 font-sans">Weekly Leaders ({state.currentLeague})</h3>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                         <div>
-                            <h4 className="font-bold text-lg mb-2">Best Total Score</h4>
+                            <h4 className="font-bold text-lg mb-2 font-sans">Best Total Score</h4>
                             {weeklyStats.topTotals.length > 0 ? (
                                 <ul className="space-y-2">
                                     {weeklyStats.topTotals.map((s, idx) => (
                                         <li key={idx} className="flex justify-between items-center bg-white/10 p-2 rounded">
                                             <div className="flex items-center gap-2">
-                                                <span className="font-bold bg-white text-indigo-600 w-6 h-6 flex items-center justify-center rounded-full text-xs">{idx+1}</span>
-                                                <span className="font-semibold">{s.name}</span>
-                                                <span className="text-xs text-white/70">({s.team})</span>
+                                                <span className="font-bold bg-white text-indigo-600 w-6 h-6 flex items-center justify-center rounded-full text-xs font-sans">{idx+1}</span>
+                                                <span className="font-semibold font-sans">{s.name}</span>
+                                                <span className="text-xs text-white/70 font-sans">({s.team})</span>
                                             </div>
                                             <span className="font-mono font-bold text-xl">{s.score}</span>
                                         </li>
                                     ))}
                                 </ul>
-                            ) : <p className="text-white/50 italic text-sm">No matches yet this week.</p>}
+                            ) : <p className="text-white/50 italic text-sm font-sans">No matches yet this week.</p>}
                         </div>
                         <div>
-                            <h4 className="font-bold text-lg mb-2">Best Single Inning</h4>
+                            <h4 className="font-bold text-lg mb-2 font-sans">Best Single Inning</h4>
                              {weeklyStats.topInnings.length > 0 ? (
                                 <ul className="space-y-2">
                                     {weeklyStats.topInnings.map((s, idx) => (
                                         <li key={idx} className="flex justify-between items-center bg-white/10 p-2 rounded">
                                             <div className="flex items-center gap-2">
-                                                <span className="font-bold bg-white text-purple-600 w-6 h-6 flex items-center justify-center rounded-full text-xs">{idx+1}</span>
-                                                <span className="font-semibold">{s.name}</span>
-                                                <span className="text-xs text-white/70">({s.team})</span>
+                                                <span className="font-bold bg-white text-purple-600 w-6 h-6 flex items-center justify-center rounded-full text-xs font-sans">{idx+1}</span>
+                                                <span className="font-semibold font-sans">{s.name}</span>
+                                                <span className="text-xs text-white/70 font-sans">({s.team})</span>
                                             </div>
                                             <span className="font-mono font-bold text-xl">{s.score}</span>
                                         </li>
                                     ))}
                                 </ul>
-                            ) : <p className="text-white/50 italic text-sm">No matches yet this week.</p>}
+                            ) : <p className="text-white/50 italic text-sm font-sans">No matches yet this week.</p>}
                         </div>
                     </div>
                 </div>
 
                 <div className="flex items-center gap-4 mb-6 border-b border-slate-200 pb-1 overflow-x-auto">
-                    <button onClick={() => setDashboardTab('matches')} className={`text-lg sm:text-xl font-bold pb-2 px-2 transition-colors border-b-2 whitespace-nowrap ${dashboardTab === 'matches' ? 'text-slate-800 border-blue-600' : 'text-slate-400 border-transparent hover:text-slate-600'}`}>Matches</button>
-                    <button onClick={() => setDashboardTab('standings')} className={`text-lg sm:text-xl font-bold pb-2 px-2 transition-colors border-b-2 whitespace-nowrap ${dashboardTab === 'standings' ? 'text-slate-800 border-blue-600' : 'text-slate-400 border-transparent hover:text-slate-600'}`}>Standings</button>
-                    <button onClick={() => setDashboardTab('season_stats')} className={`text-lg sm:text-xl font-bold pb-2 px-2 transition-colors border-b-2 whitespace-nowrap ${dashboardTab === 'season_stats' ? 'text-slate-800 border-blue-600' : 'text-slate-400 border-transparent hover:text-slate-600'}`}>Season Stats</button>
+                    <button onClick={() => setDashboardTab('matches')} className={`text-lg sm:text-xl font-bold pb-2 px-2 transition-colors border-b-2 whitespace-nowrap font-sans ${dashboardTab === 'matches' ? 'text-slate-800 border-blue-600' : 'text-slate-400 border-transparent hover:text-slate-600'}`}>Matches</button>
+                    <button onClick={() => setDashboardTab('standings')} className={`text-lg sm:text-xl font-bold pb-2 px-2 transition-colors border-b-2 whitespace-nowrap font-sans ${dashboardTab === 'standings' ? 'text-slate-800 border-blue-600' : 'text-slate-400 border-transparent hover:text-slate-600'}`}>Standings</button>
+                    <button onClick={() => setDashboardTab('season_stats')} className={`text-lg sm:text-xl font-bold pb-2 px-2 transition-colors border-b-2 whitespace-nowrap font-sans ${dashboardTab === 'season_stats' ? 'text-slate-800 border-blue-600' : 'text-slate-400 border-transparent hover:text-slate-600'}`}>Season Stats</button>
                 </div>
 
                 {dashboardTab === 'matches' && (
@@ -473,26 +473,26 @@ const App: React.FC = () => {
                             return (
                                 <div key={match.id} className="bg-white p-4 sm:p-5 rounded-xl shadow-sm border border-slate-200 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                                     <div className="flex items-center gap-4 w-full sm:w-auto">
-                                        <div className="shrink-0"><div className={`text-xs font-bold px-2 py-1 rounded-full ${match.isComplete ? 'bg-slate-100 text-slate-500' : 'bg-green-100 text-green-600'}`}>{match.isComplete ? 'FINAL' : 'LIVE'}</div></div>
+                                        <div className="shrink-0"><div className={`text-xs font-bold px-2 py-1 rounded-full font-sans ${match.isComplete ? 'bg-slate-100 text-slate-500' : 'bg-green-100 text-green-600'}`}>{match.isComplete ? 'FINAL' : 'LIVE'}</div></div>
                                         <div className="flex flex-1 sm:flex-auto items-center justify-between sm:justify-start sm:gap-8 w-full sm:w-auto">
-                                            <div className="text-base sm:text-lg font-semibold text-slate-800 text-right">{home.name}</div>
-                                            <div className="text-slate-300 text-sm sm:text-xl px-2">vs</div>
-                                            <div className="text-base sm:text-lg font-semibold text-slate-800 text-left">{away.name}</div>
+                                            <div className="text-base sm:text-lg font-semibold text-slate-800 text-right font-sans">{home.name}</div>
+                                            <div className="text-slate-300 text-sm sm:text-xl px-2 font-sans">vs</div>
+                                            <div className="text-base sm:text-lg font-semibold text-slate-800 text-left font-sans">{away.name}</div>
                                         </div>
                                     </div>
                                     <div className="flex gap-2 w-full sm:w-auto justify-end">
-                                    <button onClick={() => handleOpenMatchStats(match)} className="flex-1 sm:flex-none text-center px-3 py-2 rounded border border-slate-200 text-blue-600 hover:bg-blue-50 font-medium text-xs sm:text-sm transition-colors">Stats</button>
+                                    <button onClick={() => handleOpenMatchStats(match)} className="flex-1 sm:flex-none text-center px-3 py-2 rounded border border-slate-200 text-blue-600 hover:bg-blue-50 font-medium text-xs sm:text-sm transition-colors font-sans">Stats</button>
                                     
-                                    <button onClick={() => setState({ ...state, view: 'scoring', currentMatchId: match.id })} className="flex-1 sm:flex-none text-center px-3 py-2 rounded border border-slate-200 text-slate-600 hover:bg-slate-50 font-medium text-xs sm:text-sm transition-colors">
+                                    <button onClick={() => setState({ ...state, view: 'scoring', currentMatchId: match.id })} className="flex-1 sm:flex-none text-center px-3 py-2 rounded border border-slate-200 text-slate-600 hover:bg-slate-50 font-medium text-xs sm:text-sm transition-colors font-sans">
                                         {userRole === 'fan' ? (match.isComplete ? 'View' : 'Watch Live') : (match.isComplete ? 'View' : 'Score')}
                                     </button>
                                     
-                                    {(userRole === 'admin' || userRole === 'umpire') && <button onClick={() => handleDeleteMatch(match.id)} className="flex-initial px-3 py-2 rounded border border-slate-200 text-red-500 hover:bg-red-50 font-medium text-xs sm:text-sm transition-colors">Delete</button>}
+                                    {(userRole === 'admin' || userRole === 'umpire') && <button onClick={() => handleDeleteMatch(match.id)} className="flex-initial px-3 py-2 rounded border border-slate-200 text-red-500 hover:bg-red-50 font-medium text-xs sm:text-sm transition-colors font-sans">Delete</button>}
                                     </div>
                                 </div>
                             );
                         })}
-                        {matches.length === 0 && <div className="text-center py-10 text-slate-400 bg-white rounded-xl border border-slate-200 border-dashed">No matches found for this season.</div>}
+                        {matches.length === 0 && <div className="text-center py-10 text-slate-400 bg-white rounded-xl border border-slate-200 border-dashed font-sans">No matches found for this season.</div>}
                     </div>
                 )}
 
@@ -502,20 +502,20 @@ const App: React.FC = () => {
                             <table className="w-full text-left text-sm">
                                 <thead className="bg-slate-100 text-slate-500 uppercase font-bold text-xs">
                                     <tr>
-                                        <th className="px-4 py-3 w-12 text-center">#</th>
-                                        <th className="px-4 py-3">Team</th>
-                                        <th className="px-4 py-3 text-center">W</th>
-                                        <th className="px-4 py-3 text-center">L</th>
-                                        <th className="px-4 py-3 text-center">T</th>
-                                        <th className="px-4 py-3 text-center text-slate-400">PF</th>
-                                        <th className="px-4 py-3 text-center text-slate-400">PA</th>
+                                        <th className="px-4 py-3 w-12 text-center font-sans">#</th>
+                                        <th className="px-4 py-3 font-sans">Team</th>
+                                        <th className="px-4 py-3 text-center font-sans">W</th>
+                                        <th className="px-4 py-3 text-center font-sans">L</th>
+                                        <th className="px-4 py-3 text-center font-sans">T</th>
+                                        <th className="px-4 py-3 text-center text-slate-400 font-sans">PF</th>
+                                        <th className="px-4 py-3 text-center text-slate-400 font-sans">PA</th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-slate-100">
                                     {calculateStandings().map((t, idx) => (
                                         <tr key={t.id} className="hover:bg-slate-50">
-                                            <td className="px-4 py-3 text-center font-bold text-slate-400">{idx + 1}</td>
-                                            <td className="px-4 py-3 font-bold text-slate-800">{t.name}</td>
+                                            <td className="px-4 py-3 text-center font-bold text-slate-400 font-sans">{idx + 1}</td>
+                                            <td className="px-4 py-3 font-bold text-slate-800 font-sans">{t.name}</td>
                                             <td className="px-4 py-3 text-center font-mono font-bold text-green-600">{t.stats.wins}</td>
                                             <td className="px-4 py-3 text-center font-mono font-bold text-red-600">{t.stats.losses}</td>
                                             <td className="px-4 py-3 text-center font-mono font-bold text-slate-600">{t.stats.ties}</td>
@@ -523,7 +523,7 @@ const App: React.FC = () => {
                                             <td className="px-4 py-3 text-center font-mono text-slate-400">{t.stats.pa}</td>
                                         </tr>
                                     ))}
-                                    {teams.length === 0 && <tr><td colSpan={7} className="p-8 text-center text-slate-400 italic">No teams in this league.</td></tr>}
+                                    {teams.length === 0 && <tr><td colSpan={7} className="p-8 text-center text-slate-400 italic font-sans">No teams in this league.</td></tr>}
                                 </tbody>
                             </table>
                         </div>
@@ -532,12 +532,12 @@ const App: React.FC = () => {
 
                 {dashboardTab === 'season_stats' && (
                     <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-                         <div className="p-4 bg-slate-50 border-b border-slate-200"><h3 className="font-bold text-slate-700">Top 50 Players</h3></div>
+                         <div className="p-4 bg-slate-50 border-b border-slate-200"><h3 className="font-bold text-slate-700 font-sans">Top 50 Players</h3></div>
                          <div className="overflow-x-auto">
                             <table className="w-full text-left text-sm">
                                 <thead className="bg-slate-100 text-slate-500 uppercase font-bold text-xs">
                                     <tr>
-                                        <th className="px-4 py-3 w-12 text-center">#</th>
+                                        <th className="px-4 py-3 w-12 text-center font-sans">#</th>
                                         {renderSortHeader('Player', 'name', seasonSort, setSeasonSort, 'text-left')}
                                         {renderSortHeader('Total Pts', 'totalPoints', seasonSort, setSeasonSort)}
                                         {renderSortHeader('4s', 'hits4', seasonSort, setSeasonSort, 'text-right', 'text-rose-600')}
@@ -550,8 +550,8 @@ const App: React.FC = () => {
                                 <tbody className="divide-y divide-slate-100">
                                     {calculateSeasonLeaders().slice(0, 50).map((p, idx) => (
                                         <tr key={p.playerId} className="hover:bg-slate-50">
-                                            <td className="px-4 py-3 text-center font-bold text-slate-400">{idx + 1}</td>
-                                            <td className="px-4 py-3 font-bold text-slate-800">{p.name}</td>
+                                            <td className="px-4 py-3 text-center font-bold text-slate-400 font-sans">{idx + 1}</td>
+                                            <td className="px-4 py-3 font-bold text-slate-800 font-sans">{p.name}</td>
                                             <td className="px-4 py-3 text-right font-mono font-bold text-lg">{p.totalPoints}</td>
                                             <td className="px-4 py-3 text-right font-mono">{p.hits4}</td>
                                             <td className="px-4 py-3 text-right font-mono">{p.hits3}</td>
@@ -560,7 +560,7 @@ const App: React.FC = () => {
                                             <td className="px-4 py-3 text-right font-mono text-slate-400">{p.pitchesSeen}</td>
                                         </tr>
                                     ))}
-                                    {calculateSeasonLeaders().length === 0 && <tr><td colSpan={8} className="p-8 text-center text-slate-400 italic">No stats available yet.</td></tr>}
+                                    {calculateSeasonLeaders().length === 0 && <tr><td colSpan={8} className="p-8 text-center text-slate-400 italic font-sans">No stats available yet.</td></tr>}
                                 </tbody>
                             </table>
                         </div>
@@ -571,15 +571,15 @@ const App: React.FC = () => {
         
         {showLoginModal && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm animate-in fade-in duration-200" onClick={() => setShowLoginModal(false)}>
-            <div className="bg-white p-8 rounded-2xl shadow-2xl w-full max-w-sm transform scale-100 animate-in zoom-in-95 duration-200" onClick={e => e.stopPropagation()}>
-              <h3 className="text-xl font-bold text-slate-800 mb-4 text-center">Access Control</h3>
-              <p className="text-sm text-slate-500 mb-4 text-center">Enter password for Umpire or Admin access.</p>
+            <div className="bg-white p-8 rounded-2xl shadow-2xl w-full max-w-sm transform scale-100 animate-in zoom-in-95 duration-200 font-sans" onClick={e => e.stopPropagation()}>
+              <h3 className="text-xl font-bold text-slate-800 mb-4 text-center font-sans">Access Control</h3>
+              <p className="text-sm text-slate-500 mb-4 text-center font-sans">Enter password for Umpire or Admin access.</p>
               <form onSubmit={handleLoginSubmit}>
                 <div className="mb-4">
                   <input type="password" autoFocus className={`w-full border rounded-lg px-4 py-3 text-lg outline-none focus:ring-2 ${loginError ? 'border-red-300 focus:ring-red-200' : 'border-slate-300 focus:ring-blue-200'}`} value={passwordInput} onChange={e => setPasswordInput(e.target.value)} placeholder="Password" />
-                  {loginError && <p className="text-red-500 text-xs mt-2 font-bold">{loginError}</p>}
+                  {loginError && <p className="text-red-500 text-xs mt-2 font-bold font-sans">{loginError}</p>}
                 </div>
-                <button type="submit" disabled={loading} className="w-full bg-slate-900 text-white font-bold py-3 rounded-lg hover:bg-slate-800 transition-colors">{loading ? 'Verifying...' : 'Log In'}</button>
+                <button type="submit" disabled={loading} className="w-full bg-slate-900 text-white font-bold py-3 rounded-lg hover:bg-slate-800 transition-colors font-sans">{loading ? 'Verifying...' : 'Log In'}</button>
               </form>
             </div>
           </div>
@@ -587,11 +587,11 @@ const App: React.FC = () => {
 
         {statsModalMatch && (
             <div className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200" onClick={() => setStatsModalMatch(null)}>
-                <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[90vh] overflow-hidden flex flex-col transform scale-100 animate-in zoom-in-95 duration-200" onClick={e => e.stopPropagation()}>
+                <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[90vh] overflow-hidden flex flex-col transform scale-100 animate-in zoom-in-95 duration-200 font-sans" onClick={e => e.stopPropagation()}>
                     <div className="p-6 border-b border-slate-200 flex justify-between items-center bg-slate-50">
                         <div>
-                            <h3 className="text-xl font-bold text-slate-800">Match Statistics</h3>
-                            <p className="text-sm text-slate-500">{new Date(statsModalMatch.date).toLocaleDateString()}</p>
+                            <h3 className="text-xl font-bold text-slate-800 font-sans">Match Statistics</h3>
+                            <p className="text-sm text-slate-500 font-sans">{new Date(statsModalMatch.date).toLocaleDateString()}</p>
                         </div>
                         <button onClick={() => setStatsModalMatch(null)} className="text-slate-400 hover:text-slate-600 font-bold text-xl">&times;</button>
                     </div>
@@ -611,7 +611,7 @@ const App: React.FC = () => {
                             <tbody className="divide-y divide-slate-100">
                                 {performSort(statsModalData, matchSort).map(stat => (
                                     <tr key={stat.playerId} className="hover:bg-slate-50">
-                                        <td className="px-6 py-3 font-bold text-slate-800">{stat.name}</td>
+                                        <td className="px-6 py-3 font-bold text-slate-800 font-sans">{stat.name}</td>
                                         <td className="px-4 py-3 text-right font-mono font-bold text-lg">{stat.totalPoints}</td>
                                         <td className="px-4 py-3 text-right font-mono">{stat.hits4}</td>
                                         <td className="px-4 py-3 text-right font-mono">{stat.hits3}</td>
@@ -624,7 +624,7 @@ const App: React.FC = () => {
                         </table>
                     </div>
                     <div className="p-4 border-t border-slate-200 bg-slate-50 flex justify-end">
-                        <button onClick={() => setStatsModalMatch(null)} className="px-6 py-2 bg-white border border-slate-300 text-slate-700 font-bold rounded-lg hover:bg-slate-50">Close</button>
+                        <button onClick={() => setStatsModalMatch(null)} className="px-6 py-2 bg-white border border-slate-300 text-slate-700 font-bold rounded-lg hover:bg-slate-50 font-sans">Close</button>
                     </div>
                 </div>
             </div>

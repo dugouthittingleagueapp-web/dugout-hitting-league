@@ -1,5 +1,15 @@
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
 body {
   font-family: 'Inter', sans-serif;
+}
+
+/* Force numeric font consistency globally */
+.font-sans {
+  font-family: 'Inter', sans-serif !important;
 }
 
 /* Custom Scrollbar Hiding */

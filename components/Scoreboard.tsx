@@ -46,8 +46,8 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
       return () => clearInterval(interval);
   }, [matchId, isReadOnly]);
 
-  if (loading) return <div className="flex items-center justify-center h-screen text-slate-400 font-bold">Loading Match Data...</div>;
-  if (!match || !teams.home || !teams.away) return <div className="text-center p-8">Error loading match</div>;
+  if (loading) return <div className="flex items-center justify-center h-screen text-slate-400 font-bold font-sans">Loading Match Data...</div>;
+  if (!match || !teams.home || !teams.away) return <div className="text-center p-8 font-sans">Error loading match</div>;
 
   const currentInning = match.innings[activeInningIdx];
 
@@ -108,7 +108,6 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
     const isFinalInning = activeInningIdx === 5; // 6th Inning
     if (isFinalInning && side === 'home') {
         const isLastPlayer = lineupIdx === teamData.playerScores.length - 1;
-        // Check if it's strictly the last possible pitch for this team (10 or 15)
         const totalPitches = teamData.playerScores[lineupIdx].pitches.length;
         const isLastPitch = pitchIdx === totalPitches - 1;
 
@@ -136,9 +135,11 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
         if (pitchIdx < totalPitches - 1) {
              setActiveCell({ side, lineupIdx, pitchIdx: pitchIdx + 1 });
         } else {
-             // Last Pitch (Index 14 / 15th pitch) -> STOP or Next Player
+             // Last Pitch (Index 14 / 15th pitch)
+             // FIX: Explicitly close modal here for 2-player mode end of turn
+             // Check if there is a next player
              if (lineupIdx < teamData.playerScores.length - 1) {
-                 setActiveCell({ side, lineupIdx: lineupIdx + 1, pitchIdx: 0 });
+                 setActiveCell(null); // Force close, user must click next player to start
              } else {
                  // End of team
                  setActiveCell(null);
@@ -249,7 +250,8 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
          // Pitches Remaining Calculation
          let pitchesLeft = 0;
          if (isTwoPlayerGhostMode) {
-             // 15 Total. Count whole array.
+             // 15 Total. Check the WHOLE array (0-15), not just visible slice
+             // This ensures countdown works for both main row and ghost row correctly
              const allPitches = playerScore.pitches; 
              const taken = allPitches.filter((p:any) => p.points !== null).length;
              pitchesLeft = 15 - taken;
@@ -297,7 +299,7 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
                 </td>
                 {!isGhostRow && (
                     <td className="px-3 py-3 text-center align-middle border-l border-slate-100 bg-slate-50/30">
-                        <div className="text-base font-mono font-bold text-slate-800 w-8">{rowTotal}</div>
+                        <div className="text-base font-sans font-bold text-slate-800 w-8">{rowTotal}</div>
                     </td>
                 )}
             </tr>
@@ -312,9 +314,9 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
                 <span className="text-xs font-bold uppercase opacity-60 tracking-wider font-sans">{side === 'home' ? 'Home' : 'Away'}</span>
                 <h3 className="text-xl font-bold leading-none font-sans">{team.name}</h3>
              </div>
-             {canRestore && <button onClick={() => handleRestoreRoster(side)} className="bg-white/80 hover:bg-white text-slate-600 px-2 py-1 rounded text-[10px] font-bold border border-slate-200 shadow-sm animate-pulse">+ Reset Roster</button>}
+             {canRestore && <button onClick={() => handleRestoreRoster(side)} className="bg-white/80 hover:bg-white text-slate-600 px-2 py-1 rounded text-[10px] font-bold border border-slate-200 shadow-sm animate-pulse font-sans">+ Reset Roster</button>}
           </div>
-          <div className="text-2xl font-mono font-bold">{calculateTeamInningTotal(side, currentInning)} <span className="text-sm font-normal opacity-60 font-sans">pts</span></div>
+          <div className="text-2xl font-sans font-bold">{calculateTeamInningTotal(side, currentInning)} <span className="text-sm font-normal opacity-60 font-sans">pts</span></div>
         </div>
         <div className="bg-white rounded-b-lg shadow-sm border border-slate-200 overflow-x-auto scrollbar-hide">
           <table className="w-full">
@@ -371,7 +373,7 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
                             </div>
                         </td>
                         <td className="px-3 py-3 text-center align-middle border-l border-slate-100 bg-slate-50/30">
-                             <div className="text-base font-mono font-bold text-slate-800 w-8">
+                             <div className="text-base font-sans font-bold text-slate-800 w-8">
                                  {inningData.playerScores[0].pitches.slice(10, 15).reduce((s,p)=>s+(p.points||0),0) + inningData.playerScores[1].pitches.slice(10, 15).reduce((s,p)=>s+(p.points||0),0)}
                              </div>
                         </td>
@@ -395,29 +397,29 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
       <header className="bg-white border-b border-slate-200 sticky top-0 z-30 shadow-sm">
         <div className="max-w-7xl mx-auto px-4 py-3 flex justify-between items-center gap-4">
           <div className="flex gap-4 sm:gap-8 items-center flex-1 overflow-hidden">
-            <div className="text-center"><div className="text-[10px] sm:text-xs text-slate-500 uppercase font-bold">Away</div><div className="text-lg sm:text-xl font-bold text-red-700 truncate max-w-[100px]">{teams.away.name}</div><div className="text-xl sm:text-2xl font-mono leading-none">{awayTotal}</div></div>
-            <div className="text-slate-300 text-xl font-light">vs</div>
-            <div className="text-center"><div className="text-[10px] sm:text-xs text-slate-500 uppercase font-bold">Home</div><div className="text-lg sm:text-xl font-bold text-blue-700 truncate max-w-[100px]">{teams.home.name}</div><div className="text-xl sm:text-2xl font-mono leading-none">{homeTotal}</div></div>
+            <div className="text-center"><div className="text-[10px] sm:text-xs text-slate-500 uppercase font-bold font-sans">Away</div><div className="text-lg sm:text-xl font-bold text-red-700 truncate max-w-[100px] font-sans">{teams.away.name}</div><div className="text-xl sm:text-2xl font-sans leading-none">{awayTotal}</div></div>
+            <div className="text-slate-300 text-xl font-light font-sans">vs</div>
+            <div className="text-center"><div className="text-[10px] sm:text-xs text-slate-500 uppercase font-bold font-sans">Home</div><div className="text-lg sm:text-xl font-bold text-blue-700 truncate max-w-[100px] font-sans">{teams.home.name}</div><div className="text-xl sm:text-2xl font-sans leading-none">{homeTotal}</div></div>
           </div>
           <div className="flex items-center gap-2">
-            {isReadOnly && <div className="flex items-center gap-1.5 bg-red-50 text-red-600 px-3 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-wider animate-pulse"><span className="w-2 h-2 rounded-full bg-red-600"></span>LIVE</div>}
-            {!isReadOnly && !match.isComplete && <button onClick={() => setShowFinishModal(true)} className="bg-green-600 hover:bg-green-700 text-white text-xs sm:text-sm font-bold py-2 px-3 sm:px-4 rounded-lg shadow-sm transition-colors">Complete Game</button>}
-            <button onClick={onExit} className="text-xs sm:text-sm font-bold text-slate-500 hover:text-slate-800 bg-slate-100 hover:bg-slate-200 py-2 px-3 rounded-lg transition-colors">Exit</button>
+            {isReadOnly && <div className="flex items-center gap-1.5 bg-red-50 text-red-600 px-3 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-wider animate-pulse font-sans"><span className="w-2 h-2 rounded-full bg-red-600"></span>LIVE</div>}
+            {!isReadOnly && !match.isComplete && <button onClick={() => setShowFinishModal(true)} className="bg-green-600 hover:bg-green-700 text-white text-xs sm:text-sm font-bold py-2 px-3 sm:px-4 rounded-lg shadow-sm transition-colors font-sans">Complete Game</button>}
+            <button onClick={onExit} className="text-xs sm:text-sm font-bold text-slate-500 hover:text-slate-800 bg-slate-100 hover:bg-slate-200 py-2 px-3 rounded-lg transition-colors font-sans">Exit</button>
           </div>
         </div>
-        <div className="flex overflow-x-auto scrollbar-hide border-t border-slate-100">{match.innings.map((ing, idx) => (<button key={ing.number} onClick={() => setActiveInningIdx(idx)} className={`flex-1 py-3 text-sm font-bold uppercase tracking-wider border-b-2 transition-colors min-w-[80px] ${idx === activeInningIdx ? 'border-blue-600 text-blue-600 bg-blue-50/50' : 'border-transparent text-slate-400 hover:text-slate-600 hover:bg-slate-50'}`}>Inning {ing.number}</button>))}</div>
+        <div className="flex overflow-x-auto scrollbar-hide border-t border-slate-100">{match.innings.map((ing, idx) => (<button key={ing.number} onClick={() => setActiveInningIdx(idx)} className={`flex-1 py-3 text-sm font-bold uppercase tracking-wider border-b-2 transition-colors min-w-[80px] font-sans ${idx === activeInningIdx ? 'border-blue-600 text-blue-600 bg-blue-50/50' : 'border-transparent text-slate-400 hover:text-slate-600 hover:bg-slate-50'}`}>Inning {ing.number}</button>))}</div>
       </header>
       <main className="max-w-5xl mx-auto p-4 mt-4">
           {renderTeamSection('away', teams.away)}
           {renderTeamSection('home', teams.home)}
           
           {match.tieBreaker && match.tieBreaker.length > 0 && (
-              <div className="bg-amber-50 border border-amber-200 p-4 rounded-xl mb-4">
+              <div className="bg-amber-50 border border-amber-200 p-4 rounded-xl mb-4 font-sans">
                   <h3 className="font-bold text-amber-800 mb-2">Showdown Results</h3>
                   {match.tieBreaker.map((tb, idx) => (
                       <div key={idx} className="text-sm text-amber-900 flex justify-between border-b border-amber-200 last:border-0 py-1">
                           <span>Round {tb.roundNumber} ({tb.pitchLimit} Pitches)</span>
-                          <span className="font-mono font-bold">Away {tb.awayScores.reduce((a,b)=>a+b,0)} - {tb.homeScores.reduce((a,b)=>a+b,0)} Home</span>
+                          <span className="font-sans font-bold">Away {tb.awayScores.reduce((a,b)=>a+b,0)} - {tb.homeScores.reduce((a,b)=>a+b,0)} Home</span>
                       </div>
                   ))}
               </div>
@@ -426,7 +428,7 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
 
       {showFinishModal && !isReadOnly && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
-            <div className="bg-white p-6 rounded-2xl shadow-2xl max-w-sm w-[90%] transform scale-100 animate-in zoom-in-95 duration-200">
+            <div className="bg-white p-6 rounded-2xl shadow-2xl max-w-sm w-[90%] transform scale-100 animate-in zoom-in-95 duration-200 font-sans">
                 <div className="mb-4 text-center"><h3 className="text-xl font-bold text-slate-800">Finalize Game?</h3><p className="text-slate-500 mt-2 text-sm">Are you sure you want to finalize this game?</p></div>
                 <div className="grid grid-cols-2 gap-3"><button onClick={() => setShowFinishModal(false)} className="py-3 rounded-xl font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 transition-colors">No</button><button onClick={confirmCompleteGame} className="py-3 rounded-xl font-bold text-white bg-green-600 hover:bg-green-700 shadow-lg shadow-green-200 transition-colors">Yes, Finalize</button></div>
             </div>
@@ -437,16 +439,16 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
           <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/90 backdrop-blur-md animate-in fade-in duration-200">
              <div className="bg-white p-4 sm:p-8 rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto font-sans">
                  <div className="text-center mb-6">
-                     <h2 className="text-3xl font-black text-slate-900 uppercase tracking-tight">TIED GAME!</h2>
-                     <h3 className="text-xl font-bold text-blue-600 mt-1">SHOWDOWN: Round {tieBreakerRound.roundNumber}</h3>
-                     <p className="text-slate-500 text-sm mt-2">Select one player from each team to hit {tieBreakerRound.pitchLimit} pitch{tieBreakerRound.pitchLimit > 1 ? 'es' : ''}.</p>
+                     <h2 className="text-3xl font-black text-slate-900 uppercase tracking-tight font-sans">TIED GAME!</h2>
+                     <h3 className="text-xl font-bold text-blue-600 mt-1 font-sans">SHOWDOWN: Round {tieBreakerRound.roundNumber}</h3>
+                     <p className="text-slate-500 text-sm mt-2 font-sans">Select one player from each team to hit {tieBreakerRound.pitchLimit} pitch{tieBreakerRound.pitchLimit > 1 ? 'es' : ''}.</p>
                  </div>
 
                  <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                      <div className="bg-red-50 p-4 rounded-xl border border-red-100">
-                         <h4 className="font-bold text-red-800 mb-3">{teams.away?.name} Shooter</h4>
+                         <h4 className="font-bold text-red-800 mb-3 font-sans">{teams.away?.name} Shooter</h4>
                          <select 
-                            className="w-full p-2 mb-4 rounded border border-red-200 text-sm" 
+                            className="w-full p-2 mb-4 rounded border border-red-200 text-sm font-sans" 
                             value={tieBreakerRound.awayPlayerId}
                             onChange={(e) => setTieBreakerRound({...tieBreakerRound, awayPlayerId: e.target.value})}
                          >
@@ -466,15 +468,15 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
                                  />
                              ))}
                          </div>
-                         <div className="text-center mt-4 text-2xl font-mono font-bold text-red-800">
+                         <div className="text-center mt-4 text-2xl font-sans font-bold text-red-800">
                              Total: {tieBreakerRound.awayScores.reduce((a,b)=>a+b,0)}
                          </div>
                      </div>
 
                      <div className="bg-blue-50 p-4 rounded-xl border border-blue-100">
-                         <h4 className="font-bold text-blue-800 mb-3">{teams.home?.name} Shooter</h4>
+                         <h4 className="font-bold text-blue-800 mb-3 font-sans">{teams.home?.name} Shooter</h4>
                          <select 
-                            className="w-full p-2 mb-4 rounded border border-blue-200 text-sm" 
+                            className="w-full p-2 mb-4 rounded border border-blue-200 text-sm font-sans" 
                             value={tieBreakerRound.homePlayerId}
                             onChange={(e) => setTieBreakerRound({...tieBreakerRound, homePlayerId: e.target.value})}
                          >
@@ -494,13 +496,13 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
                                  />
                              ))}
                          </div>
-                         <div className="text-center mt-4 text-2xl font-mono font-bold text-blue-800">
+                         <div className="text-center mt-4 text-2xl font-sans font-bold text-blue-800">
                              Total: {tieBreakerRound.homeScores.reduce((a,b)=>a+b,0)}
                          </div>
                      </div>
                  </div>
                  
-                 <button onClick={submitTieBreakerRound} className="w-full mt-8 py-4 bg-slate-900 text-white font-bold rounded-xl text-lg hover:bg-slate-800 shadow-xl transition-transform active:scale-[0.98]">
+                 <button onClick={submitTieBreakerRound} className="w-full mt-8 py-4 bg-slate-900 text-white font-bold rounded-xl text-lg hover:bg-slate-800 shadow-xl transition-transform active:scale-[0.98] font-sans">
                      Submit Round Results
                  </button>
              </div>

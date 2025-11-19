@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { AgeGroup, League } from '../types';
 
@@ -44,20 +45,20 @@ export const Navbar: React.FC<NavbarProps> = ({
     <nav className="bg-slate-900 text-white p-4 shadow-lg sticky top-0 z-50">
       <div className="max-w-7xl mx-auto flex justify-between items-center">
         <div className="flex items-center gap-4 cursor-pointer" onClick={onGoHome}>
-            <div className="bg-red-600 w-8 h-8 rounded-full flex items-center justify-center font-bold border-2 border-white text-xs sm:text-base">DH</div>
-            <h1 className="text-xl font-bold tracking-tight hidden sm:block">Dugout Hitting League <span className="font-light opacity-80">Manager</span></h1>
-            <h1 className="text-xl font-bold tracking-tight sm:hidden">Dugout</h1>
+            <div className="bg-red-600 w-8 h-8 rounded-full flex items-center justify-center font-bold border-2 border-white text-xs sm:text-base font-sans">DH</div>
+            <h1 className="text-xl font-bold tracking-tight hidden sm:block font-sans">Dugout Hitting League <span className="font-light opacity-80">Manager</span></h1>
+            <h1 className="text-xl font-bold tracking-tight sm:hidden font-sans">Dugout</h1>
         </div>
         <div className="flex items-center gap-4">
           {/* Season Selector */}
           <div className="relative">
-            <button onClick={() => setShowSeasonMenu(!showSeasonMenu)} className="flex items-center gap-1 bg-slate-800 hover:bg-slate-700 px-3 py-1 rounded-lg text-sm font-bold transition-colors border border-slate-700">
+            <button onClick={() => setShowSeasonMenu(!showSeasonMenu)} className="flex items-center gap-1 bg-slate-800 hover:bg-slate-700 px-3 py-1 rounded-lg text-sm font-bold transition-colors border border-slate-700 font-sans">
                 <span className="text-slate-400 font-normal text-xs">Season:</span> {currentSeason}
             </button>
             {showSeasonMenu && (
                 <div className="absolute top-full right-0 mt-2 bg-white text-slate-900 rounded-lg shadow-xl py-2 w-32 border border-slate-200 z-[60]" onClick={() => setShowSeasonMenu(false)}>
                     {years.map(year => (
-                        <button key={year} onClick={() => onSeasonChange(year)} className={`w-full text-left px-4 py-2 text-sm font-bold hover:bg-slate-100 ${currentSeason === year ? 'text-blue-600 bg-blue-50' : ''}`}>
+                        <button key={year} onClick={() => onSeasonChange(year)} className={`w-full text-left px-4 py-2 text-sm font-bold hover:bg-slate-100 font-sans ${currentSeason === year ? 'text-blue-600 bg-blue-50' : ''}`}>
                             {year}
                         </button>
                     ))}
@@ -67,24 +68,24 @@ export const Navbar: React.FC<NavbarProps> = ({
           
           {/* Auth Actions */}
           {userRole === 'fan' && (
-            <button onClick={onLogin} className="text-sm bg-blue-600 hover:bg-blue-500 px-4 py-1.5 rounded font-bold transition-colors shadow-sm">
+            <button onClick={onLogin} className="text-sm bg-blue-600 hover:bg-blue-500 px-4 py-1.5 rounded font-bold transition-colors shadow-sm font-sans">
                 Log In
             </button>
           )}
 
           {userRole === 'umpire' && (
             <div className="flex items-center gap-2">
-                <span className="bg-amber-500/20 text-amber-400 text-[10px] font-bold uppercase px-2 py-1 rounded border border-amber-500/30 hidden sm:block">Umpire Mode</span>
-                <button onClick={onLogout} className="text-sm text-slate-300 hover:text-white underline decoration-slate-500">Log Out</button>
+                <span className="bg-amber-500/20 text-amber-400 text-[10px] font-bold uppercase px-2 py-1 rounded border border-amber-500/30 hidden sm:block font-sans">Umpire Mode</span>
+                <button onClick={onLogout} className="text-sm text-slate-300 hover:text-white underline decoration-slate-500 font-sans">Log Out</button>
             </div>
           )}
 
           {userRole === 'admin' && (
             <div className="flex items-center gap-3">
-                <button onClick={onAdminDashboard} className="text-sm bg-slate-700 hover:bg-slate-600 px-3 py-1.5 rounded transition-colors border border-slate-600">
+                <button onClick={onAdminDashboard} className="text-sm bg-slate-700 hover:bg-slate-600 px-3 py-1.5 rounded transition-colors border border-slate-600 font-sans">
                     Admin
                 </button>
-                <button onClick={onLogout} className="text-sm text-slate-300 hover:text-white underline decoration-slate-500">
+                <button onClick={onLogout} className="text-sm text-slate-300 hover:text-white underline decoration-slate-500 font-sans">
                     Log Out
                 </button>
             </div>
@@ -95,24 +96,24 @@ export const Navbar: React.FC<NavbarProps> = ({
       {/* Sub-nav for active league */}
       {currentLeague && (
         <div className="max-w-7xl mx-auto mt-2 flex items-center gap-3 pb-1">
-            <span className="bg-green-600 px-3 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider">{currentLeague} League</span>
+            <span className="bg-green-600 px-3 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider font-sans">{currentLeague} League</span>
             
             <div className="relative">
-                <button onClick={() => setShowLeagueMenu(!showLeagueMenu)} className="text-xs text-slate-400 hover:text-white transition-colors underline decoration-slate-600 flex items-center gap-1">
+                <button onClick={() => setShowLeagueMenu(!showLeagueMenu)} className="text-xs text-slate-400 hover:text-white transition-colors underline decoration-slate-600 flex items-center gap-1 font-sans">
                    Switch League
                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path></svg>
                 </button>
                 
                 {showLeagueMenu && (
                     <div className="absolute top-full left-0 mt-2 bg-white text-slate-900 rounded-lg shadow-xl py-2 w-40 border border-slate-200 z-[60]" onClick={() => setShowLeagueMenu(false)}>
-                        <div className="px-4 py-2 text-[10px] uppercase font-bold text-slate-400 border-b border-slate-100 mb-1">Switch To...</div>
+                        <div className="px-4 py-2 text-[10px] uppercase font-bold text-slate-400 border-b border-slate-100 mb-1 font-sans">Switch To...</div>
                         {sortedLeagues.map(l => (
-                            <button key={l.id} onClick={() => onSelectLeague(l.id)} className={`w-full text-left px-4 py-2 text-sm font-bold hover:bg-slate-100 ${currentLeague === l.id ? 'text-blue-600 bg-blue-50' : ''}`}>
+                            <button key={l.id} onClick={() => onSelectLeague(l.id)} className={`w-full text-left px-4 py-2 text-sm font-bold hover:bg-slate-100 font-sans ${currentLeague === l.id ? 'text-blue-600 bg-blue-50' : ''}`}>
                                 {l.id}
                             </button>
                         ))}
                         <div className="border-t border-slate-100 mt-1 pt-1">
-                            <button onClick={onSwitchLeague} className="w-full text-left px-4 py-2 text-xs text-slate-500 hover:text-slate-800 font-medium">
+                            <button onClick={onSwitchLeague} className="w-full text-left px-4 py-2 text-xs text-slate-500 hover:text-slate-800 font-medium font-sans">
                                 View All Leagues
                             </button>
                         </div>

@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import * as storage from '../services/storageService';
 import { generateLeagueReport } from '../services/geminiService';
@@ -83,52 +84,52 @@ export const AdminDashboard: React.FC<{ onBack: () => void }> = ({ onBack }) => 
   
   return (
     <div className="max-w-4xl mx-auto p-6">
-      <div className="flex justify-between items-center mb-8"><h2 className="text-3xl font-bold text-slate-800">Admin Dashboard</h2><button onClick={onBack} className="px-4 py-2 bg-slate-200 hover:bg-slate-300 rounded text-slate-700 font-medium">Exit Admin</button></div>
+      <div className="flex justify-between items-center mb-8"><h2 className="text-3xl font-bold text-slate-800 font-sans">Admin Dashboard</h2><button onClick={onBack} className="px-4 py-2 bg-slate-200 hover:bg-slate-300 rounded text-slate-700 font-medium font-sans">Exit Admin</button></div>
       <div className="grid gap-8">
         <section className="bg-white p-6 rounded-xl shadow border border-slate-200">
-            <h3 className="text-xl font-bold text-slate-700 mb-4">League Configuration</h3>
+            <h3 className="text-xl font-bold text-slate-700 mb-4 font-sans">League Configuration</h3>
             
             <div className="mb-6">
-                <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Create New League Category</label>
+                <label className="block text-xs font-bold text-slate-500 uppercase mb-1 font-sans">Create New League Category</label>
                 <div className="flex gap-3">
-                    <input type="text" value={newLeagueName} onChange={e => setNewLeagueName(e.target.value)} placeholder="e.g. 12u, Varsity" className="flex-1 border border-slate-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 outline-none" />
-                    <button onClick={handleCreateLeague} disabled={creatingLeague} className="bg-green-600 text-white px-6 py-2 rounded-lg hover:bg-green-700 font-bold disabled:opacity-50">{creatingLeague ? 'Creating...' : 'Create'}</button>
+                    <input type="text" value={newLeagueName} onChange={e => setNewLeagueName(e.target.value)} placeholder="e.g. 12u, Varsity" className="flex-1 border border-slate-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 outline-none font-sans" />
+                    <button onClick={handleCreateLeague} disabled={creatingLeague} className="bg-green-600 text-white px-6 py-2 rounded-lg hover:bg-green-700 font-bold disabled:opacity-50 font-sans">{creatingLeague ? 'Creating...' : 'Create'}</button>
                 </div>
             </div>
 
             <div className="pt-4 border-t border-slate-100">
-                <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Active Season (Current: <span className="text-blue-600">{currentSeason}</span>)</label>
-                <p className="text-sm text-slate-500 mb-2">Change this to "Reset" the league for a new year. Old data is preserved.</p>
+                <label className="block text-xs font-bold text-slate-500 uppercase mb-1 font-sans">Active Season (Current: <span className="text-blue-600">{currentSeason}</span>)</label>
+                <p className="text-sm text-slate-500 mb-2 font-sans">Change this to "Reset" the league for a new year. Old data is preserved.</p>
                 <div className="flex gap-3">
-                    <input type="text" value={newSeasonInput} onChange={e => setNewSeasonInput(e.target.value)} placeholder="e.g. 2026" className="w-40 border border-slate-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 outline-none" />
-                    <button onClick={handleUpdateSeason} className="bg-slate-700 text-white px-6 py-2 rounded-lg hover:bg-slate-800 font-bold">Update Season</button>
+                    <input type="text" value={newSeasonInput} onChange={e => setNewSeasonInput(e.target.value)} placeholder="e.g. 2026" className="w-40 border border-slate-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 outline-none font-sans" />
+                    <button onClick={handleUpdateSeason} className="bg-slate-700 text-white px-6 py-2 rounded-lg hover:bg-slate-800 font-bold font-sans">Update Season</button>
                 </div>
             </div>
         </section>
 
         <section className="bg-white p-6 rounded-xl shadow border border-slate-200">
-            <h3 className="text-xl font-bold text-slate-700 mb-4">Access Control</h3>
+            <h3 className="text-xl font-bold text-slate-700 mb-4 font-sans">Access Control</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
-                    <label className="block text-xs font-bold text-slate-500 uppercase mb-1">New Admin Password</label>
+                    <label className="block text-xs font-bold text-slate-500 uppercase mb-1 font-sans">New Admin Password</label>
                     <div className="flex gap-3">
-                        <input type="text" value={newAdminPw} onChange={e => setNewAdminPw(e.target.value)} placeholder="New Admin Pass" className="w-full border border-slate-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 outline-none" />
-                        <button onClick={handleUpdateAdminPw} className="bg-slate-600 text-white px-4 py-2 rounded-lg hover:bg-slate-700 font-bold text-sm">Update</button>
+                        <input type="text" value={newAdminPw} onChange={e => setNewAdminPw(e.target.value)} placeholder="New Admin Pass" className="w-full border border-slate-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 outline-none font-sans" />
+                        <button onClick={handleUpdateAdminPw} className="bg-slate-600 text-white px-4 py-2 rounded-lg hover:bg-slate-700 font-bold text-sm font-sans">Update</button>
                     </div>
                 </div>
                 <div>
-                    <label className="block text-xs font-bold text-slate-500 uppercase mb-1">New Umpire Password</label>
+                    <label className="block text-xs font-bold text-slate-500 uppercase mb-1 font-sans">New Umpire Password</label>
                     <div className="flex gap-3">
-                        <input type="text" value={newUmpirePw} onChange={e => setNewUmpirePw(e.target.value)} placeholder="New Umpire Pass" className="w-full border border-slate-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 outline-none" />
-                        <button onClick={handleUpdateUmpirePw} className="bg-amber-600 text-white px-4 py-2 rounded-lg hover:bg-amber-700 font-bold text-sm">Update</button>
+                        <input type="text" value={newUmpirePw} onChange={e => setNewUmpirePw(e.target.value)} placeholder="New Umpire Pass" className="w-full border border-slate-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 outline-none font-sans" />
+                        <button onClick={handleUpdateUmpirePw} className="bg-amber-600 text-white px-4 py-2 rounded-lg hover:bg-amber-700 font-bold text-sm font-sans">Update</button>
                     </div>
                 </div>
             </div>
         </section>
 
         <section className="bg-white p-6 rounded-xl shadow border border-slate-200">
-            <h3 className="text-xl font-bold text-slate-700 mb-4">Data Management</h3>
-            <button onClick={handleExport} className="flex items-center gap-2 bg-blue-600 text-white px-5 py-3 rounded-lg hover:bg-blue-700 transition-colors">Export JSON Database</button>
+            <h3 className="text-xl font-bold text-slate-700 mb-4 font-sans">Data Management</h3>
+            <button onClick={handleExport} className="flex items-center gap-2 bg-blue-600 text-white px-5 py-3 rounded-lg hover:bg-blue-700 transition-colors font-sans">Export JSON Database</button>
         </section>
       </div>
     </div>

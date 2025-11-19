@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Team, Player } from '../types';
 
@@ -116,11 +117,11 @@ export const MatchSetup: React.FC<MatchSetupProps> = ({ homeTeam, awayTeam, onSt
                      onDrop={(e) => { e.preventDefault(); const data = JSON.parse(e.dataTransfer.getData('text/plain')); if (data.side === side) { swapPlayers(side, data.index, index); } }} 
                      className={`relative p-3 rounded-xl border-2 transition-all cursor-pointer select-none flex items-center gap-3 group ${isSelected ? 'border-blue-500 bg-blue-50 shadow-md scale-[1.01]' : 'border-slate-200 bg-white hover:border-slate-300 shadow-sm active:scale-[0.99]'}`}>
                     
-                    <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm shrink-0 ${isSelected ? 'bg-blue-500 text-white' : 'bg-slate-100 text-slate-500'}`}>{index + 1}</div>
+                    <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm shrink-0 font-sans ${isSelected ? 'bg-blue-500 text-white' : 'bg-slate-100 text-slate-500'}`}>{index + 1}</div>
                     
                     <div className="flex-1 min-w-0">
-                        <div className={`font-bold truncate ${isSelected ? 'text-blue-900' : 'text-slate-800'}`}>{player.name}</div>
-                        {isSelected && <div className="text-[10px] text-blue-600 font-medium animate-pulse">Tap another to swap</div>}
+                        <div className={`font-bold truncate font-sans ${isSelected ? 'text-blue-900' : 'text-slate-800'}`}>{player.name}</div>
+                        {isSelected && <div className="text-[10px] text-blue-600 font-medium animate-pulse font-sans">Tap another to swap</div>}
                     </div>
 
                     <div className="flex items-center gap-1">
@@ -154,12 +155,12 @@ export const MatchSetup: React.FC<MatchSetupProps> = ({ homeTeam, awayTeam, onSt
         
         <div className="flex gap-2 mt-3">
              {players.length < teamData.players.length && (
-                <button onClick={() => restoreRoster(side)} className="flex-1 py-2 text-xs font-bold text-blue-600 hover:bg-blue-50 rounded border border-dashed border-blue-200 transition-colors">
+                <button onClick={() => restoreRoster(side)} className="flex-1 py-2 text-xs font-bold text-blue-600 hover:bg-blue-50 rounded border border-dashed border-blue-200 transition-colors font-sans">
                     + Reset Roster
                 </button>
             )}
             {players.length < 3 && (
-                <button onClick={() => addSub(side)} className="flex-1 py-2 text-xs font-bold text-green-600 hover:bg-green-50 rounded border border-dashed border-green-200 transition-colors">
+                <button onClick={() => addSub(side)} className="flex-1 py-2 text-xs font-bold text-green-600 hover:bg-green-50 rounded border border-dashed border-green-200 transition-colors font-sans">
                     + Add Sub
                 </button>
             )}
@@ -169,34 +170,34 @@ export const MatchSetup: React.FC<MatchSetupProps> = ({ homeTeam, awayTeam, onSt
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 p-4 sm:p-8">
+    <div className="min-h-screen bg-slate-50 p-4 sm:p-8 font-sans">
       <div className="max-w-5xl mx-auto">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-8 gap-4">
             <div>
-                <h2 className="text-3xl font-bold text-slate-800">Set Lineup</h2>
-                <p className="text-slate-500 text-sm sm:text-base">Drag/Tap to reorder. Remove players for 2-person teams.</p>
+                <h2 className="text-3xl font-bold text-slate-800 font-sans">Set Lineup</h2>
+                <p className="text-slate-500 text-sm sm:text-base font-sans">Drag/Tap to reorder. Remove players for 2-person teams.</p>
             </div>
             <div className="flex flex-wrap gap-3">
-                <button onClick={() => setIsSwapped(!isSwapped)} className="flex items-center gap-2 px-4 py-3 rounded-xl font-bold text-slate-700 bg-white border border-slate-300 hover:bg-slate-50 transition-colors">
+                <button onClick={() => setIsSwapped(!isSwapped)} className="flex items-center gap-2 px-4 py-3 rounded-xl font-bold text-slate-700 bg-white border border-slate-300 hover:bg-slate-50 transition-colors font-sans">
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m16 3 5 5-5 5"/><path d="M4 20h17"/><path d="m8 21-5-5 5-5"/></svg>
                     Swap Sides
                 </button>
-                <button onClick={onCancel} className="px-6 py-3 rounded-xl font-bold text-slate-600 bg-white border border-slate-200 hover:bg-slate-50 transition-colors">Cancel</button>
-                <button onClick={handleStartMatch} className="flex-1 sm:flex-none px-8 py-3 rounded-xl font-bold text-white bg-blue-600 shadow-lg shadow-blue-200 hover:bg-blue-700 hover:scale-105 transition-all">Start Match</button>
+                <button onClick={onCancel} className="px-6 py-3 rounded-xl font-bold text-slate-600 bg-white border border-slate-200 hover:bg-slate-50 transition-colors font-sans">Cancel</button>
+                <button onClick={handleStartMatch} className="flex-1 sm:flex-none px-8 py-3 rounded-xl font-bold text-white bg-blue-600 shadow-lg shadow-blue-200 hover:bg-blue-700 hover:scale-105 transition-all font-sans">Start Match</button>
             </div>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
             <div className="bg-slate-100 p-4 sm:p-6 rounded-2xl border border-slate-200/50 transition-all">
-                <h3 className="text-xl font-bold text-blue-800 mb-4 flex justify-between items-center">
+                <h3 className="text-xl font-bold text-blue-800 mb-4 flex justify-between items-center font-sans">
                     <span>Home: {leftSideTeam.name}</span>
-                    {isSwapped && <span className="text-xs bg-slate-200 text-slate-600 px-2 py-1 rounded">Swapped</span>}
+                    {isSwapped && <span className="text-xs bg-slate-200 text-slate-600 px-2 py-1 rounded font-sans">Swapped</span>}
                 </h3>
                 {renderLineupList('left', leftSideTeam, getLeftSideLineup())}
             </div>
             <div className="bg-slate-100 p-4 sm:p-6 rounded-2xl border border-slate-200/50 transition-all">
-                <h3 className="text-xl font-bold text-red-800 mb-4 flex justify-between items-center">
+                <h3 className="text-xl font-bold text-red-800 mb-4 flex justify-between items-center font-sans">
                     <span>Away: {rightSideTeam.name}</span>
-                    {isSwapped && <span className="text-xs bg-slate-200 text-slate-600 px-2 py-1 rounded">Swapped</span>}
+                    {isSwapped && <span className="text-xs bg-slate-200 text-slate-600 px-2 py-1 rounded font-sans">Swapped</span>}
                 </h3>
                 {renderLineupList('right', rightSideTeam, getRightSideLineup())}
             </div>

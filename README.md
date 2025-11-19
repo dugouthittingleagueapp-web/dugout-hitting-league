@@ -1,3 +1,4 @@
+
 # Dugout Hitting League
 
 A comprehensive management system for youth baseball hitting leagues, designed for 3v3 match scoring, team management, and real-time statistical analysis.

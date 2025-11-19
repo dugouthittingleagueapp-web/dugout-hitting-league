@@ -52,7 +52,7 @@ export const ScoreInput: React.FC<ScoreInputProps> = ({ pitchNumber, value, onCh
                         </button>
                     ))}
                 </div>
-                <button onClick={onClose} className="mt-6 w-full py-3 bg-slate-100 text-slate-600 font-bold rounded-xl hover:bg-slate-200 transition-colors">Cancel</button>
+                <button onClick={onClose} className="mt-6 w-full py-3 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700 shadow-lg shadow-blue-200 transition-colors">Enter</button>
             </div>
         </div>
       )}

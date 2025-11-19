@@ -17,7 +17,7 @@ const App: React.FC = () => {
   const [selectedAwayId, setSelectedAwayId] = useState('');
   
   // Dashboard View State
-  const [dashboardTab, setDashboardTab] = useState<'matches' | 'standings'>('matches');
+  const [dashboardTab, setDashboardTab] = useState<'matches' | 'standings' | 'season_stats'>('matches');
 
   // Role / Auth State
   const [userRole, setUserRole] = useState<'fan' | 'umpire' | 'admin'>('fan');
@@ -187,6 +187,51 @@ const App: React.FC = () => {
     });
   };
 
+  // --- SEASON STATS CALCULATION ---
+  const calculateSeasonLeaders = () => {
+      const playerStatsMap = new Map<string, PlayerStats>();
+
+      // Initialize with all known players
+      teams.forEach(t => {
+          t.players.forEach(p => {
+              playerStatsMap.set(p.id, {
+                  playerId: p.id,
+                  name: p.name,
+                  totalPoints: 0, hits4: 0, hits3: 0, hits2: 0, hits1: 0, pitchesSeen: 0
+              });
+          });
+      });
+
+      // Aggregate from completed matches
+      matches.filter(m => m.isComplete).forEach(m => {
+          const home = teams.find(t => t.id === m.homeTeamId);
+          const away = teams.find(t => t.id === m.awayTeamId);
+          if (home && away) {
+              const matchStats = storage.calculateMatchStats(m, home, away);
+              matchStats.forEach(stat => {
+                  if (!playerStatsMap.has(stat.playerId)) {
+                       // Add if missing (e.g. sub)
+                       playerStatsMap.set(stat.playerId, { ...stat });
+                  } else {
+                       // Accumulate
+                       const existing = playerStatsMap.get(stat.playerId)!;
+                       existing.totalPoints += stat.totalPoints;
+                       existing.hits4 += stat.hits4;
+                       existing.hits3 += stat.hits3;
+                       existing.hits2 += stat.hits2;
+                       existing.hits1 += stat.hits1;
+                       existing.pitchesSeen += stat.pitchesSeen;
+                  }
+              });
+          }
+      });
+
+      // Convert to array, filter out Ghost, and sort
+      return Array.from(playerStatsMap.values())
+          .filter(p => p.playerId !== 'ghost-player-3' && p.name !== 'Player 3 (Team Stats)')
+          .sort((a, b) => b.totalPoints - a.totalPoints);
+  };
+
   // --- RENDER ---
 
   // Helper: Get Navbar props
@@ -295,9 +340,10 @@ const App: React.FC = () => {
 
             {/* Right Column: Content Tabs */}
             <div className={`${userRole !== 'fan' ? 'lg:col-span-2' : 'col-span-1'}`}>
-                <div className="flex items-center gap-4 mb-6 border-b border-slate-200 pb-1">
-                    <button onClick={() => setDashboardTab('matches')} className={`text-xl font-bold pb-2 px-2 transition-colors border-b-2 ${dashboardTab === 'matches' ? 'text-slate-800 border-blue-600' : 'text-slate-400 border-transparent hover:text-slate-600'}`}>Match History</button>
-                    <button onClick={() => setDashboardTab('standings')} className={`text-xl font-bold pb-2 px-2 transition-colors border-b-2 ${dashboardTab === 'standings' ? 'text-slate-800 border-blue-600' : 'text-slate-400 border-transparent hover:text-slate-600'}`}>Standings</button>
+                <div className="flex items-center gap-4 mb-6 border-b border-slate-200 pb-1 overflow-x-auto">
+                    <button onClick={() => setDashboardTab('matches')} className={`text-lg sm:text-xl font-bold pb-2 px-2 transition-colors border-b-2 whitespace-nowrap ${dashboardTab === 'matches' ? 'text-slate-800 border-blue-600' : 'text-slate-400 border-transparent hover:text-slate-600'}`}>Matches</button>
+                    <button onClick={() => setDashboardTab('standings')} className={`text-lg sm:text-xl font-bold pb-2 px-2 transition-colors border-b-2 whitespace-nowrap ${dashboardTab === 'standings' ? 'text-slate-800 border-blue-600' : 'text-slate-400 border-transparent hover:text-slate-600'}`}>Standings</button>
+                    <button onClick={() => setDashboardTab('season_stats')} className={`text-lg sm:text-xl font-bold pb-2 px-2 transition-colors border-b-2 whitespace-nowrap ${dashboardTab === 'season_stats' ? 'text-slate-800 border-blue-600' : 'text-slate-400 border-transparent hover:text-slate-600'}`}>Season Stats</button>
                 </div>
 
                 {dashboardTab === 'matches' && (
@@ -362,6 +408,43 @@ const App: React.FC = () => {
                                         </tr>
                                     ))}
                                     {teams.length === 0 && <tr><td colSpan={7} className="p-8 text-center text-slate-400 italic">No teams in this league.</td></tr>}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                )}
+
+                {dashboardTab === 'season_stats' && (
+                    <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                         <div className="p-4 bg-slate-50 border-b border-slate-200"><h3 className="font-bold text-slate-700">Top 50 Players</h3></div>
+                         <div className="overflow-x-auto">
+                            <table className="w-full text-left text-sm">
+                                <thead className="bg-slate-100 text-slate-500 uppercase font-bold text-xs">
+                                    <tr>
+                                        <th className="px-4 py-3 w-12 text-center">#</th>
+                                        <th className="px-4 py-3">Player</th>
+                                        <th className="px-4 py-3 text-right">Total Pts</th>
+                                        <th className="px-4 py-3 text-right text-rose-600">4s</th>
+                                        <th className="px-4 py-3 text-right text-amber-600">3s</th>
+                                        <th className="px-4 py-3 text-right text-green-600">2s</th>
+                                        <th className="px-4 py-3 text-right text-cyan-600">1s</th>
+                                        <th className="px-4 py-3 text-right text-slate-400">Pitches</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-slate-100">
+                                    {calculateSeasonLeaders().slice(0, 50).map((p, idx) => (
+                                        <tr key={p.playerId} className="hover:bg-slate-50">
+                                            <td className="px-4 py-3 text-center font-bold text-slate-400">{idx + 1}</td>
+                                            <td className="px-4 py-3 font-bold text-slate-800">{p.name}</td>
+                                            <td className="px-4 py-3 text-right font-mono font-bold text-lg">{p.totalPoints}</td>
+                                            <td className="px-4 py-3 text-right font-mono">{p.hits4}</td>
+                                            <td className="px-4 py-3 text-right font-mono">{p.hits3}</td>
+                                            <td className="px-4 py-3 text-right font-mono">{p.hits2}</td>
+                                            <td className="px-4 py-3 text-right font-mono">{p.hits1}</td>
+                                            <td className="px-4 py-3 text-right font-mono text-slate-400">{p.pitchesSeen}</td>
+                                        </tr>
+                                    ))}
+                                    {calculateSeasonLeaders().length === 0 && <tr><td colSpan={8} className="p-8 text-center text-slate-400 italic">No stats available yet.</td></tr>}
                                 </tbody>
                             </table>
                         </div>

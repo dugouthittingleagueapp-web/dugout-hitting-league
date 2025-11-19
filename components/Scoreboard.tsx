@@ -90,7 +90,7 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
                 setActiveCell({ side, lineupIdx: 0, pitchIdx: 10 });
             }
         } else if (pitchIdx === 14) {
-            // End of ghost segment (15th pitch)
+            // End of a ghost segment (15th pitch)
             if (lineupIdx === 0) {
                 // P1 Finished Ghost Segment -> Go to P2 Ghost Segment (P2, Pitch 11 / Index 10)
                 setActiveCell({ side, lineupIdx: 1, pitchIdx: 10 });
@@ -251,7 +251,7 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
                             </div>
                         </td>
                         <td className="px-2 py-3">
-                            <div className="flex gap-1 sm:gap-2 justify-start">
+                            <div className="flex items-center gap-1 sm:gap-2 justify-start">
                                 {/* Ghost Slots 1-5: Mapped to Player 1 (Index 0), Pitches 11-15 (Indices 10-14) */}
                                 {inningData.playerScores[0].pitches.slice(10, 15).map((pitch, idx) => {
                                     const realPitchIdx = 10 + idx;
@@ -268,6 +268,10 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
                                         />
                                     );
                                 })}
+                                
+                                {/* Visual Separator */}
+                                <div className="w-px h-8 bg-slate-300 mx-1"></div>
+
                                 {/* Ghost Slots 6-10: Mapped to Player 2 (Index 1), Pitches 11-15 (Indices 10-14) */}
                                 {inningData.playerScores[1].pitches.slice(10, 15).map((pitch, idx) => {
                                     const realPitchIdx = 10 + idx;

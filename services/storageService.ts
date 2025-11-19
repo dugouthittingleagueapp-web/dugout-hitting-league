@@ -181,6 +181,9 @@ export const restoreTeamRoster = async (matchId: string, teamId: string, startIn
     const side = isHome ? inning.home : inning.away;
     
     // Reset to full 3-player roster, 10 pitches each
+    // CRITICAL: We explicitly set 10 pitches here. 
+    // This ensures that subsequent stats calculations treat these as standard innings, 
+    // attributing points to the individual player (indices 0-9) instead of the ghost bucket.
     side.playerScores = team.players.map(p => ({
       playerId: p.id,
       pitches: Array(10).fill(null).map(() => ({ points: null }))
@@ -210,6 +213,8 @@ const processPlayerStats = (statsMap: Map<string, PlayerStats>, playerId: string
             let targetId = playerId;
             
             // Redirect logic: If index >= 10 (11th pitch), assign to Ghost Player
+            // This only happens if the array HAS 11+ items (2-player mode).
+            // Restored rosters (3-player mode) have 10 items, so index is never >= 10.
             if (pitchIndex >= 10) {
                 targetId = GHOST_PLAYER_ID;
                 // Ensure Ghost Player entry exists

@@ -159,39 +159,15 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
     // --- Auto-advance logic ---
     let nextCell = null;
 
-    const isTwoPlayerGhostMode = teamData.playerScores.length === 2 && teamData.playerScores[0].pitches.length >= 15;
-    const isStrict2v2 = teamData.playerScores.length === 2 && teamData.playerScores[0].pitches.length === 10;
-
     if (!isEdit && !shouldOpenTieBreaker) {
-        if (isTwoPlayerGhostMode) {
-            // Ghost Mode: P1(0-14), P2(0-14)
-            // Force Close after 15th pitch (Index 14) for EACH player
-            if (pitchIdx === 14) {
-                 nextCell = null;
-            } else {
-                 nextCell = { side, lineupIdx, pitchIdx: pitchIdx + 1 };
-            }
-        } else if (isStrict2v2) {
-            // Strict 2v2 Mode: 10 pitches each.
-            // Force Close after 10th pitch (Index 9) for EACH player
-            if (pitchIdx === 9) {
-                nextCell = null;
-            } else {
-                nextCell = { side, lineupIdx, pitchIdx: pitchIdx + 1 };
-            }
+        // Always advance within the player's pitch count (whether 10 or 15).
+        // Never advance to the next player automatically.
+        const totalPitches = teamData.playerScores[lineupIdx].pitches.length;
+        if (pitchIdx < totalPitches - 1) {
+            nextCell = { side, lineupIdx, pitchIdx: pitchIdx + 1 };
         } else {
-            // Standard 3v3 Mode
-            const totalPitches = teamData.playerScores[lineupIdx].pitches.length;
-            if (pitchIdx < totalPitches - 1) {
-                nextCell = { side, lineupIdx, pitchIdx: pitchIdx + 1 };
-            } else {
-                 // End of batter, go to next batter
-                 if (lineupIdx < teamData.playerScores.length - 1) {
-                     nextCell = { side, lineupIdx: lineupIdx + 1, pitchIdx: 0 };
-                 } else {
-                     nextCell = null;
-                 }
-            }
+            // End of pitches for this player. Close modal.
+            nextCell = null;
         }
     }
 

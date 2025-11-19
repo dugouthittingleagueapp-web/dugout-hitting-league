@@ -93,6 +93,10 @@ export const getMatch = async (id: string): Promise<Match | undefined> => {
   return mapMatchFromDB(data);
 };
 
+export const deleteMatch = async (matchId: string) => {
+  await fetch(`/api/matches?id=${matchId}`, { method: 'DELETE' });
+};
+
 const createEmptyInning = (number: number, homeTeamId: string, awayTeamId: string, homeLineupIds: string[], awayLineupIds: string[]): Inning => {
   const createPlayerScores = (playerIds: string[]): PlayerInningScore[] => {
     return playerIds.map(pId => ({

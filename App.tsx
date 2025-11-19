@@ -41,6 +41,19 @@ const App: React.FC = () => {
     } catch (e) { alert("Error starting match: " + e); setLoading(false); }
   };
 
+  const handleDeleteMatch = async (matchId: string) => {
+    if (!confirm("Are you sure you want to delete this match? This cannot be undone.")) return;
+    try {
+        setLoading(true);
+        await storage.deleteMatch(matchId);
+        if (state.currentLeague) await refreshDashboard(state.currentLeague);
+        else setLoading(false);
+    } catch (e) {
+        alert("Failed to delete match");
+        setLoading(false);
+    }
+  };
+
   if (state.view === 'league_select') {
     return (
       <div className="min-h-screen bg-slate-900 flex flex-col items-center justify-center p-4">
@@ -107,7 +120,10 @@ const App: React.FC = () => {
                                     <div className="text-center w-24"><div className={`text-xs font-bold px-2 py-1 rounded-full ${match.isComplete ? 'bg-slate-100 text-slate-500' : 'bg-green-100 text-green-600'}`}>{match.isComplete ? 'FINAL' : 'LIVE'}</div></div>
                                     <div className="flex items-center gap-8"><div className="text-right"><div className="text-lg">{home.name}</div></div><div className="text-slate-300 text-xl">vs</div><div className="text-left"><div className="text-lg">{away.name}</div></div></div>
                                 </div>
-                                <button onClick={() => setState({ ...state, view: 'scoring', currentMatchId: match.id })} className="px-4 py-2 rounded border border-slate-200 text-slate-600 hover:bg-slate-50 font-medium text-sm transition-colors">{match.isComplete ? 'View' : 'Resume'}</button>
+                                <div className="flex gap-2">
+                                  <button onClick={() => setState({ ...state, view: 'scoring', currentMatchId: match.id })} className="px-4 py-2 rounded border border-slate-200 text-slate-600 hover:bg-slate-50 font-medium text-sm transition-colors">{match.isComplete ? 'View' : 'Resume'}</button>
+                                  <button onClick={() => handleDeleteMatch(match.id)} className="px-4 py-2 rounded border border-slate-200 text-red-500 hover:bg-red-50 font-medium text-sm transition-colors">Delete</button>
+                                </div>
                             </div>
                         );
                     })}

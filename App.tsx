@@ -16,6 +16,9 @@ const App: React.FC = () => {
   const [selectedHomeId, setSelectedHomeId] = useState('');
   const [selectedAwayId, setSelectedAwayId] = useState('');
   
+  // Dashboard View State
+  const [dashboardTab, setDashboardTab] = useState<'matches' | 'standings'>('matches');
+
   // Admin Auth State
   const [isAdminAuthenticated, setIsAdminAuthenticated] = useState(false);
   const [showAdminLogin, setShowAdminLogin] = useState(false);
@@ -117,6 +120,62 @@ const App: React.FC = () => {
     }
   };
 
+  // --- STANDINGS CALCULATION ---
+  const calculateStandings = () => {
+    const stats: Record<string, { wins: number; losses: number; ties: number; pf: number; pa: number }> = {};
+    
+    // Initialize
+    teams.forEach(t => {
+        stats[t.id] = { wins: 0, losses: 0, ties: 0, pf: 0, pa: 0 };
+    });
+
+    matches.forEach(m => {
+        if (!m.isComplete) return; // Only count finished games
+
+        // Calculate total scores
+        const getScore = (side: 'home' | 'away') => {
+            const sideData = side === 'home' ? m.innings.map(i => i.home) : m.innings.map(i => i.away);
+            return sideData.reduce((acc, inning) => 
+                acc + inning.playerScores.reduce((pAcc, p) => 
+                    pAcc + p.pitches.reduce((pitchAcc, pitch) => pitchAcc + (pitch.points || 0), 0)
+                , 0)
+            , 0);
+        };
+
+        const homeScore = getScore('home');
+        const awayScore = getScore('away');
+
+        if (stats[m.homeTeamId]) {
+            stats[m.homeTeamId].pf += homeScore;
+            stats[m.homeTeamId].pa += awayScore;
+        }
+        if (stats[m.awayTeamId]) {
+            stats[m.awayTeamId].pf += awayScore;
+            stats[m.awayTeamId].pa += homeScore;
+        }
+
+        if (homeScore > awayScore) {
+            if (stats[m.homeTeamId]) stats[m.homeTeamId].wins++;
+            if (stats[m.awayTeamId]) stats[m.awayTeamId].losses++;
+        } else if (awayScore > homeScore) {
+            if (stats[m.awayTeamId]) stats[m.awayTeamId].wins++;
+            if (stats[m.homeTeamId]) stats[m.homeTeamId].losses++;
+        } else {
+            if (stats[m.homeTeamId]) stats[m.homeTeamId].ties++;
+            if (stats[m.awayTeamId]) stats[m.awayTeamId].ties++;
+        }
+    });
+
+    return teams.map(t => ({
+        ...t,
+        stats: stats[t.id] || { wins: 0, losses: 0, ties: 0, pf: 0, pa: 0 }
+    })).sort((a, b) => {
+        // Sort by Wins, then Points For
+        if (b.stats.wins !== a.stats.wins) return b.stats.wins - a.stats.wins;
+        return b.stats.pf - a.stats.pf;
+    });
+  };
+
   if (state.view === 'league_select') {
     // Sort leagues naturally (9u before 10u, A before B)
     const sortedLeagues = [...leagues].sort((a, b) => 
@@ -208,6 +267,7 @@ const App: React.FC = () => {
       />
       <main className="max-w-7xl mx-auto p-4 sm:p-8">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            {/* Left Column: Controls */}
             <div className="space-y-6">
                 <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
                     <h2 className="text-lg font-bold text-slate-700 mb-4">League Status ({state.season})</h2>
@@ -223,33 +283,87 @@ const App: React.FC = () => {
                     </div>
                 </div>
             </div>
+
+            {/* Right Column: Content Tabs */}
             <div className="lg:col-span-2">
-                <h2 className="text-xl font-bold text-slate-800 mb-6">Match History ({state.season})</h2>
-                <div className="space-y-4">
-                    {matches.map(match => {
-                        const home = teams.find(t => t.id === match.homeTeamId);
-                        const away = teams.find(t => t.id === match.awayTeamId);
-                        if (!home || !away) return null;
-                        return (
-                            <div key={match.id} className="bg-white p-4 sm:p-5 rounded-xl shadow-sm border border-slate-200 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-                                <div className="flex items-center gap-4 w-full sm:w-auto">
-                                    <div className="shrink-0"><div className={`text-xs font-bold px-2 py-1 rounded-full ${match.isComplete ? 'bg-slate-100 text-slate-500' : 'bg-green-100 text-green-600'}`}>{match.isComplete ? 'FINAL' : 'LIVE'}</div></div>
-                                    <div className="flex flex-1 sm:flex-auto items-center justify-between sm:justify-start sm:gap-8 w-full sm:w-auto">
-                                        <div className="text-base sm:text-lg font-semibold text-slate-800 text-right">{home.name}</div>
-                                        <div className="text-slate-300 text-sm sm:text-xl px-2">vs</div>
-                                        <div className="text-base sm:text-lg font-semibold text-slate-800 text-left">{away.name}</div>
+                <div className="flex items-center gap-4 mb-6 border-b border-slate-200 pb-1">
+                    <button 
+                        onClick={() => setDashboardTab('matches')}
+                        className={`text-xl font-bold pb-2 px-2 transition-colors border-b-2 ${dashboardTab === 'matches' ? 'text-slate-800 border-blue-600' : 'text-slate-400 border-transparent hover:text-slate-600'}`}
+                    >
+                        Match History
+                    </button>
+                    <button 
+                        onClick={() => setDashboardTab('standings')}
+                        className={`text-xl font-bold pb-2 px-2 transition-colors border-b-2 ${dashboardTab === 'standings' ? 'text-slate-800 border-blue-600' : 'text-slate-400 border-transparent hover:text-slate-600'}`}
+                    >
+                        Standings
+                    </button>
+                </div>
+
+                {dashboardTab === 'matches' && (
+                    <div className="space-y-4">
+                        {matches.map(match => {
+                            const home = teams.find(t => t.id === match.homeTeamId);
+                            const away = teams.find(t => t.id === match.awayTeamId);
+                            if (!home || !away) return null;
+                            return (
+                                <div key={match.id} className="bg-white p-4 sm:p-5 rounded-xl shadow-sm border border-slate-200 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                                    <div className="flex items-center gap-4 w-full sm:w-auto">
+                                        <div className="shrink-0"><div className={`text-xs font-bold px-2 py-1 rounded-full ${match.isComplete ? 'bg-slate-100 text-slate-500' : 'bg-green-100 text-green-600'}`}>{match.isComplete ? 'FINAL' : 'LIVE'}</div></div>
+                                        <div className="flex flex-1 sm:flex-auto items-center justify-between sm:justify-start sm:gap-8 w-full sm:w-auto">
+                                            <div className="text-base sm:text-lg font-semibold text-slate-800 text-right">{home.name}</div>
+                                            <div className="text-slate-300 text-sm sm:text-xl px-2">vs</div>
+                                            <div className="text-base sm:text-lg font-semibold text-slate-800 text-left">{away.name}</div>
+                                        </div>
+                                    </div>
+                                    <div className="flex gap-2 w-full sm:w-auto justify-end">
+                                    <button onClick={() => handleOpenMatchStats(match)} className="flex-1 sm:flex-none text-center px-3 py-2 rounded border border-slate-200 text-blue-600 hover:bg-blue-50 font-medium text-xs sm:text-sm transition-colors">Stats</button>
+                                    <button onClick={() => setState({ ...state, view: 'scoring', currentMatchId: match.id })} className="flex-1 sm:flex-none text-center px-3 py-2 rounded border border-slate-200 text-slate-600 hover:bg-slate-50 font-medium text-xs sm:text-sm transition-colors">{match.isComplete ? 'View' : 'Resume'}</button>
+                                    <button onClick={() => handleDeleteMatch(match.id)} className="flex-initial px-3 py-2 rounded border border-slate-200 text-red-500 hover:bg-red-50 font-medium text-xs sm:text-sm transition-colors">Delete</button>
                                     </div>
                                 </div>
-                                <div className="flex gap-2 w-full sm:w-auto justify-end">
-                                  <button onClick={() => handleOpenMatchStats(match)} className="flex-1 sm:flex-none text-center px-3 py-2 rounded border border-slate-200 text-blue-600 hover:bg-blue-50 font-medium text-xs sm:text-sm transition-colors">Stats</button>
-                                  <button onClick={() => setState({ ...state, view: 'scoring', currentMatchId: match.id })} className="flex-1 sm:flex-none text-center px-3 py-2 rounded border border-slate-200 text-slate-600 hover:bg-slate-50 font-medium text-xs sm:text-sm transition-colors">{match.isComplete ? 'View' : 'Resume'}</button>
-                                  <button onClick={() => handleDeleteMatch(match.id)} className="flex-initial px-3 py-2 rounded border border-slate-200 text-red-500 hover:bg-red-50 font-medium text-xs sm:text-sm transition-colors">Delete</button>
-                                </div>
-                            </div>
-                        );
-                    })}
-                    {matches.length === 0 && <div className="text-center py-10 text-slate-400 bg-white rounded-xl border border-slate-200 border-dashed">No matches found for this season.</div>}
-                </div>
+                            );
+                        })}
+                        {matches.length === 0 && <div className="text-center py-10 text-slate-400 bg-white rounded-xl border border-slate-200 border-dashed">No matches found for this season.</div>}
+                    </div>
+                )}
+
+                {dashboardTab === 'standings' && (
+                    <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                         <div className="overflow-x-auto">
+                            <table className="w-full text-left text-sm">
+                                <thead className="bg-slate-100 text-slate-500 uppercase font-bold text-xs">
+                                    <tr>
+                                        <th className="px-4 py-3 w-12 text-center">#</th>
+                                        <th className="px-4 py-3">Team</th>
+                                        <th className="px-4 py-3 text-center">W</th>
+                                        <th className="px-4 py-3 text-center">L</th>
+                                        <th className="px-4 py-3 text-center">T</th>
+                                        <th className="px-4 py-3 text-center text-slate-400">PF</th>
+                                        <th className="px-4 py-3 text-center text-slate-400">PA</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-slate-100">
+                                    {calculateStandings().map((t, idx) => (
+                                        <tr key={t.id} className="hover:bg-slate-50">
+                                            <td className="px-4 py-3 text-center font-bold text-slate-400">{idx + 1}</td>
+                                            <td className="px-4 py-3 font-bold text-slate-800">{t.name}</td>
+                                            <td className="px-4 py-3 text-center font-mono font-bold text-green-600">{t.stats.wins}</td>
+                                            <td className="px-4 py-3 text-center font-mono font-bold text-red-600">{t.stats.losses}</td>
+                                            <td className="px-4 py-3 text-center font-mono font-bold text-slate-600">{t.stats.ties}</td>
+                                            <td className="px-4 py-3 text-center font-mono text-slate-400">{t.stats.pf}</td>
+                                            <td className="px-4 py-3 text-center font-mono text-slate-400">{t.stats.pa}</td>
+                                        </tr>
+                                    ))}
+                                    {teams.length === 0 && (
+                                        <tr><td colSpan={7} className="p-8 text-center text-slate-400 italic">No teams in this league.</td></tr>
+                                    )}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                )}
             </div>
         </div>
         

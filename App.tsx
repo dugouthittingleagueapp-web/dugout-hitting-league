@@ -133,8 +133,6 @@ const App: React.FC = () => {
             ))}
             </div>
         )}
-
-        <div className="mt-12 text-slate-600 text-sm"><button onClick={requestAdminAccess} className="hover:text-slate-400">Enter Admin Mode</button></div>
         
         {showAdminLogin && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm animate-in fade-in duration-200" onClick={() => setShowAdminLogin(false)}>

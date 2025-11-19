@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Team, Player } from '../types';
 

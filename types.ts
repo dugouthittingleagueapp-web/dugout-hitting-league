@@ -1,4 +1,3 @@
-
 export type AgeGroup = string;
 
 export interface League {

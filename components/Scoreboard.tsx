@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Match, Inning, Team, TieBreakerRound } from '../types';
 import * as storage from '../services/storageService';
@@ -137,13 +136,7 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
         } else {
              // Last Pitch (Index 14 / 15th pitch)
              // FIX: Explicitly close modal here for 2-player mode end of turn
-             // Check if there is a next player
-             if (lineupIdx < teamData.playerScores.length - 1) {
-                 setActiveCell(null); // Force close, user must click next player to start
-             } else {
-                 // End of team
-                 setActiveCell(null);
-             }
+             setActiveCell(null);
         }
     } else {
         // Standard or Strict 2v2 Logic (10 Pitches)

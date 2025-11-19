@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { AgeGroup, Team, PlayerStats } from '../types';
 import * as storage from '../services/storageService';

@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { AgeGroup, AppState, Match, Team, Player, League, PlayerStats } from './types';
 import { Navbar } from './components/Navbar';

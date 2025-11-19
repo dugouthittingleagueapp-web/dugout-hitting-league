@@ -81,25 +81,25 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
     if (isTwoPlayerMode) {
         // Custom Navigation for 2-Player Split
         if (pitchIdx === 9) {
-            // End of standard row
+            // End of standard row (10th pitch)
             if (lineupIdx === 0) {
                 // P1 Finished 10 -> Go to P2 Start
                 setActiveCell({ side, lineupIdx: 1, pitchIdx: 0 });
             } else if (lineupIdx === 1) {
-                // P2 Finished 10 -> Go to Ghost Row Start (P1, Pitch 10)
+                // P2 Finished 10 -> Go to Ghost Row Start (P1, Pitch 11 / Index 10)
                 setActiveCell({ side, lineupIdx: 0, pitchIdx: 10 });
             }
         } else if (pitchIdx === 14) {
-            // End of Ghost segment
+            // End of ghost segment (15th pitch)
             if (lineupIdx === 0) {
-                // P1 Finished Ghost Segment -> Go to P2 Ghost Segment (P2, Pitch 10)
+                // P1 Finished Ghost Segment -> Go to P2 Ghost Segment (P2, Pitch 11 / Index 10)
                 setActiveCell({ side, lineupIdx: 1, pitchIdx: 10 });
             } else {
                 // P2 Finished Ghost Segment -> End of Inning
                 setActiveCell(null);
             }
         } else {
-            // Normal Increment
+            // Normal Increment within a row or segment
             setActiveCell({ side, lineupIdx, pitchIdx: pitchIdx + 1 });
         }
     } else {
@@ -110,8 +110,7 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
         if (pitchIdx < totalPitches - 1) {
             setActiveCell({ side, lineupIdx, pitchIdx: pitchIdx + 1 });
         } else {
-            // End of row, try next player? (Optional, mostly we stop at 10th pitch per user request)
-            // User previously asked to stop after 10th pitch.
+            // End of row, stop (user preference to stop after 10th pitch)
             setActiveCell(null);
         }
     }
@@ -253,7 +252,7 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
                         </td>
                         <td className="px-2 py-3">
                             <div className="flex gap-1 sm:gap-2 justify-start">
-                                {/* Ghost Slots 1-5: Mapped to Player 1, Pitches 11-15 (Indices 10-14) */}
+                                {/* Ghost Slots 1-5: Mapped to Player 1 (Index 0), Pitches 11-15 (Indices 10-14) */}
                                 {inningData.playerScores[0].pitches.slice(10, 15).map((pitch, idx) => {
                                     const realPitchIdx = 10 + idx;
                                     return (
@@ -269,7 +268,7 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
                                         />
                                     );
                                 })}
-                                {/* Ghost Slots 6-10: Mapped to Player 2, Pitches 11-15 (Indices 10-14) */}
+                                {/* Ghost Slots 6-10: Mapped to Player 2 (Index 1), Pitches 11-15 (Indices 10-14) */}
                                 {inningData.playerScores[1].pitches.slice(10, 15).map((pitch, idx) => {
                                     const realPitchIdx = 10 + idx;
                                     return (

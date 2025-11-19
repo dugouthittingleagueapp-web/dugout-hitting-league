@@ -324,8 +324,8 @@ const App: React.FC = () => {
                                         {userRole === 'fan' ? (match.isComplete ? 'View' : 'Watch Live') : (match.isComplete ? 'View' : 'Score')}
                                     </button>
                                     
-                                    {/* DELETE Logic: Only Admin can delete. */}
-                                    {userRole === 'admin' && <button onClick={() => handleDeleteMatch(match.id)} className="flex-initial px-3 py-2 rounded border border-slate-200 text-red-500 hover:bg-red-50 font-medium text-xs sm:text-sm transition-colors">Delete</button>}
+                                    {/* DELETE Logic: Admin OR Umpire can delete. */}
+                                    {(userRole === 'admin' || userRole === 'umpire') && <button onClick={() => handleDeleteMatch(match.id)} className="flex-initial px-3 py-2 rounded border border-slate-200 text-red-500 hover:bg-red-50 font-medium text-xs sm:text-sm transition-colors">Delete</button>}
                                     </div>
                                 </div>
                             );

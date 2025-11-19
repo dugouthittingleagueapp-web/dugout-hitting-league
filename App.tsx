@@ -123,7 +123,10 @@ const App: React.FC = () => {
       <div className="min-h-screen bg-slate-900 flex flex-col items-center justify-center p-4">
         <Navbar currentLeague={null} currentSeason={state.season} onGoHome={() => {}} onSwitchLeague={() => {}} onAdmin={requestAdminAccess} onSeasonChange={handleSeasonChange} />
         
-        <div className="text-center mb-8 mt-12"><h1 className="text-4xl font-bold text-white tracking-tight mb-2">Dugout Hitting League</h1></div>
+        <div className="text-center mb-8 mt-12">
+            <h1 className="text-4xl font-bold text-white tracking-tight mb-2">Dugout Hitting League</h1>
+            <p className="text-slate-400 text-lg">Select a league to manage <span className="text-blue-400 font-bold">{state.season}</span> season</p>
+        </div>
         
         {leagues.length === 0 ? (
             <div className="text-center bg-slate-800 p-8 rounded-xl border border-slate-700 max-w-md">

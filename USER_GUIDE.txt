@@ -1,0 +1,91 @@
+DUGOUT HITTING LEAGUE - OPERATIONAL GUIDE
+=========================================
+
+1. GETTING STARTED & ROLES
+--------------------------
+The app has three levels of access. You log in via the "Log In" button in the top right corner.
+
+A) FAN (Default - No Login Required)
+   - Can view all Leagues.
+   - Can view "Season Stats" and "Standings".
+   - Can watch "Live" games (scores update automatically every 5 seconds).
+   - CANNOT start games, edit scores, or change settings.
+
+B) UMPIRE (Password: umpire)
+   - Can Start Matches.
+   - Can Score games.
+   - Can Edit/Delete Match History.
+   - Can Manage Teams (Add/Edit/Delete Rosters).
+   - Can Update the Umpire Password in Admin settings.
+
+C) ADMIN (Password: admin)
+   - Has all Umpire permissions.
+   - Can Create New Leagues (e.g., 9u, 10u, Varsity).
+   - Can Change the "Active Season" (e.g., switching from 2025 to 2026).
+   - Can Reset Passwords.
+   - Can Export Data to JSON.
+
+*Note: You can change these passwords in the "Admin" dashboard once logged in.*
+
+
+2. SETTING UP A NEW SEASON
+--------------------------
+1. Log in as Admin.
+2. Go to the "Admin" dashboard.
+3. Create a League (if one doesn't exist, e.g., "Varsity").
+4. Ensure "Active Season" is set to the current year (e.g., 2025).
+5. Go back to the Dashboard.
+6. Click "Manage Teams" to add team names and rosters (3 players default).
+
+
+3. STARTING A MATCH
+-------------------
+1. Ensure you are logged in as Umpire or Admin.
+2. Select a "Home Team" and "Away Team" from the dropdowns on the left.
+3. Click "Next: Set Lineup".
+4. Drag and drop players to set the batting order.
+   - If a team only has 2 players present, remove the 3rd player here.
+   - If a team has a Sub, click "+ Add Sub" to type in their name.
+5. Click "Start Match".
+
+
+4. SCORING RULES
+----------------
+- Click the score box (Pitch 1, 2, etc.) and select the points (0, 1, 2, 3, 4).
+- Colors: 0=Grey, 1=Cyan, 2=Green, 3=Orange, 4=Red.
+- LIVE EDITING: If you make a mistake, click the score again. Change the number and press "Enter" to confirm. This will NOT auto-advance to the next pitch, keeping your place.
+
+5. SPECIAL: 2-PLAYER TEAMS (GHOST MODE)
+---------------------------------------
+If a team only has 2 players, the scoring format changes automatically:
+
+- Each player gets 15 pitches per inning (Total 30 team pitches).
+- The Scoreboard will show a 3rd row called "Player 3 (Ghost)".
+  
+HOW TO SCORE IT:
+1. Player 1 hits 15 times in a row.
+   - Pitches 1-10 appear on Player 1's row.
+   - Pitches 11-15 automatically jump to the "Ghost Row" (Slots 1-5).
+2. Player 2 hits 15 times in a row.
+   - Pitches 1-10 appear on Player 2's row.
+   - Pitches 11-15 automatically jump to the "Ghost Row" (Slots 6-10).
+
+STATS IMPACT:
+- Only pitches 1-10 count towards the individual player's stats.
+- Pitches 11-15 count towards the TEAM total, but are recorded under "Player 3" for stats purposes. This prevents players from having unfair advantages on the leaderboard just because they had extra at-bats.
+
+6. LATE ARRIVAL (RESETTING ROSTER)
+----------------------------------
+If a game starts with 2 players, but the 3rd player arrives late:
+
+1. Wait for the start of a new inning (between Inning 2 and 6).
+2. Look for the button "+ Player Arrived? (Reset)" next to the team name on the scoreboard.
+3. Click it and confirm.
+4. The game effectively resets to "Normal Mode" (3 Players, 10 Pitches each) for the REMAINDER of the game.
+5. Stats from that point forward will count for the individual players correctly.
+
+7. STATISTICS
+-------------
+- STANDINGS: Shows Wins, Losses, Ties, Points For, Points Against.
+- SEASON STATS: Shows individual leaderboards (Total Points, 4s, 3s, etc.).
+- MATCH STATS: Click "Stats" on any completed game card to see the box score for that specific game.

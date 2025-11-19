@@ -1,0 +1,2 @@
+Please save your image file as 'dugout-logo.png' and place it in this 'public' folder.
+The application is already configured to look for the logo at this location.

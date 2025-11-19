@@ -78,31 +78,26 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
     const isTwoPlayerMode = teamData.playerScores.length === 2 && teamData.playerScores[0].pitches.length >= 15;
 
     if (isTwoPlayerMode) {
-        // NEW LOGIC: Player 1 hits 15 pitches straight (0-14).
-        // Indices 0-9 are on Row 1. Indices 10-14 are on Ghost Row (Left side).
-        // Then Player 2 hits 15 pitches straight (0-14).
-        // Indices 0-9 are on Row 2. Indices 10-14 are on Ghost Row (Right side).
+        // Player hits 15 pitches straight (0-14).
+        // Indices 0-9 are on Row 1/2. Indices 10-14 are on Ghost Row.
+        // The visual mapping handles the display, we just need to increment the pitch index.
         
         if (pitchIdx < 14) {
-            // Simple increment. This handles jumping from P1(9) to P1(10) [Ghost Row] automatically
-            // because the ghost row inputs are bound to lineupIdx 0, pitchIdx 10.
+            // Advance to next pitch within the 15-pitch sequence
+            // (e.g. Pitch 10 -> 11, which visually jumps from Main Row to Ghost Row automatically)
             setActiveCell({ side, lineupIdx, pitchIdx: pitchIdx + 1 });
         } else {
-            // End of a player's turn (Pitch 15 / Index 14)
-            if (lineupIdx === 0) {
-                // Player 1 Finished 15 -> Go to Player 2 Start
-                setActiveCell({ side, lineupIdx: 1, pitchIdx: 0 });
-            } else {
-                // Player 2 Finished 15 -> End of Inning
-                setActiveCell(null);
-            }
+            // Hit Pitch 15 (Index 14). Stop.
+            // User must manually select the next player, just like in 3-player mode after pitch 10.
+            setActiveCell(null);
         }
     } else {
-        // Standard 3-Player / Normal Flow
+        // Standard 3-Player / Normal Flow (10 pitches)
         const totalPitches = teamData.playerScores[lineupIdx].pitches.length;
         if (pitchIdx < totalPitches - 1) {
             setActiveCell({ side, lineupIdx, pitchIdx: pitchIdx + 1 });
         } else {
+            // Hit Pitch 10. Stop.
             setActiveCell(null);
         }
     }

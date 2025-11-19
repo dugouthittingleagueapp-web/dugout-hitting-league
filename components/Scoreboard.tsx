@@ -135,19 +135,30 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
              setActiveCell({ side, lineupIdx, pitchIdx: pitchIdx + 1 });
         } else {
              // Last Pitch (Index 14 / 15th pitch)
-             // FIX: Explicitly close modal here for 2-player mode end of turn
+             // Force Close modal after 15th pitch
              setActiveCell(null);
         }
     } else {
         // Standard or Strict 2v2 Logic (10 Pitches)
         const totalPitches = teamData.playerScores[lineupIdx].pitches.length;
+        
+        // Detect Strict 2v2 specifically (Both teams have 2 players, 10 pitches each)
+        const isStrict2v2 = teamData.playerScores.length === 2 && totalPitches === 10;
+
         if (pitchIdx < totalPitches - 1) {
             setActiveCell({ side, lineupIdx, pitchIdx: pitchIdx + 1 });
         } else {
-             if (lineupIdx < teamData.playerScores.length - 1) {
-                 setActiveCell({ side, lineupIdx: lineupIdx + 1, pitchIdx: 0 });
-             } else {
+             // End of batter
+             if (isStrict2v2) {
+                 // Strict 2v2: Close modal after EACH batter (do not auto-advance to next player)
                  setActiveCell(null);
+             } else {
+                 // Standard 3v3: Advance to next player
+                 if (lineupIdx < teamData.playerScores.length - 1) {
+                     setActiveCell({ side, lineupIdx: lineupIdx + 1, pitchIdx: 0 });
+                 } else {
+                     setActiveCell(null);
+                 }
              }
         }
     }

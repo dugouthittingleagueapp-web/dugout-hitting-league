@@ -131,15 +131,22 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
     // 2v2 Detection: Array length 2, 10 pitches (NOT 15)
     // Ghost Detection: Array length 2, 15 pitches
     const isTwoPlayerGhostMode = teamData.playerScores.length === 2 && teamData.playerScores[0].pitches.length >= 15;
-    const isStrict2v2 = teamData.playerScores.length === 2 && teamData.playerScores[0].pitches.length === 10;
 
     if (isTwoPlayerGhostMode) {
-        // Ghost Mode Logic
-        if (pitchIdx < 14) {
-            setActiveCell({ side, lineupIdx, pitchIdx: pitchIdx + 1 });
+        // Ghost Mode Logic: 15 Pitches
+        // Player 1 (idx 0) goes 0-14. Then Player 2 (idx 1) goes 0-14.
+        const totalPitches = 15;
+        if (pitchIdx < totalPitches - 1) {
+             setActiveCell({ side, lineupIdx, pitchIdx: pitchIdx + 1 });
         } else {
-             // End of player turn (15 pitches)
-             setActiveCell(null);
+             // End of player turn
+             if (lineupIdx < teamData.playerScores.length - 1) {
+                 // Move to next player, pitch 0
+                 setActiveCell({ side, lineupIdx: lineupIdx + 1, pitchIdx: 0 });
+             } else {
+                 // End of team
+                 setActiveCell(null);
+             }
         }
     } else {
         // Standard or 2v2 Logic (10 Pitches)
@@ -147,7 +154,11 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
         if (pitchIdx < totalPitches - 1) {
             setActiveCell({ side, lineupIdx, pitchIdx: pitchIdx + 1 });
         } else {
-            setActiveCell(null);
+             if (lineupIdx < teamData.playerScores.length - 1) {
+                 setActiveCell({ side, lineupIdx: lineupIdx + 1, pitchIdx: 0 });
+             } else {
+                 setActiveCell(null);
+             }
         }
     }
   };
@@ -241,8 +252,19 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
          const visiblePitches = playerScore.pitches.slice(pitchStartIndex, pitchEndIndex);
          const rowTotal = visiblePitches.reduce((sum: number, p: any) => sum + (p.points || 0), 0);
          
-         const pitchesTaken = visiblePitches.filter((p:any) => p.points !== null).length;
-         const pitchesLeft = visiblePitches.length - pitchesTaken;
+         // FIX: Correct calculation for Pitches Remaining in Ghost Mode
+         let pitchesLeft = 0;
+         if (isTwoPlayerGhostMode) {
+             // In Ghost Mode, total is 15 per player. 
+             // We check the ENTIRE array for this player (indices 0-14) to see how many are taken.
+             const allPitches = playerScore.pitches; 
+             const taken = allPitches.filter((p:any) => p.points !== null).length;
+             pitchesLeft = 15 - taken;
+         } else {
+             // Standard Mode (10 pitches) or 2v2 Strict
+             const taken = playerScore.pitches.filter((p:any) => p.points !== null).length;
+             pitchesLeft = playerScore.pitches.length - taken;
+         }
 
          return (
             <tr key={`${playerScore.playerId}-${isGhostRow ? 'ghost' : 'norm'}`} className="hover:bg-slate-50/50">
@@ -256,7 +278,6 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
                                 {isGhostRow ? <span className="italic text-slate-400">Player 3</span> : (player ? player.name : 'Unknown')}
                             </span>
                         </div>
-                        {/* Removed Pitches Left from here, moving to Modal */}
                     </div>
                 </td>
                 <td className="px-2 py-3">
@@ -320,23 +341,37 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
                         </td>
                         <td className="px-2 py-3">
                             <div className="flex items-center gap-1 sm:gap-2 justify-start">
-                                {inningData.playerScores[0].pitches.slice(10, 15).map((pitch, idx) => (
+                                {inningData.playerScores[0].pitches.slice(10, 15).map((pitch, idx) => {
+                                    // Logic to pass remaining pitches to Player 1's ghost inputs
+                                    const taken = inningData.playerScores[0].pitches.filter((p:any) => p.points !== null).length;
+                                    const left = 15 - taken;
+                                    return (
                                     <ScoreInput 
-                                        key={`p1-${10+idx}`} pitchNumber={11+idx} value={pitch.points} readOnly={isReadOnly || match.isComplete} 
+                                        key={`p1-${10+idx}`} pitchNumber={11+idx} value={pitch.points} 
+                                        pitchesRemaining={left}
+                                        readOnly={isReadOnly || match.isComplete} 
                                         isEditing={activeCell?.side === side && activeCell.lineupIdx === 0 && activeCell.pitchIdx === 10+idx} 
                                         onOpen={() => setActiveCell({ side, lineupIdx: 0, pitchIdx: 10+idx })} onClose={() => setActiveCell(null)} 
                                         onChange={(val) => handleScoreUpdate(side, 0, 10+idx, val)} 
                                     />
-                                ))}
+                                    );
+                                })}
                                 <div className="w-px h-8 bg-slate-300 mx-1"></div>
-                                {inningData.playerScores[1].pitches.slice(10, 15).map((pitch, idx) => (
+                                {inningData.playerScores[1].pitches.slice(10, 15).map((pitch, idx) => {
+                                    // Logic to pass remaining pitches to Player 2's ghost inputs
+                                    const taken = inningData.playerScores[1].pitches.filter((p:any) => p.points !== null).length;
+                                    const left = 15 - taken;
+                                    return (
                                     <ScoreInput 
-                                        key={`p2-${10+idx}`} pitchNumber={11+idx} value={pitch.points} readOnly={isReadOnly || match.isComplete} 
+                                        key={`p2-${10+idx}`} pitchNumber={11+idx} value={pitch.points} 
+                                        pitchesRemaining={left}
+                                        readOnly={isReadOnly || match.isComplete} 
                                         isEditing={activeCell?.side === side && activeCell.lineupIdx === 1 && activeCell.pitchIdx === 10+idx} 
                                         onOpen={() => setActiveCell({ side, lineupIdx: 1, pitchIdx: 10+idx })} onClose={() => setActiveCell(null)} 
                                         onChange={(val) => handleScoreUpdate(side, 1, 10+idx, val)} 
                                     />
-                                ))}
+                                    );
+                                })}
                             </div>
                         </td>
                         <td className="px-3 py-3 text-center align-middle border-l border-slate-100 bg-slate-50/30">

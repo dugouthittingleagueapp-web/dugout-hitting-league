@@ -105,7 +105,7 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit }) => {
 
   return (
     <div className="min-h-screen bg-slate-100 pb-20">
-      <header className="bg-white border-b border-slate-200 sticky top-[64px] z-30 shadow-sm">
+      <header className="bg-white border-b border-slate-200 sticky top-0 z-30 shadow-sm">
         <div className="max-w-7xl mx-auto px-4 py-3 flex justify-between items-center gap-4">
           <div className="flex gap-4 sm:gap-8 items-center flex-1 overflow-hidden">
             <div className="text-center"><div className="text-[10px] sm:text-xs text-slate-500 uppercase font-bold">Away</div><div className="text-lg sm:text-xl font-bold text-red-700 truncate max-w-[100px]">{teams.away.name}</div><div className="text-xl sm:text-2xl font-mono leading-none">{awayTotal}</div></div>

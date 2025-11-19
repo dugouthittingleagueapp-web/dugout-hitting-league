@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 interface ScoreInputProps {
   pitchNumber: number;
   value: number | null;
+  pitchesRemaining?: number;
   onChange: (val: number) => void;
   readOnly?: boolean;
   isEditing: boolean;
@@ -11,7 +12,7 @@ interface ScoreInputProps {
   onClose: () => void;
 }
 
-export const ScoreInput: React.FC<ScoreInputProps> = ({ pitchNumber, value, onChange, readOnly = false, isEditing, onOpen, onClose }) => {
+export const ScoreInput: React.FC<ScoreInputProps> = ({ pitchNumber, value, pitchesRemaining, onChange, readOnly = false, isEditing, onOpen, onClose }) => {
   const [localValue, setLocalValue] = useState<number | null>(value);
 
   useEffect(() => {
@@ -49,17 +50,16 @@ export const ScoreInput: React.FC<ScoreInputProps> = ({ pitchNumber, value, onCh
 
   return (
     <>
-      <div className="flex flex-col items-center gap-1 min-w-[44px] sm:min-w-[60px]">
-        {/* Reverted to small pill style */}
-        <div className="bg-slate-200 text-slate-500 text-[10px] sm:text-xs font-bold px-1.5 rounded-full select-none">
+      <div className="flex flex-col items-center gap-1 min-w-[40px]">
+        {/* Reverted to small pill style and smaller trigger buttons to fit scoresheet */}
+        <div className="bg-slate-200 text-slate-500 text-[10px] font-bold px-1.5 rounded-full select-none">
             {pitchNumber}
         </div>
         
-        {/* Significantly Increased Button Size */}
         <button
           disabled={readOnly}
           onClick={() => !readOnly && onOpen()}
-          className={`w-14 h-16 text-2xl sm:w-20 sm:h-24 sm:text-4xl rounded-xl flex items-center justify-center font-bold shadow-sm border-2 transition-all duration-150 ${value !== null ? getValueColor(value) : 'border-dashed border-slate-300 hover:border-slate-400 bg-slate-50 text-slate-300'}`}
+          className={`w-10 h-12 sm:w-12 sm:h-14 rounded-lg flex items-center justify-center text-lg sm:text-xl font-bold shadow-sm border-2 transition-all duration-150 ${value !== null ? getValueColor(value) : 'border-dashed border-slate-300 hover:border-slate-400 bg-slate-50 text-slate-300'}`}
         >
           {value !== null ? value : '-'}
         </button>
@@ -68,23 +68,26 @@ export const ScoreInput: React.FC<ScoreInputProps> = ({ pitchNumber, value, onCh
         <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200" onClick={onClose}>
             <div className="bg-white p-6 rounded-2xl shadow-2xl w-[90%] max-w-xs transform scale-100 animate-in zoom-in-95 duration-200" onClick={e => e.stopPropagation()}>
                 <div className="text-center mb-6">
-                    <div className="inline-block bg-blue-100 text-blue-700 text-xs font-bold px-2 py-1 rounded-full mb-2">Pitch #{pitchNumber}</div>
-                    <h3 className="text-lg font-bold text-slate-800">{value !== null ? 'Edit Score' : 'Enter Score'}</h3>
+                    <div className="inline-block bg-blue-100 text-blue-700 text-sm font-bold px-3 py-1 rounded-full mb-2">Pitch #{pitchNumber}</div>
+                    <h3 className="text-2xl font-bold text-slate-800 mb-1">{value !== null ? 'Edit Score' : 'Enter Score'}</h3>
+                    {pitchesRemaining !== undefined && (
+                        <p className="text-slate-500 font-semibold text-base">{pitchesRemaining} Pitches Remaining</p>
+                    )}
                 </div>
                 <div className="grid grid-cols-5 gap-2 sm:gap-3">
                     {[0, 1, 2, 3, 4].map((score) => {
                         const isSelected = value !== null ? localValue === score : value === score;
                         return (
-                          <button key={score} onClick={() => handleSelect(score)} className={`aspect-square rounded-xl text-xl font-bold flex items-center justify-center transition-all active:scale-95 ${getValueColor(score)} ${isSelected ? 'ring-4 ring-offset-2 ring-blue-400 shadow-lg scale-110' : 'hover:brightness-95 shadow-sm'}`}>
+                          <button key={score} onClick={() => handleSelect(score)} className={`aspect-square rounded-xl text-2xl font-bold flex items-center justify-center transition-all active:scale-95 ${getValueColor(score)} ${isSelected ? 'ring-4 ring-offset-2 ring-blue-400 shadow-lg scale-110' : 'hover:brightness-95 shadow-sm'}`}>
                               {score}
                           </button>
                         );
                     })}
                 </div>
                 {value !== null ? (
-                   <button onClick={handleEnter} className="mt-6 w-full py-3 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700 shadow-lg shadow-blue-200 transition-colors">Enter</button>
+                   <button onClick={handleEnter} className="mt-6 w-full py-3 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700 shadow-lg shadow-blue-200 transition-colors text-lg">Enter</button>
                 ) : (
-                   <button onClick={onClose} className="mt-6 w-full py-3 bg-slate-100 text-slate-600 font-bold rounded-xl hover:bg-slate-200 transition-colors">Cancel</button>
+                   <button onClick={onClose} className="mt-6 w-full py-3 bg-slate-100 text-slate-600 font-bold rounded-xl hover:bg-slate-200 transition-colors text-lg">Cancel</button>
                 )}
             </div>
         </div>

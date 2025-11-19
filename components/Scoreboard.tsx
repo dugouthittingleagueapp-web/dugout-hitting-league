@@ -256,11 +256,7 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
                                 {isGhostRow ? <span className="italic text-slate-400">Player 3</span> : (player ? player.name : 'Unknown')}
                             </span>
                         </div>
-                        {!match.isComplete && pitchesLeft > 0 && (
-                            <div className="text-[10px] font-black text-slate-500 bg-slate-200 px-1.5 py-0.5 rounded ml-6 sm:ml-0 whitespace-nowrap">
-                                {pitchesLeft} Left
-                            </div>
-                        )}
+                        {/* Removed Pitches Left from here, moving to Modal */}
                     </div>
                 </td>
                 <td className="px-2 py-3">
@@ -274,6 +270,7 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
                                     key={realPitchIdx} 
                                     pitchNumber={displayNum} 
                                     value={pitch.points} 
+                                    pitchesRemaining={pitchesLeft}
                                     readOnly={isReadOnly || match.isComplete} 
                                     isEditing={activeCell?.side === side && activeCell.lineupIdx === lineupIdx && activeCell.pitchIdx === realPitchIdx} 
                                     onOpen={() => setActiveCell({ side, lineupIdx, pitchIdx: realPitchIdx })} 

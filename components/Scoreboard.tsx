@@ -245,7 +245,7 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
                                     return (
                                         <ScoreInput 
                                             key={`p1-${realPitchIdx}`} 
-                                            pitchNumber={idx + 1} 
+                                            pitchNumber={realPitchIdx + 1} // Display as 11, 12, 13, 14, 15
                                             value={pitch.points} 
                                             readOnly={isReadOnly || match.isComplete} 
                                             isEditing={activeCell?.side === side && activeCell.lineupIdx === 0 && activeCell.pitchIdx === realPitchIdx} 
@@ -265,7 +265,7 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
                                     return (
                                         <ScoreInput 
                                             key={`p2-${realPitchIdx}`} 
-                                            pitchNumber={idx + 6} 
+                                            pitchNumber={realPitchIdx + 1} // Display as 11, 12, 13, 14, 15
                                             value={pitch.points} 
                                             readOnly={isReadOnly || match.isComplete} 
                                             isEditing={activeCell?.side === side && activeCell.lineupIdx === 1 && activeCell.pitchIdx === realPitchIdx} 

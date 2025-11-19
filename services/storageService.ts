@@ -198,6 +198,43 @@ export const exportData = async () => {
   return JSON.stringify({ teams, matches }, null, 2);
 };
 
+// GHOST PLAYER CONSTANTS
+const GHOST_PLAYER_ID = 'ghost-player-3';
+const GHOST_PLAYER_NAME = 'Player 3 (Team Stats)';
+
+// Helper to process stats for a single player entry
+// Handles redirecting pitches 11-15 (indices 10-14) to Ghost Player
+const processPlayerStats = (statsMap: Map<string, PlayerStats>, playerId: string, pitches: { points: number | null }[]) => {
+    pitches.forEach((pitch, pitchIndex) => {
+        if (pitch.points !== null) {
+            let targetId = playerId;
+            
+            // Redirect logic: If index >= 10 (11th pitch), assign to Ghost Player
+            if (pitchIndex >= 10) {
+                targetId = GHOST_PLAYER_ID;
+                // Ensure Ghost Player entry exists
+                if (!statsMap.has(GHOST_PLAYER_ID)) {
+                    statsMap.set(GHOST_PLAYER_ID, {
+                        playerId: GHOST_PLAYER_ID,
+                        name: GHOST_PLAYER_NAME,
+                        totalPoints: 0, hits4: 0, hits3: 0, hits2: 0, hits1: 0, pitchesSeen: 0
+                    });
+                }
+            }
+
+            const stats = statsMap.get(targetId);
+            if (stats) {
+                stats.pitchesSeen++;
+                stats.totalPoints += pitch.points;
+                if (pitch.points === 4) stats.hits4++;
+                if (pitch.points === 3) stats.hits3++;
+                if (pitch.points === 2) stats.hits2++;
+                if (pitch.points === 1) stats.hits1++;
+            }
+        }
+    });
+};
+
 // Stats Calculation
 export const calculateMatchStats = (match: Match, homeTeam: Team, awayTeam: Team): PlayerStats[] => {
     const statsMap = new Map<string, PlayerStats>();
@@ -221,19 +258,17 @@ export const calculateMatchStats = (match: Match, homeTeam: Team, awayTeam: Team
         const processSide = (side: 'home'|'away') => {
             const teamData = side === 'home' ? inning.home : inning.away;
             teamData.playerScores.forEach(ps => {
-                const stats = statsMap.get(ps.playerId);
-                if (stats) {
-                    ps.pitches.forEach(pitch => {
-                        if (pitch.points !== null) {
-                            stats.pitchesSeen++;
-                            stats.totalPoints += pitch.points;
-                            if (pitch.points === 4) stats.hits4++;
-                            if (pitch.points === 3) stats.hits3++;
-                            if (pitch.points === 2) stats.hits2++;
-                            if (pitch.points === 1) stats.hits1++;
-                        }
+                // Make sure we have a base entry for this player if they were a sub
+                if (!statsMap.has(ps.playerId)) {
+                     // Try to find name in match context if possible, otherwise Unknown
+                     // In a real scenario we might fetch team again, but for now we init basic
+                     statsMap.set(ps.playerId, {
+                        playerId: ps.playerId,
+                        name: 'Substitute / Unknown', 
+                        totalPoints: 0, hits4: 0, hits3: 0, hits2: 0, hits1: 0, pitchesSeen: 0
                     });
                 }
+                processPlayerStats(statsMap, ps.playerId, ps.pitches);
             });
         };
         processSide('home');
@@ -270,19 +305,17 @@ export const getTeamStats = async (team: Team, league: AgeGroup, season: string)
       else if (inning.away.teamId === team.id) teamScores = inning.away.playerScores;
 
       teamScores.forEach(ps => {
-        const stats = statsMap.get(ps.playerId);
-        if (stats) {
-          ps.pitches.forEach(pitch => {
-            if (pitch.points !== null) {
-              stats.pitchesSeen++;
-              stats.totalPoints += pitch.points;
-              if (pitch.points === 4) stats.hits4++;
-              if (pitch.points === 3) stats.hits3++;
-              if (pitch.points === 2) stats.hits2++;
-              if (pitch.points === 1) stats.hits1++;
-            }
-          });
+        // Handle Subs that might not be in original team roster iteration
+        if (!statsMap.has(ps.playerId)) {
+            // We try to find them in the current team object (maybe updated)
+            const pName = team.players.find(p => p.id === ps.playerId)?.name || 'Unknown Sub';
+            statsMap.set(ps.playerId, {
+                playerId: ps.playerId,
+                name: pName,
+                totalPoints: 0, hits4: 0, hits3: 0, hits2: 0, hits1: 0, pitchesSeen: 0
+            });
         }
+        processPlayerStats(statsMap, ps.playerId, ps.pitches);
       });
     });
   });
@@ -291,7 +324,7 @@ export const getTeamStats = async (team: Team, league: AgeGroup, season: string)
 };
 
 // Admin / Settings
-export const verifyAdminPassword = async (password: string): Promise<boolean> => {
+export const verifyPassword = async (password: string): Promise<{ success: boolean; role: 'admin' | 'umpire' | null }> => {
   try {
     const res = await fetch('/api/settings', {
       method: 'POST',
@@ -300,22 +333,34 @@ export const verifyAdminPassword = async (password: string): Promise<boolean> =>
     });
     if (res.ok) {
       const data = await res.json();
-      return data.success;
+      // API returns { success: true, role: 'admin' | 'umpire' }
+      return { success: true, role: data.role };
     }
-    return false;
+    return { success: false, role: null };
   } catch (e) {
     console.error(e);
-    return false;
+    return { success: false, role: null };
   }
 };
 
+// Specifically updates Admin password
 export const updateAdminPassword = async (password: string): Promise<void> => {
   const res = await fetch('/api/settings', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ action: 'update_password', password })
   });
-  if (!res.ok) throw new Error("Failed to update password");
+  if (!res.ok) throw new Error("Failed to update admin password");
+};
+
+// Specifically updates Umpire password
+export const updateUmpirePassword = async (password: string): Promise<void> => {
+  const res = await fetch('/api/settings', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ action: 'update_umpire_password', password })
+  });
+  if (!res.ok) throw new Error("Failed to update umpire password");
 };
 
 export const getCurrentSeason = async (): Promise<string> => {

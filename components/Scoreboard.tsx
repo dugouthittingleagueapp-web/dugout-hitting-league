@@ -6,9 +6,10 @@ import { ScoreInput } from './ScoreInput';
 interface ScoreboardProps {
   matchId: string;
   onExit: () => void;
+  isReadOnly?: boolean; // For Fans
 }
 
-export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit }) => {
+export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadOnly = false }) => {
   const [match, setMatch] = useState<Match | null>(null);
   const [teams, setTeams] = useState<{ home?: Team, away?: Team }>({});
   const [activeInningIdx, setActiveInningIdx] = useState(0);
@@ -16,19 +17,34 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit }) => {
   const [loading, setLoading] = useState(true);
   const [activeCell, setActiveCell] = useState<{ side: 'home' | 'away'; lineupIdx: number; pitchIdx: number; } | null>(null);
 
-  useEffect(() => {
-    const loadMatchData = async () => {
-      setLoading(true);
+  const loadMatchData = async () => {
       const m = await storage.getMatch(matchId);
       if (m) {
         const allTeams = await storage.getAllTeams();
         setMatch(m);
         setTeams({ home: allTeams.find(t => t.id === m.homeTeamId), away: allTeams.find(t => t.id === m.awayTeamId) });
       }
-      setLoading(false);
+  };
+
+  // Initial Load
+  useEffect(() => {
+    const init = async () => {
+        setLoading(true);
+        await loadMatchData();
+        setLoading(false);
     };
-    loadMatchData();
+    init();
   }, [matchId]);
+
+  // Polling for Fans (Read Only Mode) - Updates every 5 seconds
+  useEffect(() => {
+      if (!isReadOnly) return;
+      
+      const interval = setInterval(() => {
+          loadMatchData();
+      }, 5000);
+      return () => clearInterval(interval);
+  }, [matchId, isReadOnly]);
 
   if (loading) return <div className="flex items-center justify-center h-screen text-slate-400 font-bold">Loading Match Data...</div>;
   if (!match || !teams.home || !teams.away) return <div className="text-center p-8">Error loading match</div>;
@@ -36,6 +52,8 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit }) => {
   const currentInning = match.innings[activeInningIdx];
 
   const handleScoreUpdate = async (side: 'home' | 'away', lineupIdx: number, pitchIdx: number, val: number) => {
+    if (isReadOnly) return;
+
     // Check if this was an edit of an existing score
     const existingValue = match.innings[activeInningIdx][side].playerScores[lineupIdx].pitches[pitchIdx].points;
     const isEdit = existingValue !== null;
@@ -61,6 +79,7 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit }) => {
   };
 
   const confirmCompleteGame = async () => {
+    if (isReadOnly) return;
     const newMatch = { ...match, isComplete: true };
     setMatch(newMatch);
     await storage.updateMatch(newMatch);
@@ -69,6 +88,7 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit }) => {
   };
 
   const handleRestoreRoster = async (side: 'home' | 'away') => {
+    if (isReadOnly) return;
     const team = side === 'home' ? teams.home : teams.away;
     if (!team) return;
     
@@ -103,7 +123,7 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit }) => {
     // Check if team is short-handed (2 players) while full roster is bigger (3)
     // Only allow restore in Innings 2-6 (index 1-5)
     const isShortHanded = inningData.playerScores.length < team.players.length;
-    const canRestore = isShortHanded && activeInningIdx >= 1;
+    const canRestore = !isReadOnly && isShortHanded && activeInningIdx >= 1;
 
     return (
       <div className="mb-8">
@@ -139,7 +159,7 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit }) => {
                     <td className="px-2 py-3">
                         <div className="flex gap-1 sm:gap-2 justify-start">
                             {playerScore.pitches.map((pitch, pitchIdx) => (
-                                <ScoreInput key={pitchIdx} pitchNumber={pitchIdx + 1} value={pitch.points} readOnly={match.isComplete} isEditing={activeCell?.side === side && activeCell.lineupIdx === lineupIdx && activeCell.pitchIdx === pitchIdx} onOpen={() => setActiveCell({ side, lineupIdx, pitchIdx })} onClose={() => setActiveCell(null)} onChange={(val) => handleScoreUpdate(side, lineupIdx, pitchIdx, val)} />
+                                <ScoreInput key={pitchIdx} pitchNumber={pitchIdx + 1} value={pitch.points} readOnly={isReadOnly || match.isComplete} isEditing={activeCell?.side === side && activeCell.lineupIdx === lineupIdx && activeCell.pitchIdx === pitchIdx} onOpen={() => setActiveCell({ side, lineupIdx, pitchIdx })} onClose={() => setActiveCell(null)} onChange={(val) => handleScoreUpdate(side, lineupIdx, pitchIdx, val)} />
                             ))}
                         </div>
                     </td>
@@ -166,14 +186,16 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit }) => {
             <div className="text-center"><div className="text-[10px] sm:text-xs text-slate-500 uppercase font-bold">Home</div><div className="text-lg sm:text-xl font-bold text-blue-700 truncate max-w-[100px]">{teams.home.name}</div><div className="text-xl sm:text-2xl font-mono leading-none">{homeTotal}</div></div>
           </div>
           <div className="flex items-center gap-2">
-            {!match.isComplete && <button onClick={() => setShowFinishModal(true)} className="bg-green-600 hover:bg-green-700 text-white text-xs sm:text-sm font-bold py-2 px-3 sm:px-4 rounded-lg shadow-sm transition-colors">Complete Game</button>}
+            {isReadOnly && <div className="flex items-center gap-1.5 bg-red-50 text-red-600 px-3 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-wider animate-pulse"><span className="w-2 h-2 rounded-full bg-red-600"></span>LIVE</div>}
+
+            {!isReadOnly && !match.isComplete && <button onClick={() => setShowFinishModal(true)} className="bg-green-600 hover:bg-green-700 text-white text-xs sm:text-sm font-bold py-2 px-3 sm:px-4 rounded-lg shadow-sm transition-colors">Complete Game</button>}
             <button onClick={onExit} className="text-xs sm:text-sm font-bold text-slate-500 hover:text-slate-800 bg-slate-100 hover:bg-slate-200 py-2 px-3 rounded-lg transition-colors">Exit</button>
           </div>
         </div>
         <div className="flex overflow-x-auto scrollbar-hide border-t border-slate-100">{match.innings.map((ing, idx) => (<button key={ing.number} onClick={() => setActiveInningIdx(idx)} className={`flex-1 py-3 text-sm font-bold uppercase tracking-wider border-b-2 transition-colors min-w-[80px] ${idx === activeInningIdx ? 'border-blue-600 text-blue-600 bg-blue-50/50' : 'border-transparent text-slate-400 hover:text-slate-600 hover:bg-slate-50'}`}>Inning {ing.number}</button>))}</div>
       </header>
       <main className="max-w-5xl mx-auto p-4 mt-4">{renderTeamSection('away', teams.away)}{renderTeamSection('home', teams.home)}</main>
-      {showFinishModal && (
+      {showFinishModal && !isReadOnly && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
             <div className="bg-white p-6 rounded-2xl shadow-2xl max-w-sm w-[90%] transform scale-100 animate-in zoom-in-95 duration-200">
                 <div className="mb-4 text-center"><h3 className="text-xl font-bold text-slate-800">Finalize Game?</h3><p className="text-slate-500 mt-2 text-sm">Are you sure you want to finalize this game?</p></div>

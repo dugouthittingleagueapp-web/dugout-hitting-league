@@ -19,11 +19,11 @@ const App: React.FC = () => {
   // Dashboard View State
   const [dashboardTab, setDashboardTab] = useState<'matches' | 'standings'>('matches');
 
-  // Admin Auth State
-  const [isAdminAuthenticated, setIsAdminAuthenticated] = useState(false);
-  const [showAdminLogin, setShowAdminLogin] = useState(false);
-  const [adminPasswordInput, setAdminPasswordInput] = useState('');
-  const [loginError, setLoginError] = useState(false);
+  // Role / Auth State
+  const [userRole, setUserRole] = useState<'fan' | 'umpire' | 'admin'>('fan');
+  const [showLoginModal, setShowLoginModal] = useState(false);
+  const [passwordInput, setPasswordInput] = useState('');
+  const [loginError, setLoginError] = useState('');
 
   // Match Stats Modal
   const [statsModalMatch, setStatsModalMatch] = useState<Match | null>(null);
@@ -53,8 +53,31 @@ const App: React.FC = () => {
     if (!state.currentLeague) return;
     try {
         setLoading(true);
+
+        // 1. Check for Substitutes (Players in lineup NOT in the DB team roster)
+        // We must sync them to the DB Team so their names appear correctly in the Scoreboard/Stats
+        const syncSubs = async (teamId: string, lineup: Player[]) => {
+            const team = teams.find(t => t.id === teamId);
+            if (!team) return;
+            
+            const newPlayers = lineup.filter(p => !team.players.find(tp => tp.id === p.id));
+            if (newPlayers.length > 0) {
+                // Found subs, update the team record
+                const updatedTeam = { ...team, players: [...team.players, ...newPlayers] };
+                await storage.updateTeam(updatedTeam);
+                // Update local state immediately so UI doesn't flicker
+                setTeams(prev => prev.map(t => t.id === teamId ? updatedTeam : t));
+            }
+        };
+
+        await Promise.all([
+            syncSubs(finalHomeId, homeLineup),
+            syncSubs(finalAwayId, awayLineup)
+        ]);
+
         const homeIds = homeLineup.map(p => p.id);
         const awayIds = awayLineup.map(p => p.id);
+        
         // Pass the specifically selected IDs (allows for swapping in MatchSetup)
         const newMatch = await storage.createMatch(state.currentLeague, finalHomeId, finalAwayId, homeIds, awayIds, state.season);
         
@@ -95,64 +118,57 @@ const App: React.FC = () => {
       setState({ ...state, view: 'dashboard', currentLeague: leagueId, currentMatchId: null });
   };
 
-  // Admin Login Logic
-  const requestAdminAccess = () => {
-    if (isAdminAuthenticated) {
-      setState({ ...state, view: 'admin' });
+  // Auth Logic
+  const requestLogin = () => {
+    if (userRole !== 'fan') {
+      // Admin or Umpire clicking "Admin" button (which is renamed to Log Out or Admin based on role)
+      if (userRole === 'admin') {
+          setState({ ...state, view: 'admin' });
+      }
     } else {
-      setShowAdminLogin(true);
-      setAdminPasswordInput('');
-      setLoginError(false);
+      setShowLoginModal(true);
+      setPasswordInput('');
+      setLoginError('');
     }
   };
 
-  const handleAdminLoginSubmit = async (e: React.FormEvent) => {
+  const handleLogout = () => {
+      setUserRole('fan');
+      setState({...state, view: 'league_select'}); // Reset to home
+  };
+
+  const handleLoginSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    const isValid = await storage.verifyAdminPassword(adminPasswordInput);
+    const result = await storage.verifyPassword(passwordInput);
     setLoading(false);
-    if (isValid) {
-      setIsAdminAuthenticated(true);
-      setShowAdminLogin(false);
-      setState({ ...state, view: 'admin' });
+    
+    if (result.success && result.role) {
+      setUserRole(result.role); // 'admin' or 'umpire'
+      setShowLoginModal(false);
+      // If admin, maybe go to admin view? If umpire, just stay here but unlock features.
+      if (result.role === 'admin') setState({...state, view: 'admin'}); 
     } else {
-      setLoginError(true);
+      setLoginError('Incorrect password.');
     }
   };
 
   // --- STANDINGS CALCULATION ---
   const calculateStandings = () => {
     const stats: Record<string, { wins: number; losses: number; ties: number; pf: number; pa: number }> = {};
-    
-    // Initialize
-    teams.forEach(t => {
-        stats[t.id] = { wins: 0, losses: 0, ties: 0, pf: 0, pa: 0 };
-    });
+    teams.forEach(t => { stats[t.id] = { wins: 0, losses: 0, ties: 0, pf: 0, pa: 0 }; });
 
     matches.forEach(m => {
-        if (!m.isComplete) return; // Only count finished games
-
-        // Calculate total scores
+        if (!m.isComplete) return; 
         const getScore = (side: 'home' | 'away') => {
             const sideData = side === 'home' ? m.innings.map(i => i.home) : m.innings.map(i => i.away);
-            return sideData.reduce((acc, inning) => 
-                acc + inning.playerScores.reduce((pAcc, p) => 
-                    pAcc + p.pitches.reduce((pitchAcc, pitch) => pitchAcc + (pitch.points || 0), 0)
-                , 0)
-            , 0);
+            return sideData.reduce((acc, inning) => acc + inning.playerScores.reduce((pAcc, p) => pAcc + p.pitches.reduce((pitchAcc, pitch) => pitchAcc + (pitch.points || 0), 0), 0), 0);
         };
-
         const homeScore = getScore('home');
         const awayScore = getScore('away');
 
-        if (stats[m.homeTeamId]) {
-            stats[m.homeTeamId].pf += homeScore;
-            stats[m.homeTeamId].pa += awayScore;
-        }
-        if (stats[m.awayTeamId]) {
-            stats[m.awayTeamId].pf += awayScore;
-            stats[m.awayTeamId].pa += homeScore;
-        }
+        if (stats[m.homeTeamId]) { stats[m.homeTeamId].pf += homeScore; stats[m.homeTeamId].pa += awayScore; }
+        if (stats[m.awayTeamId]) { stats[m.awayTeamId].pf += awayScore; stats[m.awayTeamId].pa += homeScore; }
 
         if (homeScore > awayScore) {
             if (stats[m.homeTeamId]) stats[m.homeTeamId].wins++;
@@ -166,52 +182,54 @@ const App: React.FC = () => {
         }
     });
 
-    return teams.map(t => ({
-        ...t,
-        stats: stats[t.id] || { wins: 0, losses: 0, ties: 0, pf: 0, pa: 0 }
-    })).sort((a, b) => {
-        // Sort by Wins, then Points For
+    return teams.map(t => ({ ...t, stats: stats[t.id] || { wins: 0, losses: 0, ties: 0, pf: 0, pa: 0 } })).sort((a, b) => {
         if (b.stats.wins !== a.stats.wins) return b.stats.wins - a.stats.wins;
         return b.stats.pf - a.stats.pf;
     });
   };
 
+  // --- RENDER ---
+
+  // Helper: Get Navbar props
+  const navbarProps = {
+      currentLeague: state.currentLeague,
+      currentSeason: state.season,
+      leagues: leagues,
+      onGoHome: () => setState({ ...state, view: 'dashboard' }),
+      onSwitchLeague: () => setState({ ...state, view: 'league_select', currentLeague: null, currentMatchId: null }),
+      onSelectLeague: handleSelectLeague,
+      onAdmin: requestLogin, // This button triggers Login
+      onSeasonChange: handleSeasonChange
+  };
+
+  // We override the "Admin" button label in Navbar component if we could, but since it's a component, 
+  // let's handle the button logic inside Navbar or just let it be 'Admin' for now (simpler to keep component as is).
+  // Actually, better to pass a different label? Navbar takes onAdmin.
+  // Let's hack the Navbar prop slightly if we want to change text, or just accept "Admin" implies "Manager Access".
+
   if (state.view === 'league_select') {
-    // Sort leagues naturally (9u before 10u, A before B)
-    const sortedLeagues = [...leagues].sort((a, b) => 
-        a.id.localeCompare(b.id, undefined, { numeric: true, sensitivity: 'base' })
-    );
+    const sortedLeagues = [...leagues].sort((a, b) => a.id.localeCompare(b.id, undefined, { numeric: true, sensitivity: 'base' }));
 
     return (
       <div className="min-h-screen bg-slate-900 flex flex-col items-center justify-center p-4">
-        <Navbar 
-          currentLeague={null} 
-          currentSeason={state.season} 
-          leagues={leagues} 
-          onGoHome={() => {}} 
-          onSwitchLeague={() => {}} 
-          onSelectLeague={handleSelectLeague}
-          onAdmin={requestAdminAccess} 
-          onSeasonChange={handleSeasonChange} 
-        />
+        <Navbar {...navbarProps} />
         
         <div className="text-center mb-8 mt-12">
             <h1 className="text-4xl font-bold text-white tracking-tight mb-2">Dugout Hitting League</h1>
-            <p className="text-slate-400 text-lg">Select a league to manage <span className="text-blue-400 font-bold">{state.season}</span> season</p>
+            <p className="text-slate-400 text-lg">Select a league to view <span className="text-blue-400 font-bold">{state.season}</span> season</p>
+            {userRole === 'fan' && <p className="text-xs text-slate-500 mt-2">Read-Only Fan Mode</p>}
+            {userRole !== 'fan' && <div className="mt-2"><span className="bg-blue-600 text-white px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider">Logged in as {userRole}</span> <button onClick={handleLogout} className="text-xs text-slate-400 hover:text-white ml-2 underline">Log Out</button></div>}
         </div>
         
         {leagues.length === 0 ? (
             <div className="text-center bg-slate-800 p-8 rounded-xl border border-slate-700 max-w-md">
                 <p className="text-slate-300 mb-4">No leagues found.</p>
-                <button onClick={requestAdminAccess} className="px-4 py-2 bg-blue-600 text-white rounded-lg font-bold hover:bg-blue-500 transition-colors">Create Your First League in Admin</button>
+                <button onClick={requestLogin} className="px-4 py-2 bg-blue-600 text-white rounded-lg font-bold hover:bg-blue-500 transition-colors">Log In to Create League</button>
             </div>
         ) : (
             <div className="flex flex-wrap justify-center gap-6 w-full max-w-6xl px-4">
             {sortedLeagues.map(league => (
-                <button key={league.id} 
-                    onClick={() => handleSelectLeague(league.id)} 
-                    className="bg-white hover:bg-slate-50 text-slate-900 p-6 rounded-2xl shadow-2xl transition-transform hover:scale-105 group w-full sm:w-64 aspect-[4/3] sm:aspect-square flex flex-col items-center justify-center"
-                >
+                <button key={league.id} onClick={() => handleSelectLeague(league.id)} className="bg-white hover:bg-slate-50 text-slate-900 p-6 rounded-2xl shadow-2xl transition-transform hover:scale-105 group w-full sm:w-64 aspect-[4/3] sm:aspect-square flex flex-col items-center justify-center">
                     <span className="block text-3xl sm:text-4xl font-black mb-2 group-hover:text-blue-600 transition-colors uppercase text-center w-full break-words leading-tight">{league.id}</span>
                     <span className="block text-xs font-bold text-slate-400 uppercase tracking-widest whitespace-nowrap">{state.season} Season</span>
                 </button>
@@ -219,24 +237,18 @@ const App: React.FC = () => {
             </div>
         )}
         
-        {showAdminLogin && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm animate-in fade-in duration-200" onClick={() => setShowAdminLogin(false)}>
+        {/* Login Modal */}
+        {showLoginModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm animate-in fade-in duration-200" onClick={() => setShowLoginModal(false)}>
             <div className="bg-white p-8 rounded-2xl shadow-2xl w-full max-w-sm transform scale-100 animate-in zoom-in-95 duration-200" onClick={e => e.stopPropagation()}>
-              <h3 className="text-xl font-bold text-slate-800 mb-4 text-center">Admin Access</h3>
-              <form onSubmit={handleAdminLoginSubmit}>
+              <h3 className="text-xl font-bold text-slate-800 mb-4 text-center">League Access</h3>
+              <form onSubmit={handleLoginSubmit}>
                 <div className="mb-4">
-                  <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Password</label>
-                  <input 
-                    type="password" 
-                    autoFocus
-                    className={`w-full border rounded-lg px-4 py-3 text-lg outline-none focus:ring-2 ${loginError ? 'border-red-300 focus:ring-red-200' : 'border-slate-300 focus:ring-blue-200'}`}
-                    value={adminPasswordInput} 
-                    onChange={e => setAdminPasswordInput(e.target.value)} 
-                    placeholder="Enter password"
-                  />
-                  {loginError && <p className="text-red-500 text-xs mt-2 font-bold">Incorrect password. Try 'admin'.</p>}
+                  <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Password (Umpire or Admin)</label>
+                  <input type="password" autoFocus className={`w-full border rounded-lg px-4 py-3 text-lg outline-none focus:ring-2 ${loginError ? 'border-red-300 focus:ring-red-200' : 'border-slate-300 focus:ring-blue-200'}`} value={passwordInput} onChange={e => setPasswordInput(e.target.value)} placeholder="Enter password" />
+                  {loginError && <p className="text-red-500 text-xs mt-2 font-bold">{loginError}</p>}
                 </div>
-                <button type="submit" disabled={loading} className="w-full bg-slate-900 text-white font-bold py-3 rounded-lg hover:bg-slate-800 transition-colors">{loading ? 'Verifying...' : 'Unlock Admin'}</button>
+                <button type="submit" disabled={loading} className="w-full bg-slate-900 text-white font-bold py-3 rounded-lg hover:bg-slate-800 transition-colors">{loading ? 'Verifying...' : 'Log In'}</button>
               </form>
             </div>
           </div>
@@ -250,24 +262,19 @@ const App: React.FC = () => {
     const awayTeam = teams.find(t => t.id === selectedAwayId);
     if (homeTeam && awayTeam) return <MatchSetup homeTeam={homeTeam} awayTeam={awayTeam} onStart={handleStartGame} onCancel={() => setState({ ...state, view: 'dashboard' })} />;
   }
-  if (state.view === 'scoring' && state.currentMatchId) return <Scoreboard matchId={state.currentMatchId} onExit={() => setState({ ...state, view: 'dashboard', currentMatchId: null })} />;
+  // Pass isReadOnly to Scoreboard if user is a Fan
+  if (state.view === 'scoring' && state.currentMatchId) return <Scoreboard matchId={state.currentMatchId} onExit={() => setState({ ...state, view: 'dashboard', currentMatchId: null })} isReadOnly={userRole === 'fan'} />;
   if (state.view === 'team_management' && state.currentLeague) return <TeamManagement league={state.currentLeague} season={state.season} onBack={() => setState({ ...state, view: 'dashboard' })} />;
 
   return (
     <div className="min-h-screen bg-slate-50">
-      <Navbar 
-        currentLeague={state.currentLeague} 
-        currentSeason={state.season} 
-        leagues={leagues} 
-        onGoHome={() => setState({ ...state, view: 'dashboard' })} 
-        onSwitchLeague={() => setState({ ...state, view: 'league_select', currentLeague: null, currentMatchId: null })} 
-        onSelectLeague={handleSelectLeague}
-        onAdmin={requestAdminAccess} 
-        onSeasonChange={handleSeasonChange} 
-      />
+      <Navbar {...navbarProps} />
       <main className="max-w-7xl mx-auto p-4 sm:p-8">
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            {/* Left Column: Controls */}
+        {/* Layout changes based on role. Fan = Full width. Manager = 2 cols. */}
+        <div className={`grid grid-cols-1 ${userRole !== 'fan' ? 'lg:grid-cols-3' : ''} gap-8`}>
+            
+            {/* Left Column: Controls (Hidden for Fans) */}
+            {userRole !== 'fan' && (
             <div className="space-y-6">
                 <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
                     <h2 className="text-lg font-bold text-slate-700 mb-4">League Status ({state.season})</h2>
@@ -282,23 +289,18 @@ const App: React.FC = () => {
                         <button disabled={!selectedHomeId || !selectedAwayId} onClick={() => setState({ ...state, view: 'match_setup' })} className="w-full bg-white text-blue-600 font-bold py-3 rounded-lg mt-4 hover:bg-blue-50 disabled:opacity-50 transition-colors">Next: Set Lineup</button>
                     </div>
                 </div>
+                <div className="text-center">
+                     <span className="bg-slate-200 text-slate-600 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider">Role: {userRole}</span>
+                     <button onClick={handleLogout} className="text-xs text-red-400 hover:text-red-600 ml-2 underline">Log Out</button>
+                </div>
             </div>
+            )}
 
             {/* Right Column: Content Tabs */}
-            <div className="lg:col-span-2">
+            <div className={`${userRole !== 'fan' ? 'lg:col-span-2' : 'col-span-1'}`}>
                 <div className="flex items-center gap-4 mb-6 border-b border-slate-200 pb-1">
-                    <button 
-                        onClick={() => setDashboardTab('matches')}
-                        className={`text-xl font-bold pb-2 px-2 transition-colors border-b-2 ${dashboardTab === 'matches' ? 'text-slate-800 border-blue-600' : 'text-slate-400 border-transparent hover:text-slate-600'}`}
-                    >
-                        Match History
-                    </button>
-                    <button 
-                        onClick={() => setDashboardTab('standings')}
-                        className={`text-xl font-bold pb-2 px-2 transition-colors border-b-2 ${dashboardTab === 'standings' ? 'text-slate-800 border-blue-600' : 'text-slate-400 border-transparent hover:text-slate-600'}`}
-                    >
-                        Standings
-                    </button>
+                    <button onClick={() => setDashboardTab('matches')} className={`text-xl font-bold pb-2 px-2 transition-colors border-b-2 ${dashboardTab === 'matches' ? 'text-slate-800 border-blue-600' : 'text-slate-400 border-transparent hover:text-slate-600'}`}>Match History</button>
+                    <button onClick={() => setDashboardTab('standings')} className={`text-xl font-bold pb-2 px-2 transition-colors border-b-2 ${dashboardTab === 'standings' ? 'text-slate-800 border-blue-600' : 'text-slate-400 border-transparent hover:text-slate-600'}`}>Standings</button>
                 </div>
 
                 {dashboardTab === 'matches' && (
@@ -319,8 +321,14 @@ const App: React.FC = () => {
                                     </div>
                                     <div className="flex gap-2 w-full sm:w-auto justify-end">
                                     <button onClick={() => handleOpenMatchStats(match)} className="flex-1 sm:flex-none text-center px-3 py-2 rounded border border-slate-200 text-blue-600 hover:bg-blue-50 font-medium text-xs sm:text-sm transition-colors">Stats</button>
-                                    <button onClick={() => setState({ ...state, view: 'scoring', currentMatchId: match.id })} className="flex-1 sm:flex-none text-center px-3 py-2 rounded border border-slate-200 text-slate-600 hover:bg-slate-50 font-medium text-xs sm:text-sm transition-colors">{match.isComplete ? 'View' : 'Resume'}</button>
-                                    <button onClick={() => handleDeleteMatch(match.id)} className="flex-initial px-3 py-2 rounded border border-slate-200 text-red-500 hover:bg-red-50 font-medium text-xs sm:text-sm transition-colors">Delete</button>
+                                    
+                                    {/* VIEW Logic: Fan = View Live (Read Only). Umpire/Admin = Resume/Score. */}
+                                    <button onClick={() => setState({ ...state, view: 'scoring', currentMatchId: match.id })} className="flex-1 sm:flex-none text-center px-3 py-2 rounded border border-slate-200 text-slate-600 hover:bg-slate-50 font-medium text-xs sm:text-sm transition-colors">
+                                        {userRole === 'fan' ? (match.isComplete ? 'View' : 'Watch Live') : (match.isComplete ? 'View' : 'Score')}
+                                    </button>
+                                    
+                                    {/* DELETE Logic: Only Admin can delete. */}
+                                    {userRole === 'admin' && <button onClick={() => handleDeleteMatch(match.id)} className="flex-initial px-3 py-2 rounded border border-slate-200 text-red-500 hover:bg-red-50 font-medium text-xs sm:text-sm transition-colors">Delete</button>}
                                     </div>
                                 </div>
                             );
@@ -356,9 +364,7 @@ const App: React.FC = () => {
                                             <td className="px-4 py-3 text-center font-mono text-slate-400">{t.stats.pa}</td>
                                         </tr>
                                     ))}
-                                    {teams.length === 0 && (
-                                        <tr><td colSpan={7} className="p-8 text-center text-slate-400 italic">No teams in this league.</td></tr>
-                                    )}
+                                    {teams.length === 0 && <tr><td colSpan={7} className="p-8 text-center text-slate-400 italic">No teams in this league.</td></tr>}
                                 </tbody>
                             </table>
                         </div>
@@ -367,25 +373,18 @@ const App: React.FC = () => {
             </div>
         </div>
         
-        {/* Reusable Admin Login */}
-        {showAdminLogin && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm animate-in fade-in duration-200" onClick={() => setShowAdminLogin(false)}>
+        {/* Login Modal */}
+        {showLoginModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm animate-in fade-in duration-200" onClick={() => setShowLoginModal(false)}>
             <div className="bg-white p-8 rounded-2xl shadow-2xl w-full max-w-sm transform scale-100 animate-in zoom-in-95 duration-200" onClick={e => e.stopPropagation()}>
-              <h3 className="text-xl font-bold text-slate-800 mb-4 text-center">Admin Access</h3>
-              <form onSubmit={handleAdminLoginSubmit}>
+              <h3 className="text-xl font-bold text-slate-800 mb-4 text-center">Access Control</h3>
+              <p className="text-sm text-slate-500 mb-4 text-center">Enter password for Umpire or Admin access.</p>
+              <form onSubmit={handleLoginSubmit}>
                 <div className="mb-4">
-                  <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Password</label>
-                  <input 
-                    type="password" 
-                    autoFocus
-                    className={`w-full border rounded-lg px-4 py-3 text-lg outline-none focus:ring-2 ${loginError ? 'border-red-300 focus:ring-red-200' : 'border-slate-300 focus:ring-blue-200'}`}
-                    value={adminPasswordInput} 
-                    onChange={e => setAdminPasswordInput(e.target.value)} 
-                    placeholder="Enter password"
-                  />
-                  {loginError && <p className="text-red-500 text-xs mt-2 font-bold">Incorrect password. Try 'admin'.</p>}
+                  <input type="password" autoFocus className={`w-full border rounded-lg px-4 py-3 text-lg outline-none focus:ring-2 ${loginError ? 'border-red-300 focus:ring-red-200' : 'border-slate-300 focus:ring-blue-200'}`} value={passwordInput} onChange={e => setPasswordInput(e.target.value)} placeholder="Password" />
+                  {loginError && <p className="text-red-500 text-xs mt-2 font-bold">{loginError}</p>}
                 </div>
-                <button type="submit" disabled={loading} className="w-full bg-slate-900 text-white font-bold py-3 rounded-lg hover:bg-slate-800 transition-colors">{loading ? 'Verifying...' : 'Unlock Admin'}</button>
+                <button type="submit" disabled={loading} className="w-full bg-slate-900 text-white font-bold py-3 rounded-lg hover:bg-slate-800 transition-colors">{loading ? 'Verifying...' : 'Log In'}</button>
               </form>
             </div>
           </div>

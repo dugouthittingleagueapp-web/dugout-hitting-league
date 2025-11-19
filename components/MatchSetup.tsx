@@ -66,6 +66,16 @@ export const MatchSetup: React.FC<MatchSetupProps> = ({ homeTeam, awayTeam, onSt
       setter([...originalTeam.players]);
   };
 
+  const addSub = (side: 'left' | 'right') => {
+      const name = prompt("Enter Substitute Name:");
+      if (name && name.trim()) {
+          const list = side === 'left' ? getLeftSideLineup() : getRightSideLineup();
+          const setter = side === 'left' ? setLeftSideLineup : setRightSideLineup;
+          const newPlayer: Player = { id: crypto.randomUUID(), name: name.trim() };
+          setter([...list, newPlayer]);
+      }
+  };
+
   const handleItemClick = (side: 'left' | 'right', index: number, player: Player) => {
     if (!selectedId) {
         setSelectedId(player.id);
@@ -141,11 +151,19 @@ export const MatchSetup: React.FC<MatchSetupProps> = ({ homeTeam, awayTeam, onSt
                 </div>
             );
         })}
-        {players.length < teamData.players.length && (
-            <button onClick={() => restoreRoster(side)} className="w-full py-2 mt-2 text-xs font-bold text-blue-600 hover:bg-blue-50 rounded border border-dashed border-blue-200 transition-colors">
-                + Reset Roster ({teamData.players.length - players.length} hidden)
-            </button>
-        )}
+        
+        <div className="flex gap-2 mt-3">
+             {players.length < teamData.players.length && (
+                <button onClick={() => restoreRoster(side)} className="flex-1 py-2 text-xs font-bold text-blue-600 hover:bg-blue-50 rounded border border-dashed border-blue-200 transition-colors">
+                    + Reset Roster
+                </button>
+            )}
+            {players.length < 3 && (
+                <button onClick={() => addSub(side)} className="flex-1 py-2 text-xs font-bold text-green-600 hover:bg-green-50 rounded border border-dashed border-green-200 transition-colors">
+                    + Add Sub
+                </button>
+            )}
+        </div>
       </div>
     );
   };

@@ -45,12 +45,10 @@ export const Navbar: React.FC<NavbarProps> = ({
     <nav className="bg-slate-900 text-white p-2 sm:p-4 shadow-lg sticky top-0 z-50">
       <div className="max-w-7xl mx-auto flex justify-between items-center">
         <div className="flex items-center gap-4 cursor-pointer" onClick={onGoHome}>
-            {/* Logo Update: 3x Bigger (h-24 mobile, h-32 desktop) */}
-            <img 
-              src="/dugout-logo.png" 
-              alt="Dugout Logo" 
-              className="h-24 sm:h-32 object-contain"
-            />
+            {/* Logo Update: Neon Green DH Circle */}
+            <div className="w-12 h-12 bg-lime-400 rounded-full flex items-center justify-center border-2 border-white shadow-lg shrink-0">
+                <span className="font-black text-slate-900 text-lg tracking-tighter font-sans">DH</span>
+            </div>
             <div className="hidden lg:block">
                 <h1 className="text-xl font-bold tracking-tight font-sans">Dugout Hitting League</h1>
                 <span className="font-light opacity-80 text-sm font-sans">Manager</span>

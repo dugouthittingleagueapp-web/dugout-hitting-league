@@ -9,6 +9,10 @@ export const AdminDashboard: React.FC<{ onBack: () => void }> = ({ onBack }) => 
   const [error, setError] = useState('');
   const [newLeagueName, setNewLeagueName] = useState('');
   const [creatingLeague, setCreatingLeague] = useState(false);
+  
+  // Password State
+  const [newPassword, setNewPassword] = useState('');
+  const [passwordMessage, setPasswordMessage] = useState('');
 
   useEffect(() => {
     const loadData = async () => { const d = await storage.exportData(); setData(d); };
@@ -37,6 +41,20 @@ export const AdminDashboard: React.FC<{ onBack: () => void }> = ({ onBack }) => 
       setCreatingLeague(false);
     }
   };
+  
+  const handleUpdatePassword = async () => {
+    if (!newPassword.trim()) return;
+    if (newPassword.length < 4) { setPasswordMessage('Password too short.'); return; }
+    
+    try {
+      await storage.updateAdminPassword(newPassword.trim());
+      setPasswordMessage('Password updated successfully!');
+      setNewPassword('');
+      setTimeout(() => setPasswordMessage(''), 3000);
+    } catch (e) {
+      setPasswordMessage('Failed to update password.');
+    }
+  };
 
   const handleGenerateReport = async () => {
     setLoading(true);
@@ -62,6 +80,15 @@ export const AdminDashboard: React.FC<{ onBack: () => void }> = ({ onBack }) => 
                 <input type="text" value={newLeagueName} onChange={e => setNewLeagueName(e.target.value)} placeholder="League Name (e.g. 12u, Varsity)" className="flex-1 border border-slate-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 outline-none" />
                 <button onClick={handleCreateLeague} disabled={creatingLeague} className="bg-green-600 text-white px-6 py-2 rounded-lg hover:bg-green-700 font-bold disabled:opacity-50">{creatingLeague ? 'Creating...' : 'Create League'}</button>
             </div>
+        </section>
+
+        <section className="bg-white p-6 rounded-xl shadow border border-slate-200">
+            <h3 className="text-xl font-bold text-slate-700 mb-4">Security Settings</h3>
+            <div className="flex gap-3 items-center">
+                <input type="text" value={newPassword} onChange={e => setNewPassword(e.target.value)} placeholder="New Admin Password" className="flex-1 border border-slate-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 outline-none" />
+                <button onClick={handleUpdatePassword} className="bg-slate-800 text-white px-6 py-2 rounded-lg hover:bg-slate-900 font-bold">Update Password</button>
+            </div>
+            {passwordMessage && <p className={`mt-2 text-sm font-bold ${passwordMessage.includes('success') ? 'text-green-600' : 'text-red-600'}`}>{passwordMessage}</p>}
         </section>
 
         <section className="bg-white p-6 rounded-xl shadow border border-slate-200">

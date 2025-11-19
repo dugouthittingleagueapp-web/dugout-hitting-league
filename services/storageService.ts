@@ -195,3 +195,31 @@ export const getTeamStats = async (team: Team, league: AgeGroup): Promise<Player
 
   return Array.from(statsMap.values());
 };
+
+// Admin / Settings
+export const verifyAdminPassword = async (password: string): Promise<boolean> => {
+  try {
+    const res = await fetch('/api/settings', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'verify', password })
+    });
+    if (res.ok) {
+      const data = await res.json();
+      return data.success;
+    }
+    return false;
+  } catch (e) {
+    console.error(e);
+    return false;
+  }
+};
+
+export const updateAdminPassword = async (password: string): Promise<void> => {
+  const res = await fetch('/api/settings', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ action: 'update', password })
+  });
+  if (!res.ok) throw new Error("Failed to update password");
+};

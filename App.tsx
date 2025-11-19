@@ -15,6 +15,12 @@ const App: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [selectedHomeId, setSelectedHomeId] = useState('');
   const [selectedAwayId, setSelectedAwayId] = useState('');
+  
+  // Admin Auth State
+  const [isAdminAuthenticated, setIsAdminAuthenticated] = useState(false);
+  const [showAdminLogin, setShowAdminLogin] = useState(false);
+  const [adminPasswordInput, setAdminPasswordInput] = useState('');
+  const [loginError, setLoginError] = useState(false);
 
   useEffect(() => {
     if (state.view === 'league_select') {
@@ -54,6 +60,31 @@ const App: React.FC = () => {
     }
   };
 
+  // Admin Login Logic
+  const requestAdminAccess = () => {
+    if (isAdminAuthenticated) {
+      setState({ ...state, view: 'admin' });
+    } else {
+      setShowAdminLogin(true);
+      setAdminPasswordInput('');
+      setLoginError(false);
+    }
+  };
+
+  const handleAdminLoginSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    const isValid = await storage.verifyAdminPassword(adminPasswordInput);
+    setLoading(false);
+    if (isValid) {
+      setIsAdminAuthenticated(true);
+      setShowAdminLogin(false);
+      setState({ ...state, view: 'admin' });
+    } else {
+      setLoginError(true);
+    }
+  };
+
   if (state.view === 'league_select') {
     return (
       <div className="min-h-screen bg-slate-900 flex flex-col items-center justify-center p-4">
@@ -62,7 +93,7 @@ const App: React.FC = () => {
         {leagues.length === 0 ? (
             <div className="text-center bg-slate-800 p-8 rounded-xl border border-slate-700 max-w-md">
                 <p className="text-slate-300 mb-4">No leagues found.</p>
-                <button onClick={() => setState({...state, view: 'admin'})} className="px-4 py-2 bg-blue-600 text-white rounded-lg font-bold hover:bg-blue-500 transition-colors">Create Your First League in Admin</button>
+                <button onClick={requestAdminAccess} className="px-4 py-2 bg-blue-600 text-white rounded-lg font-bold hover:bg-blue-500 transition-colors">Create Your First League in Admin</button>
             </div>
         ) : (
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 w-full max-w-4xl">
@@ -74,7 +105,31 @@ const App: React.FC = () => {
             </div>
         )}
 
-        <div className="mt-12 text-slate-600 text-sm"><button onClick={() => setState({...state, view: 'admin'})} className="hover:text-slate-400">Enter Admin Mode</button></div>
+        <div className="mt-12 text-slate-600 text-sm"><button onClick={requestAdminAccess} className="hover:text-slate-400">Enter Admin Mode</button></div>
+        
+        {/* Admin Login Modal */}
+        {showAdminLogin && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm animate-in fade-in duration-200" onClick={() => setShowAdminLogin(false)}>
+            <div className="bg-white p-8 rounded-2xl shadow-2xl w-full max-w-sm transform scale-100 animate-in zoom-in-95 duration-200" onClick={e => e.stopPropagation()}>
+              <h3 className="text-xl font-bold text-slate-800 mb-4 text-center">Admin Access</h3>
+              <form onSubmit={handleAdminLoginSubmit}>
+                <div className="mb-4">
+                  <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Password</label>
+                  <input 
+                    type="password" 
+                    autoFocus
+                    className={`w-full border rounded-lg px-4 py-3 text-lg outline-none focus:ring-2 ${loginError ? 'border-red-300 focus:ring-red-200' : 'border-slate-300 focus:ring-blue-200'}`}
+                    value={adminPasswordInput} 
+                    onChange={e => setAdminPasswordInput(e.target.value)} 
+                    placeholder="Enter password"
+                  />
+                  {loginError && <p className="text-red-500 text-xs mt-2 font-bold">Incorrect password. Try 'admin'.</p>}
+                </div>
+                <button type="submit" disabled={loading} className="w-full bg-slate-900 text-white font-bold py-3 rounded-lg hover:bg-slate-800 transition-colors">{loading ? 'Verifying...' : 'Unlock Admin'}</button>
+              </form>
+            </div>
+          </div>
+        )}
       </div>
     );
   }
@@ -89,7 +144,7 @@ const App: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-slate-50">
-      <Navbar currentLeague={state.currentLeague} onGoHome={() => setState({ ...state, view: 'dashboard' })} onSwitchLeague={() => setState({ view: 'league_select', currentLeague: null, currentMatchId: null })} onAdmin={() => setState({ ...state, view: 'admin' })} />
+      <Navbar currentLeague={state.currentLeague} onGoHome={() => setState({ ...state, view: 'dashboard' })} onSwitchLeague={() => setState({ view: 'league_select', currentLeague: null, currentMatchId: null })} onAdmin={requestAdminAccess} />
       <main className="max-w-7xl mx-auto p-4 sm:p-8">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
             <div className="space-y-6">
@@ -130,6 +185,30 @@ const App: React.FC = () => {
                 </div>
             </div>
         </div>
+        
+        {/* Admin Login Modal (Reusable for navbar clicks) */}
+        {showAdminLogin && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm animate-in fade-in duration-200" onClick={() => setShowAdminLogin(false)}>
+            <div className="bg-white p-8 rounded-2xl shadow-2xl w-full max-w-sm transform scale-100 animate-in zoom-in-95 duration-200" onClick={e => e.stopPropagation()}>
+              <h3 className="text-xl font-bold text-slate-800 mb-4 text-center">Admin Access</h3>
+              <form onSubmit={handleAdminLoginSubmit}>
+                <div className="mb-4">
+                  <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Password</label>
+                  <input 
+                    type="password" 
+                    autoFocus
+                    className={`w-full border rounded-lg px-4 py-3 text-lg outline-none focus:ring-2 ${loginError ? 'border-red-300 focus:ring-red-200' : 'border-slate-300 focus:ring-blue-200'}`}
+                    value={adminPasswordInput} 
+                    onChange={e => setAdminPasswordInput(e.target.value)} 
+                    placeholder="Enter password"
+                  />
+                  {loginError && <p className="text-red-500 text-xs mt-2 font-bold">Incorrect password. Try 'admin'.</p>}
+                </div>
+                <button type="submit" disabled={loading} className="w-full bg-slate-900 text-white font-bold py-3 rounded-lg hover:bg-slate-800 transition-colors">{loading ? 'Verifying...' : 'Unlock Admin'}</button>
+              </form>
+            </div>
+          </div>
+        )}
       </main>
     </div>
   );

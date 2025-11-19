@@ -127,6 +127,7 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit }) => {
             <tbody className="divide-y divide-slate-100">
               {inningData.playerScores.map((playerScore, lineupIdx) => {
                  const player = team.players.find(p => p.id === playerScore.playerId);
+                 const playerInningTotal = playerScore.pitches.reduce((sum, p) => sum + (p.points || 0), 0);
                  return (
                   <tr key={playerScore.playerId} className="hover:bg-slate-50/50">
                     <td className="px-2 sm:px-4 py-3 font-medium text-slate-700 sticky left-0 bg-white z-10 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)] border-r border-slate-100 w-[100px] sm:w-auto max-w-[120px]">
@@ -141,6 +142,9 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit }) => {
                                 <ScoreInput key={pitchIdx} pitchNumber={pitchIdx + 1} value={pitch.points} readOnly={match.isComplete} isEditing={activeCell?.side === side && activeCell.lineupIdx === lineupIdx && activeCell.pitchIdx === pitchIdx} onOpen={() => setActiveCell({ side, lineupIdx, pitchIdx })} onClose={() => setActiveCell(null)} onChange={(val) => handleScoreUpdate(side, lineupIdx, pitchIdx, val)} />
                             ))}
                         </div>
+                    </td>
+                    <td className="px-3 py-3 text-center align-middle border-l border-slate-100 bg-slate-50/30">
+                        <div className="text-base font-mono font-bold text-slate-800 w-8">{playerInningTotal}</div>
                     </td>
                   </tr>
                  );

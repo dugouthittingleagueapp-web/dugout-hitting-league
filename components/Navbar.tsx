@@ -41,23 +41,30 @@ export const Navbar: React.FC<NavbarProps> = ({
   );
 
   return (
-    <nav className="bg-slate-900 text-white p-4 shadow-lg sticky top-0 z-50">
+    <nav className="bg-slate-900 text-white p-2 sm:p-4 shadow-lg sticky top-0 z-50">
       <div className="max-w-7xl mx-auto flex justify-between items-center">
         <div className="flex items-center gap-4 cursor-pointer" onClick={onGoHome}>
-            {/* Logo Update: Uses /dugout-logo.png from public folder */}
+            {/* Logo Update: 3x Bigger (h-24 mobile, h-32 desktop) */}
             <img 
               src="/dugout-logo.png" 
               alt="Dugout Logo" 
-              className="h-10 sm:h-12 object-contain"
+              className="h-24 sm:h-32 object-contain"
             />
-            <h1 className="text-xl font-bold tracking-tight hidden sm:block font-sans">Dugout Hitting League <span className="font-light opacity-80">Manager</span></h1>
-            <h1 className="text-xl font-bold tracking-tight sm:hidden font-sans">Dugout</h1>
+            <div className="hidden lg:block">
+                <h1 className="text-xl font-bold tracking-tight font-sans">Dugout Hitting League</h1>
+                <span className="font-light opacity-80 text-sm font-sans">Manager</span>
+            </div>
         </div>
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-2 sm:gap-4">
+          {/* New Button: League Home */}
+          <button onClick={onSwitchLeague} className="bg-slate-800 hover:bg-slate-700 text-white border border-slate-600 px-3 py-1.5 rounded-lg text-xs sm:text-sm font-bold transition-colors font-sans whitespace-nowrap">
+             League Home
+          </button>
+
           {/* Season Selector */}
           <div className="relative">
-            <button onClick={() => setShowSeasonMenu(!showSeasonMenu)} className="flex items-center gap-1 bg-slate-800 hover:bg-slate-700 px-3 py-1 rounded-lg text-sm font-bold transition-colors border border-slate-700 font-sans">
-                <span className="text-slate-400 font-normal text-xs">Season:</span> {currentSeason}
+            <button onClick={() => setShowSeasonMenu(!showSeasonMenu)} className="flex items-center gap-1 bg-slate-800 hover:bg-slate-700 px-3 py-1.5 rounded-lg text-xs sm:text-sm font-bold transition-colors border border-slate-700 font-sans whitespace-nowrap">
+                <span className="text-slate-400 font-normal hidden sm:inline">Season:</span> {currentSeason}
             </button>
             {showSeasonMenu && (
                 <div className="absolute top-full right-0 mt-2 bg-white text-slate-900 rounded-lg shadow-xl py-2 w-32 border border-slate-200 z-[60]" onClick={() => setShowSeasonMenu(false)}>
@@ -72,24 +79,24 @@ export const Navbar: React.FC<NavbarProps> = ({
           
           {/* Auth Actions */}
           {userRole === 'fan' && (
-            <button onClick={onLogin} className="text-sm bg-blue-600 hover:bg-blue-500 px-4 py-1.5 rounded font-bold transition-colors shadow-sm font-sans">
+            <button onClick={onLogin} className="text-xs sm:text-sm bg-blue-600 hover:bg-blue-500 px-3 sm:px-4 py-1.5 rounded font-bold transition-colors shadow-sm font-sans whitespace-nowrap">
                 Log In
             </button>
           )}
 
           {userRole === 'umpire' && (
             <div className="flex items-center gap-2">
-                <span className="bg-amber-500/20 text-amber-400 text-[10px] font-bold uppercase px-2 py-1 rounded border border-amber-500/30 hidden sm:block font-sans">Umpire Mode</span>
-                <button onClick={onLogout} className="text-sm text-slate-300 hover:text-white underline decoration-slate-500 font-sans">Log Out</button>
+                <span className="bg-amber-500/20 text-amber-400 text-[10px] font-bold uppercase px-2 py-1 rounded border border-amber-500/30 hidden md:block font-sans">Umpire</span>
+                <button onClick={onLogout} className="text-xs sm:text-sm text-slate-300 hover:text-white underline decoration-slate-500 font-sans whitespace-nowrap">Log Out</button>
             </div>
           )}
 
           {userRole === 'admin' && (
             <div className="flex items-center gap-3">
-                <button onClick={onAdminDashboard} className="text-sm bg-slate-700 hover:bg-slate-600 px-3 py-1.5 rounded transition-colors border border-slate-600 font-sans">
+                <button onClick={onAdminDashboard} className="text-xs sm:text-sm bg-slate-700 hover:bg-slate-600 px-3 py-1.5 rounded transition-colors border border-slate-600 font-sans">
                     Admin
                 </button>
-                <button onClick={onLogout} className="text-sm text-slate-300 hover:text-white underline decoration-slate-500 font-sans">
+                <button onClick={onLogout} className="text-xs sm:text-sm text-slate-300 hover:text-white underline decoration-slate-500 font-sans whitespace-nowrap">
                     Log Out
                 </button>
             </div>
@@ -104,7 +111,7 @@ export const Navbar: React.FC<NavbarProps> = ({
             
             <div className="relative">
                 <button onClick={() => setShowLeagueMenu(!showLeagueMenu)} className="text-xs text-slate-400 hover:text-white transition-colors underline decoration-slate-600 flex items-center gap-1 font-sans">
-                   Switch League
+                   Quick Switch
                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path></svg>
                 </button>
                 
@@ -116,11 +123,6 @@ export const Navbar: React.FC<NavbarProps> = ({
                                 {l.id}
                             </button>
                         ))}
-                        <div className="border-t border-slate-100 mt-1 pt-1">
-                            <button onClick={onSwitchLeague} className="w-full text-left px-4 py-2 text-xs text-slate-500 hover:text-slate-800 font-medium font-sans">
-                                View All Leagues
-                            </button>
-                        </div>
                     </div>
                 )}
             </div>

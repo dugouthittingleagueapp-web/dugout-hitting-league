@@ -161,6 +161,37 @@ export const updateMatch = async (updatedMatch: Match) => {
   });
 };
 
+// Restore full roster for a team from a specific inning onwards
+export const restoreTeamRoster = async (matchId: string, teamId: string, startInningIdx: number): Promise<Match> => {
+  // 1. Fetch fresh match data
+  const match = await getMatch(matchId);
+  if (!match) throw new Error("Match not found");
+  
+  // 2. Fetch full team data to get the complete roster
+  const allTeams = await getAllTeams();
+  const team = allTeams.find(t => t.id === teamId);
+  if (!team) throw new Error("Team not found");
+
+  const isHome = match.homeTeamId === teamId;
+  const updatedMatch = { ...match };
+
+  // 3. Regenerate innings from startInningIdx to end
+  for (let i = startInningIdx; i < updatedMatch.innings.length; i++) {
+    const inning = updatedMatch.innings[i];
+    const side = isHome ? inning.home : inning.away;
+    
+    // Reset to full 3-player roster, 10 pitches each
+    side.playerScores = team.players.map(p => ({
+      playerId: p.id,
+      pitches: Array(10).fill(null).map(() => ({ points: null }))
+    }));
+  }
+
+  // 4. Save updates
+  await updateMatch(updatedMatch);
+  return updatedMatch;
+};
+
 export const exportData = async () => {
   const teams = await getAllTeams();
   const matches = await getAllMatches();

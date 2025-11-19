@@ -68,6 +68,22 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit }) => {
     onExit();
   };
 
+  const handleRestoreRoster = async (side: 'home' | 'away') => {
+    const team = side === 'home' ? teams.home : teams.away;
+    if (!team) return;
+    
+    if (confirm(`Player arrived? This will reset the scorecard for ${team.name} for the REMAINDER of the game (including the current inning) to the full 3-player / 10-pitch format. Existing scores in this specific inning will be lost.`)) {
+        setLoading(true);
+        try {
+            const updatedMatch = await storage.restoreTeamRoster(match.id, team.id, activeInningIdx);
+            setMatch(updatedMatch);
+        } catch (e) {
+            alert("Failed to restore roster.");
+        }
+        setLoading(false);
+    }
+  };
+
   const calculateTeamInningTotal = (side: 'home' | 'away', inning: Inning) => {
     const teamData = side === 'home' ? inning.home : inning.away;
     return teamData.playerScores.reduce((sum, player) => sum + player.pitches.reduce((pSum, pitch) => pSum + (pitch.points || 0), 0), 0);
@@ -84,10 +100,25 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit }) => {
     const inningData = side === 'home' ? currentInning.home : currentInning.away;
     const teamColor = side === 'home' ? 'text-blue-800 bg-blue-50' : 'text-red-800 bg-red-50';
     
+    // Check if team is short-handed (2 players) while full roster is bigger (3)
+    // Only allow restore in Innings 2-6 (index 1-5)
+    const isShortHanded = inningData.playerScores.length < team.players.length;
+    const canRestore = isShortHanded && activeInningIdx >= 1;
+
     return (
       <div className="mb-8">
         <div className={`p-3 rounded-t-lg border-b border-slate-200 flex justify-between items-end ${teamColor}`}>
-          <div><span className="text-xs font-bold uppercase opacity-60 tracking-wider">{side === 'home' ? 'Home' : 'Away'}</span><h3 className="text-xl font-bold leading-none">{team.name}</h3></div>
+          <div className="flex items-center gap-3">
+             <div>
+                <span className="text-xs font-bold uppercase opacity-60 tracking-wider">{side === 'home' ? 'Home' : 'Away'}</span>
+                <h3 className="text-xl font-bold leading-none">{team.name}</h3>
+             </div>
+             {canRestore && (
+                 <button onClick={() => handleRestoreRoster(side)} className="bg-white/80 hover:bg-white text-slate-600 px-2 py-1 rounded text-[10px] font-bold border border-slate-200 shadow-sm transition-colors animate-pulse">
+                    + Player Arrived? (Reset)
+                 </button>
+             )}
+          </div>
           <div className="text-2xl font-mono font-bold">{calculateTeamInningTotal(side, currentInning)} <span className="text-sm font-normal opacity-60">pts</span></div>
         </div>
         <div className="bg-white rounded-b-lg shadow-sm border border-slate-200 overflow-x-auto scrollbar-hide">

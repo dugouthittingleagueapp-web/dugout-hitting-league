@@ -112,6 +112,11 @@ const App: React.FC = () => {
   };
 
   if (state.view === 'league_select') {
+    // Sort leagues naturally (9u before 10u, A before B)
+    const sortedLeagues = [...leagues].sort((a, b) => 
+        a.id.localeCompare(b.id, undefined, { numeric: true, sensitivity: 'base' })
+    );
+
     return (
       <div className="min-h-screen bg-slate-900 flex flex-col items-center justify-center p-4">
         <Navbar currentLeague={null} currentSeason={state.season} onGoHome={() => {}} onSwitchLeague={() => {}} onAdmin={requestAdminAccess} onSeasonChange={handleSeasonChange} />
@@ -124,11 +129,14 @@ const App: React.FC = () => {
                 <button onClick={requestAdminAccess} className="px-4 py-2 bg-blue-600 text-white rounded-lg font-bold hover:bg-blue-500 transition-colors">Create Your First League in Admin</button>
             </div>
         ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 w-full max-w-4xl">
-            {leagues.map(league => (
-                <button key={league.id} onClick={() => setState({ ...state, view: 'dashboard', currentLeague: league.id, currentMatchId: null })} className="bg-white hover:bg-slate-50 text-slate-900 p-8 rounded-2xl shadow-2xl transition-transform hover:scale-105 group">
-                <span className="block text-4xl font-black mb-2 group-hover:text-blue-600 transition-colors uppercase">{league.id}</span>
-                <span className="block text-xs font-bold text-slate-400 uppercase tracking-widest">{state.season} Season</span>
+            <div className="flex flex-wrap justify-center gap-6 w-full max-w-6xl px-4">
+            {sortedLeagues.map(league => (
+                <button key={league.id} 
+                    onClick={() => setState({ ...state, view: 'dashboard', currentLeague: league.id, currentMatchId: null })} 
+                    className="bg-white hover:bg-slate-50 text-slate-900 p-6 rounded-2xl shadow-2xl transition-transform hover:scale-105 group w-full sm:w-64 aspect-[4/3] sm:aspect-square flex flex-col items-center justify-center"
+                >
+                    <span className="block text-3xl sm:text-4xl font-black mb-2 group-hover:text-blue-600 transition-colors uppercase text-center w-full break-words leading-tight">{league.id}</span>
+                    <span className="block text-xs font-bold text-slate-400 uppercase tracking-widest whitespace-nowrap">{state.season} Season</span>
                 </button>
             ))}
             </div>

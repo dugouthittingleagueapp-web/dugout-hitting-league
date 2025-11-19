@@ -65,9 +65,6 @@ export const TeamManagement: React.FC<TeamManagementProps> = ({ league, season, 
              // Update existing
              const teamToUpdate = teams.find(t => t.id === editingTeamId);
              if (teamToUpdate) {
-                 const updatedPlayers = teamToUpdate.players.map((p, i) => ({ ...p, name: playerNames[i] }));
-                 // If there are new players (structure change), handle that, but we assume fixed 3 for now or match index
-                 // Actually, just replace names for existing IDs if possible, or create new IDs if structure changed.
                  // Simpler: Just map index 0->0, 1->1, 2->2.
                  const finalPlayers = playerNames.map((name, idx) => ({
                      id: teamToUpdate.players[idx]?.id || crypto.randomUUID(),

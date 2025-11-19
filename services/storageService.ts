@@ -183,12 +183,7 @@ export const restoreTeamRoster = async (matchId: string, teamId: string, current
 
     const newInnings = [...match.innings];
     
-    // Reset innings AFTER current (or including? Usually logic suggests future innings)
-    // But usually "rest of game" starts from current inning if no scores yet, or next inning.
-    // For safety/simplicity, we reset from currentInningIdx + 1, OR if current inning is empty, reset it too.
-    // Here we just reset innings > currentInningIdx + 1 to be safe, or let's say from next inning.
-    
-    // Better logic: Just reset future innings.
+    // Reset future innings.
     const startResetIdx = currentInningIdx + 1;
 
     for(let i = startResetIdx; i < 6; i++) {

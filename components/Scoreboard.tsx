@@ -205,8 +205,7 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
     // Persist asynchronously after UI update
     await storage.updateMatch(newMatch).catch(err => {
         console.error("Failed to save score", err);
-        // Optionally revert optimistic update here if needed, 
-        // but for a simple scoreboard, just logging is often acceptable.
+        // Optionally revert optimistic update here if needed
     });
   };
 

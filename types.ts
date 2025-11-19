@@ -44,8 +44,8 @@ export interface TieBreakerRound {
   pitchLimit: number;
   homePlayerId: string;
   awayPlayerId: string;
-  homeScores: (number | null)[];
-  awayScores: (number | null)[];
+  homeScores: (number | null)[]; // Changed to allow null initialization
+  awayScores: (number | null)[]; // Changed to allow null initialization
 }
 
 export interface Match {

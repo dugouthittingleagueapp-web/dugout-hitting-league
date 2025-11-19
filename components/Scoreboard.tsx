@@ -91,8 +91,6 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
   const startTieBreakerRound = async () => {
       if (!teams.home || !teams.away || !tbHomePlayerId || !tbAwayPlayerId) return;
 
-      // Determine pitch limit based on previous rounds
-      // Round 1 = 5 pitches. Round 2 = 3 pitches. Round 3+ = 1 pitch.
       let nextLimit = 5;
       let roundNum = 1;
       
@@ -108,6 +106,7 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
           pitchLimit: nextLimit,
           homePlayerId: tbHomePlayerId,
           awayPlayerId: tbAwayPlayerId,
+          // Initialize with nulls so we can distinguish new entry vs edit
           homeScores: Array(nextLimit).fill(null),
           awayScores: Array(nextLimit).fill(null)
       };
@@ -127,6 +126,7 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
   const handleScoreUpdate = async (side: 'home' | 'away', lineupIdx: number, pitchIdx: number, val: number) => {
     if (isReadOnly) return;
     
+    // Optimistic Update for UI Snappiness
     const existingValue = match.innings[activeInningIdx][side].playerScores[lineupIdx].pitches[pitchIdx].points;
     const isEdit = existingValue !== null;
 
@@ -136,74 +136,78 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
     
     teamData.playerScores[lineupIdx].pitches[pitchIdx].points = val;
     setMatch(newMatch); 
-    storage.updateMatch(newMatch).catch(err => console.error("Failed to save score", err));
+    
+    // Determine next step before async save
+    // --- Auto-detect End of Regulation ---
+    const isFinalInning = activeInningIdx === 5; 
+    let shouldOpenTieBreaker = false;
 
-    if (isEdit) {
-        setActiveCell(null);
-        return;
-    }
-
-    // --- AUTO-DETECT END OF REGULATION & TIE ---
-    const isFinalInning = activeInningIdx === 5; // 6th Inning
     if (isFinalInning && side === 'home') {
         const isLastPlayer = lineupIdx === teamData.playerScores.length - 1;
         const totalPitches = teamData.playerScores[lineupIdx].pitches.length;
         const isLastPitch = pitchIdx === totalPitches - 1;
 
         if (isLastPlayer && isLastPitch) {
-            // Recalculate totals
             const newHomeTotal = calculateTeamGameTotal('home', newMatch);
             const newAwayTotal = calculateTeamGameTotal('away', newMatch);
-            
             if (newHomeTotal === newAwayTotal) {
-                setActiveCell(null);
-                setTimeout(() => { 
-                    setShowTieBreakerSetup(true); // Open Setup Modal
-                }, 500); 
-                return;
+                shouldOpenTieBreaker = true;
             }
         }
     }
 
     // --- Auto-advance logic ---
+    let nextCell = null;
 
-    // 1. Detect Ghost Mode (3v2 - 15 pitches)
     const isTwoPlayerGhostMode = teamData.playerScores.length === 2 && teamData.playerScores[0].pitches.length >= 15;
-
-    // 2. Detect Strict 2v2 Mode (10 pitches each)
-    // Strictly 2 players, strictly 10 pitches.
     const isStrict2v2 = teamData.playerScores.length === 2 && teamData.playerScores[0].pitches.length === 10;
 
-    if (isTwoPlayerGhostMode) {
-        // Ghost Mode: P1(0-14), P2(0-14)
-        // Force Close after 15th pitch (Index 14)
-        if (pitchIdx === 14) {
-             setActiveCell(null);
+    if (!isEdit && !shouldOpenTieBreaker) {
+        if (isTwoPlayerGhostMode) {
+            // Ghost Mode: P1(0-14), P2(0-14)
+            // Force Close after 15th pitch (Index 14) for EACH player
+            if (pitchIdx === 14) {
+                 nextCell = null;
+            } else {
+                 nextCell = { side, lineupIdx, pitchIdx: pitchIdx + 1 };
+            }
+        } else if (isStrict2v2) {
+            // Strict 2v2 Mode: 10 pitches each.
+            // Force Close after 10th pitch (Index 9) for EACH player
+            if (pitchIdx === 9) {
+                nextCell = null;
+            } else {
+                nextCell = { side, lineupIdx, pitchIdx: pitchIdx + 1 };
+            }
         } else {
-             setActiveCell({ side, lineupIdx, pitchIdx: pitchIdx + 1 });
-        }
-    } else if (isStrict2v2) {
-        // Strict 2v2 Mode: 10 pitches each.
-        // Force Close after 10th pitch (Index 9) for EACH player
-        if (pitchIdx === 9) {
-            setActiveCell(null);
-        } else {
-            setActiveCell({ side, lineupIdx, pitchIdx: pitchIdx + 1 });
-        }
-    } else {
-        // Standard 3v3 Mode
-        const totalPitches = teamData.playerScores[lineupIdx].pitches.length;
-        if (pitchIdx < totalPitches - 1) {
-            setActiveCell({ side, lineupIdx, pitchIdx: pitchIdx + 1 });
-        } else {
-             // End of batter, go to next batter
-             if (lineupIdx < teamData.playerScores.length - 1) {
-                 setActiveCell({ side, lineupIdx: lineupIdx + 1, pitchIdx: 0 });
-             } else {
-                 setActiveCell(null);
-             }
+            // Standard 3v3 Mode
+            const totalPitches = teamData.playerScores[lineupIdx].pitches.length;
+            if (pitchIdx < totalPitches - 1) {
+                nextCell = { side, lineupIdx, pitchIdx: pitchIdx + 1 };
+            } else {
+                 // End of batter, go to next batter
+                 if (lineupIdx < teamData.playerScores.length - 1) {
+                     nextCell = { side, lineupIdx: lineupIdx + 1, pitchIdx: 0 };
+                 } else {
+                     nextCell = null;
+                 }
+            }
         }
     }
+
+    // Apply next cell immediately - THIS IS CRITICAL for snappy UI
+    setActiveCell(nextCell);
+
+    if (shouldOpenTieBreaker) {
+         setTimeout(() => setShowTieBreakerSetup(true), 500);
+    }
+
+    // Persist asynchronously after UI update
+    await storage.updateMatch(newMatch).catch(err => {
+        console.error("Failed to save score", err);
+        // Optionally revert optimistic update here if needed, 
+        // but for a simple scoreboard, just logging is often acceptable.
+    });
   };
 
   const confirmCompleteGame = async () => {
@@ -227,7 +231,6 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
   const handleTieBreakerScore = async (roundIdx: number, side: 'home'|'away', pitchIdx: number, val: number) => {
       if(!match.tieBreaker) return;
       
-      // Auto-advance logic for Extra Innings
       const currentRound = match.tieBreaker[roundIdx];
       const limit = currentRound.pitchLimit;
       
@@ -240,21 +243,17 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
       if (side === 'home') round.homeScores[pitchIdx] = val;
       else round.awayScores[pitchIdx] = val;
       
-      setMatch(newMatch);
-      await storage.updateMatch(newMatch);
-
-      if (isEdit) {
-          setActiveCell(null);
-          return;
+      setMatch(newMatch); // Optimistic UI update
+      
+      let nextCell = null;
+      if (!isEdit && pitchIdx < limit - 1) {
+           nextCell = { side, lineupIdx: 0, pitchIdx: pitchIdx + 1, roundIdx };
       }
       
-      // Simple auto advance within round
-      if (pitchIdx < limit - 1) {
-           setActiveCell({ side, lineupIdx: 0, pitchIdx: pitchIdx + 1, roundIdx });
-      } else {
-           // End of player turn in Extra Innings
-           setActiveCell(null);
-      }
+      // Apply immediately before await
+      setActiveCell(nextCell);
+
+      await storage.updateMatch(newMatch);
   };
 
   const handleRestoreRoster = async (side: 'home' | 'away') => {
@@ -287,7 +286,6 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
          
          let pitchesLeft = 0;
          if (isTwoPlayerGhostMode) {
-             // For ghost mode, count total taken across entire 15-pitch set
              const allPitches = playerScore.pitches; 
              const taken = allPitches.filter((p:any) => p.points !== null).length;
              pitchesLeft = 15 - taken;

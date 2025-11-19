@@ -12,21 +12,22 @@ interface ScoreboardProps {
 export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadOnly = false }) => {
   const [match, setMatch] = useState<Match | null>(null);
   const [teams, setTeams] = useState<{ home?: Team, away?: Team }>({});
-  const [activeInningIdx, setActiveInningIdx] = useState(0);
+  const [activeInningIdx, setActiveInningIdx] = useState(0); // 0-5 are innings, 6 is OT
   const [showFinishModal, setShowFinishModal] = useState(false);
   const [loading, setLoading] = useState(true);
   const [activeCell, setActiveCell] = useState<{ side: 'home' | 'away'; lineupIdx: number; pitchIdx: number; } | null>(null);
 
-  // Tie Breaker State
-  const [showTieBreaker, setShowTieBreaker] = useState(false);
-  const [tieBreakerRound, setTieBreakerRound] = useState<TieBreakerRound | null>(null);
-
+  // Loading
   const loadMatchData = async () => {
       const m = await storage.getMatch(matchId);
       if (m) {
         const allTeams = await storage.getAllTeams();
         setMatch(m);
         setTeams({ home: allTeams.find(t => t.id === m.homeTeamId), away: allTeams.find(t => t.id === m.awayTeamId) });
+        // If match has tiebreaker data, default to OT tab if complete
+        if (m.tieBreaker && m.tieBreaker.length > 0 && m.isComplete) {
+             // Optional: could auto-switch to OT tab, but defaulting to inning 1 is safer
+        }
       }
   };
 
@@ -49,6 +50,9 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
   if (!match || !teams.home || !teams.away) return <div className="text-center p-8 font-sans">Error loading match</div>;
 
   const currentInning = match.innings[activeInningIdx];
+  const isOT = activeInningIdx === 6;
+
+  // --- Calculations ---
 
   const calculateTeamInningTotal = (side: 'home' | 'away', inning: Inning) => {
     const teamData = side === 'home' ? inning.home : inning.away;
@@ -70,23 +74,33 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
   const homeTotal = calculateTeamGameTotal('home');
   const awayTotal = calculateTeamGameTotal('away');
 
-  const initiateTieBreaker = () => {
+  // --- Actions ---
+
+  const initiateTieBreaker = async () => {
       if (!teams.home || !teams.away) return;
 
-      setTieBreakerRound({
+      const newRound: TieBreakerRound = {
           roundNumber: (match.tieBreaker?.length || 0) + 1,
           pitchLimit: 5,
           homePlayerId: teams.home.players[0].id,
           awayPlayerId: teams.away.players[0].id,
           homeScores: Array(5).fill(0), 
           awayScores: Array(5).fill(0)
-      });
-      setShowTieBreaker(true);
+      };
+
+      const updatedMatch = { ...match };
+      if (!updatedMatch.tieBreaker) updatedMatch.tieBreaker = [];
+      updatedMatch.tieBreaker.push(newRound);
+      updatedMatch.isComplete = false; // Re-open if it was closed
+
+      setMatch(updatedMatch);
+      await storage.updateMatch(updatedMatch);
+      setActiveInningIdx(6); // Switch to OT tab
   };
 
   const handleScoreUpdate = async (side: 'home' | 'away', lineupIdx: number, pitchIdx: number, val: number) => {
     if (isReadOnly) return;
-
+    
     const existingValue = match.innings[activeInningIdx][side].playerScores[lineupIdx].pitches[pitchIdx].points;
     const isEdit = existingValue !== null;
 
@@ -111,12 +125,19 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
         const isLastPitch = pitchIdx === totalPitches - 1;
 
         if (isLastPlayer && isLastPitch) {
+            // Need to recalculate totals with the new score we just set
             const newHomeTotal = calculateTeamGameTotal('home', newMatch);
             const newAwayTotal = calculateTeamGameTotal('away', newMatch);
             
             if (newHomeTotal === newAwayTotal) {
                 setActiveCell(null);
-                setTimeout(() => { initiateTieBreaker(); }, 500); 
+                setTimeout(() => { 
+                    if(!match.tieBreaker || match.tieBreaker.length === 0) {
+                        initiateTieBreaker(); 
+                    } else {
+                        setActiveInningIdx(6);
+                    }
+                }, 500); 
                 return;
             }
         }
@@ -141,8 +162,6 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
     } else {
         // Standard or Strict 2v2 Logic (10 Pitches)
         const totalPitches = teamData.playerScores[lineupIdx].pitches.length;
-        
-        // Detect Strict 2v2 specifically (Both teams have 2 players, 10 pitches each)
         const isStrict2v2 = teamData.playerScores.length === 2 && totalPitches === 10;
 
         if (pitchIdx < totalPitches - 1) {
@@ -150,10 +169,8 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
         } else {
              // End of batter
              if (isStrict2v2) {
-                 // Strict 2v2: Close modal after EACH batter (do not auto-advance to next player)
                  setActiveCell(null);
              } else {
-                 // Standard 3v3: Advance to next player
                  if (lineupIdx < teamData.playerScores.length - 1) {
                      setActiveCell({ side, lineupIdx: lineupIdx + 1, pitchIdx: 0 });
                  } else {
@@ -180,47 +197,56 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
     onExit();
   };
 
-  const handleTieBreakerScore = (side: 'home'|'away', idx: number, val: number) => {
-      if(!tieBreakerRound) return;
-      const newRound = { ...tieBreakerRound };
-      if (side === 'home') newRound.homeScores[idx] = val;
-      else newRound.awayScores[idx] = val;
-      setTieBreakerRound(newRound);
+  // --- Tie Breaker Handlers ---
+
+  const handleTieBreakerScore = async (roundIdx: number, side: 'home'|'away', pitchIdx: number, val: number) => {
+      if(!match.tieBreaker) return;
+      
+      const newMatch = { ...match };
+      const round = newMatch.tieBreaker![roundIdx];
+      if (side === 'home') round.homeScores[pitchIdx] = val;
+      else round.awayScores[pitchIdx] = val;
+      
+      setMatch(newMatch);
+      await storage.updateMatch(newMatch);
   };
 
-  const submitTieBreakerRound = async () => {
-      if(!tieBreakerRound) return;
-      
-      const homeSum = tieBreakerRound.homeScores.reduce((a,b)=>a+b,0);
-      const awaySum = tieBreakerRound.awayScores.reduce((a,b)=>a+b,0);
+  const handleTieBreakerPlayerChange = async (roundIdx: number, side: 'home'|'away', playerId: string) => {
+      const newMatch = { ...match };
+      const round = newMatch.tieBreaker![roundIdx];
+      if (side === 'home') round.homePlayerId = playerId;
+      else round.awayPlayerId = playerId;
+      setMatch(newMatch);
+      await storage.updateMatch(newMatch);
+  };
 
-      const updatedMatch = { ...match };
-      if (!updatedMatch.tieBreaker) updatedMatch.tieBreaker = [];
-      
-      updatedMatch.tieBreaker.push(tieBreakerRound);
+  const advanceTieBreaker = async (currentRoundIdx: number) => {
+      const round = match.tieBreaker![currentRoundIdx];
+      const homeSum = round.homeScores.reduce((a,b)=>a+b,0);
+      const awaySum = round.awayScores.reduce((a,b)=>a+b,0);
       
       if (homeSum !== awaySum) {
-          updatedMatch.isComplete = true;
-          setMatch(updatedMatch);
-          await storage.updateMatch(updatedMatch);
-          setShowTieBreaker(false);
-          onExit();
+          // Game Over
+          confirmCompleteGame();
       } else {
+          // Next Round
           let nextLimit = 5;
-          if (tieBreakerRound.pitchLimit === 5) nextLimit = 3;
+          if (round.pitchLimit === 5) nextLimit = 3;
           else nextLimit = 1;
 
-          setMatch(updatedMatch);
-          await storage.updateMatch(updatedMatch); 
-
-          setTieBreakerRound({
-              roundNumber: tieBreakerRound.roundNumber + 1,
+          const newRound: TieBreakerRound = {
+              roundNumber: round.roundNumber + 1,
               pitchLimit: nextLimit,
               homePlayerId: teams.home!.players[0].id,
               awayPlayerId: teams.away!.players[0].id,
               homeScores: Array(nextLimit).fill(0),
               awayScores: Array(nextLimit).fill(0)
-          });
+          };
+          
+          const newMatch = { ...match };
+          newMatch.tieBreaker!.push(newRound);
+          setMatch(newMatch);
+          await storage.updateMatch(newMatch);
       }
   };
 
@@ -238,11 +264,12 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
     }
   };
 
+  // --- Rendering ---
+
   const renderTeamSection = (side: 'home' | 'away', team: Team) => {
     const inningData = side === 'home' ? currentInning.home : currentInning.away;
     const teamColor = side === 'home' ? 'text-blue-800 bg-blue-50' : 'text-red-800 bg-red-50';
     
-    // Ghost Mode check: Needs 2 players AND 15 pitches
     const isTwoPlayerGhostMode = inningData.playerScores.length === 2 && inningData.playerScores[0].pitches.length >= 15;
     const isShortHanded = inningData.playerScores.length < team.players.length;
     const canRestore = !isReadOnly && isShortHanded && activeInningIdx >= 1;
@@ -251,16 +278,12 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
          const visiblePitches = playerScore.pitches.slice(pitchStartIndex, pitchEndIndex);
          const rowTotal = visiblePitches.reduce((sum: number, p: any) => sum + (p.points || 0), 0);
          
-         // Pitches Remaining Calculation
          let pitchesLeft = 0;
          if (isTwoPlayerGhostMode) {
-             // 15 Total. Check the WHOLE array (0-15), not just visible slice
-             // This ensures countdown works for both main row and ghost row correctly
              const allPitches = playerScore.pitches; 
              const taken = allPitches.filter((p:any) => p.points !== null).length;
              pitchesLeft = 15 - taken;
          } else {
-             // Standard 10
              const taken = playerScore.pitches.filter((p:any) => p.points !== null).length;
              pitchesLeft = playerScore.pitches.length - taken;
          }
@@ -327,13 +350,8 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
             <tbody className="divide-y divide-slate-100">
               {isTwoPlayerGhostMode ? (
                   <>
-                    {/* Player 1 Row (Pitches 1-10) */}
                     {renderRow(inningData.playerScores[0], 0, team.players.find(p=>p.id===inningData.playerScores[0].playerId), 0, 10, false)}
-                    
-                    {/* Player 2 Row (Pitches 1-10) */}
                     {renderRow(inningData.playerScores[1], 1, team.players.find(p=>p.id===inningData.playerScores[1].playerId), 0, 10, false)}
-
-                    {/* Ghost Row (Pitches 11-15 for both) */}
                     <tr className="hover:bg-slate-50/50 bg-slate-50/30">
                         <td className="px-2 sm:px-4 py-3 font-medium text-slate-700 sticky left-0 bg-white z-10 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)] border-r border-slate-100 w-[100px] sm:w-auto max-w-[120px]">
                             <div className="flex items-center gap-2">
@@ -343,7 +361,6 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
                         </td>
                         <td className="px-2 py-3">
                             <div className="flex items-center gap-1 sm:gap-2 justify-start">
-                                {/* Player 1 Extras (11-15) */}
                                 {inningData.playerScores[0].pitches.slice(10, 15).map((pitch, idx) => {
                                     const taken = inningData.playerScores[0].pitches.filter((p:any) => p.points !== null).length;
                                     const left = 15 - taken;
@@ -359,7 +376,6 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
                                     );
                                 })}
                                 <div className="w-px h-16 bg-slate-300 mx-1"></div>
-                                {/* Player 2 Extras (11-15) */}
                                 {inningData.playerScores[1].pitches.slice(10, 15).map((pitch, idx) => {
                                     const taken = inningData.playerScores[1].pitches.filter((p:any) => p.points !== null).length;
                                     const left = 15 - taken;
@@ -396,6 +412,101 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
     );
   };
 
+  // --- Tie Breaker View ---
+  const renderTieBreaker = () => {
+      if (!match.tieBreaker || match.tieBreaker.length === 0) return <div>No OT Data</div>;
+      
+      // Render all rounds? or just the active one?
+      // Render all is nicer for history.
+      
+      return (
+          <div className="space-y-6">
+            {match.tieBreaker.map((round, roundIdx) => {
+                const isLastRound = roundIdx === match.tieBreaker!.length - 1;
+                const homeRoundTotal = round.homeScores.reduce((a,b)=>a+b,0);
+                const awayRoundTotal = round.awayScores.reduce((a,b)=>a+b,0);
+                const isRoundComplete = !round.homeScores.includes(0 as any) && !round.awayScores.includes(0 as any); // loose check
+                // Better check: pitch count is simpler UI
+                
+                return (
+                <div key={roundIdx} className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                   <div className="p-3 bg-amber-50 border-b border-amber-100 flex justify-between items-center">
+                       <h3 className="font-bold text-amber-800 font-sans">Showdown: Round {round.roundNumber} ({round.pitchLimit} Pitches)</h3>
+                       {isLastRound && (
+                           <div className="flex gap-2">
+                               {homeRoundTotal === awayRoundTotal ? (
+                                   <button onClick={() => advanceTieBreaker(roundIdx)} className="px-3 py-1 bg-amber-600 text-white text-xs font-bold rounded hover:bg-amber-700 font-sans">Next Round</button>
+                               ) : (
+                                   <button onClick={confirmCompleteGame} className="px-3 py-1 bg-green-600 text-white text-xs font-bold rounded hover:bg-green-700 font-sans">Finalize Game</button>
+                               )}
+                           </div>
+                       )}
+                   </div>
+                   
+                   <div className="p-4 space-y-4">
+                       {/* Away Team */}
+                       <div className="flex flex-col sm:flex-row items-center gap-4">
+                           <div className="w-full sm:w-48 shrink-0">
+                               <label className="block text-[10px] font-bold uppercase text-red-800 mb-1 font-sans">{teams.away?.name}</label>
+                               <select 
+                                   className="w-full p-2 border border-red-200 rounded bg-red-50 text-red-900 text-sm font-sans outline-none focus:ring-2 focus:ring-red-200"
+                                   value={round.awayPlayerId}
+                                   onChange={(e) => handleTieBreakerPlayerChange(roundIdx, 'away', e.target.value)}
+                                   disabled={isReadOnly || !isLastRound}
+                                >
+                                    {teams.away?.players.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                                </select>
+                           </div>
+                           <div className="flex gap-2 flex-1 overflow-x-auto pb-2 sm:pb-0">
+                                {round.awayScores.map((score, idx) => (
+                                    <ScoreInput 
+                                        key={`ot-away-${idx}`} pitchNumber={idx + 1} value={score} 
+                                        readOnly={isReadOnly || (!isLastRound && match.isComplete)} 
+                                        isEditing={true}
+                                        onOpen={()=>{}} onClose={()=>{}} 
+                                        onChange={(val) => handleTieBreakerScore(roundIdx, 'away', idx, val)} 
+                                    />
+                                ))}
+                           </div>
+                           <div className="font-bold text-xl text-red-800 w-12 text-center font-sans">{awayRoundTotal}</div>
+                       </div>
+
+                       <div className="h-px bg-slate-100 w-full"></div>
+
+                       {/* Home Team */}
+                       <div className="flex flex-col sm:flex-row items-center gap-4">
+                           <div className="w-full sm:w-48 shrink-0">
+                               <label className="block text-[10px] font-bold uppercase text-blue-800 mb-1 font-sans">{teams.home?.name}</label>
+                               <select 
+                                   className="w-full p-2 border border-blue-200 rounded bg-blue-50 text-blue-900 text-sm font-sans outline-none focus:ring-2 focus:ring-blue-200"
+                                   value={round.homePlayerId}
+                                   onChange={(e) => handleTieBreakerPlayerChange(roundIdx, 'home', e.target.value)}
+                                   disabled={isReadOnly || !isLastRound}
+                                >
+                                    {teams.home?.players.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                                </select>
+                           </div>
+                           <div className="flex gap-2 flex-1 overflow-x-auto pb-2 sm:pb-0">
+                                {round.homeScores.map((score, idx) => (
+                                    <ScoreInput 
+                                        key={`ot-home-${idx}`} pitchNumber={idx + 1} value={score} 
+                                        readOnly={isReadOnly || (!isLastRound && match.isComplete)} 
+                                        isEditing={true}
+                                        onOpen={()=>{}} onClose={()=>{}} 
+                                        onChange={(val) => handleTieBreakerScore(roundIdx, 'home', idx, val)} 
+                                    />
+                                ))}
+                           </div>
+                           <div className="font-bold text-xl text-blue-800 w-12 text-center font-sans">{homeRoundTotal}</div>
+                       </div>
+                   </div>
+                </div>
+                );
+            })}
+          </div>
+      );
+  };
+
   return (
     <div className="min-h-screen bg-slate-100 pb-20 font-sans">
       <header className="bg-white border-b border-slate-200 sticky top-0 z-30 shadow-sm">
@@ -407,26 +518,26 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
           </div>
           <div className="flex items-center gap-2">
             {isReadOnly && <div className="flex items-center gap-1.5 bg-red-50 text-red-600 px-3 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-wider animate-pulse font-sans"><span className="w-2 h-2 rounded-full bg-red-600"></span>LIVE</div>}
-            {!isReadOnly && !match.isComplete && <button onClick={() => setShowFinishModal(true)} className="bg-green-600 hover:bg-green-700 text-white text-xs sm:text-sm font-bold py-2 px-3 sm:px-4 rounded-lg shadow-sm transition-colors font-sans">Complete Game</button>}
+            {!isReadOnly && !match.isComplete && !isOT && <button onClick={() => setShowFinishModal(true)} className="bg-green-600 hover:bg-green-700 text-white text-xs sm:text-sm font-bold py-2 px-3 sm:px-4 rounded-lg shadow-sm transition-colors font-sans">Complete Game</button>}
             <button onClick={onExit} className="text-xs sm:text-sm font-bold text-slate-500 hover:text-slate-800 bg-slate-100 hover:bg-slate-200 py-2 px-3 rounded-lg transition-colors font-sans">Exit</button>
           </div>
         </div>
-        <div className="flex overflow-x-auto scrollbar-hide border-t border-slate-100">{match.innings.map((ing, idx) => (<button key={ing.number} onClick={() => setActiveInningIdx(idx)} className={`flex-1 py-3 text-sm font-bold uppercase tracking-wider border-b-2 transition-colors min-w-[80px] font-sans ${idx === activeInningIdx ? 'border-blue-600 text-blue-600 bg-blue-50/50' : 'border-transparent text-slate-400 hover:text-slate-600 hover:bg-slate-50'}`}>Inning {ing.number}</button>))}</div>
+        <div className="flex overflow-x-auto scrollbar-hide border-t border-slate-100">
+            {match.innings.map((ing, idx) => (
+                <button key={ing.number} onClick={() => setActiveInningIdx(idx)} className={`flex-1 py-3 text-sm font-bold uppercase tracking-wider border-b-2 transition-colors min-w-[80px] font-sans ${idx === activeInningIdx ? 'border-blue-600 text-blue-600 bg-blue-50/50' : 'border-transparent text-slate-400 hover:text-slate-600 hover:bg-slate-50'}`}>Inning {ing.number}</button>
+            ))}
+            {(match.tieBreaker && match.tieBreaker.length > 0) && (
+                <button onClick={() => setActiveInningIdx(6)} className={`flex-1 py-3 text-sm font-bold uppercase tracking-wider border-b-2 transition-colors min-w-[80px] font-sans ${activeInningIdx === 6 ? 'border-amber-500 text-amber-600 bg-amber-50' : 'border-transparent text-amber-500 hover:bg-amber-50'}`}>OT</button>
+            )}
+        </div>
       </header>
+      
       <main className="max-w-5xl mx-auto p-4 mt-4">
-          {renderTeamSection('away', teams.away)}
-          {renderTeamSection('home', teams.home)}
-          
-          {match.tieBreaker && match.tieBreaker.length > 0 && (
-              <div className="bg-amber-50 border border-amber-200 p-4 rounded-xl mb-4 font-sans">
-                  <h3 className="font-bold text-amber-800 mb-2">Showdown Results</h3>
-                  {match.tieBreaker.map((tb, idx) => (
-                      <div key={idx} className="text-sm text-amber-900 flex justify-between border-b border-amber-200 last:border-0 py-1">
-                          <span>Round {tb.roundNumber} ({tb.pitchLimit} Pitches)</span>
-                          <span className="font-sans font-bold">Away {tb.awayScores.reduce((a,b)=>a+b,0)} - {tb.homeScores.reduce((a,b)=>a+b,0)} Home</span>
-                      </div>
-                  ))}
-              </div>
+          {isOT ? renderTieBreaker() : (
+              <>
+                {renderTeamSection('away', teams.away)}
+                {renderTeamSection('home', teams.home)}
+              </>
           )}
       </main>
 
@@ -437,80 +548,6 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
                 <div className="grid grid-cols-2 gap-3"><button onClick={() => setShowFinishModal(false)} className="py-3 rounded-xl font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 transition-colors">No</button><button onClick={confirmCompleteGame} className="py-3 rounded-xl font-bold text-white bg-green-600 hover:bg-green-700 shadow-lg shadow-green-200 transition-colors">Yes, Finalize</button></div>
             </div>
         </div>
-      )}
-
-      {showTieBreaker && tieBreakerRound && (
-          <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/90 backdrop-blur-md animate-in fade-in duration-200">
-             <div className="bg-white p-4 sm:p-8 rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto font-sans">
-                 <div className="text-center mb-6">
-                     <h2 className="text-3xl font-black text-slate-900 uppercase tracking-tight font-sans">TIED GAME!</h2>
-                     <h3 className="text-xl font-bold text-blue-600 mt-1 font-sans">SHOWDOWN: Round {tieBreakerRound.roundNumber}</h3>
-                     <p className="text-slate-500 text-sm mt-2 font-sans">Select one player from each team to hit {tieBreakerRound.pitchLimit} pitch{tieBreakerRound.pitchLimit > 1 ? 'es' : ''}.</p>
-                 </div>
-
-                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                     <div className="bg-red-50 p-4 rounded-xl border border-red-100">
-                         <h4 className="font-bold text-red-800 mb-3 font-sans">{teams.away?.name} Shooter</h4>
-                         <select 
-                            className="w-full p-2 mb-4 rounded border border-red-200 text-sm font-sans" 
-                            value={tieBreakerRound.awayPlayerId}
-                            onChange={(e) => setTieBreakerRound({...tieBreakerRound, awayPlayerId: e.target.value})}
-                         >
-                             {teams.away?.players.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
-                         </select>
-                         <div className="flex flex-wrap gap-2 justify-center">
-                             {tieBreakerRound.awayScores.map((score, idx) => (
-                                 <ScoreInput 
-                                     key={idx} 
-                                     pitchNumber={idx + 1} 
-                                     value={score} 
-                                     isEditing={true}
-                                     readOnly={false}
-                                     onOpen={() => {}} 
-                                     onClose={() => {}} 
-                                     onChange={(val) => handleTieBreakerScore('away', idx, val)} 
-                                 />
-                             ))}
-                         </div>
-                         <div className="text-center mt-4 text-2xl font-sans font-bold text-red-800">
-                             Total: {tieBreakerRound.awayScores.reduce((a,b)=>a+b,0)}
-                         </div>
-                     </div>
-
-                     <div className="bg-blue-50 p-4 rounded-xl border border-blue-100">
-                         <h4 className="font-bold text-blue-800 mb-3 font-sans">{teams.home?.name} Shooter</h4>
-                         <select 
-                            className="w-full p-2 mb-4 rounded border border-blue-200 text-sm font-sans" 
-                            value={tieBreakerRound.homePlayerId}
-                            onChange={(e) => setTieBreakerRound({...tieBreakerRound, homePlayerId: e.target.value})}
-                         >
-                             {teams.home?.players.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
-                         </select>
-                         <div className="flex flex-wrap gap-2 justify-center">
-                             {tieBreakerRound.homeScores.map((score, idx) => (
-                                 <ScoreInput 
-                                     key={idx} 
-                                     pitchNumber={idx + 1} 
-                                     value={score} 
-                                     isEditing={true} 
-                                     readOnly={false}
-                                     onOpen={() => {}} 
-                                     onClose={() => {}} 
-                                     onChange={(val) => handleTieBreakerScore('home', idx, val)} 
-                                 />
-                             ))}
-                         </div>
-                         <div className="text-center mt-4 text-2xl font-sans font-bold text-blue-800">
-                             Total: {tieBreakerRound.homeScores.reduce((a,b)=>a+b,0)}
-                         </div>
-                     </div>
-                 </div>
-                 
-                 <button onClick={submitTieBreakerRound} className="w-full mt-8 py-4 bg-slate-900 text-white font-bold rounded-xl text-lg hover:bg-slate-800 shadow-xl transition-transform active:scale-[0.98] font-sans">
-                     Submit Round Results
-                 </button>
-             </div>
-          </div>
       )}
     </div>
   );

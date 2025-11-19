@@ -34,7 +34,6 @@ const App: React.FC = () => {
   const [matchSort, setMatchSort] = useState<{ key: keyof PlayerStats; direction: 'asc' | 'desc' }>({ key: 'totalPoints', direction: 'desc' });
 
   useEffect(() => {
-    // Initial Load: Get Leagues and Current Season Setting
     const init = async () => {
         const [ls, currentSeason] = await Promise.all([storage.getLeagues(), storage.getCurrentSeason()]);
         setLeagues(ls);
@@ -58,18 +57,14 @@ const App: React.FC = () => {
     try {
         setLoading(true);
 
-        // 1. Check for Substitutes (Players in lineup NOT in the DB team roster)
-        // We must sync them to the DB Team so their names appear correctly in the Scoreboard/Stats
         const syncSubs = async (teamId: string, lineup: Player[]) => {
             const team = teams.find(t => t.id === teamId);
             if (!team) return;
             
             const newPlayers = lineup.filter(p => !team.players.find(tp => tp.id === p.id));
             if (newPlayers.length > 0) {
-                // Found subs, update the team record
                 const updatedTeam = { ...team, players: [...team.players, ...newPlayers] };
                 await storage.updateTeam(updatedTeam);
-                // Update local state immediately so UI doesn't flicker
                 setTeams(prev => prev.map(t => t.id === teamId ? updatedTeam : t));
             }
         };
@@ -82,7 +77,6 @@ const App: React.FC = () => {
         const homeIds = homeLineup.map(p => p.id);
         const awayIds = awayLineup.map(p => p.id);
         
-        // Pass the specifically selected IDs (allows for swapping in MatchSetup)
         const newMatch = await storage.createMatch(state.currentLeague, finalHomeId, finalAwayId, homeIds, awayIds, state.season);
         
         setSelectedHomeId(''); setSelectedAwayId(''); setLoading(false);
@@ -114,7 +108,6 @@ const App: React.FC = () => {
   };
 
   const handleSeasonChange = (newSeason: string) => {
-      // This updates the view locally, allowing them to browse history
       setState({ ...state, season: newSeason, view: state.currentLeague ? 'dashboard' : 'league_select' });
   };
 
@@ -122,7 +115,6 @@ const App: React.FC = () => {
       setState({ ...state, view: 'dashboard', currentLeague: leagueId, currentMatchId: null });
   };
 
-  // Auth Logic
   const openLoginModal = () => {
       setShowLoginModal(true);
       setPasswordInput('');
@@ -147,16 +139,14 @@ const App: React.FC = () => {
     setLoading(false);
     
     if (result.success && result.role) {
-      setUserRole(result.role); // 'admin' or 'umpire'
+      setUserRole(result.role);
       setShowLoginModal(false);
-      // If admin, maybe go to admin view? If umpire, just stay here but unlock features.
       if (result.role === 'admin') setState({...state, view: 'admin'}); 
     } else {
       setLoginError('Incorrect password.');
     }
   };
 
-  // Sort Helper
   const performSort = (data: PlayerStats[], config: { key: keyof PlayerStats; direction: 'asc' | 'desc' }) => {
       return [...data].sort((a, b) => {
         const valA = a[config.key];
@@ -172,7 +162,6 @@ const App: React.FC = () => {
       });
   };
 
-  // Header Render Helper
   const renderSortHeader = (label: string, key: keyof PlayerStats, config: { key: keyof PlayerStats; direction: 'asc' | 'desc' }, setConfig: any, align: string = 'text-right', colorClass: string = '') => (
     <th 
         className={`px-4 py-3 cursor-pointer hover:bg-slate-200 transition-colors select-none ${align} ${colorClass}`}
@@ -188,20 +177,29 @@ const App: React.FC = () => {
     </th>
   );
 
-
-  // --- STANDINGS CALCULATION ---
   const calculateStandings = () => {
     const stats: Record<string, { wins: number; losses: number; ties: number; pf: number; pa: number }> = {};
     teams.forEach(t => { stats[t.id] = { wins: 0, losses: 0, ties: 0, pf: 0, pa: 0 }; });
 
     matches.forEach(m => {
         if (!m.isComplete) return; 
+        
+        // Calculate Base Scores (Innings)
         const getScore = (side: 'home' | 'away') => {
             const sideData = side === 'home' ? m.innings.map(i => i.home) : m.innings.map(i => i.away);
             return sideData.reduce((acc, inning) => acc + inning.playerScores.reduce((pAcc, p) => pAcc + p.pitches.reduce((pitchAcc, pitch) => pitchAcc + (pitch.points || 0), 0), 0), 0);
         };
-        const homeScore = getScore('home');
-        const awayScore = getScore('away');
+        
+        let homeScore = getScore('home');
+        let awayScore = getScore('away');
+
+        // Add TieBreaker Scores
+        if (m.tieBreaker) {
+            m.tieBreaker.forEach(tb => {
+                homeScore += tb.homeScores.reduce((a,b)=>a+b,0);
+                awayScore += tb.awayScores.reduce((a,b)=>a+b,0);
+            });
+        }
 
         if (stats[m.homeTeamId]) { stats[m.homeTeamId].pf += homeScore; stats[m.homeTeamId].pa += awayScore; }
         if (stats[m.awayTeamId]) { stats[m.awayTeamId].pf += awayScore; stats[m.awayTeamId].pa += homeScore; }
@@ -224,33 +222,24 @@ const App: React.FC = () => {
     });
   };
 
-  // --- SEASON STATS CALCULATION ---
   const calculateSeasonLeaders = () => {
       const playerStatsMap = new Map<string, PlayerStats>();
-
-      // Initialize with all known players
       teams.forEach(t => {
           t.players.forEach(p => {
               playerStatsMap.set(p.id, {
-                  playerId: p.id,
-                  name: p.name,
-                  totalPoints: 0, hits4: 0, hits3: 0, hits2: 0, hits1: 0, pitchesSeen: 0
+                  playerId: p.id, name: p.name, totalPoints: 0, hits4: 0, hits3: 0, hits2: 0, hits1: 0, pitchesSeen: 0
               });
           });
       });
 
-      // Aggregate from completed matches
       matches.filter(m => m.isComplete).forEach(m => {
           const home = teams.find(t => t.id === m.homeTeamId);
           const away = teams.find(t => t.id === m.awayTeamId);
           if (home && away) {
               const matchStats = storage.calculateMatchStats(m, home, away);
               matchStats.forEach(stat => {
-                  if (!playerStatsMap.has(stat.playerId)) {
-                       // Add if missing (e.g. sub)
-                       playerStatsMap.set(stat.playerId, { ...stat });
-                  } else {
-                       // Accumulate
+                  if (!playerStatsMap.has(stat.playerId)) playerStatsMap.set(stat.playerId, { ...stat });
+                  else {
                        const existing = playerStatsMap.get(stat.playerId)!;
                        existing.totalPoints += stat.totalPoints;
                        existing.hits4 += stat.hits4;
@@ -263,17 +252,76 @@ const App: React.FC = () => {
           }
       });
 
-      // Convert to array, filter out Ghost
       const rawList = Array.from(playerStatsMap.values())
           .filter(p => p.playerId !== 'ghost-player-3' && p.name !== 'Player 3 (Team Stats)');
       
-      // Sort based on current config
       return performSort(rawList, seasonSort);
   };
 
-  // --- RENDER ---
+  // --- WEEKLY LEADERS CALCULATION ---
+  const calculateWeeklyLeaders = () => {
+      // Find matches from current week (Mon-Sun)
+      const now = new Date();
+      const day = now.getDay(); // 0 (Sun) - 6 (Sat)
+      const diff = now.getDate() - day + (day === 0 ? -6 : 1); // adjust when day is sunday
+      const monday = new Date(now.setDate(diff));
+      monday.setHours(0,0,0,0);
+      
+      const nextMonday = new Date(monday);
+      nextMonday.setDate(monday.getDate() + 7);
 
-  // Helper: Get Navbar props
+      const weeklyMatches = matches.filter(m => {
+          const d = new Date(m.date);
+          return m.isComplete && d >= monday && d < nextMonday;
+      });
+
+      const singleInningBest: { name: string; score: number; team: string; date: string }[] = [];
+      const matchTotalBest: { name: string; score: number; team: string; date: string }[] = [];
+
+      weeklyMatches.forEach(m => {
+          const home = teams.find(t => t.id === m.homeTeamId);
+          const away = teams.find(t => t.id === m.awayTeamId);
+          if(!home || !away) return;
+
+          // Helper to process one side
+          const processSide = (team: Team, sideData: any) => {
+               // Map to accumulate total match score per player
+               const playerMatchTotals = new Map<string, number>();
+
+               m.innings.forEach(inning => {
+                   const iData = sideData(inning); // get home or away part
+                   iData.playerScores.forEach((ps: any) => {
+                       const inningScore = ps.pitches.reduce((sum: number, p: any) => sum + (p.points || 0), 0);
+                       
+                       // Record Single Inning Highs
+                       const pName = team.players.find(p => p.id === ps.playerId)?.name || 'Sub';
+                       if (pName !== 'Player 3 (Team Stats)') { // Ignore ghosts
+                           singleInningBest.push({ name: pName, score: inningScore, team: team.name, date: m.date });
+                           playerMatchTotals.set(ps.playerId, (playerMatchTotals.get(ps.playerId) || 0) + inningScore);
+                       }
+                   });
+               });
+               
+               // Push Match Totals
+               playerMatchTotals.forEach((score, pId) => {
+                   const pName = team.players.find(p => p.id === pId)?.name || 'Sub';
+                   matchTotalBest.push({ name: pName, score, team: team.name, date: m.date });
+               });
+          };
+
+          processSide(home, (i: any) => i.home);
+          processSide(away, (i: any) => i.away);
+      });
+
+      // Sort and Take Top 3
+      const topInnings = singleInningBest.sort((a,b) => b.score - a.score).slice(0, 3);
+      const topTotals = matchTotalBest.sort((a,b) => b.score - a.score).slice(0, 3);
+
+      return { topInnings, topTotals };
+  };
+
+  const weeklyStats = calculateWeeklyLeaders();
+
   const navbarProps = {
       currentLeague: state.currentLeague,
       currentSeason: state.season,
@@ -318,7 +366,6 @@ const App: React.FC = () => {
             </div>
         )}
         
-        {/* Login Modal */}
         {showLoginModal && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm animate-in fade-in duration-200" onClick={() => setShowLoginModal(false)}>
             <div className="bg-white p-8 rounded-2xl shadow-2xl w-full max-w-sm transform scale-100 animate-in zoom-in-95 duration-200" onClick={e => e.stopPropagation()}>
@@ -343,7 +390,6 @@ const App: React.FC = () => {
     const awayTeam = teams.find(t => t.id === selectedAwayId);
     if (homeTeam && awayTeam) return <MatchSetup homeTeam={homeTeam} awayTeam={awayTeam} onStart={handleStartGame} onCancel={() => setState({ ...state, view: 'dashboard' })} />;
   }
-  // Pass isReadOnly to Scoreboard if user is a Fan
   if (state.view === 'scoring' && state.currentMatchId) return <Scoreboard matchId={state.currentMatchId} onExit={() => setState({ ...state, view: 'dashboard', currentMatchId: null })} isReadOnly={userRole === 'fan'} />;
   if (state.view === 'team_management' && state.currentLeague) return <TeamManagement league={state.currentLeague} season={state.season} onBack={() => setState({ ...state, view: 'dashboard' })} />;
 
@@ -351,10 +397,8 @@ const App: React.FC = () => {
     <div className="min-h-screen bg-slate-50">
       <Navbar {...navbarProps} />
       <main className="max-w-7xl mx-auto p-4 sm:p-8">
-        {/* Layout changes based on role. Fan = Full width. Manager = 2 cols. */}
         <div className={`grid grid-cols-1 ${userRole !== 'fan' ? 'lg:grid-cols-3' : ''} gap-8`}>
             
-            {/* Left Column: Controls (Hidden for Fans) */}
             {userRole !== 'fan' && (
             <div className="space-y-6">
                 <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
@@ -377,8 +421,48 @@ const App: React.FC = () => {
             </div>
             )}
 
-            {/* Right Column: Content Tabs */}
             <div className={`${userRole !== 'fan' ? 'lg:col-span-2' : 'col-span-1'}`}>
+                {/* Weekly Leaders Card - Always Visible */}
+                <div className="bg-gradient-to-r from-indigo-500 to-purple-600 rounded-xl shadow-md p-6 mb-8 text-white">
+                    <h3 className="font-bold text-white/90 uppercase tracking-wider text-sm mb-4 border-b border-white/20 pb-2">Weekly Leaders ({state.currentLeague})</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                        <div>
+                            <h4 className="font-bold text-lg mb-2">Best Total Score</h4>
+                            {weeklyStats.topTotals.length > 0 ? (
+                                <ul className="space-y-2">
+                                    {weeklyStats.topTotals.map((s, idx) => (
+                                        <li key={idx} className="flex justify-between items-center bg-white/10 p-2 rounded">
+                                            <div className="flex items-center gap-2">
+                                                <span className="font-bold bg-white text-indigo-600 w-6 h-6 flex items-center justify-center rounded-full text-xs">{idx+1}</span>
+                                                <span className="font-semibold">{s.name}</span>
+                                                <span className="text-xs text-white/70">({s.team})</span>
+                                            </div>
+                                            <span className="font-mono font-bold text-xl">{s.score}</span>
+                                        </li>
+                                    ))}
+                                </ul>
+                            ) : <p className="text-white/50 italic text-sm">No matches yet this week.</p>}
+                        </div>
+                        <div>
+                            <h4 className="font-bold text-lg mb-2">Best Single Inning</h4>
+                             {weeklyStats.topInnings.length > 0 ? (
+                                <ul className="space-y-2">
+                                    {weeklyStats.topInnings.map((s, idx) => (
+                                        <li key={idx} className="flex justify-between items-center bg-white/10 p-2 rounded">
+                                            <div className="flex items-center gap-2">
+                                                <span className="font-bold bg-white text-purple-600 w-6 h-6 flex items-center justify-center rounded-full text-xs">{idx+1}</span>
+                                                <span className="font-semibold">{s.name}</span>
+                                                <span className="text-xs text-white/70">({s.team})</span>
+                                            </div>
+                                            <span className="font-mono font-bold text-xl">{s.score}</span>
+                                        </li>
+                                    ))}
+                                </ul>
+                            ) : <p className="text-white/50 italic text-sm">No matches yet this week.</p>}
+                        </div>
+                    </div>
+                </div>
+
                 <div className="flex items-center gap-4 mb-6 border-b border-slate-200 pb-1 overflow-x-auto">
                     <button onClick={() => setDashboardTab('matches')} className={`text-lg sm:text-xl font-bold pb-2 px-2 transition-colors border-b-2 whitespace-nowrap ${dashboardTab === 'matches' ? 'text-slate-800 border-blue-600' : 'text-slate-400 border-transparent hover:text-slate-600'}`}>Matches</button>
                     <button onClick={() => setDashboardTab('standings')} className={`text-lg sm:text-xl font-bold pb-2 px-2 transition-colors border-b-2 whitespace-nowrap ${dashboardTab === 'standings' ? 'text-slate-800 border-blue-600' : 'text-slate-400 border-transparent hover:text-slate-600'}`}>Standings</button>
@@ -404,12 +488,10 @@ const App: React.FC = () => {
                                     <div className="flex gap-2 w-full sm:w-auto justify-end">
                                     <button onClick={() => handleOpenMatchStats(match)} className="flex-1 sm:flex-none text-center px-3 py-2 rounded border border-slate-200 text-blue-600 hover:bg-blue-50 font-medium text-xs sm:text-sm transition-colors">Stats</button>
                                     
-                                    {/* VIEW Logic: Fan = View Live (Read Only). Umpire/Admin = Resume/Score. */}
                                     <button onClick={() => setState({ ...state, view: 'scoring', currentMatchId: match.id })} className="flex-1 sm:flex-none text-center px-3 py-2 rounded border border-slate-200 text-slate-600 hover:bg-slate-50 font-medium text-xs sm:text-sm transition-colors">
                                         {userRole === 'fan' ? (match.isComplete ? 'View' : 'Watch Live') : (match.isComplete ? 'View' : 'Score')}
                                     </button>
                                     
-                                    {/* DELETE Logic: Admin OR Umpire can delete. */}
                                     {(userRole === 'admin' || userRole === 'umpire') && <button onClick={() => handleDeleteMatch(match.id)} className="flex-initial px-3 py-2 rounded border border-slate-200 text-red-500 hover:bg-red-50 font-medium text-xs sm:text-sm transition-colors">Delete</button>}
                                     </div>
                                 </div>
@@ -492,7 +574,6 @@ const App: React.FC = () => {
             </div>
         </div>
         
-        {/* Login Modal */}
         {showLoginModal && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm animate-in fade-in duration-200" onClick={() => setShowLoginModal(false)}>
             <div className="bg-white p-8 rounded-2xl shadow-2xl w-full max-w-sm transform scale-100 animate-in zoom-in-95 duration-200" onClick={e => e.stopPropagation()}>
@@ -509,7 +590,6 @@ const App: React.FC = () => {
           </div>
         )}
 
-        {/* Match Stats Modal */}
         {statsModalMatch && (
             <div className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200" onClick={() => setStatsModalMatch(null)}>
                 <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[90vh] overflow-hidden flex flex-col transform scale-100 animate-in zoom-in-95 duration-200" onClick={e => e.stopPropagation()}>

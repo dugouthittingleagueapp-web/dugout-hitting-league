@@ -13,7 +13,8 @@ const mapMatchFromDB = (dbMatch: any): Match => ({
   date: dbMatch.date,
   isComplete: dbMatch.is_complete,
   innings: typeof dbMatch.innings === 'string' ? JSON.parse(dbMatch.innings) : dbMatch.innings,
-  season: dbMatch.season || '2025'
+  season: dbMatch.season || '2025',
+  tieBreaker: dbMatch.innings && typeof dbMatch.innings === 'string' ? [] : (dbMatch.innings?.tieBreaker || undefined) 
 });
 
 // League Methods
@@ -112,10 +113,19 @@ export const deleteMatch = async (matchId: string) => {
 
 // Updated to handle variable pitch counts (15 for 2 players, 10 for others)
 const createEmptyInning = (number: number, homeTeamId: string, awayTeamId: string, homeLineupIds: string[], awayLineupIds: string[]): Inning => {
+  
+  // Logic Update: 2v2 Mode Check
+  // If BOTH teams have exactly 2 players, it is a 2v2 Showdown -> 10 Pitches each (No Ghost).
+  const is2v2 = homeLineupIds.length === 2 && awayLineupIds.length === 2;
+
   const createPlayerScores = (playerIds: string[]): PlayerInningScore[] => {
-    // Determine pitches per player. Standard is 30 total. 
-    // If 2 players, 15 each. If 3 players, 10 each. Default to 10 otherwise.
-    const pitchCount = playerIds.length === 2 ? 15 : 10;
+    let pitchCount = 10; // Default
+
+    if (!is2v2 && playerIds.length === 2) {
+        // Asymmetric 2-player team (needs Ghost mode)
+        pitchCount = 15;
+    }
+    // Else if is2v2, pitchCount remains 10.
     
     return playerIds.map(pId => ({
       playerId: pId,
@@ -163,11 +173,9 @@ export const updateMatch = async (updatedMatch: Match) => {
 
 // Restore full roster for a team from a specific inning onwards
 export const restoreTeamRoster = async (matchId: string, teamId: string, startInningIdx: number): Promise<Match> => {
-  // 1. Fetch fresh match data
   const match = await getMatch(matchId);
   if (!match) throw new Error("Match not found");
   
-  // 2. Fetch full team data to get the complete roster
   const allTeams = await getAllTeams();
   const team = allTeams.find(t => t.id === teamId);
   if (!team) throw new Error("Team not found");
@@ -175,22 +183,16 @@ export const restoreTeamRoster = async (matchId: string, teamId: string, startIn
   const isHome = match.homeTeamId === teamId;
   const updatedMatch = { ...match };
 
-  // 3. Regenerate innings from startInningIdx to end
   for (let i = startInningIdx; i < updatedMatch.innings.length; i++) {
     const inning = updatedMatch.innings[i];
     const side = isHome ? inning.home : inning.away;
     
-    // Reset to full 3-player roster, 10 pitches each
-    // CRITICAL: We explicitly set 10 pitches here. 
-    // This ensures that subsequent stats calculations treat these as standard innings, 
-    // attributing points to the individual player (indices 0-9) instead of the ghost bucket.
     side.playerScores = team.players.map(p => ({
       playerId: p.id,
       pitches: Array(10).fill(null).map(() => ({ points: null }))
     }));
   }
 
-  // 4. Save updates
   await updateMatch(updatedMatch);
   return updatedMatch;
 };
@@ -206,7 +208,6 @@ const GHOST_PLAYER_ID = 'ghost-player-3';
 const GHOST_PLAYER_NAME = 'Player 3 (Team Stats)';
 
 // Helper to process stats for a single player entry
-// Handles redirecting pitches 11-15 (indices 10-14) to Ghost Player
 const processPlayerStats = (statsMap: Map<string, PlayerStats>, playerId: string, pitches: { points: number | null }[]) => {
     pitches.forEach((pitch, pitchIndex) => {
         if (pitch.points !== null) {
@@ -214,10 +215,8 @@ const processPlayerStats = (statsMap: Map<string, PlayerStats>, playerId: string
             
             // Redirect logic: If index >= 10 (11th pitch), assign to Ghost Player
             // This only happens if the array HAS 11+ items (2-player mode).
-            // Restored rosters (3-player mode) have 10 items, so index is never >= 10.
             if (pitchIndex >= 10) {
                 targetId = GHOST_PLAYER_ID;
-                // Ensure Ghost Player entry exists
                 if (!statsMap.has(GHOST_PLAYER_ID)) {
                     statsMap.set(GHOST_PLAYER_ID, {
                         playerId: GHOST_PLAYER_ID,
@@ -263,10 +262,7 @@ export const calculateMatchStats = (match: Match, homeTeam: Team, awayTeam: Team
         const processSide = (side: 'home'|'away') => {
             const teamData = side === 'home' ? inning.home : inning.away;
             teamData.playerScores.forEach(ps => {
-                // Make sure we have a base entry for this player if they were a sub
                 if (!statsMap.has(ps.playerId)) {
-                     // Try to find name in match context if possible, otherwise Unknown
-                     // In a real scenario we might fetch team again, but for now we init basic
                      statsMap.set(ps.playerId, {
                         playerId: ps.playerId,
                         name: 'Substitute / Unknown', 
@@ -285,7 +281,6 @@ export const calculateMatchStats = (match: Match, homeTeam: Team, awayTeam: Team
 
 export const getTeamStats = async (team: Team, league: AgeGroup, season: string): Promise<PlayerStats[]> => {
   const matches = await getMatches(league, season);
-  // Initialize stats map
   const statsMap = new Map<string, PlayerStats>();
   
   team.players.forEach(p => {
@@ -301,18 +296,14 @@ export const getTeamStats = async (team: Team, league: AgeGroup, season: string)
     });
   });
 
-  // Iterate over completed matches
   matches.filter(m => m.isComplete).forEach(match => {
-    // Find team's data in innings
     match.innings.forEach(inning => {
       let teamScores: PlayerInningScore[] = [];
       if (inning.home.teamId === team.id) teamScores = inning.home.playerScores;
       else if (inning.away.teamId === team.id) teamScores = inning.away.playerScores;
 
       teamScores.forEach(ps => {
-        // Handle Subs that might not be in original team roster iteration
         if (!statsMap.has(ps.playerId)) {
-            // We try to find them in the current team object (maybe updated)
             const pName = team.players.find(p => p.id === ps.playerId)?.name || 'Unknown Sub';
             statsMap.set(ps.playerId, {
                 playerId: ps.playerId,
@@ -338,7 +329,6 @@ export const verifyPassword = async (password: string): Promise<{ success: boole
     });
     if (res.ok) {
       const data = await res.json();
-      // API returns { success: true, role: 'admin' | 'umpire' }
       return { success: true, role: data.role };
     }
     return { success: false, role: null };
@@ -348,7 +338,6 @@ export const verifyPassword = async (password: string): Promise<{ success: boole
   }
 };
 
-// Specifically updates Admin password
 export const updateAdminPassword = async (password: string): Promise<void> => {
   const res = await fetch('/api/settings', {
     method: 'POST',
@@ -358,7 +347,6 @@ export const updateAdminPassword = async (password: string): Promise<void> => {
   if (!res.ok) throw new Error("Failed to update admin password");
 };
 
-// Specifically updates Umpire password
 export const updateUmpirePassword = async (password: string): Promise<void> => {
   const res = await fetch('/api/settings', {
     method: 'POST',

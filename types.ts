@@ -1,3 +1,4 @@
+
 export type AgeGroup = string;
 
 export interface League {
@@ -38,6 +39,15 @@ export interface Inning {
   away: TeamInningScore;
 }
 
+export interface TieBreakerRound {
+  roundNumber: number;
+  pitchLimit: number;
+  homePlayerId: string;
+  awayPlayerId: string;
+  homeScores: number[];
+  awayScores: number[];
+}
+
 export interface Match {
   id: string;
   league: AgeGroup;
@@ -47,6 +57,7 @@ export interface Match {
   date: string;
   isComplete: boolean;
   innings: Inning[];
+  tieBreaker?: TieBreakerRound[]; // Array of rounds if multiple OT needed
 }
 
 export interface PlayerStats {

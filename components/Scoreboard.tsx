@@ -232,11 +232,20 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
       
       const newMatch = { ...match };
       const round = newMatch.tieBreaker![roundIdx];
+      
+      const existingVal = side === 'home' ? round.homeScores[pitchIdx] : round.awayScores[pitchIdx];
+      const isEdit = existingVal !== 0 && existingVal !== undefined && existingVal !== null;
+
       if (side === 'home') round.homeScores[pitchIdx] = val;
       else round.awayScores[pitchIdx] = val;
       
       setMatch(newMatch);
       await storage.updateMatch(newMatch);
+
+      if (isEdit) {
+          setActiveCell(null);
+          return;
+      }
       
       // Simple auto advance within round
       if (pitchIdx < limit - 1) {

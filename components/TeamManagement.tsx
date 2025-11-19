@@ -13,7 +13,8 @@ export const TeamManagement: React.FC<TeamManagementProps> = ({ league, season, 
   const [selectedTeam, setSelectedTeam] = useState<Team | null>(null);
   const [teamStats, setTeamStats] = useState<PlayerStats[]>([]);
   
-  // Creation State
+  // Creation/Edit State
+  const [editingTeamId, setEditingTeamId] = useState<string | null>(null);
   const [newTeamName, setNewTeamName] = useState('');
   const [playerNames, setPlayerNames] = useState(['', '', '']);
   const [loading, setLoading] = useState(false);
@@ -39,14 +40,57 @@ export const TeamManagement: React.FC<TeamManagementProps> = ({ league, season, 
     setLoading(false);
   };
 
-  const handleCreate = async (e: React.FormEvent) => {
+  const handleEditTeam = (team: Team) => {
+    setEditingTeamId(team.id);
+    setNewTeamName(team.name);
+    // Fill player names, ensure at least 3
+    const pNames = team.players.map(p => p.name);
+    while(pNames.length < 3) pNames.push('');
+    setPlayerNames(pNames.slice(0, 3));
+  };
+
+  const cancelEdit = () => {
+      setEditingTeamId(null);
+      setNewTeamName('');
+      setPlayerNames(['', '', '']);
+  };
+
+  const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newTeamName.trim() || playerNames.some(p => !p.trim())) return;
     setLoading(true);
-    await storage.createTeam(newTeamName, league, playerNames, season);
-    await loadTeams();
-    setNewTeamName('');
-    setPlayerNames(['', '', '']);
+
+    try {
+        if (editingTeamId) {
+             // Update existing
+             const teamToUpdate = teams.find(t => t.id === editingTeamId);
+             if (teamToUpdate) {
+                 const updatedPlayers = teamToUpdate.players.map((p, i) => ({ ...p, name: playerNames[i] }));
+                 // If there are new players (structure change), handle that, but we assume fixed 3 for now or match index
+                 // Actually, just replace names for existing IDs if possible, or create new IDs if structure changed.
+                 // Simpler: Just map index 0->0, 1->1, 2->2.
+                 const finalPlayers = playerNames.map((name, idx) => ({
+                     id: teamToUpdate.players[idx]?.id || crypto.randomUUID(),
+                     name
+                 }));
+                 
+                 await storage.updateTeam({
+                     ...teamToUpdate,
+                     name: newTeamName,
+                     players: finalPlayers
+                 });
+             }
+        } else {
+            // Create New
+            await storage.createTeam(newTeamName, league, playerNames, season);
+        }
+        
+        await loadTeams();
+        cancelEdit();
+    } catch (e) {
+        alert("Failed to save team");
+    }
+    
     setLoading(false);
   };
 
@@ -87,10 +131,10 @@ export const TeamManagement: React.FC<TeamManagementProps> = ({ league, season, 
                             <tr>
                                 <th className="px-4 py-3">Player</th>
                                 <th className="px-4 py-3 text-right">Total Points</th>
-                                <th className="px-4 py-3 text-right text-red-600">4s</th>
-                                <th className="px-4 py-3 text-right text-orange-600">3s</th>
+                                <th className="px-4 py-3 text-right text-rose-600">4s</th>
+                                <th className="px-4 py-3 text-right text-amber-600">3s</th>
                                 <th className="px-4 py-3 text-right text-green-600">2s</th>
-                                <th className="px-4 py-3 text-right text-blue-600">1s</th>
+                                <th className="px-4 py-3 text-right text-cyan-600">1s</th>
                                 <th className="px-4 py-3 text-right text-slate-400">Pitches</th>
                             </tr>
                         </thead>
@@ -129,8 +173,11 @@ export const TeamManagement: React.FC<TeamManagementProps> = ({ league, season, 
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
         <div className="bg-white p-6 rounded-xl shadow-md border border-slate-100 h-fit">
-          <h3 className="text-lg font-semibold mb-4 flex items-center gap-2 text-slate-800">Add New Team ({season})</h3>
-          <form onSubmit={handleCreate} className="space-y-5">
+          <div className="flex justify-between items-center mb-4">
+            <h3 className="text-lg font-semibold text-slate-800">{editingTeamId ? 'Edit Team' : `Add New Team (${season})`}</h3>
+            {editingTeamId && <button onClick={cancelEdit} className="text-xs text-red-500 hover:text-red-700 font-bold">Cancel Edit</button>}
+          </div>
+          <form onSubmit={handleSave} className="space-y-5">
             <div>
               <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Team Name</label>
               <input type="text" className="w-full border border-slate-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 outline-none" placeholder="e.g. Tigers" value={newTeamName} onChange={e => setNewTeamName(e.target.value)} required />
@@ -144,13 +191,13 @@ export const TeamManagement: React.FC<TeamManagementProps> = ({ league, season, 
                 </div>
               ))}
             </div>
-            <button type="submit" disabled={loading} className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-slate-300 text-white font-bold py-3 px-4 rounded-lg shadow-lg shadow-blue-200 transition-all active:scale-95">{loading ? 'Saving...' : `Create Team for ${season}`}</button>
+            <button type="submit" disabled={loading} className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-slate-300 text-white font-bold py-3 px-4 rounded-lg shadow-lg shadow-blue-200 transition-all active:scale-95">{loading ? 'Saving...' : (editingTeamId ? 'Update Team' : 'Create Team')}</button>
           </form>
         </div>
         <div className="space-y-4">
           <h3 className="text-lg font-semibold text-slate-700 border-b pb-2">Current Teams ({teams.length})</h3>
           {teams.map(team => (
-            <div key={team.id} className="bg-white p-4 rounded-xl shadow-sm border border-slate-200 flex justify-between items-center group hover:border-blue-300 transition-colors">
+            <div key={team.id} className={`bg-white p-4 rounded-xl shadow-sm border flex justify-between items-center group transition-colors ${editingTeamId === team.id ? 'border-blue-500 ring-1 ring-blue-500' : 'border-slate-200 hover:border-blue-300'}`}>
               <div>
                 <h4 className="font-bold text-lg text-slate-800">{team.name}</h4>
                 <div className="flex flex-wrap gap-2 mt-2">
@@ -159,9 +206,12 @@ export const TeamManagement: React.FC<TeamManagementProps> = ({ league, season, 
                   ))}
                 </div>
               </div>
-              <div className="flex gap-2">
-                <button onClick={() => handleSelectTeam(team)} className="text-blue-600 hover:text-blue-800 bg-blue-50 hover:bg-blue-100 px-3 py-1 rounded text-sm font-bold transition-colors">Stats</button>
-                <button onClick={() => handleDelete(team.id, team.name)} className="text-slate-300 hover:text-red-500 p-2 transition-colors">Delete</button>
+              <div className="flex flex-col items-end gap-1">
+                <div className="flex gap-2">
+                    <button onClick={() => handleSelectTeam(team)} className="text-blue-600 hover:text-blue-800 bg-blue-50 hover:bg-blue-100 px-3 py-1 rounded text-xs font-bold transition-colors">Stats</button>
+                    <button onClick={() => handleEditTeam(team)} className="text-slate-600 hover:text-slate-800 bg-slate-100 hover:bg-slate-200 px-3 py-1 rounded text-xs font-bold transition-colors">Edit</button>
+                </div>
+                <button onClick={() => handleDelete(team.id, team.name)} className="text-xs text-slate-300 hover:text-red-500 p-1 transition-colors mt-1">Delete</button>
               </div>
             </div>
           ))}

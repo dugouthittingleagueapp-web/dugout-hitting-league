@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { AgeGroup, AppState, Match, Team, Player, League } from './types';
+import { AgeGroup, AppState, Match, Team, Player, League, PlayerStats } from './types';
 import { Navbar } from './components/Navbar';
 import { TeamManagement } from './components/TeamManagement';
 import { Scoreboard } from './components/Scoreboard';
@@ -21,6 +21,10 @@ const App: React.FC = () => {
   const [showAdminLogin, setShowAdminLogin] = useState(false);
   const [adminPasswordInput, setAdminPasswordInput] = useState('');
   const [loginError, setLoginError] = useState(false);
+
+  // Match Stats Modal
+  const [statsModalMatch, setStatsModalMatch] = useState<Match | null>(null);
+  const [statsModalData, setStatsModalData] = useState<PlayerStats[]>([]);
 
   useEffect(() => {
     // Initial Load: Get Leagues and Current Season Setting
@@ -65,6 +69,16 @@ const App: React.FC = () => {
         alert("Failed to delete match");
         setLoading(false);
     }
+  };
+
+  const handleOpenMatchStats = (match: Match) => {
+      const home = teams.find(t => t.id === match.homeTeamId);
+      const away = teams.find(t => t.id === match.awayTeamId);
+      if (home && away) {
+          const stats = storage.calculateMatchStats(match, home, away);
+          setStatsModalData(stats);
+          setStatsModalMatch(match);
+      }
   };
 
   const handleSeasonChange = (newSeason: string) => {
@@ -190,8 +204,9 @@ const App: React.FC = () => {
                                     <div className="flex items-center gap-8"><div className="text-right"><div className="text-lg">{home.name}</div></div><div className="text-slate-300 text-xl">vs</div><div className="text-left"><div className="text-lg">{away.name}</div></div></div>
                                 </div>
                                 <div className="flex gap-2">
-                                  <button onClick={() => setState({ ...state, view: 'scoring', currentMatchId: match.id })} className="px-4 py-2 rounded border border-slate-200 text-slate-600 hover:bg-slate-50 font-medium text-sm transition-colors">{match.isComplete ? 'View' : 'Resume'}</button>
-                                  <button onClick={() => handleDeleteMatch(match.id)} className="px-4 py-2 rounded border border-slate-200 text-red-500 hover:bg-red-50 font-medium text-sm transition-colors">Delete</button>
+                                  <button onClick={() => handleOpenMatchStats(match)} className="px-3 py-2 rounded border border-slate-200 text-blue-600 hover:bg-blue-50 font-medium text-sm transition-colors">Stats</button>
+                                  <button onClick={() => setState({ ...state, view: 'scoring', currentMatchId: match.id })} className="px-3 py-2 rounded border border-slate-200 text-slate-600 hover:bg-slate-50 font-medium text-sm transition-colors">{match.isComplete ? 'View' : 'Resume'}</button>
+                                  <button onClick={() => handleDeleteMatch(match.id)} className="px-3 py-2 rounded border border-slate-200 text-red-500 hover:bg-red-50 font-medium text-sm transition-colors">Delete</button>
                                 </div>
                             </div>
                         );
@@ -223,6 +238,52 @@ const App: React.FC = () => {
               </form>
             </div>
           </div>
+        )}
+
+        {/* Match Stats Modal */}
+        {statsModalMatch && (
+            <div className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200" onClick={() => setStatsModalMatch(null)}>
+                <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[90vh] overflow-hidden flex flex-col transform scale-100 animate-in zoom-in-95 duration-200" onClick={e => e.stopPropagation()}>
+                    <div className="p-6 border-b border-slate-200 flex justify-between items-center bg-slate-50">
+                        <div>
+                            <h3 className="text-xl font-bold text-slate-800">Match Statistics</h3>
+                            <p className="text-sm text-slate-500">{new Date(statsModalMatch.date).toLocaleDateString()}</p>
+                        </div>
+                        <button onClick={() => setStatsModalMatch(null)} className="text-slate-400 hover:text-slate-600 font-bold text-xl">&times;</button>
+                    </div>
+                    <div className="overflow-y-auto p-0">
+                        <table className="w-full text-left text-sm">
+                            <thead className="bg-slate-100 text-slate-500 uppercase font-bold text-xs sticky top-0 z-10">
+                                <tr>
+                                    <th className="px-6 py-3">Player</th>
+                                    <th className="px-4 py-3 text-right">Total Pts</th>
+                                    <th className="px-4 py-3 text-right text-rose-600">4s</th>
+                                    <th className="px-4 py-3 text-right text-amber-600">3s</th>
+                                    <th className="px-4 py-3 text-right text-green-600">2s</th>
+                                    <th className="px-4 py-3 text-right text-cyan-600">1s</th>
+                                    <th className="px-4 py-3 text-right text-slate-400">Pitches</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-100">
+                                {statsModalData.map(stat => (
+                                    <tr key={stat.playerId} className="hover:bg-slate-50">
+                                        <td className="px-6 py-3 font-bold text-slate-800">{stat.name}</td>
+                                        <td className="px-4 py-3 text-right font-mono font-bold text-lg">{stat.totalPoints}</td>
+                                        <td className="px-4 py-3 text-right font-mono">{stat.hits4}</td>
+                                        <td className="px-4 py-3 text-right font-mono">{stat.hits3}</td>
+                                        <td className="px-4 py-3 text-right font-mono">{stat.hits2}</td>
+                                        <td className="px-4 py-3 text-right font-mono">{stat.hits1}</td>
+                                        <td className="px-4 py-3 text-right font-mono text-slate-400">{stat.pitchesSeen}</td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                    <div className="p-4 border-t border-slate-200 bg-slate-50 flex justify-end">
+                        <button onClick={() => setStatsModalMatch(null)} className="px-6 py-2 bg-white border border-slate-300 text-slate-700 font-bold rounded-lg hover:bg-slate-50">Close</button>
+                    </div>
+                </div>
+            </div>
         )}
       </main>
     </div>

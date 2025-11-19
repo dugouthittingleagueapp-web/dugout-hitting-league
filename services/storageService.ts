@@ -69,6 +69,17 @@ export const createTeam = async (name: string, league: AgeGroup, playerNames: st
   return mapTeamFromDB(data);
 };
 
+export const updateTeam = async (team: Team): Promise<Team> => {
+  const res = await fetch('/api/teams', {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(team)
+  });
+  if (!res.ok) throw new Error('Failed to update team');
+  const data = await res.json();
+  return mapTeamFromDB(data);
+};
+
 export const deleteTeam = async (teamId: string) => {
   await fetch(`/api/teams?id=${teamId}`, { method: 'DELETE' });
 };
@@ -152,6 +163,50 @@ export const exportData = async () => {
 };
 
 // Stats Calculation
+export const calculateMatchStats = (match: Match, homeTeam: Team, awayTeam: Team): PlayerStats[] => {
+    const statsMap = new Map<string, PlayerStats>();
+
+    // Initialize for both teams
+    [...homeTeam.players, ...awayTeam.players].forEach(p => {
+        statsMap.set(p.id, {
+            playerId: p.id,
+            name: p.name,
+            totalPoints: 0,
+            hits4: 0,
+            hits3: 0,
+            hits2: 0,
+            hits1: 0,
+            pitchesSeen: 0
+        });
+    });
+
+    // Process Innings
+    match.innings.forEach(inning => {
+        const processSide = (side: 'home'|'away') => {
+            const teamData = side === 'home' ? inning.home : inning.away;
+            teamData.playerScores.forEach(ps => {
+                const stats = statsMap.get(ps.playerId);
+                if (stats) {
+                    ps.pitches.forEach(pitch => {
+                        if (pitch.points !== null) {
+                            stats.pitchesSeen++;
+                            stats.totalPoints += pitch.points;
+                            if (pitch.points === 4) stats.hits4++;
+                            if (pitch.points === 3) stats.hits3++;
+                            if (pitch.points === 2) stats.hits2++;
+                            if (pitch.points === 1) stats.hits1++;
+                        }
+                    });
+                }
+            });
+        };
+        processSide('home');
+        processSide('away');
+    });
+
+    return Array.from(statsMap.values());
+};
+
 export const getTeamStats = async (team: Team, league: AgeGroup, season: string): Promise<PlayerStats[]> => {
   const matches = await getMatches(league, season);
   // Initialize stats map

@@ -58,7 +58,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       
       const { rows } = await pool.query(query, values);
       return res.status(201).json(rows[0]);
-    } 
+    }
+    else if (req.method === 'PUT') {
+      const { id, name, players } = req.body;
+      if (!id || !name || !players) return res.status(400).json({ error: 'Missing fields' });
+      
+      const query = `UPDATE teams SET name = $2, players = $3 WHERE id = $1 RETURNING *`;
+      const values = [id, name, JSON.stringify(players)];
+      
+      const { rows } = await pool.query(query, values);
+      if (rows.length === 0) return res.status(404).json({ error: 'Team not found' });
+      
+      return res.status(200).json(rows[0]);
+    }
     else if (req.method === 'DELETE') {
       const { id } = req.query;
       if (!id) return res.status(400).json({ error: 'Missing ID' });

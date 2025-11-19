@@ -17,11 +17,11 @@ export const ScoreInput: React.FC<ScoreInputProps> = ({ pitchNumber, value, onCh
 
   const getValueColor = (v: number) => {
     switch(v) {
-      case 0: return 'bg-slate-100 text-slate-400 border-slate-200';
-      case 1: return 'bg-blue-50 text-blue-700 border-blue-200';
-      case 2: return 'bg-green-50 text-green-700 border-green-200';
-      case 3: return 'bg-orange-50 text-orange-700 border-orange-200';
-      case 4: return 'bg-red-50 text-red-700 border-red-200';
+      case 0: return 'bg-slate-200 text-slate-500 border-slate-300'; // Darker grey
+      case 1: return 'bg-cyan-100 text-cyan-800 border-cyan-200';   // Distinct Cyan/Blue
+      case 2: return 'bg-green-100 text-green-800 border-green-200'; // Green
+      case 3: return 'bg-amber-100 text-amber-800 border-amber-300'; // Gold/Orange
+      case 4: return 'bg-rose-100 text-rose-800 border-rose-300';    // Red/Rose
       default: return 'bg-white border-slate-200';
     }
   };

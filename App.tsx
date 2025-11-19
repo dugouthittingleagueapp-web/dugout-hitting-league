@@ -29,6 +29,10 @@ const App: React.FC = () => {
   const [statsModalMatch, setStatsModalMatch] = useState<Match | null>(null);
   const [statsModalData, setStatsModalData] = useState<PlayerStats[]>([]);
 
+  // Sorting State
+  const [seasonSort, setSeasonSort] = useState<{ key: keyof PlayerStats; direction: 'asc' | 'desc' }>({ key: 'totalPoints', direction: 'desc' });
+  const [matchSort, setMatchSort] = useState<{ key: keyof PlayerStats; direction: 'asc' | 'desc' }>({ key: 'totalPoints', direction: 'desc' });
+
   useEffect(() => {
     // Initial Load: Get Leagues and Current Season Setting
     const init = async () => {
@@ -152,6 +156,39 @@ const App: React.FC = () => {
     }
   };
 
+  // Sort Helper
+  const performSort = (data: PlayerStats[], config: { key: keyof PlayerStats; direction: 'asc' | 'desc' }) => {
+      return [...data].sort((a, b) => {
+        const valA = a[config.key];
+        const valB = b[config.key];
+        
+        if (typeof valA === 'string' && typeof valB === 'string') {
+            return config.direction === 'asc' ? valA.localeCompare(valB) : valB.localeCompare(valA);
+        }
+        
+        if (valA < valB) return config.direction === 'asc' ? -1 : 1;
+        if (valA > valB) return config.direction === 'asc' ? 1 : -1;
+        return 0;
+      });
+  };
+
+  // Header Render Helper
+  const renderSortHeader = (label: string, key: keyof PlayerStats, config: { key: keyof PlayerStats; direction: 'asc' | 'desc' }, setConfig: any, align: string = 'text-right', colorClass: string = '') => (
+    <th 
+        className={`px-4 py-3 cursor-pointer hover:bg-slate-200 transition-colors select-none ${align} ${colorClass}`}
+        onClick={() => setConfig({ key, direction: config.key === key && config.direction === 'desc' ? 'asc' : 'desc' })}
+        title="Click to sort"
+    >
+        <div className={`flex items-center gap-1 ${align === 'text-right' ? 'justify-end' : 'justify-start'}`}>
+            {label}
+            {config.key === key && (
+                <span className="text-[10px] text-slate-400">{config.direction === 'asc' ? '▲' : '▼'}</span>
+            )}
+        </div>
+    </th>
+  );
+
+
   // --- STANDINGS CALCULATION ---
   const calculateStandings = () => {
     const stats: Record<string, { wins: number; losses: number; ties: number; pf: number; pa: number }> = {};
@@ -226,10 +263,12 @@ const App: React.FC = () => {
           }
       });
 
-      // Convert to array, filter out Ghost, and sort
-      return Array.from(playerStatsMap.values())
-          .filter(p => p.playerId !== 'ghost-player-3' && p.name !== 'Player 3 (Team Stats)')
-          .sort((a, b) => b.totalPoints - a.totalPoints);
+      // Convert to array, filter out Ghost
+      const rawList = Array.from(playerStatsMap.values())
+          .filter(p => p.playerId !== 'ghost-player-3' && p.name !== 'Player 3 (Team Stats)');
+      
+      // Sort based on current config
+      return performSort(rawList, seasonSort);
   };
 
   // --- RENDER ---
@@ -422,13 +461,13 @@ const App: React.FC = () => {
                                 <thead className="bg-slate-100 text-slate-500 uppercase font-bold text-xs">
                                     <tr>
                                         <th className="px-4 py-3 w-12 text-center">#</th>
-                                        <th className="px-4 py-3">Player</th>
-                                        <th className="px-4 py-3 text-right">Total Pts</th>
-                                        <th className="px-4 py-3 text-right text-rose-600">4s</th>
-                                        <th className="px-4 py-3 text-right text-amber-600">3s</th>
-                                        <th className="px-4 py-3 text-right text-green-600">2s</th>
-                                        <th className="px-4 py-3 text-right text-cyan-600">1s</th>
-                                        <th className="px-4 py-3 text-right text-slate-400">Pitches</th>
+                                        {renderSortHeader('Player', 'name', seasonSort, setSeasonSort, 'text-left')}
+                                        {renderSortHeader('Total Pts', 'totalPoints', seasonSort, setSeasonSort)}
+                                        {renderSortHeader('4s', 'hits4', seasonSort, setSeasonSort, 'text-right', 'text-rose-600')}
+                                        {renderSortHeader('3s', 'hits3', seasonSort, setSeasonSort, 'text-right', 'text-amber-600')}
+                                        {renderSortHeader('2s', 'hits2', seasonSort, setSeasonSort, 'text-right', 'text-green-600')}
+                                        {renderSortHeader('1s', 'hits1', seasonSort, setSeasonSort, 'text-right', 'text-cyan-600')}
+                                        {renderSortHeader('Pitches', 'pitchesSeen', seasonSort, setSeasonSort, 'text-right', 'text-slate-400')}
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-slate-100">
@@ -485,17 +524,17 @@ const App: React.FC = () => {
                         <table className="w-full text-left text-sm">
                             <thead className="bg-slate-100 text-slate-500 uppercase font-bold text-xs sticky top-0 z-10">
                                 <tr>
-                                    <th className="px-6 py-3">Player</th>
-                                    <th className="px-4 py-3 text-right">Total Pts</th>
-                                    <th className="px-4 py-3 text-right text-rose-600">4s</th>
-                                    <th className="px-4 py-3 text-right text-amber-600">3s</th>
-                                    <th className="px-4 py-3 text-right text-green-600">2s</th>
-                                    <th className="px-4 py-3 text-right text-cyan-600">1s</th>
-                                    <th className="px-4 py-3 text-right text-slate-400">Pitches</th>
+                                    {renderSortHeader('Player', 'name', matchSort, setMatchSort, 'text-left', 'px-6')}
+                                    {renderSortHeader('Total Pts', 'totalPoints', matchSort, setMatchSort)}
+                                    {renderSortHeader('4s', 'hits4', matchSort, setMatchSort, 'text-right', 'text-rose-600')}
+                                    {renderSortHeader('3s', 'hits3', matchSort, setMatchSort, 'text-right', 'text-amber-600')}
+                                    {renderSortHeader('2s', 'hits2', matchSort, setMatchSort, 'text-right', 'text-green-600')}
+                                    {renderSortHeader('1s', 'hits1', matchSort, setMatchSort, 'text-right', 'text-cyan-600')}
+                                    {renderSortHeader('Pitches', 'pitchesSeen', matchSort, setMatchSort, 'text-right', 'text-slate-400')}
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-100">
-                                {statsModalData.map(stat => (
+                                {performSort(statsModalData, matchSort).map(stat => (
                                     <tr key={stat.playerId} className="hover:bg-slate-50">
                                         <td className="px-6 py-3 font-bold text-slate-800">{stat.name}</td>
                                         <td className="px-4 py-3 text-right font-mono font-bold text-lg">{stat.totalPoints}</td>

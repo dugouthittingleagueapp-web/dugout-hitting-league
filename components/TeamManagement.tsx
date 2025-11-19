@@ -13,6 +13,9 @@ export const TeamManagement: React.FC<TeamManagementProps> = ({ league, season, 
   const [selectedTeam, setSelectedTeam] = useState<Team | null>(null);
   const [teamStats, setTeamStats] = useState<PlayerStats[]>([]);
   
+  // Sort State
+  const [sortConfig, setSortConfig] = useState<{ key: keyof PlayerStats; direction: 'asc' | 'desc' }>({ key: 'totalPoints', direction: 'desc' });
+  
   // Creation/Edit State
   const [editingTeamId, setEditingTeamId] = useState<string | null>(null);
   const [newTeamName, setNewTeamName] = useState('');
@@ -39,6 +42,26 @@ export const TeamManagement: React.FC<TeamManagementProps> = ({ league, season, 
     }
     setLoading(false);
   };
+
+  const handleSort = (key: keyof PlayerStats) => {
+    setSortConfig(current => ({
+      key,
+      direction: current.key === key && current.direction === 'desc' ? 'asc' : 'desc'
+    }));
+  };
+
+  const sortedStats = [...teamStats].sort((a, b) => {
+    const valA = a[sortConfig.key];
+    const valB = b[sortConfig.key];
+    
+    if (typeof valA === 'string' && typeof valB === 'string') {
+        return sortConfig.direction === 'asc' ? valA.localeCompare(valB) : valB.localeCompare(valA);
+    }
+    
+    if (valA < valB) return sortConfig.direction === 'asc' ? -1 : 1;
+    if (valA > valB) return sortConfig.direction === 'asc' ? 1 : -1;
+    return 0;
+  });
 
   const handleEditTeam = (team: Team) => {
     setEditingTeamId(team.id);
@@ -106,6 +129,22 @@ export const TeamManagement: React.FC<TeamManagementProps> = ({ league, season, 
     setPlayerNames(newNames);
   };
 
+  // Helper to render sortable headers
+  const renderHeader = (label: string, key: keyof PlayerStats, align: string = 'text-right', colorClass: string = '') => (
+    <th 
+        className={`px-4 py-3 cursor-pointer hover:bg-slate-200 transition-colors select-none ${align} ${colorClass}`}
+        onClick={() => handleSort(key)}
+        title="Click to sort"
+    >
+        <div className={`flex items-center gap-1 ${align === 'text-right' ? 'justify-end' : 'justify-start'}`}>
+            {label}
+            {sortConfig.key === key && (
+                <span className="text-[10px] text-slate-400">{sortConfig.direction === 'asc' ? '▲' : '▼'}</span>
+            )}
+        </div>
+    </th>
+  );
+
   if (selectedTeam) {
     return (
         <div className="p-4 sm:p-6 max-w-5xl mx-auto">
@@ -126,17 +165,17 @@ export const TeamManagement: React.FC<TeamManagementProps> = ({ league, season, 
                     <table className="w-full text-left text-sm">
                         <thead className="bg-slate-100 text-slate-500 uppercase font-bold text-xs">
                             <tr>
-                                <th className="px-4 py-3">Player</th>
-                                <th className="px-4 py-3 text-right">Total Points</th>
-                                <th className="px-4 py-3 text-right text-rose-600">4s</th>
-                                <th className="px-4 py-3 text-right text-amber-600">3s</th>
-                                <th className="px-4 py-3 text-right text-green-600">2s</th>
-                                <th className="px-4 py-3 text-right text-cyan-600">1s</th>
-                                <th className="px-4 py-3 text-right text-slate-400">Pitches</th>
+                                {renderHeader('Player', 'name', 'text-left')}
+                                {renderHeader('Total Points', 'totalPoints')}
+                                {renderHeader('4s', 'hits4', 'text-right', 'text-rose-600')}
+                                {renderHeader('3s', 'hits3', 'text-right', 'text-amber-600')}
+                                {renderHeader('2s', 'hits2', 'text-right', 'text-green-600')}
+                                {renderHeader('1s', 'hits1', 'text-right', 'text-cyan-600')}
+                                {renderHeader('Pitches', 'pitchesSeen', 'text-right', 'text-slate-400')}
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-100">
-                            {teamStats.map(stat => (
+                            {sortedStats.map(stat => (
                                 <tr key={stat.playerId} className="hover:bg-slate-50">
                                     <td className="px-4 py-3 font-bold text-slate-800">{stat.name}</td>
                                     <td className="px-4 py-3 text-right font-mono font-bold text-lg">{stat.totalPoints}</td>
@@ -147,7 +186,7 @@ export const TeamManagement: React.FC<TeamManagementProps> = ({ league, season, 
                                     <td className="px-4 py-3 text-right font-mono text-slate-400">{stat.pitchesSeen}</td>
                                 </tr>
                             ))}
-                            {teamStats.length === 0 && (
+                            {sortedStats.length === 0 && (
                                 <tr><td colSpan={7} className="px-4 py-8 text-center text-slate-400 italic">No match data available for {season} yet.</td></tr>
                             )}
                         </tbody>

@@ -75,42 +75,34 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
 
     // Detect 2-Player Mode for custom navigation flow
     // 2 Players have 15 pitches each. 
-    // Visual Flow desired: P1(0-9) -> P2(0-9) -> P1(10-14) [Ghost Left] -> P2(10-14) [Ghost Right]
     const isTwoPlayerMode = teamData.playerScores.length === 2 && teamData.playerScores[0].pitches.length >= 15;
 
     if (isTwoPlayerMode) {
-        // Custom Navigation for 2-Player Split
-        if (pitchIdx === 9) {
-            // End of standard row (10th pitch)
+        // NEW LOGIC: Player 1 hits 15 pitches straight (0-14).
+        // Indices 0-9 are on Row 1. Indices 10-14 are on Ghost Row (Left side).
+        // Then Player 2 hits 15 pitches straight (0-14).
+        // Indices 0-9 are on Row 2. Indices 10-14 are on Ghost Row (Right side).
+        
+        if (pitchIdx < 14) {
+            // Simple increment. This handles jumping from P1(9) to P1(10) [Ghost Row] automatically
+            // because the ghost row inputs are bound to lineupIdx 0, pitchIdx 10.
+            setActiveCell({ side, lineupIdx, pitchIdx: pitchIdx + 1 });
+        } else {
+            // End of a player's turn (Pitch 15 / Index 14)
             if (lineupIdx === 0) {
-                // P1 Finished 10 -> Go to P2 Start
+                // Player 1 Finished 15 -> Go to Player 2 Start
                 setActiveCell({ side, lineupIdx: 1, pitchIdx: 0 });
-            } else if (lineupIdx === 1) {
-                // P2 Finished 10 -> Go to Ghost Row Start (P1, Pitch 11 / Index 10)
-                setActiveCell({ side, lineupIdx: 0, pitchIdx: 10 });
-            }
-        } else if (pitchIdx === 14) {
-            // End of a ghost segment (15th pitch)
-            if (lineupIdx === 0) {
-                // P1 Finished Ghost Segment -> Go to P2 Ghost Segment (P2, Pitch 11 / Index 10)
-                setActiveCell({ side, lineupIdx: 1, pitchIdx: 10 });
             } else {
-                // P2 Finished Ghost Segment -> End of Inning
+                // Player 2 Finished 15 -> End of Inning
                 setActiveCell(null);
             }
-        } else {
-            // Normal Increment within a row or segment
-            setActiveCell({ side, lineupIdx, pitchIdx: pitchIdx + 1 });
         }
     } else {
         // Standard 3-Player / Normal Flow
-        // Advance to next pitch, or next player if at end of row
         const totalPitches = teamData.playerScores[lineupIdx].pitches.length;
-        
         if (pitchIdx < totalPitches - 1) {
             setActiveCell({ side, lineupIdx, pitchIdx: pitchIdx + 1 });
         } else {
-            // End of row, stop (user preference to stop after 10th pitch)
             setActiveCell(null);
         }
     }

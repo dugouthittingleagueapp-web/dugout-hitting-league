@@ -119,22 +119,21 @@ const App: React.FC = () => {
   };
 
   // Auth Logic
-  const requestLogin = () => {
-    if (userRole !== 'fan') {
-      // Admin or Umpire clicking "Admin" button (which is renamed to Log Out or Admin based on role)
-      if (userRole === 'admin') {
-          setState({ ...state, view: 'admin' });
-      }
-    } else {
+  const openLoginModal = () => {
       setShowLoginModal(true);
       setPasswordInput('');
       setLoginError('');
-    }
   };
 
   const handleLogout = () => {
       setUserRole('fan');
-      setState({...state, view: 'league_select'}); // Reset to home
+      setState({...state, view: 'league_select', currentLeague: null, currentMatchId: null}); 
+  };
+  
+  const openAdminDashboard = () => {
+      if (userRole === 'admin') {
+          setState({ ...state, view: 'admin' });
+      }
   };
 
   const handleLoginSubmit = async (e: React.FormEvent) => {
@@ -195,17 +194,15 @@ const App: React.FC = () => {
       currentLeague: state.currentLeague,
       currentSeason: state.season,
       leagues: leagues,
+      userRole: userRole,
       onGoHome: () => setState({ ...state, view: 'dashboard' }),
       onSwitchLeague: () => setState({ ...state, view: 'league_select', currentLeague: null, currentMatchId: null }),
       onSelectLeague: handleSelectLeague,
-      onAdmin: requestLogin, // This button triggers Login
+      onLogin: openLoginModal,
+      onLogout: handleLogout,
+      onAdminDashboard: openAdminDashboard,
       onSeasonChange: handleSeasonChange
   };
-
-  // We override the "Admin" button label in Navbar component if we could, but since it's a component, 
-  // let's handle the button logic inside Navbar or just let it be 'Admin' for now (simpler to keep component as is).
-  // Actually, better to pass a different label? Navbar takes onAdmin.
-  // Let's hack the Navbar prop slightly if we want to change text, or just accept "Admin" implies "Manager Access".
 
   if (state.view === 'league_select') {
     const sortedLeagues = [...leagues].sort((a, b) => a.id.localeCompare(b.id, undefined, { numeric: true, sensitivity: 'base' }));
@@ -218,13 +215,13 @@ const App: React.FC = () => {
             <h1 className="text-4xl font-bold text-white tracking-tight mb-2">Dugout Hitting League</h1>
             <p className="text-slate-400 text-lg">Select a league to view <span className="text-blue-400 font-bold">{state.season}</span> season</p>
             {userRole === 'fan' && <p className="text-xs text-slate-500 mt-2">Read-Only Fan Mode</p>}
-            {userRole !== 'fan' && <div className="mt-2"><span className="bg-blue-600 text-white px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider">Logged in as {userRole}</span> <button onClick={handleLogout} className="text-xs text-slate-400 hover:text-white ml-2 underline">Log Out</button></div>}
+            {userRole !== 'fan' && <div className="mt-2"><span className="bg-blue-600 text-white px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider">Logged in as {userRole}</span></div>}
         </div>
         
         {leagues.length === 0 ? (
             <div className="text-center bg-slate-800 p-8 rounded-xl border border-slate-700 max-w-md">
                 <p className="text-slate-300 mb-4">No leagues found.</p>
-                <button onClick={requestLogin} className="px-4 py-2 bg-blue-600 text-white rounded-lg font-bold hover:bg-blue-500 transition-colors">Log In to Create League</button>
+                <button onClick={openLoginModal} className="px-4 py-2 bg-blue-600 text-white rounded-lg font-bold hover:bg-blue-500 transition-colors">Log In to Create League</button>
             </div>
         ) : (
             <div className="flex flex-wrap justify-center gap-6 w-full max-w-6xl px-4">
@@ -241,11 +238,11 @@ const App: React.FC = () => {
         {showLoginModal && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm animate-in fade-in duration-200" onClick={() => setShowLoginModal(false)}>
             <div className="bg-white p-8 rounded-2xl shadow-2xl w-full max-w-sm transform scale-100 animate-in zoom-in-95 duration-200" onClick={e => e.stopPropagation()}>
-              <h3 className="text-xl font-bold text-slate-800 mb-4 text-center">League Access</h3>
+              <h3 className="text-xl font-bold text-slate-800 mb-4 text-center">Access Control</h3>
+              <p className="text-sm text-slate-500 mb-4 text-center">Enter password for Umpire or Admin access.</p>
               <form onSubmit={handleLoginSubmit}>
                 <div className="mb-4">
-                  <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Password (Umpire or Admin)</label>
-                  <input type="password" autoFocus className={`w-full border rounded-lg px-4 py-3 text-lg outline-none focus:ring-2 ${loginError ? 'border-red-300 focus:ring-red-200' : 'border-slate-300 focus:ring-blue-200'}`} value={passwordInput} onChange={e => setPasswordInput(e.target.value)} placeholder="Enter password" />
+                  <input type="password" autoFocus className={`w-full border rounded-lg px-4 py-3 text-lg outline-none focus:ring-2 ${loginError ? 'border-red-300 focus:ring-red-200' : 'border-slate-300 focus:ring-blue-200'}`} value={passwordInput} onChange={e => setPasswordInput(e.target.value)} placeholder="Password" />
                   {loginError && <p className="text-red-500 text-xs mt-2 font-bold">{loginError}</p>}
                 </div>
                 <button type="submit" disabled={loading} className="w-full bg-slate-900 text-white font-bold py-3 rounded-lg hover:bg-slate-800 transition-colors">{loading ? 'Verifying...' : 'Log In'}</button>

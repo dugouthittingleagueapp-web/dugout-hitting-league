@@ -5,14 +5,29 @@ interface NavbarProps {
   currentLeague: AgeGroup | null;
   currentSeason: string;
   leagues: League[];
+  userRole: 'fan' | 'umpire' | 'admin';
   onGoHome: () => void;
   onSwitchLeague: () => void;
   onSelectLeague: (leagueId: string) => void;
-  onAdmin: () => void;
+  onLogin: () => void;
+  onLogout: () => void;
+  onAdminDashboard: () => void;
   onSeasonChange: (season: string) => void;
 }
 
-export const Navbar: React.FC<NavbarProps> = ({ currentLeague, currentSeason, leagues, onGoHome, onSwitchLeague, onSelectLeague, onAdmin, onSeasonChange }) => {
+export const Navbar: React.FC<NavbarProps> = ({ 
+  currentLeague, 
+  currentSeason, 
+  leagues, 
+  userRole,
+  onGoHome, 
+  onSwitchLeague, 
+  onSelectLeague, 
+  onLogin,
+  onLogout,
+  onAdminDashboard,
+  onSeasonChange 
+}) => {
   const [showSeasonMenu, setShowSeasonMenu] = useState(false);
   const [showLeagueMenu, setShowLeagueMenu] = useState(false);
   
@@ -50,8 +65,30 @@ export const Navbar: React.FC<NavbarProps> = ({ currentLeague, currentSeason, le
             )}
           </div>
           
-          {/* Admin Button */}
-          <button onClick={onAdmin} className="text-sm bg-slate-700 hover:bg-slate-600 px-3 py-1 rounded transition-colors">Admin</button>
+          {/* Auth Actions */}
+          {userRole === 'fan' && (
+            <button onClick={onLogin} className="text-sm bg-blue-600 hover:bg-blue-500 px-4 py-1.5 rounded font-bold transition-colors shadow-sm">
+                Log In
+            </button>
+          )}
+
+          {userRole === 'umpire' && (
+            <div className="flex items-center gap-2">
+                <span className="bg-amber-500/20 text-amber-400 text-[10px] font-bold uppercase px-2 py-1 rounded border border-amber-500/30 hidden sm:block">Umpire Mode</span>
+                <button onClick={onLogout} className="text-sm text-slate-300 hover:text-white underline decoration-slate-500">Log Out</button>
+            </div>
+          )}
+
+          {userRole === 'admin' && (
+            <div className="flex items-center gap-3">
+                <button onClick={onAdminDashboard} className="text-sm bg-slate-700 hover:bg-slate-600 px-3 py-1.5 rounded transition-colors border border-slate-600">
+                    Admin
+                </button>
+                <button onClick={onLogout} className="text-sm text-slate-300 hover:text-white underline decoration-slate-500">
+                    Log Out
+                </button>
+            </div>
+          )}
         </div>
       </div>
       

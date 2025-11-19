@@ -67,14 +67,53 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
     storage.updateMatch(newMatch).catch(err => console.error("Failed to save score", err));
 
     // Auto-advance logic:
-    // If we are EDITING, we do NOT advance.
-    // If it is NEW input, we advance, unless it's the last pitch for that player.
-    const totalPitches = teamData.playerScores[lineupIdx].pitches.length;
-    
-    if (!isEdit && pitchIdx < totalPitches - 1) {
-        setActiveCell({ side, lineupIdx, pitchIdx: pitchIdx + 1 });
-    } else {
+    if (isEdit) {
+        // If we are EDITING, we do NOT advance. Just close logic.
         setActiveCell(null);
+        return;
+    }
+
+    // Detect 2-Player Mode for custom navigation flow
+    // 2 Players have 15 pitches each. 
+    // Visual Flow desired: P1(0-9) -> P2(0-9) -> P1(10-14) [Ghost Left] -> P2(10-14) [Ghost Right]
+    const isTwoPlayerMode = teamData.playerScores.length === 2 && teamData.playerScores[0].pitches.length >= 15;
+
+    if (isTwoPlayerMode) {
+        // Custom Navigation for 2-Player Split
+        if (pitchIdx === 9) {
+            // End of standard row
+            if (lineupIdx === 0) {
+                // P1 Finished 10 -> Go to P2 Start
+                setActiveCell({ side, lineupIdx: 1, pitchIdx: 0 });
+            } else if (lineupIdx === 1) {
+                // P2 Finished 10 -> Go to Ghost Row Start (P1, Pitch 10)
+                setActiveCell({ side, lineupIdx: 0, pitchIdx: 10 });
+            }
+        } else if (pitchIdx === 14) {
+            // End of Ghost segment
+            if (lineupIdx === 0) {
+                // P1 Finished Ghost Segment -> Go to P2 Ghost Segment (P2, Pitch 10)
+                setActiveCell({ side, lineupIdx: 1, pitchIdx: 10 });
+            } else {
+                // P2 Finished Ghost Segment -> End of Inning
+                setActiveCell(null);
+            }
+        } else {
+            // Normal Increment
+            setActiveCell({ side, lineupIdx, pitchIdx: pitchIdx + 1 });
+        }
+    } else {
+        // Standard 3-Player / Normal Flow
+        // Advance to next pitch, or next player if at end of row
+        const totalPitches = teamData.playerScores[lineupIdx].pitches.length;
+        
+        if (pitchIdx < totalPitches - 1) {
+            setActiveCell({ side, lineupIdx, pitchIdx: pitchIdx + 1 });
+        } else {
+            // End of row, try next player? (Optional, mostly we stop at 10th pitch per user request)
+            // User previously asked to stop after 10th pitch.
+            setActiveCell(null);
+        }
     }
   };
 
@@ -120,10 +159,63 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
     const inningData = side === 'home' ? currentInning.home : currentInning.away;
     const teamColor = side === 'home' ? 'text-blue-800 bg-blue-50' : 'text-red-800 bg-red-50';
     
+    // Check for 2-player mode (specifically looking at data structure)
+    const isTwoPlayerMode = inningData.playerScores.length === 2 && inningData.playerScores[0].pitches.length >= 15;
+
     // Check if team is short-handed (2 players) while full roster is bigger (3)
     // Only allow restore in Innings 2-6 (index 1-5)
     const isShortHanded = inningData.playerScores.length < team.players.length;
     const canRestore = !isReadOnly && isShortHanded && activeInningIdx >= 1;
+
+    const renderRow = (playerScore: any, lineupIdx: number, player: any, pitchStartIndex: number, pitchEndIndex: number, isGhostRow = false) => {
+         const visiblePitches = playerScore.pitches.slice(pitchStartIndex, pitchEndIndex);
+         // Calc total just for this visible segment
+         const rowTotal = visiblePitches.reduce((sum: number, p: any) => sum + (p.points || 0), 0);
+
+         return (
+            <tr key={`${playerScore.playerId}-${isGhostRow ? 'ghost' : 'norm'}`} className="hover:bg-slate-50/50">
+                <td className="px-2 sm:px-4 py-3 font-medium text-slate-700 sticky left-0 bg-white z-10 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)] border-r border-slate-100 w-[100px] sm:w-auto max-w-[120px]">
+                    <div className="flex items-center gap-2">
+                        <span className={`text-[9px] sm:text-[10px] font-bold w-5 h-5 rounded-full flex items-center justify-center shrink-0 ${isGhostRow ? 'bg-slate-200 text-slate-500' : 'bg-slate-100 text-slate-400'}`}>
+                            {isGhostRow ? '3' : lineupIdx + 1}
+                        </span>
+                        <span className="truncate text-xs sm:text-sm">
+                            {isGhostRow ? <span className="italic text-slate-400">Player 3</span> : (player ? player.name : 'Unknown')}
+                        </span>
+                    </div>
+                </td>
+                <td className="px-2 py-3">
+                    <div className="flex gap-1 sm:gap-2 justify-start">
+                        {visiblePitches.map((pitch: any, idx: number) => {
+                            const realPitchIdx = pitchStartIndex + idx;
+                            // For Ghost Row: 
+                            // Pitches 1-5 are visual 1-5.
+                            // Pitches 6-10 are visual 6-10.
+                            const displayNum = isGhostRow ? idx + 1 : realPitchIdx + 1;
+                            
+                            return (
+                                <ScoreInput 
+                                    key={realPitchIdx} 
+                                    pitchNumber={displayNum} 
+                                    value={pitch.points} 
+                                    readOnly={isReadOnly || match.isComplete} 
+                                    isEditing={activeCell?.side === side && activeCell.lineupIdx === lineupIdx && activeCell.pitchIdx === realPitchIdx} 
+                                    onOpen={() => setActiveCell({ side, lineupIdx, pitchIdx: realPitchIdx })} 
+                                    onClose={() => setActiveCell(null)} 
+                                    onChange={(val) => handleScoreUpdate(side, lineupIdx, realPitchIdx, val)} 
+                                />
+                            );
+                        })}
+                    </div>
+                </td>
+                {!isGhostRow && (
+                    <td className="px-3 py-3 text-center align-middle border-l border-slate-100 bg-slate-50/30">
+                        <div className="text-base font-mono font-bold text-slate-800 w-8">{rowTotal}</div>
+                    </td>
+                )}
+            </tr>
+         );
+    };
 
     return (
       <div className="mb-8">
@@ -142,33 +234,77 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
           <div className="text-2xl font-mono font-bold">{calculateTeamInningTotal(side, currentInning)} <span className="text-sm font-normal opacity-60">pts</span></div>
         </div>
         <div className="bg-white rounded-b-lg shadow-sm border border-slate-200 overflow-x-auto scrollbar-hide">
-          {/* Removed rigid min-width to allow shrinking on mobile if possible, or scrolling naturally */}
           <table className="w-full">
             <tbody className="divide-y divide-slate-100">
-              {inningData.playerScores.map((playerScore, lineupIdx) => {
-                 const player = team.players.find(p => p.id === playerScore.playerId);
-                 const playerInningTotal = playerScore.pitches.reduce((sum, p) => sum + (p.points || 0), 0);
-                 return (
-                  <tr key={playerScore.playerId} className="hover:bg-slate-50/50">
-                    <td className="px-2 sm:px-4 py-3 font-medium text-slate-700 sticky left-0 bg-white z-10 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)] border-r border-slate-100 w-[100px] sm:w-auto max-w-[120px]">
-                        <div className="flex items-center gap-2">
-                            <span className="text-[9px] sm:text-[10px] font-bold text-slate-400 bg-slate-100 w-5 h-5 rounded-full flex items-center justify-center shrink-0">{lineupIdx + 1}</span>
-                            <span className="truncate text-xs sm:text-sm">{player ? player.name : 'Unknown'}</span>
-                        </div>
-                    </td>
-                    <td className="px-2 py-3">
-                        <div className="flex gap-1 sm:gap-2 justify-start">
-                            {playerScore.pitches.map((pitch, pitchIdx) => (
-                                <ScoreInput key={pitchIdx} pitchNumber={pitchIdx + 1} value={pitch.points} readOnly={isReadOnly || match.isComplete} isEditing={activeCell?.side === side && activeCell.lineupIdx === lineupIdx && activeCell.pitchIdx === pitchIdx} onOpen={() => setActiveCell({ side, lineupIdx, pitchIdx })} onClose={() => setActiveCell(null)} onChange={(val) => handleScoreUpdate(side, lineupIdx, pitchIdx, val)} />
-                            ))}
-                        </div>
-                    </td>
-                    <td className="px-3 py-3 text-center align-middle border-l border-slate-100 bg-slate-50/30">
-                        <div className="text-base font-mono font-bold text-slate-800 w-8">{playerInningTotal}</div>
-                    </td>
-                  </tr>
-                 );
-              })}
+              {isTwoPlayerMode ? (
+                  <>
+                    {/* Render Player 1 & 2 (First 10 pitches only) */}
+                    {inningData.playerScores.map((playerScore, lineupIdx) => {
+                         const player = team.players.find(p => p.id === playerScore.playerId);
+                         return renderRow(playerScore, lineupIdx, player, 0, 10, false);
+                    })}
+                    {/* Render Ghost Player Row (Aggregating the last 5 pitches from both players) */}
+                    <tr className="hover:bg-slate-50/50 bg-slate-50/30">
+                        <td className="px-2 sm:px-4 py-3 font-medium text-slate-700 sticky left-0 bg-white z-10 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)] border-r border-slate-100 w-[100px] sm:w-auto max-w-[120px]">
+                            <div className="flex items-center gap-2">
+                                <span className="text-[9px] sm:text-[10px] font-bold w-5 h-5 rounded-full flex items-center justify-center shrink-0 bg-slate-200 text-slate-500">3</span>
+                                <span className="truncate text-xs sm:text-sm italic text-slate-400">Player 3</span>
+                            </div>
+                        </td>
+                        <td className="px-2 py-3">
+                            <div className="flex gap-1 sm:gap-2 justify-start">
+                                {/* Ghost Slots 1-5: Mapped to Player 1, Pitches 11-15 (Indices 10-14) */}
+                                {inningData.playerScores[0].pitches.slice(10, 15).map((pitch, idx) => {
+                                    const realPitchIdx = 10 + idx;
+                                    return (
+                                        <ScoreInput 
+                                            key={`p1-${realPitchIdx}`} 
+                                            pitchNumber={idx + 1} 
+                                            value={pitch.points} 
+                                            readOnly={isReadOnly || match.isComplete} 
+                                            isEditing={activeCell?.side === side && activeCell.lineupIdx === 0 && activeCell.pitchIdx === realPitchIdx} 
+                                            onOpen={() => setActiveCell({ side, lineupIdx: 0, pitchIdx: realPitchIdx })} 
+                                            onClose={() => setActiveCell(null)} 
+                                            onChange={(val) => handleScoreUpdate(side, 0, realPitchIdx, val)} 
+                                        />
+                                    );
+                                })}
+                                {/* Ghost Slots 6-10: Mapped to Player 2, Pitches 11-15 (Indices 10-14) */}
+                                {inningData.playerScores[1].pitches.slice(10, 15).map((pitch, idx) => {
+                                    const realPitchIdx = 10 + idx;
+                                    return (
+                                        <ScoreInput 
+                                            key={`p2-${realPitchIdx}`} 
+                                            pitchNumber={idx + 6} 
+                                            value={pitch.points} 
+                                            readOnly={isReadOnly || match.isComplete} 
+                                            isEditing={activeCell?.side === side && activeCell.lineupIdx === 1 && activeCell.pitchIdx === realPitchIdx} 
+                                            onOpen={() => setActiveCell({ side, lineupIdx: 1, pitchIdx: realPitchIdx })} 
+                                            onClose={() => setActiveCell(null)} 
+                                            onChange={(val) => handleScoreUpdate(side, 1, realPitchIdx, val)} 
+                                        />
+                                    );
+                                })}
+                            </div>
+                        </td>
+                        <td className="px-3 py-3 text-center align-middle border-l border-slate-100 bg-slate-50/30">
+                             {/* Calculate total for ghost row: P1(10-14) + P2(10-14) */}
+                             <div className="text-base font-mono font-bold text-slate-800 w-8">
+                                 {
+                                     inningData.playerScores[0].pitches.slice(10, 15).reduce((sum, p) => sum + (p.points || 0), 0) +
+                                     inningData.playerScores[1].pitches.slice(10, 15).reduce((sum, p) => sum + (p.points || 0), 0)
+                                 }
+                             </div>
+                        </td>
+                    </tr>
+                  </>
+              ) : (
+                  // Standard 3+ Player Mode
+                  inningData.playerScores.map((playerScore, lineupIdx) => {
+                     const player = team.players.find(p => p.id === playerScore.playerId);
+                     return renderRow(playerScore, lineupIdx, player, 0, 10, false);
+                  })
+              )}
             </tbody>
           </table>
         </div>

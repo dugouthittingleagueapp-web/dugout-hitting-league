@@ -4,9 +4,7 @@ import { generateLeagueReport } from '../services/geminiService';
 
 export const AdminDashboard: React.FC<{ onBack: () => void }> = ({ onBack }) => {
   const [data, setData] = useState('');
-  const [report, setReport] = useState('');
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
   const [newLeagueName, setNewLeagueName] = useState('');
   const [creatingLeague, setCreatingLeague] = useState(false);
   
@@ -15,9 +13,8 @@ export const AdminDashboard: React.FC<{ onBack: () => void }> = ({ onBack }) => 
   const [newSeasonInput, setNewSeasonInput] = useState('');
   
   // Password State
-  const [newAdminPassword, setNewAdminPassword] = useState('');
-  const [newUmpirePassword, setNewUmpirePassword] = useState('');
-  const [passwordMessage, setPasswordMessage] = useState('');
+  const [newAdminPw, setNewAdminPw] = useState('');
+  const [newUmpirePw, setNewUmpirePw] = useState('');
 
   useEffect(() => {
     const loadData = async () => { 
@@ -61,35 +58,29 @@ export const AdminDashboard: React.FC<{ onBack: () => void }> = ({ onBack }) => 
           alert("Season updated. Return to dashboard to see changes.");
       }
   };
+
+  const handleUpdateAdminPw = async () => {
+      if(!newAdminPw.trim()) return;
+      try {
+          await storage.updateAdminPassword(newAdminPw.trim());
+          setNewAdminPw('');
+          alert("Admin password updated successfully.");
+      } catch(e) {
+          alert("Failed to update admin password.");
+      }
+  };
+
+  const handleUpdateUmpirePw = async () => {
+      if(!newUmpirePw.trim()) return;
+      try {
+          await storage.updateUmpirePassword(newUmpirePw.trim());
+          setNewUmpirePw('');
+          alert("Umpire password updated successfully.");
+      } catch(e) {
+          alert("Failed to update umpire password.");
+      }
+  };
   
-  const handleUpdateAdminPassword = async () => {
-    if (!newAdminPassword.trim()) return;
-    if (newAdminPassword.length < 4) { setPasswordMessage('Password too short.'); return; }
-    
-    try {
-      await storage.updateAdminPassword(newAdminPassword.trim());
-      setPasswordMessage('Admin password updated!');
-      setNewAdminPassword('');
-      setTimeout(() => setPasswordMessage(''), 3000);
-    } catch (e) {
-      setPasswordMessage('Failed to update admin password.');
-    }
-  };
-
-  const handleUpdateUmpirePassword = async () => {
-    if (!newUmpirePassword.trim()) return;
-    if (newUmpirePassword.length < 4) { setPasswordMessage('Password too short.'); return; }
-    
-    try {
-      await storage.updateUmpirePassword(newUmpirePassword.trim());
-      setPasswordMessage('Umpire password updated!');
-      setNewUmpirePassword('');
-      setTimeout(() => setPasswordMessage(''), 3000);
-    } catch (e) {
-      setPasswordMessage('Failed to update umpire password.');
-    }
-  };
-
   return (
     <div className="max-w-4xl mx-auto p-6">
       <div className="flex justify-between items-center mb-8"><h2 className="text-3xl font-bold text-slate-800">Admin Dashboard</h2><button onClick={onBack} className="px-4 py-2 bg-slate-200 hover:bg-slate-300 rounded text-slate-700 font-medium">Exit Admin</button></div>
@@ -117,24 +108,22 @@ export const AdminDashboard: React.FC<{ onBack: () => void }> = ({ onBack }) => 
 
         <section className="bg-white p-6 rounded-xl shadow border border-slate-200">
             <h3 className="text-xl font-bold text-slate-700 mb-4">Access Control</h3>
-            
-            <div className="mb-6">
-                <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Update Admin Password (Full Access)</label>
-                <div className="flex gap-3 items-center">
-                    <input type="text" value={newAdminPassword} onChange={e => setNewAdminPassword(e.target.value)} placeholder="New Admin Password" className="flex-1 border border-slate-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 outline-none" />
-                    <button onClick={handleUpdateAdminPassword} className="bg-slate-800 text-white px-6 py-2 rounded-lg hover:bg-slate-900 font-bold">Update Admin</button>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                    <label className="block text-xs font-bold text-slate-500 uppercase mb-1">New Admin Password</label>
+                    <div className="flex gap-3">
+                        <input type="text" value={newAdminPw} onChange={e => setNewAdminPw(e.target.value)} placeholder="New Admin Pass" className="w-full border border-slate-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 outline-none" />
+                        <button onClick={handleUpdateAdminPw} className="bg-slate-600 text-white px-4 py-2 rounded-lg hover:bg-slate-700 font-bold text-sm">Update</button>
+                    </div>
+                </div>
+                <div>
+                    <label className="block text-xs font-bold text-slate-500 uppercase mb-1">New Umpire Password</label>
+                    <div className="flex gap-3">
+                        <input type="text" value={newUmpirePw} onChange={e => setNewUmpirePw(e.target.value)} placeholder="New Umpire Pass" className="w-full border border-slate-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 outline-none" />
+                        <button onClick={handleUpdateUmpirePw} className="bg-amber-600 text-white px-4 py-2 rounded-lg hover:bg-amber-700 font-bold text-sm">Update</button>
+                    </div>
                 </div>
             </div>
-
-            <div>
-                <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Update Umpire Password (Game Access)</label>
-                <div className="flex gap-3 items-center">
-                    <input type="text" value={newUmpirePassword} onChange={e => setNewUmpirePassword(e.target.value)} placeholder="New Umpire Password" className="flex-1 border border-slate-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 outline-none" />
-                    <button onClick={handleUpdateUmpirePassword} className="bg-blue-800 text-white px-6 py-2 rounded-lg hover:bg-blue-900 font-bold">Update Umpire</button>
-                </div>
-            </div>
-
-            {passwordMessage && <p className={`mt-4 text-sm font-bold ${passwordMessage.includes('success') || passwordMessage.includes('updated') ? 'text-green-600' : 'text-red-600'}`}>{passwordMessage}</p>}
         </section>
 
         <section className="bg-white p-6 rounded-xl shadow border border-slate-200">

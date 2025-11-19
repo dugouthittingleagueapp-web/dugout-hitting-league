@@ -185,7 +185,6 @@ const App: React.FC = () => {
     matches.forEach(m => {
         if (!m.isComplete) return; 
         
-        // Calculate Base Scores (Innings)
         const getScore = (side: 'home' | 'away') => {
             const sideData = side === 'home' ? m.innings.map(i => i.home) : m.innings.map(i => i.away);
             return sideData.reduce((acc, inning) => acc + inning.playerScores.reduce((pAcc, p) => pAcc + p.pitches.reduce((pitchAcc, pitch) => pitchAcc + (pitch.points || 0), 0), 0), 0);
@@ -337,7 +336,7 @@ const App: React.FC = () => {
     const sortedLeagues = [...leagues].sort((a, b) => a.id.localeCompare(b.id, undefined, { numeric: true, sensitivity: 'base' }));
 
     return (
-      <div className="min-h-screen bg-slate-900 flex flex-col items-center justify-center p-4">
+      <div className="min-h-screen bg-slate-900 flex flex-col items-center justify-center p-4 font-sans">
         <Navbar {...navbarProps} />
         
         <div className="text-center mb-8 mt-12">
@@ -356,7 +355,7 @@ const App: React.FC = () => {
             <div className="flex flex-wrap justify-center gap-6 w-full max-w-6xl px-4">
             {sortedLeagues.map(league => (
                 <button key={league.id} onClick={() => handleSelectLeague(league.id)} className="bg-white hover:bg-slate-50 text-slate-900 p-6 rounded-2xl shadow-2xl transition-transform hover:scale-105 group w-full sm:w-64 aspect-[4/3] sm:aspect-square flex flex-col items-center justify-center">
-                    <span className="block text-3xl sm:text-4xl font-black mb-2 group-hover:text-blue-600 transition-colors uppercase text-center w-full break-words leading-tight">{league.id}</span>
+                    <span className="block text-3xl sm:text-4xl font-black mb-2 group-hover:text-blue-600 transition-colors uppercase text-center w-full break-words leading-tight font-sans">{league.id}</span>
                     <span className="block text-xs font-bold text-slate-400 uppercase tracking-widest whitespace-nowrap">{state.season} Season</span>
                 </button>
             ))}
@@ -391,7 +390,7 @@ const App: React.FC = () => {
   if (state.view === 'team_management' && state.currentLeague) return <TeamManagement league={state.currentLeague} season={state.season} onBack={() => setState({ ...state, view: 'dashboard' })} />;
 
   return (
-    <div className="min-h-screen bg-slate-50">
+    <div className="min-h-screen bg-slate-50 font-sans">
       <Navbar {...navbarProps} />
       <main className="max-w-7xl mx-auto p-4 sm:p-8">
         <div className={`grid grid-cols-1 ${userRole !== 'fan' ? 'lg:grid-cols-3' : ''} gap-8`}>

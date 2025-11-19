@@ -112,27 +112,27 @@ export const deleteMatch = async (matchId: string) => {
   await fetch(`/api/matches?id=${matchId}`, { method: 'DELETE' });
 };
 
-// Updated to handle variable pitch counts (15 for 2 players, 10 for others)
+// Inning Creation Logic
 const createEmptyInning = (number: number, homeTeamId: string, awayTeamId: string, homeLineupIds: string[], awayLineupIds: string[]): Inning => {
   
-  // Logic Update: 2v2 Mode Check
-  // If BOTH teams have exactly 2 players, it is a 2v2 Showdown -> 10 Pitches each (No Ghost).
-  const is2v2 = homeLineupIds.length === 2 && awayLineupIds.length === 2;
+  // STRICT 2v2 MODE: If BOTH teams have exactly 2 players, 10 pitches each. NO Ghost mode.
+  const isStrict2v2 = homeLineupIds.length === 2 && awayLineupIds.length === 2;
 
   const createPlayerScores = (playerIds: string[]): PlayerInningScore[] => {
     let pitchCount = 10; // Default
 
-    if (!is2v2 && playerIds.length === 2) {
-        // Asymmetric 2-player team (needs Ghost mode)
+    if (!isStrict2v2 && playerIds.length === 2) {
+        // Asymmetric 2-player team (One team has 3, one has 2 -> Ghost mode needed for the 2-player team)
         pitchCount = 15;
     }
-    // Else if is2v2, pitchCount remains 10.
+    // If isStrict2v2, pitchCount remains 10.
     
     return playerIds.map(pId => ({
       playerId: pId,
       pitches: Array(pitchCount).fill(null).map(() => ({ points: null }))
     }));
   };
+  
   return {
     number,
     home: { teamId: homeTeamId, playerScores: createPlayerScores(homeLineupIds) },
@@ -172,7 +172,6 @@ export const updateMatch = async (updatedMatch: Match) => {
   });
 };
 
-// Restore full roster for a team from a specific inning onwards
 export const restoreTeamRoster = async (matchId: string, teamId: string, startInningIdx: number): Promise<Match> => {
   const match = await getMatch(matchId);
   if (!match) throw new Error("Match not found");
@@ -190,7 +189,7 @@ export const restoreTeamRoster = async (matchId: string, teamId: string, startIn
     
     side.playerScores = team.players.map(p => ({
       playerId: p.id,
-      pitches: Array(10).fill(null).map(() => ({ points: null }))
+      pitches: Array(10).fill(null).map(() => ({ points: null })) // Reset to 10 pitches
     }));
   }
 
@@ -208,15 +207,14 @@ export const exportData = async () => {
 const GHOST_PLAYER_ID = 'ghost-player-3';
 const GHOST_PLAYER_NAME = 'Player 3 (Team Stats)';
 
-// Helper to process stats for a single player entry
+// Helper to process stats
 const processPlayerStats = (statsMap: Map<string, PlayerStats>, playerId: string, pitches: { points: number | null }[]) => {
     pitches.forEach((pitch, pitchIndex) => {
         if (pitch.points !== null) {
             let targetId = playerId;
             
-            // Redirect logic: If index >= 10 (11th pitch), assign to Ghost Player
-            // This only happens if the array HAS 11+ items (2-player mode).
-            if (pitchIndex >= 10) {
+            // Ghost Logic: If array length is >10, pitch index >= 10 goes to Ghost
+            if (pitches.length > 10 && pitchIndex >= 10) {
                 targetId = GHOST_PLAYER_ID;
                 if (!statsMap.has(GHOST_PLAYER_ID)) {
                     statsMap.set(GHOST_PLAYER_ID, {
@@ -240,34 +238,22 @@ const processPlayerStats = (statsMap: Map<string, PlayerStats>, playerId: string
     });
 };
 
-// Stats Calculation
 export const calculateMatchStats = (match: Match, homeTeam: Team, awayTeam: Team): PlayerStats[] => {
     const statsMap = new Map<string, PlayerStats>();
 
-    // Initialize for both teams
     [...homeTeam.players, ...awayTeam.players].forEach(p => {
         statsMap.set(p.id, {
-            playerId: p.id,
-            name: p.name,
-            totalPoints: 0,
-            hits4: 0,
-            hits3: 0,
-            hits2: 0,
-            hits1: 0,
-            pitchesSeen: 0
+            playerId: p.id, name: p.name, totalPoints: 0, hits4: 0, hits3: 0, hits2: 0, hits1: 0, pitchesSeen: 0
         });
     });
 
-    // Process Innings
     match.innings.forEach(inning => {
         const processSide = (side: 'home'|'away') => {
             const teamData = side === 'home' ? inning.home : inning.away;
             teamData.playerScores.forEach(ps => {
                 if (!statsMap.has(ps.playerId)) {
                      statsMap.set(ps.playerId, {
-                        playerId: ps.playerId,
-                        name: 'Substitute / Unknown', 
-                        totalPoints: 0, hits4: 0, hits3: 0, hits2: 0, hits1: 0, pitchesSeen: 0
+                        playerId: ps.playerId, name: 'Substitute / Unknown', totalPoints: 0, hits4: 0, hits3: 0, hits2: 0, hits1: 0, pitchesSeen: 0
                     });
                 }
                 processPlayerStats(statsMap, ps.playerId, ps.pitches);
@@ -286,14 +272,7 @@ export const getTeamStats = async (team: Team, league: AgeGroup, season: string)
   
   team.players.forEach(p => {
     statsMap.set(p.id, {
-      playerId: p.id,
-      name: p.name,
-      totalPoints: 0,
-      hits4: 0,
-      hits3: 0,
-      hits2: 0,
-      hits1: 0,
-      pitchesSeen: 0
+      playerId: p.id, name: p.name, totalPoints: 0, hits4: 0, hits3: 0, hits2: 0, hits1: 0, pitchesSeen: 0
     });
   });
 
@@ -307,9 +286,7 @@ export const getTeamStats = async (team: Team, league: AgeGroup, season: string)
         if (!statsMap.has(ps.playerId)) {
             const pName = team.players.find(p => p.id === ps.playerId)?.name || 'Unknown Sub';
             statsMap.set(ps.playerId, {
-                playerId: ps.playerId,
-                name: pName,
-                totalPoints: 0, hits4: 0, hits3: 0, hits2: 0, hits1: 0, pitchesSeen: 0
+                playerId: ps.playerId, name: pName, totalPoints: 0, hits4: 0, hits3: 0, hits2: 0, hits1: 0, pitchesSeen: 0
             });
         }
         processPlayerStats(statsMap, ps.playerId, ps.pitches);
@@ -320,7 +297,7 @@ export const getTeamStats = async (team: Team, league: AgeGroup, season: string)
   return Array.from(statsMap.values());
 };
 
-// Admin / Settings
+// Auth & Settings
 export const verifyPassword = async (password: string): Promise<{ success: boolean; role: 'admin' | 'umpire' | null }> => {
   try {
     const res = await fetch('/api/settings', {

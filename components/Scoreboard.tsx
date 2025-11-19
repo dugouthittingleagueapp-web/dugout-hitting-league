@@ -58,7 +58,6 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
 
   const calculateTeamGameTotal = (side: 'home' | 'away', matchData: Match = match) => {
     const baseScore = matchData.innings.reduce((sum, inning) => sum + calculateTeamInningTotal(side, inning), 0);
-    // Add Tie Breaker scores if any
     let tieScore = 0;
     if (matchData.tieBreaker) {
         matchData.tieBreaker.forEach(round => {
@@ -97,7 +96,7 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
     const teamData = side === 'home' ? inning.home : inning.away;
     
     teamData.playerScores[lineupIdx].pitches[pitchIdx].points = val;
-    setMatch(newMatch); // Optimistic update
+    setMatch(newMatch); 
     storage.updateMatch(newMatch).catch(err => console.error("Failed to save score", err));
 
     if (isEdit) {
@@ -106,9 +105,10 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
     }
 
     // --- AUTO-DETECT END OF REGULATION & TIE ---
-    const isFinalInning = activeInningIdx === 5; // 6th Inning (0-5)
+    const isFinalInning = activeInningIdx === 5; // 6th Inning
     if (isFinalInning && side === 'home') {
         const isLastPlayer = lineupIdx === teamData.playerScores.length - 1;
+        // Check if it's strictly the last possible pitch for this team (10 or 15)
         const totalPitches = teamData.playerScores[lineupIdx].pitches.length;
         const isLastPitch = pitchIdx === totalPitches - 1;
 
@@ -117,31 +117,27 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
             const newAwayTotal = calculateTeamGameTotal('away', newMatch);
             
             if (newHomeTotal === newAwayTotal) {
-                // TIE DETECTED!
                 setActiveCell(null);
-                setTimeout(() => {
-                    initiateTieBreaker();
-                }, 500); 
+                setTimeout(() => { initiateTieBreaker(); }, 500); 
                 return;
             }
         }
     }
 
     // Auto-advance logic
-    // 2v2 Detection: Array length 2, 10 pitches (NOT 15)
-    // Ghost Detection: Array length 2, 15 pitches
+    // Detect Ghost Mode (2 players, 15 pitches)
     const isTwoPlayerGhostMode = teamData.playerScores.length === 2 && teamData.playerScores[0].pitches.length >= 15;
 
     if (isTwoPlayerGhostMode) {
-        // Ghost Mode Logic: 15 Pitches
-        // Player 1 (idx 0) goes 0-14. Then Player 2 (idx 1) goes 0-14.
+        // Ghost Mode: Total 15
         const totalPitches = 15;
+        
+        // Logic: P1(0-14), P2(0-14)
         if (pitchIdx < totalPitches - 1) {
              setActiveCell({ side, lineupIdx, pitchIdx: pitchIdx + 1 });
         } else {
-             // End of player turn
+             // Last Pitch (Index 14 / 15th pitch) -> STOP or Next Player
              if (lineupIdx < teamData.playerScores.length - 1) {
-                 // Move to next player, pitch 0
                  setActiveCell({ side, lineupIdx: lineupIdx + 1, pitchIdx: 0 });
              } else {
                  // End of team
@@ -149,7 +145,7 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
              }
         }
     } else {
-        // Standard or 2v2 Logic (10 Pitches)
+        // Standard or Strict 2v2 Logic (10 Pitches)
         const totalPitches = teamData.playerScores[lineupIdx].pitches.length;
         if (pitchIdx < totalPitches - 1) {
             setActiveCell({ side, lineupIdx, pitchIdx: pitchIdx + 1 });
@@ -166,7 +162,6 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
   const confirmCompleteGame = async () => {
     if (isReadOnly) return;
     
-    // Double check for Tie (Manually triggered completion)
     if (homeTotal === awayTotal) {
         setShowFinishModal(false);
         initiateTieBreaker();
@@ -180,7 +175,6 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
     onExit();
   };
 
-  // --- TIE BREAKER LOGIC ---
   const handleTieBreakerScore = (side: 'home'|'away', idx: number, val: number) => {
       if(!tieBreakerRound) return;
       const newRound = { ...tieBreakerRound };
@@ -207,7 +201,6 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
           setShowTieBreaker(false);
           onExit();
       } else {
-          // Still Tied
           let nextLimit = 5;
           if (tieBreakerRound.pitchLimit === 5) nextLimit = 3;
           else nextLimit = 1;
@@ -244,6 +237,7 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
     const inningData = side === 'home' ? currentInning.home : currentInning.away;
     const teamColor = side === 'home' ? 'text-blue-800 bg-blue-50' : 'text-red-800 bg-red-50';
     
+    // Ghost Mode check: Needs 2 players AND 15 pitches
     const isTwoPlayerGhostMode = inningData.playerScores.length === 2 && inningData.playerScores[0].pitches.length >= 15;
     const isShortHanded = inningData.playerScores.length < team.players.length;
     const canRestore = !isReadOnly && isShortHanded && activeInningIdx >= 1;
@@ -252,16 +246,15 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
          const visiblePitches = playerScore.pitches.slice(pitchStartIndex, pitchEndIndex);
          const rowTotal = visiblePitches.reduce((sum: number, p: any) => sum + (p.points || 0), 0);
          
-         // FIX: Correct calculation for Pitches Remaining in Ghost Mode
+         // Pitches Remaining Calculation
          let pitchesLeft = 0;
          if (isTwoPlayerGhostMode) {
-             // In Ghost Mode, total is 15 per player. 
-             // We check the ENTIRE array for this player (indices 0-14) to see how many are taken.
+             // 15 Total. Count whole array.
              const allPitches = playerScore.pitches; 
              const taken = allPitches.filter((p:any) => p.points !== null).length;
              pitchesLeft = 15 - taken;
          } else {
-             // Standard Mode (10 pitches) or 2v2 Strict
+             // Standard 10
              const taken = playerScore.pitches.filter((p:any) => p.points !== null).length;
              pitchesLeft = playerScore.pitches.length - taken;
          }
@@ -271,10 +264,10 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
                 <td className="px-2 sm:px-4 py-3 font-medium text-slate-700 sticky left-0 bg-white z-10 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)] border-r border-slate-100 w-[100px] sm:w-auto max-w-[120px]">
                     <div className="flex flex-col sm:flex-row items-start sm:items-center gap-1 sm:gap-2">
                         <div className="flex items-center gap-2">
-                            <span className={`text-[9px] sm:text-[10px] font-bold w-5 h-5 rounded-full flex items-center justify-center shrink-0 ${isGhostRow ? 'bg-slate-200 text-slate-500' : 'bg-slate-100 text-slate-400'}`}>
+                            <span className={`text-[9px] sm:text-[10px] font-bold w-5 h-5 rounded-full flex items-center justify-center shrink-0 font-sans ${isGhostRow ? 'bg-slate-200 text-slate-500' : 'bg-slate-100 text-slate-400'}`}>
                                 {isGhostRow ? '3' : lineupIdx + 1}
                             </span>
-                            <span className="truncate text-xs sm:text-sm">
+                            <span className="truncate text-xs sm:text-sm font-sans">
                                 {isGhostRow ? <span className="italic text-slate-400">Player 3</span> : (player ? player.name : 'Unknown')}
                             </span>
                         </div>
@@ -316,33 +309,36 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
         <div className={`p-3 rounded-t-lg border-b border-slate-200 flex justify-between items-end ${teamColor}`}>
           <div className="flex items-center gap-3">
              <div>
-                <span className="text-xs font-bold uppercase opacity-60 tracking-wider">{side === 'home' ? 'Home' : 'Away'}</span>
-                <h3 className="text-xl font-bold leading-none">{team.name}</h3>
+                <span className="text-xs font-bold uppercase opacity-60 tracking-wider font-sans">{side === 'home' ? 'Home' : 'Away'}</span>
+                <h3 className="text-xl font-bold leading-none font-sans">{team.name}</h3>
              </div>
              {canRestore && <button onClick={() => handleRestoreRoster(side)} className="bg-white/80 hover:bg-white text-slate-600 px-2 py-1 rounded text-[10px] font-bold border border-slate-200 shadow-sm animate-pulse">+ Reset Roster</button>}
           </div>
-          <div className="text-2xl font-mono font-bold">{calculateTeamInningTotal(side, currentInning)} <span className="text-sm font-normal opacity-60">pts</span></div>
+          <div className="text-2xl font-mono font-bold">{calculateTeamInningTotal(side, currentInning)} <span className="text-sm font-normal opacity-60 font-sans">pts</span></div>
         </div>
         <div className="bg-white rounded-b-lg shadow-sm border border-slate-200 overflow-x-auto scrollbar-hide">
           <table className="w-full">
             <tbody className="divide-y divide-slate-100">
               {isTwoPlayerGhostMode ? (
                   <>
-                    {inningData.playerScores.map((playerScore, lineupIdx) => {
-                         const player = team.players.find(p => p.id === playerScore.playerId);
-                         return renderRow(playerScore, lineupIdx, player, 0, 10, false);
-                    })}
+                    {/* Player 1 Row (Pitches 1-10) */}
+                    {renderRow(inningData.playerScores[0], 0, team.players.find(p=>p.id===inningData.playerScores[0].playerId), 0, 10, false)}
+                    
+                    {/* Player 2 Row (Pitches 1-10) */}
+                    {renderRow(inningData.playerScores[1], 1, team.players.find(p=>p.id===inningData.playerScores[1].playerId), 0, 10, false)}
+
+                    {/* Ghost Row (Pitches 11-15 for both) */}
                     <tr className="hover:bg-slate-50/50 bg-slate-50/30">
                         <td className="px-2 sm:px-4 py-3 font-medium text-slate-700 sticky left-0 bg-white z-10 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)] border-r border-slate-100 w-[100px] sm:w-auto max-w-[120px]">
                             <div className="flex items-center gap-2">
-                                <span className="text-[9px] sm:text-[10px] font-bold w-5 h-5 rounded-full flex items-center justify-center shrink-0 bg-slate-200 text-slate-500">3</span>
-                                <span className="truncate text-xs sm:text-sm italic text-slate-400">Player 3</span>
+                                <span className="text-[9px] sm:text-[10px] font-bold w-5 h-5 rounded-full flex items-center justify-center shrink-0 bg-slate-200 text-slate-500 font-sans">3</span>
+                                <span className="truncate text-xs sm:text-sm italic text-slate-400 font-sans">Player 3</span>
                             </div>
                         </td>
                         <td className="px-2 py-3">
                             <div className="flex items-center gap-1 sm:gap-2 justify-start">
+                                {/* Player 1 Extras (11-15) */}
                                 {inningData.playerScores[0].pitches.slice(10, 15).map((pitch, idx) => {
-                                    // Logic to pass remaining pitches to Player 1's ghost inputs
                                     const taken = inningData.playerScores[0].pitches.filter((p:any) => p.points !== null).length;
                                     const left = 15 - taken;
                                     return (
@@ -356,9 +352,9 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
                                     />
                                     );
                                 })}
-                                <div className="w-px h-8 bg-slate-300 mx-1"></div>
+                                <div className="w-px h-16 bg-slate-300 mx-1"></div>
+                                {/* Player 2 Extras (11-15) */}
                                 {inningData.playerScores[1].pitches.slice(10, 15).map((pitch, idx) => {
-                                    // Logic to pass remaining pitches to Player 2's ghost inputs
                                     const taken = inningData.playerScores[1].pitches.filter((p:any) => p.points !== null).length;
                                     const left = 15 - taken;
                                     return (
@@ -395,7 +391,7 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
   };
 
   return (
-    <div className="min-h-screen bg-slate-100 pb-20">
+    <div className="min-h-screen bg-slate-100 pb-20 font-sans">
       <header className="bg-white border-b border-slate-200 sticky top-0 z-30 shadow-sm">
         <div className="max-w-7xl mx-auto px-4 py-3 flex justify-between items-center gap-4">
           <div className="flex gap-4 sm:gap-8 items-center flex-1 overflow-hidden">
@@ -439,7 +435,7 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
 
       {showTieBreaker && tieBreakerRound && (
           <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/90 backdrop-blur-md animate-in fade-in duration-200">
-             <div className="bg-white p-4 sm:p-8 rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+             <div className="bg-white p-4 sm:p-8 rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto font-sans">
                  <div className="text-center mb-6">
                      <h2 className="text-3xl font-black text-slate-900 uppercase tracking-tight">TIED GAME!</h2>
                      <h3 className="text-xl font-bold text-blue-600 mt-1">SHOWDOWN: Round {tieBreakerRound.roundNumber}</h3>

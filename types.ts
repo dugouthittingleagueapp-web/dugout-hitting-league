@@ -57,7 +57,7 @@ export interface Match {
   date: string;
   isComplete: boolean;
   innings: Inning[];
-  tieBreaker?: TieBreakerRound[]; // Array of rounds if multiple OT needed
+  tieBreaker?: TieBreakerRound[];
 }
 
 export interface PlayerStats {
@@ -75,7 +75,7 @@ export interface AppState {
   view: 'league_select' | 'dashboard' | 'team_management' | 'match_setup' | 'scoring' | 'admin';
   currentLeague: AgeGroup | null;
   currentMatchId: string | null;
-  season: string; // The currently viewed season
+  season: string;
 }
 
 export interface MatchSummaryData {

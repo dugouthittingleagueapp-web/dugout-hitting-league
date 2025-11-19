@@ -51,27 +51,28 @@ export const ScoreInput: React.FC<ScoreInputProps> = ({ pitchNumber, value, pitc
   return (
     <>
       <div className="flex flex-col items-center gap-1 min-w-[40px]">
-        {/* Reverted to small pill style. Trigger buttons significantly enlarged. */}
-        <div className="bg-slate-200 text-slate-500 text-[10px] font-bold px-1.5 rounded-full select-none">
+        {/* Small Pill Style */}
+        <div className="bg-slate-200 text-slate-500 text-[10px] font-bold px-1.5 rounded-full select-none font-sans">
             {pitchNumber}
         </div>
         
+        {/* Large Button Style */}
         <button
           disabled={readOnly}
           onClick={() => !readOnly && onOpen()}
-          className={`w-12 h-16 sm:w-14 sm:h-20 rounded-lg flex items-center justify-center text-2xl sm:text-3xl font-bold shadow-sm border-2 transition-all duration-150 ${value !== null ? getValueColor(value) : 'border-dashed border-slate-300 hover:border-slate-400 bg-slate-50 text-slate-300'}`}
+          className={`w-12 h-16 sm:w-14 sm:h-20 rounded-lg flex items-center justify-center text-2xl sm:text-3xl font-bold shadow-sm border-2 transition-all duration-150 font-sans ${value !== null ? getValueColor(value) : 'border-dashed border-slate-300 hover:border-slate-400 bg-slate-50 text-slate-300'}`}
         >
           {value !== null ? value : '-'}
         </button>
       </div>
       {isEditing && (
         <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200" onClick={onClose}>
-            <div className="bg-white p-6 rounded-2xl shadow-2xl w-[90%] max-w-xs transform scale-100 animate-in zoom-in-95 duration-200" onClick={e => e.stopPropagation()}>
+            <div className="bg-white p-6 rounded-2xl shadow-2xl w-[90%] max-w-xs transform scale-100 animate-in zoom-in-95 duration-200 font-sans" onClick={e => e.stopPropagation()}>
                 <div className="text-center mb-6">
                     <div className="inline-block bg-blue-100 text-blue-700 text-base font-bold px-3 py-1 rounded-full mb-2">Pitch #{pitchNumber}</div>
                     <h3 className="text-2xl font-bold text-slate-800 mb-1">{value !== null ? 'Edit Score' : 'Enter Score'}</h3>
                     {pitchesRemaining !== undefined && (
-                        <p className="text-slate-500 font-bold text-lg">{pitchesRemaining} Pitches Remaining</p>
+                        <p className="text-slate-500 font-bold text-xl">{pitchesRemaining} Pitches Left</p>
                     )}
                 </div>
                 <div className="grid grid-cols-5 gap-2 sm:gap-3">

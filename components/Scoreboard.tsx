@@ -12,10 +12,13 @@ interface ScoreboardProps {
 export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadOnly = false }) => {
   const [match, setMatch] = useState<Match | null>(null);
   const [teams, setTeams] = useState<{ home?: Team, away?: Team }>({});
-  const [activeInningIdx, setActiveInningIdx] = useState(0); // 0-5 = Innings 1-6, 6 = OT
+  const [activeInningIdx, setActiveInningIdx] = useState(0); // 0-5 = Innings 1-6, 6 = Extra Innings
   const [showFinishModal, setShowFinishModal] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [activeCell, setActiveCell] = useState<{ side: 'home' | 'away'; lineupIdx: number; pitchIdx: number; } | null>(null);
+  
+  // Track active cell for scoring modal. 
+  // Added roundIdx to distinguish between regular innings and specific tie breaker rounds.
+  const [activeCell, setActiveCell] = useState<{ side: 'home' | 'away'; lineupIdx: number; pitchIdx: number; roundIdx?: number } | null>(null);
 
   // Tie Breaker Setup State
   const [showTieBreakerSetup, setShowTieBreakerSetup] = useState(false);
@@ -57,7 +60,7 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
   if (!match || !teams.home || !teams.away) return <div className="text-center p-8 font-sans">Error loading match</div>;
 
   const currentInning = match.innings[activeInningIdx];
-  const isOT = activeInningIdx === 6;
+  const isExtraInnings = activeInningIdx === 6;
 
   // --- Calculations ---
 
@@ -117,7 +120,7 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
       await storage.updateMatch(updatedMatch);
       
       setShowTieBreakerSetup(false);
-      setActiveInningIdx(6); // Go to OT tab
+      setActiveInningIdx(6); // Go to Extra Innings tab
   };
 
   const handleScoreUpdate = async (side: 'home' | 'away', lineupIdx: number, pitchIdx: number, val: number) => {
@@ -180,8 +183,7 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
         }
     } else if (isStrict2v2) {
         // Strict 2v2 Mode: 10 pitches each.
-        // Requirement: "modal needs to go away after the 10th pitch to each batter"
-        // Pitch Index 9 is the 10th pitch.
+        // Force Close after 10th pitch (Index 9) for EACH player
         if (pitchIdx === 9) {
             setActiveCell(null);
         } else {
@@ -224,7 +226,7 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
   const handleTieBreakerScore = async (roundIdx: number, side: 'home'|'away', pitchIdx: number, val: number) => {
       if(!match.tieBreaker) return;
       
-      // Auto-advance logic for OT
+      // Auto-advance logic for Extra Innings
       const currentRound = match.tieBreaker[roundIdx];
       const limit = currentRound.pitchLimit;
       
@@ -238,9 +240,10 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
       
       // Simple auto advance within round
       if (pitchIdx < limit - 1) {
-           // Stay on player
+           setActiveCell({ side, lineupIdx: 0, pitchIdx: pitchIdx + 1, roundIdx });
       } else {
-           // End of player turn in OT
+           // End of player turn in Extra Innings
+           setActiveCell(null);
       }
   };
 
@@ -274,6 +277,7 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
          
          let pitchesLeft = 0;
          if (isTwoPlayerGhostMode) {
+             // For ghost mode, count total taken across entire 15-pitch set
              const allPitches = playerScore.pitches; 
              const taken = allPitches.filter((p:any) => p.points !== null).length;
              pitchesLeft = 15 - taken;
@@ -409,10 +413,9 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
   // --- Tie Breaker Render ---
   const renderTieBreakerTab = () => {
       if (!match.tieBreaker || match.tieBreaker.length === 0) {
-          return <div className="p-8 text-center text-slate-400 font-sans">OT Data not available.</div>;
+          return <div className="p-8 text-center text-slate-400 font-sans">Extra Innings Data not available.</div>;
       }
       
-      // We only render the latest round logic or all? Let's render all stacked.
       return (
           <div className="space-y-8">
               {match.tieBreaker.map((round, idx) => {
@@ -426,7 +429,7 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
                   return (
                     <div key={idx}>
                          <div className="bg-amber-50 p-3 rounded-t-xl border border-amber-200 flex justify-between items-center">
-                             <h3 className="font-bold text-amber-800 font-sans">Showdown: Round {round.roundNumber} ({round.pitchLimit} Pitches)</h3>
+                             <h3 className="font-bold text-amber-800 font-sans">Extra Innings: Round {round.roundNumber} ({round.pitchLimit} Pitches)</h3>
                              {isLastRound && (
                                  homeSum === awaySum ? (
                                     <button onClick={() => startTieBreakerRound()} className="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white font-bold rounded-lg text-sm shadow font-sans">Next Round (Tie)</button>
@@ -452,8 +455,9 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
                                                     <ScoreInput 
                                                         key={`ot-away-${idx}-${pIdx}`} pitchNumber={pIdx+1} value={score}
                                                         readOnly={isReadOnly || (!isLastRound && match.isComplete)}
-                                                        isEditing={true}
-                                                        onOpen={()=>{}} onClose={()=>{}}
+                                                        isEditing={activeCell?.side === 'away' && activeCell?.roundIdx === idx && activeCell?.pitchIdx === pIdx}
+                                                        onOpen={() => setActiveCell({ side: 'away', lineupIdx: 0, pitchIdx: pIdx, roundIdx: idx })}
+                                                        onClose={() => setActiveCell(null)}
                                                         onChange={(val) => handleTieBreakerScore(idx, 'away', pIdx, val)}
                                                     />
                                                 ))}
@@ -475,8 +479,9 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
                                                     <ScoreInput 
                                                         key={`ot-home-${idx}-${pIdx}`} pitchNumber={pIdx+1} value={score}
                                                         readOnly={isReadOnly || (!isLastRound && match.isComplete)}
-                                                        isEditing={true}
-                                                        onOpen={()=>{}} onClose={()=>{}}
+                                                        isEditing={activeCell?.side === 'home' && activeCell?.roundIdx === idx && activeCell?.pitchIdx === pIdx}
+                                                        onOpen={() => setActiveCell({ side: 'home', lineupIdx: 0, pitchIdx: pIdx, roundIdx: idx })}
+                                                        onClose={() => setActiveCell(null)}
                                                         onChange={(val) => handleTieBreakerScore(idx, 'home', pIdx, val)}
                                                     />
                                                 ))}
@@ -505,7 +510,7 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
           </div>
           <div className="flex items-center gap-2">
             {isReadOnly && <div className="flex items-center gap-1.5 bg-red-50 text-red-600 px-3 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-wider animate-pulse font-sans"><span className="w-2 h-2 rounded-full bg-red-600"></span>LIVE</div>}
-            {!isReadOnly && !match.isComplete && !isOT && <button onClick={() => setShowFinishModal(true)} className="bg-green-600 hover:bg-green-700 text-white text-xs sm:text-sm font-bold py-2 px-3 sm:px-4 rounded-lg shadow-sm transition-colors font-sans">Complete Game</button>}
+            {!isReadOnly && !match.isComplete && !isExtraInnings && <button onClick={() => setShowFinishModal(true)} className="bg-green-600 hover:bg-green-700 text-white text-xs sm:text-sm font-bold py-2 px-3 sm:px-4 rounded-lg shadow-sm transition-colors font-sans">Complete Game</button>}
             <button onClick={onExit} className="text-xs sm:text-sm font-bold text-slate-500 hover:text-slate-800 bg-slate-100 hover:bg-slate-200 py-2 px-3 rounded-lg transition-colors font-sans">Exit</button>
           </div>
         </div>
@@ -514,13 +519,13 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
                 <button key={ing.number} onClick={() => setActiveInningIdx(idx)} className={`flex-1 py-3 text-sm font-bold uppercase tracking-wider border-b-2 transition-colors min-w-[80px] font-sans ${idx === activeInningIdx ? 'border-blue-600 text-blue-600 bg-blue-50/50' : 'border-transparent text-slate-400 hover:text-slate-600 hover:bg-slate-50'}`}>Inning {ing.number}</button>
             ))}
             {(match.tieBreaker && match.tieBreaker.length > 0) && (
-                <button onClick={() => setActiveInningIdx(6)} className={`flex-1 py-3 text-sm font-bold uppercase tracking-wider border-b-2 transition-colors min-w-[80px] font-sans ${activeInningIdx === 6 ? 'border-amber-500 text-amber-600 bg-amber-50' : 'border-transparent text-amber-500 hover:bg-amber-50'}`}>OT</button>
+                <button onClick={() => setActiveInningIdx(6)} className={`flex-1 py-3 text-sm font-bold uppercase tracking-wider border-b-2 transition-colors min-w-[120px] font-sans ${activeInningIdx === 6 ? 'border-amber-500 text-amber-600 bg-amber-50' : 'border-transparent text-amber-500 hover:bg-amber-50'}`}>Extra Innings</button>
             )}
         </div>
       </header>
       
       <main className="max-w-5xl mx-auto p-4 mt-4">
-          {isOT ? renderTieBreakerTab() : (
+          {isExtraInnings ? renderTieBreakerTab() : (
               <>
                 {renderTeamSection('away', teams.away)}
                 {renderTeamSection('home', teams.home)}
@@ -533,7 +538,7 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
           <div className="fixed inset-0 z-[70] flex items-center justify-center bg-slate-900/80 backdrop-blur-sm animate-in fade-in duration-300">
               <div className="bg-white p-6 sm:p-8 rounded-2xl shadow-2xl w-[90%] max-w-md font-sans transform scale-100 animate-in zoom-in-95">
                   <h2 className="text-2xl font-black text-amber-600 mb-2 text-center font-sans">TIE GAME!</h2>
-                  <p className="text-slate-500 text-center mb-6 font-sans">Select one player from each team for the showdown.</p>
+                  <p className="text-slate-500 text-center mb-6 font-sans">Select one player from each team for Extra Innings.</p>
                   
                   <div className="space-y-4 mb-8">
                       <div>
@@ -551,7 +556,7 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
                   </div>
                   
                   <button onClick={startTieBreakerRound} className="w-full py-4 bg-amber-500 hover:bg-amber-600 text-white font-black uppercase tracking-widest rounded-xl shadow-lg shadow-amber-200 transition-colors font-sans">
-                      Start Showdown
+                      Start Extra Innings
                   </button>
               </div>
           </div>

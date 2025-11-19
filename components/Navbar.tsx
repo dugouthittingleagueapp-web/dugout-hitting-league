@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { AgeGroup, League } from '../types';
 
@@ -55,10 +54,12 @@ export const Navbar: React.FC<NavbarProps> = ({
             </div>
         </div>
         <div className="flex items-center gap-2 sm:gap-4">
-          {/* New Button: League Home */}
-          <button onClick={onSwitchLeague} className="bg-slate-800 hover:bg-slate-700 text-white border border-slate-600 px-3 py-1.5 rounded-lg text-xs sm:text-sm font-bold transition-colors font-sans whitespace-nowrap">
-             League Home
-          </button>
+          {/* New Button: League Home - Only show if we are in a league */}
+          {currentLeague && (
+            <button onClick={onSwitchLeague} className="bg-slate-800 hover:bg-slate-700 text-white border border-slate-600 px-3 py-1.5 rounded-lg text-xs sm:text-sm font-bold transition-colors font-sans whitespace-nowrap">
+               League Home
+            </button>
+          )}
 
           {/* Season Selector */}
           <div className="relative">

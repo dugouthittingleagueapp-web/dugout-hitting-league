@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { AgeGroup, AppState, Match, Team, Player, League, PlayerStats } from './types';
 import { Navbar } from './components/Navbar';
@@ -193,7 +194,6 @@ const App: React.FC = () => {
         let homeScore = getScore('home');
         let awayScore = getScore('away');
 
-        // Add TieBreaker Scores
         if (m.tieBreaker) {
             m.tieBreaker.forEach(tb => {
                 homeScore += tb.homeScores.reduce((a,b)=>a+b,0);
@@ -260,10 +260,11 @@ const App: React.FC = () => {
 
   // --- WEEKLY LEADERS CALCULATION ---
   const calculateWeeklyLeaders = () => {
-      // Find matches from current week (Mon-Sun)
+      if (!state.currentLeague) return { topInnings: [], topTotals: [] };
+
       const now = new Date();
-      const day = now.getDay(); // 0 (Sun) - 6 (Sat)
-      const diff = now.getDate() - day + (day === 0 ? -6 : 1); // adjust when day is sunday
+      const day = now.getDay(); 
+      const diff = now.getDate() - day + (day === 0 ? -6 : 1); 
       const monday = new Date(now.setDate(diff));
       monday.setHours(0,0,0,0);
       
@@ -272,7 +273,8 @@ const App: React.FC = () => {
 
       const weeklyMatches = matches.filter(m => {
           const d = new Date(m.date);
-          return m.isComplete && d >= monday && d < nextMonday;
+          // Filter by League AND Date AND Completion
+          return m.league === state.currentLeague && m.isComplete && d >= monday && d < nextMonday;
       });
 
       const singleInningBest: { name: string; score: number; team: string; date: string }[] = [];
@@ -283,26 +285,22 @@ const App: React.FC = () => {
           const away = teams.find(t => t.id === m.awayTeamId);
           if(!home || !away) return;
 
-          // Helper to process one side
           const processSide = (team: Team, sideData: any) => {
-               // Map to accumulate total match score per player
                const playerMatchTotals = new Map<string, number>();
 
                m.innings.forEach(inning => {
-                   const iData = sideData(inning); // get home or away part
+                   const iData = sideData(inning); 
                    iData.playerScores.forEach((ps: any) => {
                        const inningScore = ps.pitches.reduce((sum: number, p: any) => sum + (p.points || 0), 0);
                        
-                       // Record Single Inning Highs
                        const pName = team.players.find(p => p.id === ps.playerId)?.name || 'Sub';
-                       if (pName !== 'Player 3 (Team Stats)') { // Ignore ghosts
+                       if (pName !== 'Player 3 (Team Stats)') { 
                            singleInningBest.push({ name: pName, score: inningScore, team: team.name, date: m.date });
                            playerMatchTotals.set(ps.playerId, (playerMatchTotals.get(ps.playerId) || 0) + inningScore);
                        }
                    });
                });
                
-               // Push Match Totals
                playerMatchTotals.forEach((score, pId) => {
                    const pName = team.players.find(p => p.id === pId)?.name || 'Sub';
                    matchTotalBest.push({ name: pName, score, team: team.name, date: m.date });
@@ -313,7 +311,6 @@ const App: React.FC = () => {
           processSide(away, (i: any) => i.away);
       });
 
-      // Sort and Take Top 3
       const topInnings = singleInningBest.sort((a,b) => b.score - a.score).slice(0, 3);
       const topTotals = matchTotalBest.sort((a,b) => b.score - a.score).slice(0, 3);
 
@@ -422,7 +419,6 @@ const App: React.FC = () => {
             )}
 
             <div className={`${userRole !== 'fan' ? 'lg:col-span-2' : 'col-span-1'}`}>
-                {/* Weekly Leaders Card - Always Visible */}
                 <div className="bg-gradient-to-r from-indigo-500 to-purple-600 rounded-xl shadow-md p-6 mb-8 text-white">
                     <h3 className="font-bold text-white/90 uppercase tracking-wider text-sm mb-4 border-b border-white/20 pb-2">Weekly Leaders ({state.currentLeague})</h3>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-8">

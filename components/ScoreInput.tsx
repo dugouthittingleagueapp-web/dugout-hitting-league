@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 
 interface ScoreInputProps {
@@ -48,15 +49,17 @@ export const ScoreInput: React.FC<ScoreInputProps> = ({ pitchNumber, value, onCh
 
   return (
     <>
-      <div className="flex flex-col items-center gap-1 min-w-[36px] sm:min-w-[48px]">
-        {/* Increased size and font weight for visibility */}
-        <div className="bg-slate-800 text-white text-xs sm:text-sm font-black px-2.5 py-0.5 rounded-full select-none shadow-sm">
+      <div className="flex flex-col items-center gap-1 min-w-[44px] sm:min-w-[60px]">
+        {/* Reverted to small pill style */}
+        <div className="bg-slate-200 text-slate-500 text-[10px] sm:text-xs font-bold px-1.5 rounded-full select-none">
             {pitchNumber}
         </div>
+        
+        {/* Significantly Increased Button Size */}
         <button
           disabled={readOnly}
           onClick={() => !readOnly && onOpen()}
-          className={`w-9 h-10 text-lg sm:w-12 sm:h-14 sm:text-2xl rounded-lg flex items-center justify-center font-bold shadow-sm border-2 transition-all duration-150 ${value !== null ? getValueColor(value) : 'border-dashed border-slate-300 hover:border-slate-400 bg-slate-50 text-slate-300'}`}
+          className={`w-14 h-16 text-2xl sm:w-20 sm:h-24 sm:text-4xl rounded-xl flex items-center justify-center font-bold shadow-sm border-2 transition-all duration-150 ${value !== null ? getValueColor(value) : 'border-dashed border-slate-300 hover:border-slate-400 bg-slate-50 text-slate-300'}`}
         >
           {value !== null ? value : '-'}
         </button>

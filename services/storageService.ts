@@ -1,3 +1,4 @@
+
 import { AgeGroup, Match, Team, Inning, PlayerInningScore, League, PlayerStats } from '../types';
 
 const mapTeamFromDB = (dbTeam: any): Team => ({
@@ -14,7 +15,7 @@ const mapMatchFromDB = (dbMatch: any): Match => ({
   isComplete: dbMatch.is_complete,
   innings: typeof dbMatch.innings === 'string' ? JSON.parse(dbMatch.innings) : dbMatch.innings,
   season: dbMatch.season || '2025',
-  tieBreaker: dbMatch.innings && typeof dbMatch.innings === 'string' ? [] : (dbMatch.innings?.tieBreaker || undefined) 
+  tieBreaker: dbMatch.tie_breaker ? (typeof dbMatch.tie_breaker === 'string' ? JSON.parse(dbMatch.tie_breaker) : dbMatch.tie_breaker) : undefined
 });
 
 // League Methods

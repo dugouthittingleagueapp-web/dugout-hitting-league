@@ -2,8 +2,6 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 import pool from './db.js';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
-  console.log(`[API] Leagues endpoint called via ${req.method}`);
-  
   try {
     // 1. Ensure table exists (Lazy migration)
     await pool.query(`
@@ -19,7 +17,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     } 
     else if (req.method === 'POST') {
       const { id } = req.body;
-      console.log(`[API] Attempting to create league: "${id}"`);
       
       if (!id || typeof id !== 'string' || !id.trim()) {
         return res.status(400).json({ error: 'League Name ID is required and cannot be empty' });
@@ -34,14 +31,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         RETURNING *
       `;
       
-      console.log(`[API] Executing DB Query for: ${cleanId}`);
       const { rows } = await pool.query(query, [cleanId]);
       
       if (!rows || rows.length === 0) {
         throw new Error("Database executed query but returned no rows.");
       }
-
-      console.log(`[API] League created/retrieved: ${JSON.stringify(rows[0])}`);
       
       return res.status(201).json(rows[0]);
     }

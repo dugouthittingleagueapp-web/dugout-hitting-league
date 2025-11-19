@@ -3,7 +3,7 @@ import pool from './db.js';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   try {
-    // Ensure table exists
+    // Ensure table exists with season
     await pool.query(`
       CREATE TABLE IF NOT EXISTS matches (
         id UUID PRIMARY KEY,
@@ -13,31 +13,57 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         date TIMESTAMPTZ NOT NULL,
         is_complete BOOLEAN DEFAULT FALSE,
         innings JSONB NOT NULL,
+        season TEXT NOT NULL DEFAULT '2025',
         created_at TIMESTAMPTZ DEFAULT NOW()
-      )
+      );
+
+      -- Safe migration for existing tables without 'season'
+      DO $$ 
+      BEGIN 
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='matches' AND column_name='season') THEN 
+          ALTER TABLE matches ADD COLUMN season TEXT NOT NULL DEFAULT '2025'; 
+        END IF; 
+      END $$;
     `);
 
     if (req.method === 'GET') {
-      const { league, id } = req.query;
+      const { league, id, season } = req.query;
       if (id) {
         const { rows } = await pool.query('SELECT * FROM matches WHERE id = $1', [id]);
         if (rows.length === 0) return res.status(404).json({ error: 'Not found' });
         return res.status(200).json(rows[0]);
       }
+
       let query = 'SELECT * FROM matches';
       const params: any[] = [];
+      let paramCount = 1;
+      
+      // Build dynamic where clause
+      const conditions = [];
       if (league) {
-        query += ' WHERE league = $1';
+        conditions.push(`league = $${paramCount++}`);
         params.push(league);
       }
+      if (season) {
+        conditions.push(`season = $${paramCount++}`);
+        params.push(season);
+      }
+      
+      if (conditions.length > 0) {
+        query += ' WHERE ' + conditions.join(' AND ');
+      }
+      
       query += ' ORDER BY date DESC';
       const { rows } = await pool.query(query, params);
       return res.status(200).json(rows);
     } 
     else if (req.method === 'POST') {
-      const { id, league, homeTeamId, awayTeamId, date, isComplete, innings } = req.body;
-      const query = `INSERT INTO matches (id, league, home_team_id, away_team_id, date, is_complete, innings) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`;
-      const values = [id, league, homeTeamId, awayTeamId, date, isComplete, JSON.stringify(innings)];
+      const { id, league, homeTeamId, awayTeamId, date, isComplete, innings, season } = req.body;
+      
+      const matchSeason = season || '2025';
+
+      const query = `INSERT INTO matches (id, league, home_team_id, away_team_id, date, is_complete, innings, season) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *`;
+      const values = [id, league, homeTeamId, awayTeamId, date, isComplete, JSON.stringify(innings), matchSeason];
       const { rows } = await pool.query(query, values);
       return res.status(201).json(rows[0]);
     } 

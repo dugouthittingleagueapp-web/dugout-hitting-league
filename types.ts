@@ -15,6 +15,7 @@ export interface Team {
   name: string;
   players: Player[];
   league: AgeGroup;
+  season: string;
 }
 
 export interface PitchScore {
@@ -40,6 +41,7 @@ export interface Inning {
 export interface Match {
   id: string;
   league: AgeGroup;
+  season: string;
   homeTeamId: string;
   awayTeamId: string;
   date: string;
@@ -62,6 +64,7 @@ export interface AppState {
   view: 'league_select' | 'dashboard' | 'team_management' | 'match_setup' | 'scoring' | 'admin';
   currentLeague: AgeGroup | null;
   currentMatchId: string | null;
+  season: string; // The currently viewed season
 }
 
 export interface MatchSummaryData {

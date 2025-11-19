@@ -12,7 +12,8 @@ const mapMatchFromDB = (dbMatch: any): Match => ({
   awayTeamId: dbMatch.away_team_id,
   date: dbMatch.date,
   isComplete: dbMatch.is_complete,
-  innings: typeof dbMatch.innings === 'string' ? JSON.parse(dbMatch.innings) : dbMatch.innings
+  innings: typeof dbMatch.innings === 'string' ? JSON.parse(dbMatch.innings) : dbMatch.innings,
+  season: dbMatch.season || '2025'
 });
 
 // League Methods
@@ -36,8 +37,8 @@ export const createLeague = async (id: string): Promise<League> => {
 };
 
 // Team Methods
-export const getTeams = async (league: AgeGroup): Promise<Team[]> => {
-  const res = await fetch(`/api/teams?league=${league}`);
+export const getTeams = async (league: AgeGroup, season: string): Promise<Team[]> => {
+  const res = await fetch(`/api/teams?league=${league}&season=${season}`);
   if (!res.ok) return [];
   const data = await res.json();
   return data.map(mapTeamFromDB);
@@ -50,11 +51,12 @@ export const getAllTeams = async (): Promise<Team[]> => {
   return data.map(mapTeamFromDB);
 };
 
-export const createTeam = async (name: string, league: AgeGroup, playerNames: string[]): Promise<Team> => {
+export const createTeam = async (name: string, league: AgeGroup, playerNames: string[], season: string): Promise<Team> => {
   const newTeam = {
     id: crypto.randomUUID(),
     name,
     league,
+    season,
     players: playerNames.map(name => ({ id: crypto.randomUUID(), name })),
   };
   const res = await fetch('/api/teams', {
@@ -72,8 +74,8 @@ export const deleteTeam = async (teamId: string) => {
 };
 
 // Match Methods
-export const getMatches = async (league: AgeGroup): Promise<Match[]> => {
-  const res = await fetch(`/api/matches?league=${league}`);
+export const getMatches = async (league: AgeGroup, season: string): Promise<Match[]> => {
+  const res = await fetch(`/api/matches?league=${league}&season=${season}`);
   if (!res.ok) return [];
   const data = await res.json();
   return data.map(mapMatchFromDB);
@@ -111,13 +113,14 @@ const createEmptyInning = (number: number, homeTeamId: string, awayTeamId: strin
   };
 };
 
-export const createMatch = async (league: AgeGroup, homeTeamId: string, awayTeamId: string, homeLineupIds: string[], awayLineupIds: string[]): Promise<Match> => {
+export const createMatch = async (league: AgeGroup, homeTeamId: string, awayTeamId: string, homeLineupIds: string[], awayLineupIds: string[], season: string): Promise<Match> => {
   const innings: Inning[] = Array.from({ length: 6 }, (_, i) => 
     createEmptyInning(i + 1, homeTeamId, awayTeamId, homeLineupIds, awayLineupIds)
   );
   const newMatch = {
     id: crypto.randomUUID(),
     league,
+    season,
     homeTeamId,
     awayTeamId,
     date: new Date().toISOString(),
@@ -149,8 +152,8 @@ export const exportData = async () => {
 };
 
 // Stats Calculation
-export const getTeamStats = async (team: Team, league: AgeGroup): Promise<PlayerStats[]> => {
-  const matches = await getMatches(league);
+export const getTeamStats = async (team: Team, league: AgeGroup, season: string): Promise<PlayerStats[]> => {
+  const matches = await getMatches(league, season);
   // Initialize stats map
   const statsMap = new Map<string, PlayerStats>();
   
@@ -219,7 +222,29 @@ export const updateAdminPassword = async (password: string): Promise<void> => {
   const res = await fetch('/api/settings', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ action: 'update', password })
+    body: JSON.stringify({ action: 'update_password', password })
   });
   if (!res.ok) throw new Error("Failed to update password");
+};
+
+export const getCurrentSeason = async (): Promise<string> => {
+  try {
+      const res = await fetch('/api/settings');
+      if (res.ok) {
+          const data = await res.json();
+          return data.currentSeason || '2025';
+      }
+  } catch (e) {
+      console.error(e);
+  }
+  return '2025';
+};
+
+export const updateCurrentSeason = async (season: string): Promise<void> => {
+    const res = await fetch('/api/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'update_season', season })
+    });
+    if (!res.ok) throw new Error("Failed to update season");
 };

@@ -4,10 +4,11 @@ import * as storage from '../services/storageService';
 
 interface TeamManagementProps {
   league: AgeGroup;
+  season: string;
   onBack: () => void;
 }
 
-export const TeamManagement: React.FC<TeamManagementProps> = ({ league, onBack }) => {
+export const TeamManagement: React.FC<TeamManagementProps> = ({ league, season, onBack }) => {
   const [teams, setTeams] = useState<Team[]>([]);
   const [selectedTeam, setSelectedTeam] = useState<Team | null>(null);
   const [teamStats, setTeamStats] = useState<PlayerStats[]>([]);
@@ -17,11 +18,11 @@ export const TeamManagement: React.FC<TeamManagementProps> = ({ league, onBack }
   const [playerNames, setPlayerNames] = useState(['', '', '']);
   const [loading, setLoading] = useState(false);
 
-  useEffect(() => { loadTeams(); }, [league]);
+  useEffect(() => { loadTeams(); }, [league, season]);
 
   const loadTeams = async () => {
     setLoading(true);
-    const data = await storage.getTeams(league);
+    const data = await storage.getTeams(league, season);
     setTeams(data);
     setLoading(false);
   };
@@ -30,7 +31,7 @@ export const TeamManagement: React.FC<TeamManagementProps> = ({ league, onBack }
     setSelectedTeam(team);
     setLoading(true);
     try {
-        const stats = await storage.getTeamStats(team, league);
+        const stats = await storage.getTeamStats(team, league, season);
         setTeamStats(stats);
     } catch (e) {
         console.error("Error fetching stats", e);
@@ -42,7 +43,7 @@ export const TeamManagement: React.FC<TeamManagementProps> = ({ league, onBack }
     e.preventDefault();
     if (!newTeamName.trim() || playerNames.some(p => !p.trim())) return;
     setLoading(true);
-    await storage.createTeam(newTeamName, league, playerNames);
+    await storage.createTeam(newTeamName, league, playerNames, season);
     await loadTeams();
     setNewTeamName('');
     setPlayerNames(['', '', '']);
@@ -69,7 +70,10 @@ export const TeamManagement: React.FC<TeamManagementProps> = ({ league, onBack }
         <div className="p-4 sm:p-6 max-w-5xl mx-auto">
             <div className="flex justify-between items-center mb-6">
                 <div>
-                    <h2 className="text-3xl font-bold text-slate-800">{selectedTeam.name}</h2>
+                    <div className="flex items-center gap-2">
+                        <h2 className="text-3xl font-bold text-slate-800">{selectedTeam.name}</h2>
+                        <span className="bg-slate-200 text-slate-600 text-xs font-bold px-2 py-1 rounded">{season}</span>
+                    </div>
                     <p className="text-slate-500 font-bold uppercase tracking-wider">Stats & Roster</p>
                 </div>
                 <button onClick={() => setSelectedTeam(null)} className="px-4 py-2 rounded-lg bg-slate-200 hover:bg-slate-300 text-slate-700 font-medium transition-colors">Back to List</button>
@@ -103,7 +107,7 @@ export const TeamManagement: React.FC<TeamManagementProps> = ({ league, onBack }
                                 </tr>
                             ))}
                             {teamStats.length === 0 && (
-                                <tr><td colSpan={7} className="px-4 py-8 text-center text-slate-400 italic">No match data available yet.</td></tr>
+                                <tr><td colSpan={7} className="px-4 py-8 text-center text-slate-400 italic">No match data available for {season} yet.</td></tr>
                             )}
                         </tbody>
                     </table>
@@ -118,14 +122,14 @@ export const TeamManagement: React.FC<TeamManagementProps> = ({ league, onBack }
       <div className="flex justify-between items-center mb-6">
         <div>
             <h2 className="text-2xl font-bold text-slate-800">Manage Teams</h2>
-            <p className="text-slate-500 text-sm font-bold uppercase tracking-wider">{league} League</p>
+            <p className="text-slate-500 text-sm font-bold uppercase tracking-wider">{league} League <span className="text-slate-400 mx-1">•</span> {season}</p>
         </div>
         <button onClick={onBack} className="px-4 py-2 rounded-lg bg-slate-200 hover:bg-slate-300 text-slate-700 font-medium transition-colors">Back to Dashboard</button>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
         <div className="bg-white p-6 rounded-xl shadow-md border border-slate-100 h-fit">
-          <h3 className="text-lg font-semibold mb-4 flex items-center gap-2 text-slate-800">Add New Team</h3>
+          <h3 className="text-lg font-semibold mb-4 flex items-center gap-2 text-slate-800">Add New Team ({season})</h3>
           <form onSubmit={handleCreate} className="space-y-5">
             <div>
               <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Team Name</label>
@@ -140,7 +144,7 @@ export const TeamManagement: React.FC<TeamManagementProps> = ({ league, onBack }
                 </div>
               ))}
             </div>
-            <button type="submit" disabled={loading} className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-slate-300 text-white font-bold py-3 px-4 rounded-lg shadow-lg shadow-blue-200 transition-all active:scale-95">{loading ? 'Saving...' : 'Create Team'}</button>
+            <button type="submit" disabled={loading} className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-slate-300 text-white font-bold py-3 px-4 rounded-lg shadow-lg shadow-blue-200 transition-all active:scale-95">{loading ? 'Saving...' : `Create Team for ${season}`}</button>
           </form>
         </div>
         <div className="space-y-4">
@@ -161,6 +165,7 @@ export const TeamManagement: React.FC<TeamManagementProps> = ({ league, onBack }
               </div>
             </div>
           ))}
+          {teams.length === 0 && <div className="text-slate-400 italic text-sm">No teams found for {season}.</div>}
         </div>
       </div>
     </div>

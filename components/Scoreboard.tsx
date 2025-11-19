@@ -44,16 +44,11 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit }) => {
     setMatch(newMatch);
     storage.updateMatch(newMatch).catch(err => console.error("Failed to save score", err));
 
-    let nextPitchIdx = pitchIdx + 1;
-    let nextLineupIdx = lineupIdx;
-
-    if (nextPitchIdx >= 10) {
-        nextPitchIdx = 0;
-        nextLineupIdx = lineupIdx + 1;
-    }
-
-    if (nextLineupIdx < teamData.playerScores.length) {
-        setActiveCell({ side, lineupIdx: nextLineupIdx, pitchIdx: nextPitchIdx });
+    // Auto-advance logic:
+    // If it's less than the 9th index (10th pitch), advance to the next pitch.
+    // If it IS the 10th pitch, close the modal (setActiveCell(null)).
+    if (pitchIdx < 9) {
+        setActiveCell({ side, lineupIdx, pitchIdx: pitchIdx + 1 });
     } else {
         setActiveCell(null);
     }

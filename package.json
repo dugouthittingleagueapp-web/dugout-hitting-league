@@ -12,13 +12,12 @@
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
     "@google/genai": "^1.30.0",
-    "@neondatabase/serverless": "^0.9.0",
-    "ws": "^8.16.0"
+    "pg": "^8.11.3"
   },
   "devDependencies": {
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
-    "@types/ws": "^8.5.10",
+    "@types/pg": "^8.11.0",
     "@vitejs/plugin-react": "^4.2.1",
     "@vercel/node": "^3.0.0",
     "typescript": "^5.2.2",

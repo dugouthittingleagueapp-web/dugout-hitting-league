@@ -1,41 +1,33 @@
-import { Pool, neonConfig } from '@neondatabase/serverless';
-import ws from 'ws';
+import pg from 'pg';
 
-// Required for Node.js environments (like Vercel Serverless) to handle WebSockets
-neonConfig.webSocketConstructor = ws;
+// 1. Get the connection string from env
+let connString = process.env.DATABASE_URL || process.env.POSTGRES_URL || "";
 
-// Your specific Neon connection string (Cleaned)
-const FALLBACK_CONNECTION_STRING = "postgres://neondb_owner:npg_qFK0WsorA4Jm@ep-late-glitter-a44vvx23-pooler.us-east-1.aws.neon.tech/neondb?sslmode=require";
-
-// Logic: Use the Env Var if it exists and is not empty. Otherwise, use the Fallback.
-const envUrl = process.env.DATABASE_URL;
-const hasEnvUrl = envUrl && envUrl.trim().length > 0;
-
-let connectionString = hasEnvUrl ? envUrl! : FALLBACK_CONNECTION_STRING;
-
-// Sanitize: Remove 'psql ' prefix, quotes, whitespace which often get pasted in by accident
-connectionString = connectionString
-  .replace(/^psql\s+/, '')
-  .replace(/['"]/g, '')
-  .trim();
-
-// Ensure protocol is postgres:// (fix potential postgresql:// parsing issues in some drivers)
-if (connectionString.startsWith('postgresql://')) {
-  connectionString = connectionString.replace('postgresql://', 'postgres://');
+// 2. Sanitize the string (Fixes "Invalid URL" errors caused by copy-pasting)
+// Remove leading/trailing whitespace
+connString = connString.trim();
+// Remove surrounding quotes if they exist (common .env mistake)
+if ((connString.startsWith('"') && connString.endsWith('"')) || 
+    (connString.startsWith("'") && connString.endsWith("'"))) {
+  connString = connString.slice(1, -1);
 }
 
-// Debug Log (This will show up in Vercel Logs)
-console.log(`[DB] Initializing Pool. Using Fallback? ${!hasEnvUrl}. Connection string len: ${connectionString.length}`);
+console.log(`[DB] Initializing Pool. Connection String Length: ${connString.length}`);
 
-if (!connectionString) {
-  throw new Error("CRITICAL: Connection string could not be determined.");
+if (!connString) {
+  console.error("[DB] CRITICAL: No DATABASE_URL found in environment variables.");
 }
 
-const pool = new Pool({
-  connectionString
+// 3. Initialize Pool
+const pool = new pg.Pool({
+  connectionString: connString,
+  ssl: {
+    rejectUnauthorized: false // Required for Neon/Vercel connections
+  },
+  connectionTimeoutMillis: 5000, // Fail fast if cannot connect
 });
 
-// Error handling for the pool to prevent server crashes on idle connection loss
+// 4. Error Handling
 pool.on('error', (err) => {
   console.error('[DB] Unexpected error on idle client', err);
 });

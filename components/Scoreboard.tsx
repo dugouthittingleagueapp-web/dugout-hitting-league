@@ -36,6 +36,10 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit }) => {
   const currentInning = match.innings[activeInningIdx];
 
   const handleScoreUpdate = async (side: 'home' | 'away', lineupIdx: number, pitchIdx: number, val: number) => {
+    // Check if this was an edit of an existing score
+    const existingValue = match.innings[activeInningIdx][side].playerScores[lineupIdx].pitches[pitchIdx].points;
+    const isEdit = existingValue !== null;
+
     const newMatch = { ...match };
     const inning = newMatch.innings[activeInningIdx];
     const teamData = side === 'home' ? inning.home : inning.away;
@@ -45,9 +49,9 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit }) => {
     storage.updateMatch(newMatch).catch(err => console.error("Failed to save score", err));
 
     // Auto-advance logic:
-    // If it's less than the 9th index (10th pitch), advance to the next pitch.
-    // If it IS the 10th pitch, close the modal (setActiveCell(null)).
-    if (pitchIdx < 9) {
+    // If we are EDITING, we do NOT advance. We just close the window.
+    // If it is NEW input, we advance.
+    if (!isEdit && pitchIdx < 9) {
         setActiveCell({ side, lineupIdx, pitchIdx: pitchIdx + 1 });
     } else {
         setActiveCell(null);

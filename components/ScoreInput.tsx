@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 
 interface ScoreInputProps {
   pitchNumber: number;
@@ -11,8 +11,32 @@ interface ScoreInputProps {
 }
 
 export const ScoreInput: React.FC<ScoreInputProps> = ({ pitchNumber, value, onChange, readOnly = false, isEditing, onOpen, onClose }) => {
+  // Local state to track selection BEFORE confirming (only used when editing existing scores)
+  const [localValue, setLocalValue] = useState<number | null>(value);
+
+  // Sync local state when the modal opens or the prop changes
+  useEffect(() => {
+    if (isEditing) {
+      setLocalValue(value);
+    }
+  }, [isEditing, value]);
+
   const handleSelect = (score: number) => {
-    onChange(score);
+    if (value !== null) {
+      // Edit Mode: Update visual selection only, wait for Enter
+      setLocalValue(score);
+    } else {
+      // New Entry Mode: Commit immediately for speed
+      onChange(score);
+    }
+  };
+
+  const handleEnter = () => {
+    if (localValue !== null) {
+      onChange(localValue);
+    } else {
+      onClose();
+    }
   };
 
   const getValueColor = (v: number) => {
@@ -43,16 +67,24 @@ export const ScoreInput: React.FC<ScoreInputProps> = ({ pitchNumber, value, onCh
             <div className="bg-white p-6 rounded-2xl shadow-2xl w-[90%] max-w-xs transform scale-100 animate-in zoom-in-95 duration-200" onClick={e => e.stopPropagation()}>
                 <div className="text-center mb-6">
                     <div className="inline-block bg-blue-100 text-blue-700 text-xs font-bold px-2 py-1 rounded-full mb-2">Pitch #{pitchNumber}</div>
-                    <h3 className="text-lg font-bold text-slate-800">Enter Score</h3>
+                    <h3 className="text-lg font-bold text-slate-800">{value !== null ? 'Edit Score' : 'Enter Score'}</h3>
                 </div>
                 <div className="grid grid-cols-5 gap-2 sm:gap-3">
-                    {[0, 1, 2, 3, 4].map((score) => (
-                        <button key={score} onClick={() => handleSelect(score)} className={`aspect-square rounded-xl text-xl font-bold flex items-center justify-center transition-all active:scale-95 ${getValueColor(score)} ${value === score ? 'ring-4 ring-offset-2 ring-blue-400 shadow-lg scale-110' : 'hover:brightness-95 shadow-sm'}`}>
-                            {score}
-                        </button>
-                    ))}
+                    {[0, 1, 2, 3, 4].map((score) => {
+                        // In edit mode, highlight based on localValue. In new mode, highlight matches nothing (until click).
+                        const isSelected = value !== null ? localValue === score : value === score;
+                        return (
+                          <button key={score} onClick={() => handleSelect(score)} className={`aspect-square rounded-xl text-xl font-bold flex items-center justify-center transition-all active:scale-95 ${getValueColor(score)} ${isSelected ? 'ring-4 ring-offset-2 ring-blue-400 shadow-lg scale-110' : 'hover:brightness-95 shadow-sm'}`}>
+                              {score}
+                          </button>
+                        );
+                    })}
                 </div>
-                <button onClick={onClose} className="mt-6 w-full py-3 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700 shadow-lg shadow-blue-200 transition-colors">Enter</button>
+                {value !== null ? (
+                   <button onClick={handleEnter} className="mt-6 w-full py-3 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700 shadow-lg shadow-blue-200 transition-colors">Enter</button>
+                ) : (
+                   <button onClick={onClose} className="mt-6 w-full py-3 bg-slate-100 text-slate-600 font-bold rounded-xl hover:bg-slate-200 transition-colors">Cancel</button>
+                )}
             </div>
         </div>
       )}

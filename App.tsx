@@ -88,6 +88,10 @@ const App: React.FC = () => {
       setState({ ...state, season: newSeason, view: state.currentLeague ? 'dashboard' : 'league_select' });
   };
 
+  const handleSelectLeague = (leagueId: string) => {
+      setState({ ...state, view: 'dashboard', currentLeague: leagueId, currentMatchId: null });
+  };
+
   // Admin Login Logic
   const requestAdminAccess = () => {
     if (isAdminAuthenticated) {
@@ -121,7 +125,16 @@ const App: React.FC = () => {
 
     return (
       <div className="min-h-screen bg-slate-900 flex flex-col items-center justify-center p-4">
-        <Navbar currentLeague={null} currentSeason={state.season} onGoHome={() => {}} onSwitchLeague={() => {}} onAdmin={requestAdminAccess} onSeasonChange={handleSeasonChange} />
+        <Navbar 
+          currentLeague={null} 
+          currentSeason={state.season} 
+          leagues={leagues} 
+          onGoHome={() => {}} 
+          onSwitchLeague={() => {}} 
+          onSelectLeague={handleSelectLeague}
+          onAdmin={requestAdminAccess} 
+          onSeasonChange={handleSeasonChange} 
+        />
         
         <div className="text-center mb-8 mt-12">
             <h1 className="text-4xl font-bold text-white tracking-tight mb-2">Dugout Hitting League</h1>
@@ -137,7 +150,7 @@ const App: React.FC = () => {
             <div className="flex flex-wrap justify-center gap-6 w-full max-w-6xl px-4">
             {sortedLeagues.map(league => (
                 <button key={league.id} 
-                    onClick={() => setState({ ...state, view: 'dashboard', currentLeague: league.id, currentMatchId: null })} 
+                    onClick={() => handleSelectLeague(league.id)} 
                     className="bg-white hover:bg-slate-50 text-slate-900 p-6 rounded-2xl shadow-2xl transition-transform hover:scale-105 group w-full sm:w-64 aspect-[4/3] sm:aspect-square flex flex-col items-center justify-center"
                 >
                     <span className="block text-3xl sm:text-4xl font-black mb-2 group-hover:text-blue-600 transition-colors uppercase text-center w-full break-words leading-tight">{league.id}</span>
@@ -183,7 +196,16 @@ const App: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-slate-50">
-      <Navbar currentLeague={state.currentLeague} currentSeason={state.season} onGoHome={() => setState({ ...state, view: 'dashboard' })} onSwitchLeague={() => setState({ ...state, view: 'league_select', currentLeague: null, currentMatchId: null })} onAdmin={requestAdminAccess} onSeasonChange={handleSeasonChange} />
+      <Navbar 
+        currentLeague={state.currentLeague} 
+        currentSeason={state.season} 
+        leagues={leagues} 
+        onGoHome={() => setState({ ...state, view: 'dashboard' })} 
+        onSwitchLeague={() => setState({ ...state, view: 'league_select', currentLeague: null, currentMatchId: null })} 
+        onSelectLeague={handleSelectLeague}
+        onAdmin={requestAdminAccess} 
+        onSeasonChange={handleSeasonChange} 
+      />
       <main className="max-w-7xl mx-auto p-4 sm:p-8">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
             <div className="space-y-6">

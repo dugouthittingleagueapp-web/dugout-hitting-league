@@ -1,21 +1,29 @@
 import React, { useState, useEffect } from 'react';
-import { AgeGroup } from '../types';
+import { AgeGroup, League } from '../types';
 
 interface NavbarProps {
   currentLeague: AgeGroup | null;
   currentSeason: string;
+  leagues: League[];
   onGoHome: () => void;
   onSwitchLeague: () => void;
+  onSelectLeague: (leagueId: string) => void;
   onAdmin: () => void;
   onSeasonChange: (season: string) => void;
 }
 
-export const Navbar: React.FC<NavbarProps> = ({ currentLeague, currentSeason, onGoHome, onSwitchLeague, onAdmin, onSeasonChange }) => {
+export const Navbar: React.FC<NavbarProps> = ({ currentLeague, currentSeason, leagues, onGoHome, onSwitchLeague, onSelectLeague, onAdmin, onSeasonChange }) => {
   const [showSeasonMenu, setShowSeasonMenu] = useState(false);
+  const [showLeagueMenu, setShowLeagueMenu] = useState(false);
   
   // Generate a few previous years + next year for the dropdown
   const baseYear = 2025;
   const years = Array.from({length: 5}, (_, i) => (baseYear + i).toString());
+
+  // Sort leagues for dropdown
+  const sortedLeagues = [...leagues].sort((a, b) => 
+      a.id.localeCompare(b.id, undefined, { numeric: true, sensitivity: 'base' })
+  );
 
   return (
     <nav className="bg-slate-900 text-white p-4 shadow-lg sticky top-0 z-50">
@@ -51,7 +59,29 @@ export const Navbar: React.FC<NavbarProps> = ({ currentLeague, currentSeason, on
       {currentLeague && (
         <div className="max-w-7xl mx-auto mt-2 flex items-center gap-3 pb-1">
             <span className="bg-green-600 px-3 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider">{currentLeague} League</span>
-            <button onClick={onSwitchLeague} className="text-xs text-slate-400 hover:text-white transition-colors underline decoration-slate-600">Switch League</button>
+            
+            <div className="relative">
+                <button onClick={() => setShowLeagueMenu(!showLeagueMenu)} className="text-xs text-slate-400 hover:text-white transition-colors underline decoration-slate-600 flex items-center gap-1">
+                   Switch League
+                   <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path></svg>
+                </button>
+                
+                {showLeagueMenu && (
+                    <div className="absolute top-full left-0 mt-2 bg-white text-slate-900 rounded-lg shadow-xl py-2 w-40 border border-slate-200 z-[60]" onClick={() => setShowLeagueMenu(false)}>
+                        <div className="px-4 py-2 text-[10px] uppercase font-bold text-slate-400 border-b border-slate-100 mb-1">Switch To...</div>
+                        {sortedLeagues.map(l => (
+                            <button key={l.id} onClick={() => onSelectLeague(l.id)} className={`w-full text-left px-4 py-2 text-sm font-bold hover:bg-slate-100 ${currentLeague === l.id ? 'text-blue-600 bg-blue-50' : ''}`}>
+                                {l.id}
+                            </button>
+                        ))}
+                        <div className="border-t border-slate-100 mt-1 pt-1">
+                            <button onClick={onSwitchLeague} className="w-full text-left px-4 py-2 text-xs text-slate-500 hover:text-slate-800 font-medium">
+                                View All Leagues
+                            </button>
+                        </div>
+                    </div>
+                )}
+            </div>
         </div>
       )}
     </nav>

@@ -43,22 +43,22 @@ export const Navbar: React.FC<NavbarProps> = ({
   const isHomeScreen = !currentLeague;
 
   return (
-    <nav className={`bg-slate-900 text-white shadow-2xl sticky top-0 z-50 transition-all duration-500 ease-in-out ${isHomeScreen ? 'py-10 sm:py-16 bg-slate-950 border-b-0' : 'py-3 border-b border-slate-800'}`}>
+    <nav className={`bg-slate-950 text-white shadow-2xl sticky top-0 z-50 transition-all duration-500 ease-in-out border-b border-slate-800 ${isHomeScreen ? 'py-10 sm:py-16 border-b-0' : 'py-4'}`}>
       <div className={`max-w-7xl mx-auto w-full px-4 sm:px-6 flex ${isHomeScreen ? 'flex-col items-center gap-10' : 'justify-between items-center'}`}>
         
         <div 
-            className={`flex items-center gap-5 cursor-pointer group ${isHomeScreen ? 'flex-col transform hover:scale-105 transition-transform duration-500' : ''}`} 
+            className={`flex items-center gap-4 cursor-pointer group ${isHomeScreen ? 'flex-col transform hover:scale-105 transition-transform duration-500' : ''}`} 
             onClick={onGoHome}
         >
             <img 
                 src="https://i.imgur.com/SqDq8L3.png" 
                 alt="Dugout Hitting League" 
-                className={`${isHomeScreen ? 'w-56 sm:w-80 drop-shadow-[0_0_40px_rgba(59,130,246,0.3)]' : 'w-12 h-12'} object-contain shrink-0 transition-all duration-500`}
+                className={`${isHomeScreen ? 'w-56 sm:w-80 drop-shadow-[0_0_40px_rgba(59,130,246,0.3)]' : 'w-32 sm:w-40 drop-shadow-[0_0_15px_rgba(59,130,246,0.2)]'} object-contain shrink-0 transition-all duration-500`}
             />
             {!isHomeScreen && (
-                <div className="hidden md:block pt-1 pl-3 border-l border-slate-700 ml-1">
-                    <h1 className="text-lg font-black tracking-tighter italic uppercase leading-none text-white">Dugout</h1>
-                    <span className="font-bold text-blue-400 text-[9px] tracking-[0.25em] uppercase block leading-none">Hitting League</span>
+                <div className="hidden md:block pt-1 pl-4 border-l border-slate-700 ml-2">
+                    <h1 className="text-xl font-black tracking-tighter italic uppercase leading-none text-white">Dugout</h1>
+                    <span className="font-bold text-blue-400 text-[10px] tracking-[0.25em] uppercase block leading-none mt-0.5">Hitting League</span>
                 </div>
             )}
         </div>
@@ -77,7 +77,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                 className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs sm:text-sm font-bold transition-colors border font-sans
                 ${isHomeScreen 
                     ? 'bg-slate-900 text-slate-200 border-slate-800 hover:bg-slate-800' 
-                    : 'bg-slate-800 text-slate-200 border-slate-700 hover:bg-slate-700'
+                    : 'bg-slate-900 text-slate-200 border-slate-800 hover:bg-slate-800'
                 }`}
             >
                 <span className="text-slate-500 font-medium uppercase text-[10px] tracking-wider hidden sm:inline">Season</span>
@@ -86,9 +86,9 @@ export const Navbar: React.FC<NavbarProps> = ({
             </button>
             
             {showSeasonMenu && (
-                <div className="absolute top-full right-0 mt-2 bg-white text-slate-900 rounded-xl shadow-xl py-2 w-32 border border-slate-100 z-[60] overflow-hidden animate-in slide-in-from-top-2 fade-in duration-200">
+                <div className="absolute top-full right-0 mt-2 bg-slate-900 text-white rounded-xl shadow-xl py-2 w-32 border border-slate-800 z-[60] overflow-hidden animate-in slide-in-from-top-2 fade-in duration-200">
                     {years.map(year => (
-                        <button key={year} onClick={() => { onSeasonChange(year); setShowSeasonMenu(false); }} className={`w-full text-left px-4 py-2 text-sm font-bold hover:bg-slate-50 transition-colors font-sans ${currentSeason === year ? 'text-blue-600 bg-blue-50' : 'text-slate-600'}`}>
+                        <button key={year} onClick={() => { onSeasonChange(year); setShowSeasonMenu(false); }} className={`w-full text-left px-4 py-2 text-sm font-bold hover:bg-slate-800 transition-colors font-sans ${currentSeason === year ? 'text-blue-400 bg-blue-900/20' : 'text-slate-400'}`}>
                             {year}
                         </button>
                     ))}
@@ -115,7 +115,7 @@ export const Navbar: React.FC<NavbarProps> = ({
           {userRole === 'admin' && (
             <div className="flex items-center gap-3 pl-2 border-l border-slate-800">
                  <div className="flex items-center gap-2">
-                    <button onClick={onAdminDashboard} className="text-xs bg-slate-700 hover:bg-slate-600 text-slate-200 px-3 py-1.5 rounded-lg transition-colors font-bold border border-slate-600">
+                    <button onClick={onAdminDashboard} className="text-xs bg-slate-800 hover:bg-slate-700 text-slate-200 px-3 py-1.5 rounded-lg transition-colors font-bold border border-slate-700">
                         Admin
                     </button>
                     <button onClick={onLogout} className="text-xs text-slate-400 hover:text-white transition-colors">Log Out</button>
@@ -126,7 +126,7 @@ export const Navbar: React.FC<NavbarProps> = ({
       </div>
       
       {currentLeague && (
-        <div className="max-w-7xl mx-auto mt-2 flex items-center gap-3 px-4 sm:px-6 pt-1">
+        <div className="max-w-7xl mx-auto mt-3 flex items-center gap-3 px-4 sm:px-6 pt-2 border-t border-slate-800/50">
             <div className="flex items-center gap-2 bg-slate-800/50 px-2 py-1 rounded-md border border-slate-700/50">
                 <span className="w-2 h-2 rounded-full bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.6)]"></span>
                 <span className="text-[10px] font-bold uppercase tracking-wider text-slate-300">{currentLeague} League</span>
@@ -139,12 +139,12 @@ export const Navbar: React.FC<NavbarProps> = ({
                 </button>
                 
                 {showLeagueMenu && (
-                    <div className="absolute top-full right-0 mt-2 bg-white text-slate-900 rounded-xl shadow-xl py-2 w-48 border border-slate-100 z-[60] overflow-hidden animate-in slide-in-from-top-2 fade-in duration-200">
-                        <div className="px-4 py-2 text-[10px] uppercase font-black text-slate-400 border-b border-slate-100 mb-1 tracking-wider">Select League</div>
+                    <div className="absolute top-full right-0 mt-2 bg-slate-900 text-white rounded-xl shadow-xl py-2 w-48 border border-slate-800 z-[60] overflow-hidden animate-in slide-in-from-top-2 fade-in duration-200">
+                        <div className="px-4 py-2 text-[10px] uppercase font-black text-slate-500 border-b border-slate-800 mb-1 tracking-wider">Select League</div>
                         {sortedLeagues.map(l => (
-                            <button key={l.id} onClick={() => { onSelectLeague(l.id); setShowLeagueMenu(false); }} className={`w-full text-left px-4 py-3 text-sm font-bold hover:bg-slate-50 transition-colors font-sans flex justify-between items-center ${currentLeague === l.id ? 'text-blue-600 bg-blue-50' : 'text-slate-700'}`}>
+                            <button key={l.id} onClick={() => { onSelectLeague(l.id); setShowLeagueMenu(false); }} className={`w-full text-left px-4 py-3 text-sm font-bold hover:bg-slate-800 transition-colors font-sans flex justify-between items-center ${currentLeague === l.id ? 'text-blue-400 bg-blue-900/20' : 'text-slate-300'}`}>
                                 {l.id}
-                                {currentLeague === l.id && <span className="text-blue-600">●</span>}
+                                {currentLeague === l.id && <span className="text-blue-400">●</span>}
                             </button>
                         ))}
                     </div>
@@ -155,4 +155,3 @@ export const Navbar: React.FC<NavbarProps> = ({
     </nav>
   );
 };
-    

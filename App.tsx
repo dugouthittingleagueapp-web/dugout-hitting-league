@@ -165,7 +165,7 @@ const App: React.FC = () => {
 
   const renderSortHeader = (label: string, key: keyof PlayerStats, config: { key: keyof PlayerStats; direction: 'asc' | 'desc' }, setConfig: any, align: string = 'text-right', colorClass: string = '') => (
     <th 
-        className={`px-4 py-3 cursor-pointer hover:bg-slate-200 transition-colors select-none ${align} ${colorClass}`}
+        className={`px-4 py-3 cursor-pointer hover:bg-slate-700/50 transition-colors select-none ${align} ${colorClass}`}
         onClick={() => setConfig({ key, direction: config.key === key && config.direction === 'desc' ? 'asc' : 'desc' })}
         title="Click to sort"
     >
@@ -333,346 +333,359 @@ const App: React.FC = () => {
       onSeasonChange: handleSeasonChange
   };
 
-  if (state.view === 'league_select') {
-    const sortedLeagues = [...leagues].sort((a, b) => a.id.localeCompare(b.id, undefined, { numeric: true, sensitivity: 'base' }));
-
-    return (
-      <div className="min-h-screen bg-slate-950 flex flex-col font-sans relative overflow-hidden">
-        {/* Background Texture */}
-        <div className="absolute inset-0 opacity-[0.03] pointer-events-none" style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg width='40' height='40' viewBox='0 0 40 40' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M20 20l20 20M20 20L0 40M20 20L40 0M20 20L0 0' stroke='%23ffffff' stroke-width='1' fill='none'/%3E%3C/svg%3E")` }}></div>
-        
-        <Navbar {...navbarProps} />
-        
-        <div className="flex-1 flex flex-col items-center justify-center p-4 z-10">
-            <div className="text-center mb-16">
-                <h2 className="text-3xl sm:text-5xl font-black text-white mb-4 font-sans tracking-tight drop-shadow-xl">SELECT A LEAGUE</h2>
-                <div className="h-1.5 w-24 bg-blue-600 mx-auto rounded-full mb-6 shadow-[0_0_15px_rgba(37,99,235,0.8)]"></div>
-                {userRole !== 'fan' && (
-                    <span className="inline-block bg-slate-800/80 backdrop-blur text-blue-300 border border-slate-700 px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-widest shadow-lg">
-                        Logged in as {userRole}
-                    </span>
-                )}
-            </div>
-            
-            {leagues.length === 0 ? (
-                <div className="text-center bg-slate-900/80 backdrop-blur p-8 rounded-2xl border border-slate-800 max-w-md w-full shadow-2xl">
-                    <div className="w-16 h-16 bg-slate-800 rounded-full flex items-center justify-center mx-auto mb-4">
-                        <svg className="w-8 h-8 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
-                    </div>
-                    <h3 className="text-xl font-bold text-white mb-2">No Leagues Found</h3>
-                    <p className="text-slate-400 mb-6 text-sm">Get started by logging in to create your first league category.</p>
-                    <button onClick={openLoginModal} className="w-full px-4 py-3 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-500 transition-all shadow-lg shadow-blue-900/20">Log In to Admin</button>
-                </div>
-            ) : (
-                <div className="flex flex-wrap justify-center gap-4 w-full max-w-7xl px-4">
-                {sortedLeagues.map(league => (
-                    <button key={league.id} onClick={() => handleSelectLeague(league.id)} className="group relative bg-slate-900 hover:bg-slate-800 p-0.5 rounded-xl shadow-2xl transition-all duration-300 hover:-translate-y-1 hover:shadow-blue-900/20 text-left w-32 sm:w-36 md:w-40 aspect-[3/4] flex flex-col border border-slate-800 hover:border-blue-500/50">
-                        {/* Glow Effect */}
-                        <div className="absolute inset-0 bg-gradient-to-b from-blue-600/0 to-blue-900/0 group-hover:to-blue-900/20 rounded-xl transition-all duration-500"></div>
-                        
-                        <div className="h-full w-full rounded-lg p-3 flex flex-col justify-between relative overflow-hidden">
-                            {/* Card Background Graphic */}
-                            <div className="absolute -top-6 -right-6 text-slate-800/50 group-hover:text-blue-600/10 transition-all duration-700 rotate-[15deg] scale-100">
-                                <svg width="100" height="100" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="0.8" strokeLinecap="round" strokeLinejoin="round">
-                                    <circle cx="12" cy="12" r="10" />
-                                    <path d="M6 4.5C8.5 7.5 9 10.5 9 12s-.5 4.5-3 7.5" />
-                                    <path d="M18 4.5C15.5 7.5 15 10.5 15 12s.5 4.5 3 7.5" />
-                                </svg>
-                            </div>
-                            
-                            <div className="relative z-10">
-                                <div className="flex justify-between items-start">
-                                    <span className="inline-block px-1 py-0.5 rounded bg-slate-950 text-slate-400 text-[8px] font-bold uppercase tracking-wider border border-slate-800 group-hover:border-blue-500/50 group-hover:text-blue-400 transition-colors">{state.season}</span>
-                                    <span className="w-1.5 h-1.5 rounded-full bg-blue-500 shadow-[0_0_8px_#3b82f6]"></span>
-                                </div>
-                            </div>
-                            
-                            <div className="relative z-10 mt-auto">
-                                <h3 className="text-xl sm:text-2xl font-black text-white uppercase italic leading-none mb-0.5 group-hover:text-blue-400 transition-colors drop-shadow-lg truncate">{league.id}</h3>
-                                <div className="h-0.5 w-6 bg-slate-700 group-hover:bg-blue-500 transition-colors rounded-full"></div>
-                                <span className="text-[9px] font-bold text-slate-500 group-hover:text-slate-400 mt-1 block uppercase tracking-widest">League</span>
-                            </div>
-
-                            <div className="absolute bottom-2 right-2 opacity-0 group-hover:opacity-100 transition-all transform translate-x-2 group-hover:translate-x-0">
-                                <span className="w-6 h-6 rounded-full bg-blue-600 flex items-center justify-center shadow-lg shadow-blue-900/50 text-white">
-                                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M9 5l7 7-7 7"></path></svg>
-                                </span>
-                            </div>
-                        </div>
-                    </button>
-                ))}
-                </div>
-            )}
-        </div>
-        
-        {showLoginModal && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm animate-in fade-in duration-200" onClick={() => setShowLoginModal(false)}>
-            <div className="bg-white p-8 rounded-2xl shadow-2xl w-full max-w-sm transform scale-100 animate-in zoom-in-95 duration-200 font-sans" onClick={e => e.stopPropagation()}>
-              <h3 className="text-xl font-bold text-slate-800 mb-4 text-center font-sans">Access Control</h3>
-              <p className="text-sm text-slate-500 mb-4 text-center font-sans">Enter password for Umpire or Admin access.</p>
-              <form onSubmit={handleLoginSubmit}>
-                <div className="mb-4">
-                  <input type="password" autoFocus className={`w-full border rounded-lg px-4 py-3 text-lg outline-none focus:ring-2 ${loginError ? 'border-red-300 focus:ring-red-200' : 'border-slate-300 focus:ring-blue-200'}`} value={passwordInput} onChange={e => setPasswordInput(e.target.value)} placeholder="Password" />
-                  {loginError && <p className="text-red-500 text-xs mt-2 font-bold font-sans">{loginError}</p>}
-                </div>
-                <button type="submit" disabled={loading} className="w-full bg-slate-900 text-white font-bold py-3 rounded-lg hover:bg-slate-800 transition-colors font-sans">{loading ? 'Verifying...' : 'Log In'}</button>
-              </form>
-            </div>
-          </div>
-        )}
-      </div>
-    );
-  }
-  if (state.view === 'admin') return <AdminDashboard onBack={() => setState({ ...state, view: 'league_select' })} />;
-  if (state.view === 'match_setup' && selectedHomeId && selectedAwayId && state.currentLeague) {
-    const homeTeam = teams.find(t => t.id === selectedHomeId);
-    const awayTeam = teams.find(t => t.id === selectedAwayId);
-    if (homeTeam && awayTeam) return <MatchSetup homeTeam={homeTeam} awayTeam={awayTeam} onStart={handleStartGame} onCancel={() => setState({ ...state, view: 'dashboard' })} />;
-  }
-  if (state.view === 'scoring' && state.currentMatchId) return <Scoreboard matchId={state.currentMatchId} onExit={() => setState({ ...state, view: 'dashboard', currentMatchId: null })} isReadOnly={userRole === 'fan'} />;
-  if (state.view === 'team_management' && state.currentLeague) return <TeamManagement league={state.currentLeague} season={state.season} onBack={() => setState({ ...state, view: 'dashboard' })} />;
-
+  // GLOBAL DARK BACKGROUND WRAPPER FOR ALL VIEWS
   return (
-    <div className="min-h-screen bg-slate-50 font-sans">
-      <Navbar {...navbarProps} />
-      <main className="max-w-7xl mx-auto p-4 sm:p-8">
-        <div className={`grid grid-cols-1 ${userRole !== 'fan' ? 'lg:grid-cols-3' : ''} gap-8`}>
-            
-            {userRole !== 'fan' && (
-            <div className="space-y-6">
-                <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
-                    <h2 className="text-lg font-bold text-slate-700 mb-4 font-sans">League Status ({state.season})</h2>
-                    <div className="flex justify-between text-center"><div><div className="text-3xl font-black text-slate-900 font-sans">{teams.length}</div><div className="text-xs text-slate-500 uppercase font-bold font-sans">Teams</div></div></div>
-                    <button onClick={() => setState({ ...state, view: 'team_management' })} className="w-full mt-6 py-2 px-4 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-lg transition-colors font-sans">Manage Teams & Stats</button>
-                </div>
-                <div className="bg-blue-600 p-6 rounded-xl shadow-lg text-white">
-                    <h2 className="text-xl font-bold mb-4 font-sans">Start New Match</h2>
-                    <div className="space-y-3">
-                        <select className="w-full p-2 rounded text-slate-900 font-sans" value={selectedHomeId} onChange={(e) => setSelectedHomeId(e.target.value)}><option value="">Select Home Team...</option>{teams.map(t => <option key={t.id} value={t.id} disabled={t.id === selectedAwayId}>{t.name}</option>)}</select>
-                        <select className="w-full p-2 rounded text-slate-900 font-sans" value={selectedAwayId} onChange={(e) => setSelectedAwayId(e.target.value)}><option value="">Select Away Team...</option>{teams.map(t => <option key={t.id} value={t.id} disabled={t.id === selectedHomeId}>{t.name}</option>)}</select>
-                        <button disabled={!selectedHomeId || !selectedAwayId} onClick={() => setState({ ...state, view: 'match_setup' })} className="w-full bg-white text-blue-600 font-bold py-3 rounded-lg mt-4 hover:bg-blue-50 disabled:opacity-50 transition-colors font-sans">Next: Set Lineup</button>
-                    </div>
-                </div>
-                <div className="text-center">
-                     <span className="bg-slate-200 text-slate-600 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider font-sans">Role: {userRole}</span>
-                     <button onClick={handleLogout} className="text-xs text-red-400 hover:text-red-600 ml-2 underline font-sans">Log Out</button>
-                </div>
-            </div>
-            )}
+    <div className="min-h-screen bg-slate-950 text-slate-200 flex flex-col font-sans relative overflow-y-auto">
+        {/* Background Texture */}
+        <div className="fixed inset-0 opacity-[0.03] pointer-events-none z-0" style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg width='40' height='40' viewBox='0 0 40 40' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M20 20l20 20M20 20L0 40M20 20L40 0M20 20L0 0' stroke='%23ffffff' stroke-width='1' fill='none'/%3E%3C/svg%3E")` }}></div>
+        
+        {state.view !== 'league_select' && <div className="relative z-10"><Navbar {...navbarProps} /></div>}
 
-            <div className={`${userRole !== 'fan' ? 'lg:col-span-2' : 'col-span-1'}`}>
-                <div className="bg-gradient-to-r from-indigo-500 to-purple-600 rounded-xl shadow-md p-6 mb-8 text-white">
-                    <h3 className="font-bold text-white/90 uppercase tracking-wider text-sm mb-4 border-b border-white/20 pb-2 font-sans">Weekly Leaders ({state.currentLeague})</h3>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                        <div>
-                            <h4 className="font-bold text-lg mb-2 font-sans">Best Total Score</h4>
-                            {weeklyStats.topTotals.length > 0 ? (
-                                <ul className="space-y-2">
-                                    {weeklyStats.topTotals.map((s, idx) => (
-                                        <li key={idx} className="flex justify-between items-center bg-white/10 p-2 rounded">
-                                            <div className="flex items-center gap-2">
-                                                <span className="font-bold bg-white text-indigo-600 w-6 h-6 flex items-center justify-center rounded-full text-xs font-sans">{idx+1}</span>
-                                                <span className="font-semibold font-sans">{s.name}</span>
-                                                <span className="text-xs text-white/70 font-sans">({s.team})</span>
-                                            </div>
-                                            <span className="font-mono font-bold text-xl">{s.score}</span>
-                                        </li>
-                                    ))}
-                                </ul>
-                            ) : <p className="text-white/50 italic text-sm font-sans">No matches yet this week.</p>}
+        <main className="relative z-10 flex-1 flex flex-col">
+            {/* LEAGUE SELECTION VIEW (LANDING) */}
+            {state.view === 'league_select' && (
+                <>
+                    <Navbar {...navbarProps} />
+                    <div className="flex-1 flex flex-col items-center justify-center p-4 z-10">
+                        <div className="text-center mb-16">
+                            <h2 className="text-3xl sm:text-5xl font-black text-white mb-4 font-sans tracking-tight drop-shadow-xl">SELECT A LEAGUE</h2>
+                            <div className="h-1.5 w-24 bg-blue-600 mx-auto rounded-full mb-6 shadow-[0_0_15px_rgba(37,99,235,0.8)]"></div>
+                            {userRole !== 'fan' && (
+                                <span className="inline-block bg-slate-800/80 backdrop-blur text-blue-300 border border-slate-700 px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-widest shadow-lg">
+                                    Logged in as {userRole}
+                                </span>
+                            )}
                         </div>
-                        <div>
-                            <h4 className="font-bold text-lg mb-2 font-sans">Best Single Inning</h4>
-                             {weeklyStats.topInnings.length > 0 ? (
-                                <ul className="space-y-2">
-                                    {weeklyStats.topInnings.map((s, idx) => (
-                                        <li key={idx} className="flex justify-between items-center bg-white/10 p-2 rounded">
-                                            <div className="flex items-center gap-2">
-                                                <span className="font-bold bg-white text-purple-600 w-6 h-6 flex items-center justify-center rounded-full text-xs font-sans">{idx+1}</span>
-                                                <span className="font-semibold font-sans">{s.name}</span>
-                                                <span className="text-xs text-white/70 font-sans">({s.team})</span>
+                        
+                        {leagues.length === 0 ? (
+                            <div className="text-center bg-slate-900/80 backdrop-blur p-8 rounded-2xl border border-slate-800 max-w-md w-full shadow-2xl">
+                                <div className="w-16 h-16 bg-slate-800 rounded-full flex items-center justify-center mx-auto mb-4">
+                                    <svg className="w-8 h-8 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
+                                </div>
+                                <h3 className="text-xl font-bold text-white mb-2">No Leagues Found</h3>
+                                <p className="text-slate-400 mb-6 text-sm">Get started by logging in to create your first league category.</p>
+                                <button onClick={openLoginModal} className="w-full px-4 py-3 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-500 transition-all shadow-lg shadow-blue-900/20">Log In to Admin</button>
+                            </div>
+                        ) : (
+                            <div className="flex flex-wrap justify-center gap-4 w-full max-w-7xl px-4">
+                            {leagues.sort((a, b) => a.id.localeCompare(b.id, undefined, { numeric: true, sensitivity: 'base' })).map(league => (
+                                <button key={league.id} onClick={() => handleSelectLeague(league.id)} className="group relative bg-slate-900 hover:bg-slate-800 p-0.5 rounded-xl shadow-2xl transition-all duration-300 hover:-translate-y-1 hover:shadow-blue-900/20 text-left w-32 sm:w-36 md:w-40 aspect-[3/4] flex flex-col border border-slate-800 hover:border-blue-500/50">
+                                    {/* Glow Effect */}
+                                    <div className="absolute inset-0 bg-gradient-to-b from-blue-600/0 to-blue-900/0 group-hover:to-blue-900/20 rounded-xl transition-all duration-500"></div>
+                                    
+                                    <div className="h-full w-full rounded-lg p-3 flex flex-col justify-between relative overflow-hidden">
+                                        {/* Card Background Graphic */}
+                                        <div className="absolute -top-6 -right-6 text-slate-800/50 group-hover:text-blue-600/10 transition-all duration-700 rotate-[15deg] scale-100">
+                                            <svg width="100" height="100" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="0.8" strokeLinecap="round" strokeLinejoin="round">
+                                                <circle cx="12" cy="12" r="10" />
+                                                <path d="M6 4.5C8.5 7.5 9 10.5 9 12s-.5 4.5-3 7.5" />
+                                                <path d="M18 4.5C15.5 7.5 15 10.5 15 12s.5 4.5 3 7.5" />
+                                            </svg>
+                                        </div>
+                                        
+                                        <div className="relative z-10">
+                                            <div className="flex justify-between items-start">
+                                                <span className="inline-block px-1 py-0.5 rounded bg-slate-950 text-slate-400 text-[8px] font-bold uppercase tracking-wider border border-slate-800 group-hover:border-blue-500/50 group-hover:text-blue-400 transition-colors">{state.season}</span>
+                                                <span className="w-1.5 h-1.5 rounded-full bg-blue-500 shadow-[0_0_8px_#3b82f6]"></span>
                                             </div>
-                                            <span className="font-mono font-bold text-xl">{s.score}</span>
-                                        </li>
-                                    ))}
-                                </ul>
-                            ) : <p className="text-white/50 italic text-sm font-sans">No matches yet this week.</p>}
-                        </div>
-                    </div>
-                </div>
+                                        </div>
+                                        
+                                        <div className="relative z-10 mt-auto">
+                                            <h3 className="text-xl sm:text-2xl font-black text-white uppercase italic leading-none mb-0.5 group-hover:text-blue-400 transition-colors drop-shadow-lg truncate">{league.id}</h3>
+                                            <div className="h-0.5 w-6 bg-slate-700 group-hover:bg-blue-500 transition-colors rounded-full"></div>
+                                            <span className="text-[9px] font-bold text-slate-500 group-hover:text-slate-400 mt-1 block uppercase tracking-widest">League</span>
+                                        </div>
 
-                <div className="flex items-center gap-4 mb-6 border-b border-slate-200 pb-1 overflow-x-auto">
-                    <button onClick={() => setDashboardTab('matches')} className={`text-lg sm:text-xl font-bold pb-2 px-2 transition-colors border-b-2 whitespace-nowrap font-sans ${dashboardTab === 'matches' ? 'text-slate-800 border-blue-600' : 'text-slate-400 border-transparent hover:text-slate-600'}`}>Matches</button>
-                    <button onClick={() => setDashboardTab('standings')} className={`text-lg sm:text-xl font-bold pb-2 px-2 transition-colors border-b-2 whitespace-nowrap font-sans ${dashboardTab === 'standings' ? 'text-slate-800 border-blue-600' : 'text-slate-400 border-transparent hover:text-slate-600'}`}>Standings</button>
-                    <button onClick={() => setDashboardTab('season_stats')} className={`text-lg sm:text-xl font-bold pb-2 px-2 transition-colors border-b-2 whitespace-nowrap font-sans ${dashboardTab === 'season_stats' ? 'text-slate-800 border-blue-600' : 'text-slate-400 border-transparent hover:text-slate-600'}`}>Season Stats</button>
-                </div>
-
-                {dashboardTab === 'matches' && (
-                    <div className="space-y-4">
-                        {matches.map(match => {
-                            const home = teams.find(t => t.id === match.homeTeamId);
-                            const away = teams.find(t => t.id === match.awayTeamId);
-                            if (!home || !away) return null;
-                            return (
-                                <div key={match.id} className="bg-white p-4 sm:p-5 rounded-xl shadow-sm border border-slate-200 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-                                    <div className="flex items-center gap-4 w-full sm:w-auto">
-                                        <div className="shrink-0"><div className={`text-xs font-bold px-2 py-1 rounded-full font-sans ${match.isComplete ? 'bg-slate-100 text-slate-500' : 'bg-green-100 text-green-600'}`}>{match.isComplete ? 'FINAL' : 'LIVE'}</div></div>
-                                        <div className="flex flex-1 sm:flex-auto items-center justify-between sm:justify-start sm:gap-8 w-full sm:w-auto">
-                                            <div className="text-base sm:text-lg font-semibold text-slate-800 text-right font-sans">{home.name}</div>
-                                            <div className="text-slate-300 text-sm sm:text-xl px-2 font-sans">vs</div>
-                                            <div className="text-base sm:text-lg font-semibold text-slate-800 text-left font-sans">{away.name}</div>
+                                        <div className="absolute bottom-2 right-2 opacity-0 group-hover:opacity-100 transition-all transform translate-x-2 group-hover:translate-x-0">
+                                            <span className="w-6 h-6 rounded-full bg-blue-600 flex items-center justify-center shadow-lg shadow-blue-900/50 text-white">
+                                                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M9 5l7 7-7 7"></path></svg>
+                                            </span>
                                         </div>
                                     </div>
-                                    <div className="flex gap-2 w-full sm:w-auto justify-end">
-                                    <button onClick={() => handleOpenMatchStats(match)} className="flex-1 sm:flex-none text-center px-3 py-2 rounded border border-slate-200 text-blue-600 hover:bg-blue-50 font-medium text-xs sm:text-sm transition-colors font-sans">Stats</button>
-                                    
-                                    <button onClick={() => setState({ ...state, view: 'scoring', currentMatchId: match.id })} className="flex-1 sm:flex-none text-center px-3 py-2 rounded border border-slate-200 text-slate-600 hover:bg-slate-50 font-medium text-xs sm:text-sm transition-colors font-sans">
-                                        {userRole === 'fan' ? (match.isComplete ? 'View' : 'Watch Live') : (match.isComplete ? 'View' : 'Score')}
-                                    </button>
-                                    
-                                    {(userRole === 'admin' || userRole === 'umpire') && <button onClick={() => handleDeleteMatch(match.id)} className="flex-initial px-3 py-2 rounded border border-slate-200 text-red-500 hover:bg-red-50 font-medium text-xs sm:text-sm transition-colors font-sans">Delete</button>}
+                                </button>
+                            ))}
+                            </div>
+                        )}
+                    </div>
+                </>
+            )}
+
+            {/* ADMIN VIEW */}
+            {state.view === 'admin' && (
+                <div className="flex-1 bg-slate-100 text-slate-800">
+                    <AdminDashboard onBack={() => setState({ ...state, view: 'league_select' })} />
+                </div>
+            )}
+
+            {/* MATCH SETUP VIEW */}
+            {state.view === 'match_setup' && selectedHomeId && selectedAwayId && state.currentLeague && (
+                <div className="flex-1 bg-slate-50 text-slate-800">
+                    <MatchSetup homeTeam={teams.find(t => t.id === selectedHomeId)!} awayTeam={teams.find(t => t.id === selectedAwayId)!} onStart={handleStartGame} onCancel={() => setState({ ...state, view: 'dashboard' })} />
+                </div>
+            )}
+
+            {/* SCORING VIEW */}
+            {state.view === 'scoring' && state.currentMatchId && (
+                <div className="flex-1 bg-slate-100 text-slate-800">
+                    <Scoreboard matchId={state.currentMatchId} onExit={() => setState({ ...state, view: 'dashboard', currentMatchId: null })} isReadOnly={userRole === 'fan'} />
+                </div>
+            )}
+
+            {/* TEAM MANAGEMENT VIEW */}
+            {state.view === 'team_management' && state.currentLeague && (
+                <div className="flex-1 bg-slate-50 text-slate-800">
+                    <TeamManagement league={state.currentLeague} season={state.season} onBack={() => setState({ ...state, view: 'dashboard' })} />
+                </div>
+            )}
+
+            {/* MAIN DASHBOARD VIEW (Modernized Dark Theme) */}
+            {state.view === 'dashboard' && (
+                <div className="max-w-7xl mx-auto p-4 sm:p-8 w-full">
+                    <div className={`grid grid-cols-1 ${userRole !== 'fan' ? 'lg:grid-cols-3' : ''} gap-8`}>
+                        
+                        {userRole !== 'fan' && (
+                        <div className="space-y-6">
+                            <div className="bg-slate-900/50 backdrop-blur p-6 rounded-xl shadow-sm border border-slate-800">
+                                <h2 className="text-lg font-bold text-slate-300 mb-4 font-sans">League Status ({state.season})</h2>
+                                <div className="flex justify-between text-center"><div><div className="text-3xl font-black text-white font-sans">{teams.length}</div><div className="text-xs text-slate-500 uppercase font-bold font-sans">Teams</div></div></div>
+                                <button onClick={() => setState({ ...state, view: 'team_management' })} className="w-full mt-6 py-2 px-4 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white font-bold rounded-lg transition-colors font-sans border border-slate-700">Manage Teams & Stats</button>
+                            </div>
+                            <div className="bg-gradient-to-br from-blue-600 to-blue-800 p-6 rounded-xl shadow-lg text-white border border-blue-500/30">
+                                <h2 className="text-xl font-bold mb-4 font-sans">Start New Match</h2>
+                                <div className="space-y-3">
+                                    <select className="w-full p-3 rounded-lg text-slate-900 bg-white font-bold font-sans text-sm" value={selectedHomeId} onChange={(e) => setSelectedHomeId(e.target.value)}><option value="">Select Home Team...</option>{teams.map(t => <option key={t.id} value={t.id} disabled={t.id === selectedAwayId}>{t.name}</option>)}</select>
+                                    <select className="w-full p-3 rounded-lg text-slate-900 bg-white font-bold font-sans text-sm" value={selectedAwayId} onChange={(e) => setSelectedAwayId(e.target.value)}><option value="">Select Away Team...</option>{teams.map(t => <option key={t.id} value={t.id} disabled={t.id === selectedHomeId}>{t.name}</option>)}</select>
+                                    <button disabled={!selectedHomeId || !selectedAwayId} onClick={() => setState({ ...state, view: 'match_setup' })} className="w-full bg-white text-blue-700 font-bold py-3 rounded-lg mt-4 hover:bg-blue-50 disabled:opacity-50 transition-colors font-sans shadow-lg">Next: Set Lineup</button>
+                                </div>
+                            </div>
+                            <div className="text-center">
+                                <span className="bg-slate-800 text-slate-400 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider font-sans border border-slate-700">Role: {userRole}</span>
+                                <button onClick={handleLogout} className="text-xs text-red-400 hover:text-red-300 ml-2 underline font-sans">Log Out</button>
+                            </div>
+                        </div>
+                        )}
+
+                        <div className={`${userRole !== 'fan' ? 'lg:col-span-2' : 'col-span-1'}`}>
+                            <div className="bg-gradient-to-r from-indigo-600 to-purple-700 rounded-xl shadow-xl p-6 mb-8 text-white border border-indigo-500/30 relative overflow-hidden">
+                                <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/carbon-fibre.png')] opacity-10"></div>
+                                <div className="relative z-10">
+                                    <h3 className="font-bold text-white/90 uppercase tracking-wider text-sm mb-4 border-b border-white/20 pb-2 font-sans flex items-center gap-2">
+                                        <svg className="w-4 h-4 text-yellow-400" fill="currentColor" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"></path></svg>
+                                        Weekly Leaders ({state.currentLeague})
+                                    </h3>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                                        <div>
+                                            <h4 className="font-bold text-lg mb-2 font-sans text-indigo-100">Best Total Score</h4>
+                                            {weeklyStats.topTotals.length > 0 ? (
+                                                <ul className="space-y-2">
+                                                    {weeklyStats.topTotals.map((s, idx) => (
+                                                        <li key={idx} className="flex justify-between items-center bg-black/20 p-2 rounded border border-white/5 hover:bg-black/30 transition-colors">
+                                                            <div className="flex items-center gap-2">
+                                                                <span className="font-bold bg-white text-indigo-600 w-6 h-6 flex items-center justify-center rounded-full text-xs font-sans shadow">{idx+1}</span>
+                                                                <span className="font-semibold font-sans">{s.name}</span>
+                                                                <span className="text-xs text-white/60 font-sans">({s.team})</span>
+                                                            </div>
+                                                            <span className="font-mono font-bold text-xl">{s.score}</span>
+                                                        </li>
+                                                    ))}
+                                                </ul>
+                                            ) : <p className="text-white/40 italic text-sm font-sans">No matches yet this week.</p>}
+                                        </div>
+                                        <div>
+                                            <h4 className="font-bold text-lg mb-2 font-sans text-purple-100">Best Single Inning</h4>
+                                            {weeklyStats.topInnings.length > 0 ? (
+                                                <ul className="space-y-2">
+                                                    {weeklyStats.topInnings.map((s, idx) => (
+                                                        <li key={idx} className="flex justify-between items-center bg-black/20 p-2 rounded border border-white/5 hover:bg-black/30 transition-colors">
+                                                            <div className="flex items-center gap-2">
+                                                                <span className="font-bold bg-white text-purple-600 w-6 h-6 flex items-center justify-center rounded-full text-xs font-sans shadow">{idx+1}</span>
+                                                                <span className="font-semibold font-sans">{s.name}</span>
+                                                                <span className="text-xs text-white/60 font-sans">({s.team})</span>
+                                                            </div>
+                                                            <span className="font-mono font-bold text-xl">{s.score}</span>
+                                                        </li>
+                                                    ))}
+                                                </ul>
+                                            ) : <p className="text-white/40 italic text-sm font-sans">No matches yet this week.</p>}
+                                        </div>
                                     </div>
                                 </div>
-                            );
-                        })}
-                        {matches.length === 0 && <div className="text-center py-10 text-slate-400 bg-white rounded-xl border border-slate-200 border-dashed font-sans">No matches found for this season.</div>}
-                    </div>
-                )}
+                            </div>
 
-                {dashboardTab === 'standings' && (
-                    <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-                         <div className="overflow-x-auto">
-                            <table className="w-full text-left text-sm">
-                                <thead className="bg-slate-100 text-slate-500 uppercase font-bold text-xs">
-                                    <tr>
-                                        <th className="px-4 py-3 w-12 text-center font-sans">#</th>
-                                        <th className="px-4 py-3 font-sans">Team</th>
-                                        <th className="px-4 py-3 text-center font-sans">W</th>
-                                        <th className="px-4 py-3 text-center font-sans">L</th>
-                                        <th className="px-4 py-3 text-center font-sans">T</th>
-                                        <th className="px-4 py-3 text-center text-slate-400 font-sans">PF</th>
-                                        <th className="px-4 py-3 text-center text-slate-400 font-sans">PA</th>
-                                    </tr>
-                                </thead>
-                                <tbody className="divide-y divide-slate-100">
-                                    {calculateStandings().map((t, idx) => (
-                                        <tr key={t.id} className="hover:bg-slate-50">
-                                            <td className="px-4 py-3 text-center font-bold text-slate-400 font-sans">{idx + 1}</td>
-                                            <td className="px-4 py-3 font-bold text-slate-800 font-sans">{t.name}</td>
-                                            <td className="px-4 py-3 text-center font-mono font-bold text-green-600">{t.stats.wins}</td>
-                                            <td className="px-4 py-3 text-center font-mono font-bold text-red-600">{t.stats.losses}</td>
-                                            <td className="px-4 py-3 text-center font-mono font-bold text-slate-600">{t.stats.ties}</td>
-                                            <td className="px-4 py-3 text-center font-mono text-slate-400">{t.stats.pf}</td>
-                                            <td className="px-4 py-3 text-center font-mono text-slate-400">{t.stats.pa}</td>
-                                        </tr>
-                                    ))}
-                                    {teams.length === 0 && <tr><td colSpan={7} className="p-8 text-center text-slate-400 italic font-sans">No teams in this league.</td></tr>}
-                                </tbody>
-                            </table>
+                            <div className="flex items-center gap-6 mb-6 border-b border-slate-800 pb-1 overflow-x-auto">
+                                <button onClick={() => setDashboardTab('matches')} className={`text-lg sm:text-xl font-bold pb-2 px-2 transition-all border-b-2 whitespace-nowrap font-sans ${dashboardTab === 'matches' ? 'text-blue-400 border-blue-500 drop-shadow-[0_0_10px_rgba(59,130,246,0.5)]' : 'text-slate-500 border-transparent hover:text-slate-300 hover:border-slate-700'}`}>Matches</button>
+                                <button onClick={() => setDashboardTab('standings')} className={`text-lg sm:text-xl font-bold pb-2 px-2 transition-all border-b-2 whitespace-nowrap font-sans ${dashboardTab === 'standings' ? 'text-blue-400 border-blue-500 drop-shadow-[0_0_10px_rgba(59,130,246,0.5)]' : 'text-slate-500 border-transparent hover:text-slate-300 hover:border-slate-700'}`}>Standings</button>
+                                <button onClick={() => setDashboardTab('season_stats')} className={`text-lg sm:text-xl font-bold pb-2 px-2 transition-all border-b-2 whitespace-nowrap font-sans ${dashboardTab === 'season_stats' ? 'text-blue-400 border-blue-500 drop-shadow-[0_0_10px_rgba(59,130,246,0.5)]' : 'text-slate-500 border-transparent hover:text-slate-300 hover:border-slate-700'}`}>Season Stats</button>
+                            </div>
+
+                            {dashboardTab === 'matches' && (
+                                <div className="space-y-4">
+                                    {matches.map(match => {
+                                        const home = teams.find(t => t.id === match.homeTeamId);
+                                        const away = teams.find(t => t.id === match.awayTeamId);
+                                        if (!home || !away) return null;
+                                        return (
+                                            <div key={match.id} className="bg-slate-900/50 backdrop-blur p-4 sm:p-5 rounded-xl shadow-sm border border-slate-800 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 hover:bg-slate-800/50 transition-colors group">
+                                                <div className="flex items-center gap-4 w-full sm:w-auto">
+                                                    <div className="shrink-0"><div className={`text-[10px] font-black uppercase tracking-wider px-2 py-1 rounded font-sans border ${match.isComplete ? 'bg-slate-800 text-slate-400 border-slate-700' : 'bg-green-900/30 text-green-400 border-green-500/30 animate-pulse'}`}>{match.isComplete ? 'FINAL' : 'LIVE'}</div></div>
+                                                    <div className="flex flex-1 sm:flex-auto items-center justify-between sm:justify-start sm:gap-8 w-full sm:w-auto">
+                                                        <div className="text-base sm:text-lg font-bold text-white text-right font-sans w-32 truncate">{home.name}</div>
+                                                        <div className="text-slate-600 text-sm sm:text-base px-2 font-sans italic font-bold">VS</div>
+                                                        <div className="text-base sm:text-lg font-bold text-white text-left font-sans w-32 truncate">{away.name}</div>
+                                                    </div>
+                                                </div>
+                                                <div className="flex gap-2 w-full sm:w-auto justify-end">
+                                                <button onClick={() => handleOpenMatchStats(match)} className="flex-1 sm:flex-none text-center px-3 py-2 rounded-lg border border-slate-700 bg-slate-800/50 text-blue-400 hover:bg-blue-900/20 hover:border-blue-500/50 font-bold text-xs sm:text-sm transition-all font-sans">Stats</button>
+                                                
+                                                <button onClick={() => setState({ ...state, view: 'scoring', currentMatchId: match.id })} className="flex-1 sm:flex-none text-center px-3 py-2 rounded-lg border border-slate-700 bg-slate-800/50 text-slate-300 hover:bg-slate-700 hover:text-white font-bold text-xs sm:text-sm transition-all font-sans">
+                                                    {userRole === 'fan' ? (match.isComplete ? 'View' : 'Watch Live') : (match.isComplete ? 'View' : 'Score')}
+                                                </button>
+                                                
+                                                {(userRole === 'admin' || userRole === 'umpire') && <button onClick={() => handleDeleteMatch(match.id)} className="flex-initial px-3 py-2 rounded-lg border border-slate-700 text-red-400 hover:bg-red-900/20 hover:border-red-500/50 font-bold text-xs sm:text-sm transition-all font-sans opacity-0 group-hover:opacity-100">Del</button>}
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                    {matches.length === 0 && <div className="text-center py-12 text-slate-500 bg-slate-900/30 rounded-xl border border-slate-800 border-dashed font-sans">No matches found for this season.</div>}
+                                </div>
+                            )}
+
+                            {dashboardTab === 'standings' && (
+                                <div className="bg-slate-900/50 backdrop-blur rounded-xl shadow-sm border border-slate-800 overflow-hidden">
+                                    <div className="overflow-x-auto">
+                                        <table className="w-full text-left text-sm">
+                                            <thead className="bg-slate-950 text-slate-400 uppercase font-bold text-xs border-b border-slate-800">
+                                                <tr>
+                                                    <th className="px-4 py-3 w-12 text-center font-sans">#</th>
+                                                    <th className="px-4 py-3 font-sans">Team</th>
+                                                    <th className="px-4 py-3 text-center font-sans text-slate-300">W</th>
+                                                    <th className="px-4 py-3 text-center font-sans text-slate-300">L</th>
+                                                    <th className="px-4 py-3 text-center font-sans text-slate-300">T</th>
+                                                    <th className="px-4 py-3 text-center text-slate-500 font-sans">PF</th>
+                                                    <th className="px-4 py-3 text-center text-slate-500 font-sans">PA</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody className="divide-y divide-slate-800">
+                                                {calculateStandings().map((t, idx) => (
+                                                    <tr key={t.id} className="hover:bg-slate-800/50 transition-colors">
+                                                        <td className="px-4 py-3 text-center font-bold text-slate-500 font-sans">{idx + 1}</td>
+                                                        <td className="px-4 py-3 font-bold text-slate-200 font-sans">{t.name}</td>
+                                                        <td className="px-4 py-3 text-center font-mono font-bold text-green-500">{t.stats.wins}</td>
+                                                        <td className="px-4 py-3 text-center font-mono font-bold text-red-500">{t.stats.losses}</td>
+                                                        <td className="px-4 py-3 text-center font-mono font-bold text-slate-400">{t.stats.ties}</td>
+                                                        <td className="px-4 py-3 text-center font-mono text-slate-500">{t.stats.pf}</td>
+                                                        <td className="px-4 py-3 text-center font-mono text-slate-500">{t.stats.pa}</td>
+                                                    </tr>
+                                                ))}
+                                                {teams.length === 0 && <tr><td colSpan={7} className="p-8 text-center text-slate-500 italic font-sans">No teams in this league.</td></tr>}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            )}
+
+                            {dashboardTab === 'season_stats' && (
+                                <div className="bg-slate-900/50 backdrop-blur rounded-xl shadow-sm border border-slate-800 overflow-hidden">
+                                    <div className="p-4 bg-slate-950 border-b border-slate-800"><h3 className="font-bold text-slate-300 font-sans uppercase tracking-wider text-xs">Top 50 Players</h3></div>
+                                    <div className="overflow-x-auto">
+                                        <table className="w-full text-left text-sm">
+                                            <thead className="bg-slate-950 text-slate-400 uppercase font-bold text-xs border-b border-slate-800">
+                                                <tr>
+                                                    <th className="px-4 py-3 w-12 text-center font-sans">#</th>
+                                                    {renderSortHeader('Player', 'name', seasonSort, setSeasonSort, 'text-left')}
+                                                    {renderSortHeader('Total Pts', 'totalPoints', seasonSort, setSeasonSort)}
+                                                    {renderSortHeader('4s', 'hits4', seasonSort, setSeasonSort, 'text-right', 'text-rose-500')}
+                                                    {renderSortHeader('3s', 'hits3', seasonSort, setSeasonSort, 'text-right', 'text-amber-500')}
+                                                    {renderSortHeader('2s', 'hits2', seasonSort, setSeasonSort, 'text-right', 'text-green-500')}
+                                                    {renderSortHeader('1s', 'hits1', seasonSort, setSeasonSort, 'text-right', 'text-cyan-500')}
+                                                    {renderSortHeader('Pitches', 'pitchesSeen', seasonSort, setSeasonSort, 'text-right', 'text-slate-500')}
+                                                </tr>
+                                            </thead>
+                                            <tbody className="divide-y divide-slate-800">
+                                                {calculateSeasonLeaders().slice(0, 50).map((p, idx) => (
+                                                    <tr key={p.playerId} className="hover:bg-slate-800/50 transition-colors">
+                                                        <td className="px-4 py-3 text-center font-bold text-slate-500 font-sans">{idx + 1}</td>
+                                                        <td className="px-4 py-3 font-bold text-slate-200 font-sans">{p.name}</td>
+                                                        <td className="px-4 py-3 text-right font-mono font-bold text-lg text-white">{p.totalPoints}</td>
+                                                        <td className="px-4 py-3 text-right font-mono text-slate-400">{p.hits4}</td>
+                                                        <td className="px-4 py-3 text-right font-mono text-slate-400">{p.hits3}</td>
+                                                        <td className="px-4 py-3 text-right font-mono text-slate-400">{p.hits2}</td>
+                                                        <td className="px-4 py-3 text-right font-mono text-slate-400">{p.hits1}</td>
+                                                        <td className="px-4 py-3 text-right font-mono text-slate-500">{p.pitchesSeen}</td>
+                                                    </tr>
+                                                ))}
+                                                {calculateSeasonLeaders().length === 0 && <tr><td colSpan={8} className="p-8 text-center text-slate-500 italic font-sans">No stats available yet.</td></tr>}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            )}
                         </div>
                     </div>
-                )}
-
-                {dashboardTab === 'season_stats' && (
-                    <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-                         <div className="p-4 bg-slate-50 border-b border-slate-200"><h3 className="font-bold text-slate-700 font-sans">Top 50 Players</h3></div>
-                         <div className="overflow-x-auto">
-                            <table className="w-full text-left text-sm">
-                                <thead className="bg-slate-100 text-slate-500 uppercase font-bold text-xs">
-                                    <tr>
-                                        <th className="px-4 py-3 w-12 text-center font-sans">#</th>
-                                        {renderSortHeader('Player', 'name', seasonSort, setSeasonSort, 'text-left')}
-                                        {renderSortHeader('Total Pts', 'totalPoints', seasonSort, setSeasonSort)}
-                                        {renderSortHeader('4s', 'hits4', seasonSort, setSeasonSort, 'text-right', 'text-rose-600')}
-                                        {renderSortHeader('3s', 'hits3', seasonSort, setSeasonSort, 'text-right', 'text-amber-600')}
-                                        {renderSortHeader('2s', 'hits2', seasonSort, setSeasonSort, 'text-right', 'text-green-600')}
-                                        {renderSortHeader('1s', 'hits1', seasonSort, setSeasonSort, 'text-right', 'text-cyan-600')}
-                                        {renderSortHeader('Pitches', 'pitchesSeen', seasonSort, setSeasonSort, 'text-right', 'text-slate-400')}
-                                    </tr>
-                                </thead>
-                                <tbody className="divide-y divide-slate-100">
-                                    {calculateSeasonLeaders().slice(0, 50).map((p, idx) => (
-                                        <tr key={p.playerId} className="hover:bg-slate-50">
-                                            <td className="px-4 py-3 text-center font-bold text-slate-400 font-sans">{idx + 1}</td>
-                                            <td className="px-4 py-3 font-bold text-slate-800 font-sans">{p.name}</td>
-                                            <td className="px-4 py-3 text-right font-mono font-bold text-lg">{p.totalPoints}</td>
-                                            <td className="px-4 py-3 text-right font-mono">{p.hits4}</td>
-                                            <td className="px-4 py-3 text-right font-mono">{p.hits3}</td>
-                                            <td className="px-4 py-3 text-right font-mono">{p.hits2}</td>
-                                            <td className="px-4 py-3 text-right font-mono">{p.hits1}</td>
-                                            <td className="px-4 py-3 text-right font-mono text-slate-400">{p.pitchesSeen}</td>
-                                        </tr>
-                                    ))}
-                                    {calculateSeasonLeaders().length === 0 && <tr><td colSpan={8} className="p-8 text-center text-slate-400 italic font-sans">No stats available yet.</td></tr>}
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-                )}
-            </div>
-        </div>
+                </div>
+            )}
+        </main>
         
         {showLoginModal && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm animate-in fade-in duration-200" onClick={() => setShowLoginModal(false)}>
-            <div className="bg-white p-8 rounded-2xl shadow-2xl w-full max-w-sm transform scale-100 animate-in zoom-in-95 duration-200 font-sans" onClick={e => e.stopPropagation()}>
-              <h3 className="text-xl font-bold text-slate-800 mb-4 text-center font-sans">Access Control</h3>
-              <p className="text-sm text-slate-500 mb-4 text-center font-sans">Enter password for Umpire or Admin access.</p>
+            <div className="bg-slate-900 p-8 rounded-2xl shadow-2xl w-full max-w-sm transform scale-100 animate-in zoom-in-95 duration-200 font-sans border border-slate-700" onClick={e => e.stopPropagation()}>
+              <h3 className="text-xl font-bold text-white mb-4 text-center font-sans">Access Control</h3>
+              <p className="text-sm text-slate-400 mb-4 text-center font-sans">Enter password for Umpire or Admin access.</p>
               <form onSubmit={handleLoginSubmit}>
                 <div className="mb-4">
-                  <input type="password" autoFocus className={`w-full border rounded-lg px-4 py-3 text-lg outline-none focus:ring-2 ${loginError ? 'border-red-300 focus:ring-red-200' : 'border-slate-300 focus:ring-blue-200'}`} value={passwordInput} onChange={e => setPasswordInput(e.target.value)} placeholder="Password" />
+                  <input type="password" autoFocus className={`w-full bg-slate-950 border rounded-lg px-4 py-3 text-lg outline-none focus:ring-2 text-white placeholder-slate-600 font-sans ${loginError ? 'border-red-500 focus:ring-red-900' : 'border-slate-700 focus:ring-blue-900'}`} value={passwordInput} onChange={e => setPasswordInput(e.target.value)} placeholder="Password" />
                   {loginError && <p className="text-red-500 text-xs mt-2 font-bold font-sans">{loginError}</p>}
                 </div>
-                <button type="submit" disabled={loading} className="w-full bg-slate-900 text-white font-bold py-3 rounded-lg hover:bg-slate-800 transition-colors font-sans">{loading ? 'Verifying...' : 'Log In'}</button>
+                <button type="submit" disabled={loading} className="w-full bg-blue-600 text-white font-bold py-3 rounded-lg hover:bg-blue-500 transition-colors font-sans shadow-lg shadow-blue-900/20">{loading ? 'Verifying...' : 'Log In'}</button>
               </form>
             </div>
           </div>
         )}
 
         {statsModalMatch && (
-            <div className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200" onClick={() => setStatsModalMatch(null)}>
-                <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[90vh] overflow-hidden flex flex-col transform scale-100 animate-in zoom-in-95 duration-200 font-sans" onClick={e => e.stopPropagation()}>
-                    <div className="p-6 border-b border-slate-200 flex justify-between items-center bg-slate-50">
+            <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 backdrop-blur-sm animate-in fade-in duration-200" onClick={() => setStatsModalMatch(null)}>
+                <div className="bg-slate-900 rounded-2xl shadow-2xl w-full max-w-3xl max-h-[90vh] overflow-hidden flex flex-col transform scale-100 animate-in zoom-in-95 duration-200 font-sans border border-slate-700" onClick={e => e.stopPropagation()}>
+                    <div className="p-6 border-b border-slate-800 flex justify-between items-center bg-slate-950">
                         <div>
-                            <h3 className="text-xl font-bold text-slate-800 font-sans">Match Statistics</h3>
-                            <p className="text-sm text-slate-500 font-sans">{new Date(statsModalMatch.date).toLocaleDateString()}</p>
+                            <h3 className="text-xl font-bold text-white font-sans">Match Statistics</h3>
+                            <p className="text-sm text-slate-400 font-sans">{new Date(statsModalMatch.date).toLocaleDateString()}</p>
                         </div>
-                        <button onClick={() => setStatsModalMatch(null)} className="text-slate-400 hover:text-slate-600 font-bold text-xl">&times;</button>
+                        <button onClick={() => setStatsModalMatch(null)} className="text-slate-500 hover:text-white font-bold text-xl transition-colors">&times;</button>
                     </div>
                     <div className="overflow-y-auto p-0">
                         <table className="w-full text-left text-sm">
-                            <thead className="bg-slate-100 text-slate-500 uppercase font-bold text-xs sticky top-0 z-10">
+                            <thead className="bg-slate-900 text-slate-400 uppercase font-bold text-xs sticky top-0 z-10 shadow-sm">
                                 <tr>
                                     {renderSortHeader('Player', 'name', matchSort, setMatchSort, 'text-left', 'px-6')}
                                     {renderSortHeader('Total Pts', 'totalPoints', matchSort, setMatchSort)}
-                                    {renderSortHeader('4s', 'hits4', matchSort, setMatchSort, 'text-right', 'text-rose-600')}
-                                    {renderSortHeader('3s', 'hits3', matchSort, setMatchSort, 'text-right', 'text-amber-600')}
-                                    {renderSortHeader('2s', 'hits2', matchSort, setMatchSort, 'text-right', 'text-green-600')}
-                                    {renderSortHeader('1s', 'hits1', matchSort, setMatchSort, 'text-right', 'text-cyan-600')}
-                                    {renderSortHeader('Pitches', 'pitchesSeen', matchSort, setMatchSort, 'text-right', 'text-slate-400')}
+                                    {renderSortHeader('4s', 'hits4', matchSort, setMatchSort, 'text-right', 'text-rose-500')}
+                                    {renderSortHeader('3s', 'hits3', matchSort, setMatchSort, 'text-right', 'text-amber-500')}
+                                    {renderSortHeader('2s', 'hits2', matchSort, setMatchSort, 'text-right', 'text-green-500')}
+                                    {renderSortHeader('1s', 'hits1', matchSort, setMatchSort, 'text-right', 'text-cyan-500')}
+                                    {renderSortHeader('Pitches', 'pitchesSeen', matchSort, setMatchSort, 'text-right', 'text-slate-500')}
                                 </tr>
                             </thead>
-                            <tbody className="divide-y divide-slate-100">
+                            <tbody className="divide-y divide-slate-800 text-slate-300">
                                 {performSort(statsModalData, matchSort).map(stat => (
-                                    <tr key={stat.playerId} className="hover:bg-slate-50">
-                                        <td className="px-6 py-3 font-bold text-slate-800 font-sans">{stat.name}</td>
-                                        <td className="px-4 py-3 text-right font-mono font-bold text-lg">{stat.totalPoints}</td>
+                                    <tr key={stat.playerId} className="hover:bg-slate-800/50 transition-colors">
+                                        <td className="px-6 py-3 font-bold text-white font-sans">{stat.name}</td>
+                                        <td className="px-4 py-3 text-right font-mono font-bold text-lg text-white">{stat.totalPoints}</td>
                                         <td className="px-4 py-3 text-right font-mono">{stat.hits4}</td>
                                         <td className="px-4 py-3 text-right font-mono">{stat.hits3}</td>
                                         <td className="px-4 py-3 text-right font-mono">{stat.hits2}</td>
                                         <td className="px-4 py-3 text-right font-mono">{stat.hits1}</td>
-                                        <td className="px-4 py-3 text-right font-mono text-slate-400">{stat.pitchesSeen}</td>
+                                        <td className="px-4 py-3 text-right font-mono text-slate-500">{stat.pitchesSeen}</td>
                                     </tr>
                                 ))}
                             </tbody>
                         </table>
                     </div>
-                    <div className="p-4 border-t border-slate-200 bg-slate-50 flex justify-end">
-                        <button onClick={() => setStatsModalMatch(null)} className="px-6 py-2 bg-white border border-slate-300 text-slate-700 font-bold rounded-lg hover:bg-slate-50 font-sans">Close</button>
+                    <div className="p-4 border-t border-slate-800 bg-slate-950 flex justify-end">
+                        <button onClick={() => setStatsModalMatch(null)} className="px-6 py-2 bg-slate-800 border border-slate-700 text-slate-300 font-bold rounded-lg hover:bg-slate-700 hover:text-white font-sans transition-colors">Close</button>
                     </div>
                 </div>
             </div>
         )}
-      </main>
     </div>
   );
 };

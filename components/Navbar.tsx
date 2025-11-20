@@ -43,21 +43,28 @@ export const Navbar: React.FC<NavbarProps> = ({
       a.id.localeCompare(b.id, undefined, { numeric: true, sensitivity: 'base' })
   );
 
+  // Determine if we are on the "Home Screen" (League Selection)
+  const isHomeScreen = !currentLeague;
+
   return (
-    <nav className="bg-slate-900 text-white p-2 sm:p-4 shadow-lg sticky top-0 z-50">
-      <div className="max-w-7xl mx-auto flex justify-between items-center">
-        <div className="flex items-center gap-4 cursor-pointer" onClick={onGoHome}>
-            {/* Logo Image */}
+    <nav className={`bg-slate-900 text-white shadow-lg sticky top-0 z-50 transition-all duration-300 ${isHomeScreen ? 'py-10' : 'p-2 sm:p-4'}`}>
+      <div className={`max-w-7xl mx-auto flex ${isHomeScreen ? 'flex-col items-center gap-8' : 'justify-between items-center'}`}>
+        
+        <div className={`flex items-center gap-4 cursor-pointer ${isHomeScreen ? 'flex-col' : ''}`} onClick={onGoHome}>
+            {/* Logo Image - 5x larger on home screen (w-60/15rem vs w-12/3rem) */}
             <img 
-                src="/dugout-logo.png" 
+                src="https://i.imgur.com/EeBXx6d.png" 
                 alt="Dugout Hitting League" 
-                className="w-12 h-12 object-contain shrink-0"
+                className={`${isHomeScreen ? 'w-60' : 'w-12 h-12'} object-contain shrink-0 transition-all duration-500`}
             />
-            <div className="hidden lg:block">
-                <h1 className="text-xl font-bold tracking-tight font-sans">Dugout Hitting League</h1>
-                <span className="font-light opacity-80 text-sm font-sans">Manager</span>
-            </div>
+            {!isHomeScreen && (
+                <div className="hidden lg:block">
+                    <h1 className="text-xl font-bold tracking-tight font-sans">Dugout Hitting League</h1>
+                    <span className="font-light opacity-80 text-sm font-sans">Manager</span>
+                </div>
+            )}
         </div>
+
         <div className="flex items-center gap-2 sm:gap-4">
           {/* League Home - Only show if configured and we are in a league */}
           {currentLeague && showLeagueHomeButton && (

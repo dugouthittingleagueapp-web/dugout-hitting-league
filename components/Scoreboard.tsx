@@ -176,7 +176,7 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
         }
     }
 
-    // --- Auto-advance logic ---
+    // --- Auto-advance logic (Cell) ---
     let nextCell = null;
 
     if (!isEdit && !shouldOpenTieBreaker) {
@@ -195,6 +195,22 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
 
     if (shouldOpenTieBreaker) {
          setTimeout(() => setShowTieBreakerSetup(true), 500);
+    } else if (!isEdit && activeInningIdx < 5) {
+        // Check for Full Inning Completion to auto-advance
+        const currentInningData = newMatch.innings[activeInningIdx];
+        const isHomeComplete = currentInningData.home.playerScores.every(p => p.pitches.every(pt => pt.points !== null));
+        const isAwayComplete = currentInningData.away.playerScores.every(p => p.pitches.every(pt => pt.points !== null));
+
+        if (isHomeComplete && isAwayComplete) {
+             setTimeout(() => {
+                 setActiveInningIdx(prev => {
+                    // Double check index hasn't changed (rare race condition, but safe)
+                    if (prev < 5) return prev + 1;
+                    return prev;
+                 });
+                 setActiveCell(null); 
+             }, 700);
+        }
     }
 
     await storage.updateMatch(newMatch).catch(err => {

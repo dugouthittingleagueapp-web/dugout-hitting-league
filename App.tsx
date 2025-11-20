@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { AgeGroup, AppState, Match, Team, Player, League, PlayerStats } from './types';
 import { Navbar } from './components/Navbar';
@@ -553,15 +552,15 @@ const App: React.FC = () => {
                                         if (!home || !away) return null;
                                         return (
                                             <div key={match.id} className="bg-white/60 dark:bg-slate-900/60 backdrop-blur-xl p-4 sm:p-5 rounded-xl shadow-md dark:shadow-sm border border-white/20 dark:border-slate-800 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 hover:bg-white/80 dark:hover:bg-slate-800/50 transition-colors group">
-                                                <div className="flex items-center gap-4 w-full sm:w-auto">
+                                                <div className="flex items-center gap-4 w-full sm:w-auto min-w-0">
                                                     <div className="shrink-0"><div className={`text-[10px] font-black uppercase tracking-wider px-2 py-1 rounded font-sans border ${match.isComplete ? 'bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border-slate-300 dark:border-slate-700' : 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 border-green-500/30 animate-pulse'}`}>{match.isComplete ? 'FINAL' : 'LIVE'}</div></div>
-                                                    <div className="flex flex-1 sm:flex-auto items-center justify-between sm:justify-start sm:gap-8 w-full sm:w-auto">
-                                                        <div className="text-base sm:text-lg font-bold text-slate-800 dark:text-white text-right font-sans w-32 truncate">{home.name}</div>
-                                                        <div className="text-slate-400 dark:text-slate-600 text-sm sm:text-base px-2 font-sans italic font-bold">VS</div>
-                                                        <div className="text-base sm:text-lg font-bold text-slate-800 dark:text-white text-left font-sans w-32 truncate">{away.name}</div>
+                                                    <div className="flex flex-1 sm:flex-auto items-center sm:justify-start sm:gap-8 w-full sm:w-auto min-w-0">
+                                                        <div className="flex-1 sm:flex-none sm:w-32 text-base sm:text-lg font-bold text-slate-800 dark:text-white text-right font-sans truncate min-w-0">{home.name}</div>
+                                                        <div className="shrink-0 text-slate-400 dark:text-slate-600 text-sm sm:text-base px-2 font-sans italic font-bold">VS</div>
+                                                        <div className="flex-1 sm:flex-none sm:w-32 text-base sm:text-lg font-bold text-slate-800 dark:text-white text-left font-sans truncate min-w-0">{away.name}</div>
                                                     </div>
                                                 </div>
-                                                <div className="flex gap-2 w-full sm:w-auto justify-end">
+                                                <div className="flex gap-2 w-full sm:w-auto justify-end shrink-0">
                                                 <button onClick={() => handleOpenMatchStats(match)} className="flex-1 sm:flex-none text-center px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800/50 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 hover:border-blue-400 dark:hover:border-blue-500/50 font-bold text-xs sm:text-sm transition-all font-sans">Stats</button>
                                                 
                                                 <button onClick={() => setState({ ...state, view: 'scoring', currentMatchId: match.id })} className="flex-1 sm:flex-none text-center px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800/50 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 hover:text-slate-900 dark:hover:text-white font-bold text-xs sm:text-sm transition-all font-sans">

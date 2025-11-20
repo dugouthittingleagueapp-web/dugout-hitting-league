@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Match, Inning, Team, TieBreakerRound } from '../types';
 import * as storage from '../services/storageService';
@@ -520,13 +519,21 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
   return (
     <div className="min-h-screen bg-transparent pb-20 font-sans">
       <header className="bg-white/80 dark:bg-slate-950/90 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 sticky top-0 z-[50] shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 py-3 flex justify-between items-center gap-4">
-          <div className="flex gap-4 sm:gap-8 items-center flex-1 overflow-hidden">
-            <div className="text-center"><div className="text-[10px] sm:text-xs text-slate-500 dark:text-slate-400 uppercase font-bold font-sans">Away</div><div className="text-lg sm:text-xl font-bold text-red-700 dark:text-red-400 truncate max-w-[80px] sm:max-w-[100px] font-sans">{teams.away.name}</div><div className="text-xl sm:text-2xl font-sans tabular-nums leading-none dark:text-white">{awayTotal}</div></div>
+        <div className="max-w-7xl mx-auto px-4 py-3 flex justify-between items-center gap-2 sm:gap-4">
+          <div className="flex gap-2 sm:gap-8 items-center flex-1 min-w-0">
+            <div className="text-center flex-1 min-w-0">
+                <div className="text-[10px] sm:text-xs text-slate-500 dark:text-slate-400 uppercase font-bold font-sans">Away</div>
+                <div className="text-lg sm:text-xl font-bold text-red-700 dark:text-red-400 truncate w-full font-sans px-1">{teams.away.name}</div>
+                <div className="text-xl sm:text-2xl font-sans tabular-nums leading-none dark:text-white">{awayTotal}</div>
+            </div>
             <div className="text-slate-300 dark:text-slate-600 text-xl font-light font-sans">vs</div>
-            <div className="text-center"><div className="text-[10px] sm:text-xs text-slate-500 dark:text-slate-400 uppercase font-bold font-sans">Home</div><div className="text-lg sm:text-xl font-bold text-blue-700 dark:text-blue-400 truncate max-w-[80px] sm:max-w-[100px] font-sans">{teams.home.name}</div><div className="text-xl sm:text-2xl font-sans tabular-nums leading-none dark:text-white">{homeTotal}</div></div>
+            <div className="text-center flex-1 min-w-0">
+                <div className="text-[10px] sm:text-xs text-slate-500 dark:text-slate-400 uppercase font-bold font-sans">Home</div>
+                <div className="text-lg sm:text-xl font-bold text-blue-700 dark:text-blue-400 truncate w-full font-sans px-1">{teams.home.name}</div>
+                <div className="text-xl sm:text-2xl font-sans tabular-nums leading-none dark:text-white">{homeTotal}</div>
+            </div>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 shrink-0">
             {isReadOnly && <div className="flex items-center gap-1.5 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 px-3 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-wider animate-pulse font-sans"><span className="w-2 h-2 rounded-full bg-red-600"></span>LIVE</div>}
             {!isReadOnly && !match.isComplete && !isExtraInnings && <button onClick={() => setShowFinishModal(true)} className="bg-green-600 hover:bg-green-700 text-white text-xs sm:text-sm font-bold py-2 px-3 sm:px-4 rounded-lg shadow-sm transition-colors font-sans">Complete</button>}
             <button onClick={onExit} className="text-xs sm:text-sm font-bold text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-white bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 py-2 px-3 rounded-lg transition-colors font-sans">Exit</button>

@@ -65,8 +65,8 @@ export const ScoreInput: React.FC<ScoreInputProps> = ({ pitchNumber, value, pitc
       </div>
       
       {isEditing && (
-        <div className="fixed inset-0 z-[9999] flex items-end sm:items-center justify-center bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200" onClick={onClose}>
-            <div className="bg-white dark:bg-slate-900 p-5 sm:p-6 rounded-t-2xl sm:rounded-2xl shadow-2xl w-full sm:w-[90%] max-w-sm transform scale-100 animate-in slide-in-from-bottom-10 sm:zoom-in-95 duration-200 font-sans border-t sm:border border-slate-200 dark:border-slate-800 safe-area-pb" onClick={e => e.stopPropagation()}>
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200 p-4" onClick={onClose}>
+            <div className="bg-white dark:bg-slate-900 p-5 sm:p-6 rounded-2xl shadow-2xl w-full max-w-sm transform scale-100 animate-in zoom-in-95 duration-200 font-sans border border-slate-200 dark:border-slate-800" onClick={e => e.stopPropagation()}>
                 <div className="text-center mb-4 sm:mb-6">
                     <div className="flex justify-center items-center gap-2 mb-2">
                          <div className="bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 text-sm sm:text-base font-bold px-3 py-1 rounded-full font-sans">Pitch #{pitchNumber}</div>
@@ -102,7 +102,6 @@ export const ScoreInput: React.FC<ScoreInputProps> = ({ pitchNumber, value, pitc
                        <button onClick={onClose} className="flex-1 py-3.5 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 font-bold rounded-xl hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors text-lg font-sans">Cancel</button>
                     )}
                 </div>
-                <div className="h-4 sm:h-0"></div>
             </div>
         </div>
       )}

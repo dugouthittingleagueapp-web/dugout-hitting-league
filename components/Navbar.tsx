@@ -51,9 +51,9 @@ export const Navbar: React.FC<NavbarProps> = ({
             onClick={onGoHome}
         >
             <img 
-                src="https://i.imgur.com/SqDq8L3.png" 
+                src="https://imgur.com/SqDq8L3.png" 
                 alt="Dugout Hitting League" 
-                className={`${isHomeScreen ? 'w-56 sm:w-80 drop-shadow-[0_0_40px_rgba(59,130,246,0.3)]' : 'w-32 sm:w-40 drop-shadow-[0_0_15px_rgba(59,130,246,0.2)]'} object-contain shrink-0 transition-all duration-500`}
+                className={`${isHomeScreen ? 'w-56 sm:w-80 drop-shadow-[0_0_40px_rgba(59,130,246,0.3)]' : 'w-48 sm:w-64 drop-shadow-[0_0_15px_rgba(59,130,246,0.2)]'} object-contain shrink-0 transition-all duration-500`}
             />
             {!isHomeScreen && (
                 <div className="hidden md:block pt-1 pl-4 border-l border-slate-700 ml-2">

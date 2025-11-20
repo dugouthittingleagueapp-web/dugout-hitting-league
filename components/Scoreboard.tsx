@@ -59,7 +59,8 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
   if (loading) return <div className="flex items-center justify-center h-screen text-slate-400 font-bold font-sans">Loading Match Data...</div>;
   if (!match || !teams.home || !teams.away) return <div className="text-center p-8 font-sans">Error loading match</div>;
 
-  const currentInning = match.innings[activeInningIdx];
+  // SAFEGUARD: Ensure we don't crash if activeInningIdx is out of bounds (Extra Innings)
+  const currentInning = match.innings[activeInningIdx] || match.innings[0];
   const isExtraInnings = activeInningIdx === 6;
 
   // --- Calculations ---
@@ -280,6 +281,7 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
   // --- Rendering ---
 
   const renderTeamSection = (side: 'home' | 'away', team: Team) => {
+    // Only called when !isExtraInnings, so currentInning is valid.
     const inningData = side === 'home' ? currentInning.home : currentInning.away;
     
     const headerClass = side === 'home' 

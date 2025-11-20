@@ -91,7 +91,7 @@ export const ScoreInput: React.FC<ScoreInputProps> = ({ pitchNumber, value, pitc
                 </div>
                 
                 <div className="flex flex-col sm:flex-row gap-3">
-                    {onUndo && (
+                    {onUndo && value === null && (
                          <button onClick={onUndo} className="flex-1 py-4 sm:py-3.5 bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 font-bold rounded-xl hover:bg-amber-200 dark:hover:bg-amber-900/50 transition-colors text-base sm:text-lg font-sans flex items-center justify-center gap-2">
                              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path></svg>
                              Undo Previous

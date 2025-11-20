@@ -4,7 +4,7 @@ DUGOUT HITTING LEAGUE - OPERATIONAL GUIDE
 
 1. GETTING STARTED & ROLES
 --------------------------
-The app has three levels of access. You log in via the "Log In" button in the top right corner.
+The app has three levels of access. You log in via the "Log In" button in the top right corner (or via the menu on mobile).
 
 A) FAN (Default - No Login Required)
    - Can view all Leagues.
@@ -27,6 +27,7 @@ C) ADMIN (Password: admin)
    - Can Export Data to JSON.
 
 *Note: You can change these passwords in the "Admin" dashboard once logged in.*
+*Security Note: For security, logged-in sessions (Umpire/Admin) will automatically expire after 3 hours of inactivity. You will need to log in again.*
 
 
 2. SETTING UP A NEW SEASON
@@ -54,7 +55,8 @@ C) ADMIN (Password: admin)
 ----------------
 - Click the score box (Pitch 1, 2, etc.) and select the points (0, 1, 2, 3, 4).
 - Colors: 0=Grey, 1=Cyan, 2=Green, 3=Orange, 4=Red.
-- LIVE EDITING: If you make a mistake, click the score again. Change the number and press "Enter" to confirm. This will NOT auto-advance to the next pitch, keeping your place.
+- UNDO: If you enter a score by mistake, open the scoring modal for the next pitch and click "Undo Previous" to clear the last entered score.
+- LIVE EDITING: You can also click any previously scored box to edit it directly. Change the number and click "Update".
 
 5. SPECIAL: 2-PLAYER TEAMS (GHOST MODE)
 ---------------------------------------
@@ -73,20 +75,36 @@ HOW TO SCORE IT:
 
 STATS IMPACT:
 - Only pitches 1-10 count towards the individual player's stats.
-- Pitches 11-15 count towards the TEAM total, but are recorded under "Player 3" for stats purposes. This prevents players from having unfair advantages on the leaderboard just because they had extra at-bats.
+- Pitches 11-15 count towards the TEAM total, but are recorded under "Player 3" (Ghost) for stats purposes. This prevents players from having unfair advantages on the leaderboard just because they had extra at-bats.
 
-6. LATE ARRIVAL (RESETTING ROSTER)
+6. TIE BREAKERS (EXTRA INNINGS)
+-------------------------------
+If the score is tied after 6 innings:
+1. A "Tie Game" modal will appear.
+2. Select ONE shooter from the Home Team and ONE shooter from the Away Team.
+3. The game enters Extra Innings (Inning 7+).
+4. Round 1 is typically 5 pitches each. If still tied, subsequent rounds may have reduced pitch counts (3 or 1) until a winner is decided.
+5. Tie-breaker points are added to the Team's total score and the individual player's match stats.
+
+7. LATE ARRIVAL (RESETTING ROSTER)
 ----------------------------------
 If a game starts with 2 players, but the 3rd player arrives late:
 
 1. Wait for the start of a new inning (between Inning 2 and 6).
-2. Look for the button "+ Player Arrived? (Reset)" next to the team name on the scoreboard.
+2. Look for the button "+ Reset Roster" next to the team name on the scoreboard header.
 3. Click it and confirm.
 4. The game effectively resets to "Normal Mode" (3 Players, 10 Pitches each) for the REMAINDER of the game.
 5. Stats from that point forward will count for the individual players correctly.
 
-7. STATISTICS
+8. MOBILE NAVIGATION
+--------------------
+- The app is optimized for mobile devices.
+- Use the "Menu" button (top left) or the top navigation bar to switch between screens.
+- Avoid using the browser's "Refresh" button during a live game to prevent losing unsaved local state (though matches are saved to the database after every pitch).
+- In the Scoreboard, use the horizontal tabs to switch between innings.
+
+9. STATISTICS
 -------------
 - STANDINGS: Shows Wins, Losses, Ties, Points For, Points Against.
-- SEASON STATS: Shows individual leaderboards (Total Points, 4s, 3s, etc.).
+- SEASON STATS: Shows individual leaderboards (Total Points, 4s, 3s, etc.). Note: Ghost player stats are filtered out of this list.
 - MATCH STATS: Click "Stats" on any completed game card to see the box score for that specific game.

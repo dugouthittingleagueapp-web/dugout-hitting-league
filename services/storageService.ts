@@ -1,4 +1,3 @@
-
 import { AgeGroup, Match, Team, Inning, PlayerInningScore, League, PlayerStats } from '../types';
 
 const mapTeamFromDB = (dbTeam: any): Team => ({

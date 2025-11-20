@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Match, Inning, Team, TieBreakerRound } from '../types';
 import * as storage from '../services/storageService';

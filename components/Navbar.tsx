@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { AgeGroup, League } from '../types';
 
@@ -52,7 +51,7 @@ export const Navbar: React.FC<NavbarProps> = ({
 
   return (
     <>
-        <nav className={`bg-slate-100/90 dark:bg-slate-950/90 backdrop-blur-md text-slate-900 dark:text-white shadow-lg sticky top-0 z-[100] transition-all duration-500 ease-in-out border-b border-slate-200 dark:border-slate-800 ${isHomeScreen ? 'py-6 sm:py-10 border-b-0' : 'py-3'}`}>
+        <nav className={`bg-slate-100/90 dark:bg-slate-950/90 backdrop-blur-md text-slate-900 dark:text-white shadow-lg sticky top-0 z-[999] transition-all duration-500 ease-in-out border-b border-slate-200 dark:border-slate-800 ${isHomeScreen ? 'py-6 sm:py-10 border-b-0' : 'py-3'}`}>
         <div className={`max-w-7xl mx-auto w-full px-4 sm:px-6 flex ${isHomeScreen ? 'flex-col items-center gap-6' : 'justify-between items-center'}`}>
             
             {/* Top Bar Row */}
@@ -125,7 +124,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                 </div>
 
                 {/* Desktop Only Controls */}
-                <div className="hidden md:flex ml-auto items-center gap-4 relative">
+                <div className="hidden md:flex ml-auto items-center gap-4 relative z-[1000]">
                     {/* Season Selector */}
                     <div className="relative">
                         <button onClick={() => setShowSeasonMenu(!showSeasonMenu)} className="text-[10px] font-bold uppercase tracking-wider text-slate-500 hover:text-slate-800 dark:hover:text-slate-300 transition-colors flex items-center gap-1">
@@ -133,7 +132,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                             <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path></svg>
                         </button>
                          {showSeasonMenu && (
-                            <div className="absolute top-full right-0 mt-2 bg-white dark:bg-slate-900 text-slate-900 dark:text-white rounded-xl shadow-xl py-2 w-32 border border-slate-200 dark:border-slate-800 z-[110] overflow-hidden animate-in slide-in-from-top-2 fade-in duration-200">
+                            <div className="absolute top-full right-0 mt-2 bg-white dark:bg-slate-900 text-slate-900 dark:text-white rounded-xl shadow-xl py-2 w-32 border border-slate-200 dark:border-slate-800 z-[1001] overflow-hidden animate-in slide-in-from-top-2 fade-in duration-200">
                                 {years.map(year => (
                                     <button key={year} onClick={() => { onSeasonChange(year); setShowSeasonMenu(false); }} className={`w-full text-left px-4 py-2 text-sm font-bold hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors font-sans ${currentSeason === year ? 'text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20' : 'text-slate-600 dark:text-slate-400'}`}>
                                         {year}
@@ -151,7 +150,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                         </button>
                         
                         {showLeagueMenu && (
-                            <div className="absolute top-full right-0 mt-2 bg-white dark:bg-slate-900 text-slate-900 dark:text-white rounded-xl shadow-xl py-2 w-48 border border-slate-200 dark:border-slate-800 z-[110] overflow-hidden animate-in slide-in-from-top-2 fade-in duration-200">
+                            <div className="absolute top-full right-0 mt-2 bg-white dark:bg-slate-900 text-slate-900 dark:text-white rounded-xl shadow-xl py-2 w-48 border border-slate-200 dark:border-slate-800 z-[1001] overflow-hidden animate-in slide-in-from-top-2 fade-in duration-200">
                                 <div className="px-4 py-2 text-[10px] uppercase font-black text-slate-400 dark:text-slate-500 border-b border-slate-200 dark:border-slate-800 mb-1 tracking-wider">Select League</div>
                                 {sortedLeagues.map(l => (
                                     <button key={l.id} onClick={() => { onSelectLeague(l.id); setShowLeagueMenu(false); }} className={`w-full text-left px-4 py-3 text-sm font-bold hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors font-sans flex justify-between items-center ${currentLeague === l.id ? 'text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20' : 'text-slate-700 dark:text-slate-300'}`}>
@@ -169,7 +168,7 @@ export const Navbar: React.FC<NavbarProps> = ({
 
         {/* Slide-out Menu Drawer */}
         {isMenuOpen && (
-            <div className="fixed inset-0 z-[200] flex">
+            <div className="fixed inset-0 z-[2000] flex">
                 {/* Backdrop */}
                 <div className="absolute inset-0 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200" onClick={() => setMenuOpen(false)}></div>
                 

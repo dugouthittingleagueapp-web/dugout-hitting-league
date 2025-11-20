@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { AgeGroup, League } from '../types';
 
@@ -47,7 +46,6 @@ export const Navbar: React.FC<NavbarProps> = ({
     <nav className="bg-slate-900 text-white p-2 sm:p-4 shadow-lg sticky top-0 z-50">
       <div className="max-w-7xl mx-auto flex justify-between items-center">
         <div className="flex items-center gap-4 cursor-pointer" onClick={onGoHome}>
-            {/* Logo Update: Image from Public folder */}
             <img src="/dugout-logo.png" alt="Dugout Hitting League" className="w-12 h-12 object-contain bg-white rounded-full border-2 border-white shadow-lg shrink-0" />
             <div className="hidden lg:block">
                 <h1 className="text-xl font-bold tracking-tight font-sans">Dugout Hitting League</h1>

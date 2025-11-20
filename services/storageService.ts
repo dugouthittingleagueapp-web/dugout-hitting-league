@@ -214,12 +214,11 @@ export const calculateMatchStats = (match: Match, homeTeam: Team, awayTeam: Team
     homeTeam.players.forEach(p => stats.set(p.id, initStat(p.id, p.name)));
     awayTeam.players.forEach(p => stats.set(p.id, initStat(p.id, p.name)));
     
-    // Ghost Player for 2v2 stats aggregation (optional, but good for data consistency)
-    stats.set('ghost-player-3', initStat('ghost-player-3', 'Player 3 (Team Stats)'));
-
     match.innings.forEach(inning => {
         [inning.home, inning.away].forEach(teamData => {
             const isGhostMode = teamData.playerScores.length === 2 && teamData.playerScores[0].pitches.length >= 15;
+            const actualTeamId = teamData.teamId === 'home' ? match.homeTeamId : match.awayTeamId;
+            const ghostId = `ghost-${actualTeamId}`; // Unique ID for this team's ghost
 
             teamData.playerScores.forEach((ps, idx) => {
                 let pStats = stats.get(ps.playerId);
@@ -247,8 +246,12 @@ export const calculateMatchStats = (match: Match, homeTeam: Team, awayTeam: Team
                 playerPitches.forEach(p => processPitch(p, pStats!));
                 
                 if (ghostPitches.length > 0) {
-                    let ghostStats = stats.get('ghost-player-3')!;
-                    ghostPitches.forEach(p => processPitch(p, ghostStats));
+                    let ghostStats = stats.get(ghostId);
+                    if (!ghostStats) {
+                        ghostStats = initStat(ghostId, 'Player 3 (Ghost)');
+                        stats.set(ghostId, ghostStats);
+                    }
+                    ghostPitches.forEach(p => processPitch(p, ghostStats!));
                 }
             });
         });
@@ -293,8 +296,8 @@ export const getTeamStats = async (team: Team, league: AgeGroup, season: string)
         if(home && away) {
             const mStats = calculateMatchStats(m, home, away);
             mStats.forEach(stat => {
-                // Only aggregate for THIS team's players
-                if(team.players.find(p => p.id === stat.playerId) || stat.playerId === 'ghost-player-3') {
+                // Only aggregate for THIS team's players (including their specific Ghost)
+                if(team.players.find(p => p.id === stat.playerId) || stat.playerId === `ghost-${team.id}`) {
                      if(!aggStats.has(stat.playerId)) {
                          aggStats.set(stat.playerId, { ...stat });
                      } else {
@@ -311,7 +314,7 @@ export const getTeamStats = async (team: Team, league: AgeGroup, season: string)
         }
     });
 
-    return Array.from(aggStats.values()).filter(s => s.playerId !== 'ghost-player-3');
+    return Array.from(aggStats.values()).filter(s => !s.playerId.startsWith('ghost-'));
 };
 
 // Settings & Admin

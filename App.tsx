@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { AgeGroup, AppState, Match, Team, Player, League, PlayerStats } from './types';
 import { Navbar } from './components/Navbar';
@@ -223,8 +224,8 @@ const App: React.FC = () => {
 
         if (m.tieBreaker) {
             m.tieBreaker.forEach(tb => {
-                homeScore += tb.homeScores.reduce((a,b)=>a+b,0);
-                awayScore += tb.awayScores.reduce((a,b)=>a+b,0);
+                homeScore += tb.homeScores.reduce((a,b)=>(a||0)+(b||0),0);
+                awayScore += tb.awayScores.reduce((a,b)=>(a||0)+(b||0),0);
             });
         }
 
@@ -280,7 +281,7 @@ const App: React.FC = () => {
       });
 
       const rawList = Array.from(playerStatsMap.values())
-          .filter(p => p.playerId !== 'ghost-player-3' && p.name !== 'Player 3 (Team Stats)');
+          .filter(p => !p.playerId.startsWith('ghost-') && p.name !== 'Player 3 (Team Stats)');
       
       return performSort(rawList, seasonSort);
   };
@@ -321,7 +322,7 @@ const App: React.FC = () => {
                        const inningScore = ps.pitches.reduce((sum: number, p: any) => sum + (p.points || 0), 0);
                        
                        const pName = team.players.find(p => p.id === ps.playerId)?.name || 'Sub';
-                       if (pName !== 'Player 3 (Team Stats)') { 
+                       if (!ps.playerId.startsWith('ghost-')) { 
                            singleInningBest.push({ name: pName, score: inningScore, team: team.name, date: m.date });
                            playerMatchTotals.set(ps.playerId, (playerMatchTotals.get(ps.playerId) || 0) + inningScore);
                        }

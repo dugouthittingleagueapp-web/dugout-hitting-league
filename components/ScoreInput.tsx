@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 
 interface ScoreInputProps {
@@ -58,6 +59,7 @@ export const ScoreInput: React.FC<ScoreInputProps> = ({ pitchNumber, value, pitc
         <button
           disabled={readOnly}
           onClick={() => !readOnly && onOpen()}
+          aria-label={`Pitch ${pitchNumber}, Score: ${value !== null ? value : 'None'}`}
           className={`w-10 h-14 sm:w-14 sm:h-20 rounded-lg flex items-center justify-center text-xl sm:text-3xl font-bold shadow-sm border-2 transition-all duration-150 font-sans ${value !== null ? getValueColor(value) : 'border-dashed border-slate-300 dark:border-slate-700 hover:border-slate-400 dark:hover:border-slate-600 bg-slate-50 dark:bg-slate-900/50 text-slate-300 dark:text-slate-600'}`}
         >
           {value !== null ? value : '-'}
@@ -65,13 +67,13 @@ export const ScoreInput: React.FC<ScoreInputProps> = ({ pitchNumber, value, pitc
       </div>
       
       {isEditing && (
-        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200 p-4" onClick={onClose}>
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200 p-4" onClick={onClose} role="dialog" aria-modal="true" aria-labelledby="modal-title">
             <div className="bg-white dark:bg-slate-900 p-5 sm:p-6 rounded-2xl shadow-2xl w-full max-w-sm transform scale-100 animate-in zoom-in-95 duration-200 font-sans border border-slate-200 dark:border-slate-800" onClick={e => e.stopPropagation()}>
                 <div className="text-center mb-4 sm:mb-6">
                     <div className="flex justify-center items-center gap-2 mb-2">
                          <div className="bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 text-sm sm:text-base font-bold px-3 py-1 rounded-full font-sans">Pitch #{pitchNumber}</div>
                     </div>
-                    <h3 className="text-xl sm:text-2xl font-bold text-slate-800 dark:text-white mb-1 font-sans">{value !== null ? 'Edit Score' : 'Enter Score'}</h3>
+                    <h3 id="modal-title" className="text-xl sm:text-2xl font-bold text-slate-800 dark:text-white mb-1 font-sans">{value !== null ? 'Edit Score' : 'Enter Score'}</h3>
                     {pitchesRemaining !== undefined && (
                         <p className="text-slate-500 dark:text-slate-400 font-bold text-lg sm:text-xl font-sans">{pitchesRemaining} Pitches Left</p>
                     )}
@@ -81,7 +83,7 @@ export const ScoreInput: React.FC<ScoreInputProps> = ({ pitchNumber, value, pitc
                     {[0, 1, 2, 3, 4].map((score) => {
                         const isSelected = value !== null ? localValue === score : value === score;
                         return (
-                          <button key={score} onClick={() => handleSelect(score)} className={`aspect-square rounded-xl text-2xl sm:text-3xl font-bold flex items-center justify-center transition-all active:scale-95 font-sans ${getValueColor(score)} ${isSelected ? 'ring-4 ring-offset-2 ring-blue-400 dark:ring-offset-slate-900 shadow-lg scale-110' : 'hover:brightness-95 shadow-sm'}`}>
+                          <button key={score} onClick={() => handleSelect(score)} aria-pressed={isSelected} className={`aspect-square rounded-xl text-2xl sm:text-3xl font-bold flex items-center justify-center transition-all active:scale-95 font-sans ${getValueColor(score)} ${isSelected ? 'ring-4 ring-offset-2 ring-blue-400 dark:ring-offset-slate-900 shadow-lg scale-110' : 'hover:brightness-95 shadow-sm'}`}>
                               {score}
                           </button>
                         );

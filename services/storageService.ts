@@ -1,4 +1,3 @@
-
 import { AgeGroup, Match, Team, Inning, PlayerInningScore, League, PlayerStats } from '../types';
 
 const mapTeamFromDB = (dbTeam: any): Team => ({
@@ -54,14 +53,14 @@ export const getAllTeams = async (): Promise<Team[]> => {
   return data.map(mapTeamFromDB);
 };
 
-export const createTeam = async (name: string, league: AgeGroup, playerNames: string[], season: string): Promise<Team> => {
+export const createTeam = async (name: string, league: AgeGroup, playerNames: string[], season: string, subNames: string[] = []): Promise<Team> => {
   const newTeam = {
     id: crypto.randomUUID(),
     name,
     league,
     season,
     players: playerNames.map(name => ({ id: crypto.randomUUID(), name })),
-    subs: []
+    subs: subNames.map(name => ({ id: crypto.randomUUID(), name }))
   };
   const res = await fetch('/api/teams', {
     method: 'POST',

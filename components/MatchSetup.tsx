@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Team, Player } from '../types';
 
@@ -10,9 +9,10 @@ interface MatchSetupProps {
 }
 
 export const MatchSetup: React.FC<MatchSetupProps> = ({ homeTeam, awayTeam, onStart, onCancel }) => {
-  // We use local state for lineups. We also need to track if sides are swapped.
-  const [homeLineup, setHomeLineup] = useState<Player[]>([...homeTeam.players]);
-  const [awayLineup, setAwayLineup] = useState<Player[]>([...awayTeam.players]);
+  // Initialize with only the first 3 players to prevent overflow if team has >3 players
+  const [homeLineup, setHomeLineup] = useState<Player[]>(homeTeam.players.slice(0, 3));
+  const [awayLineup, setAwayLineup] = useState<Player[]>(awayTeam.players.slice(0, 3));
+  
   const [isSwapped, setIsSwapped] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
@@ -69,7 +69,8 @@ export const MatchSetup: React.FC<MatchSetupProps> = ({ homeTeam, awayTeam, onSt
   const restoreRoster = (side: 'left' | 'right') => {
       const originalTeam = side === 'left' ? leftSideTeam : rightSideTeam;
       const setter = side === 'left' ? setLeftSideLineup : setRightSideLineup;
-      setter([...originalTeam.players]);
+      // Restore to default first 3 players
+      setter(originalTeam.players.slice(0, 3));
   };
 
   const openSubModal = (side: 'left' | 'right') => {
@@ -176,7 +177,7 @@ export const MatchSetup: React.FC<MatchSetupProps> = ({ homeTeam, awayTeam, onSt
         })}
         
         <div className="flex gap-2 mt-3">
-             {players.length < teamData.players.length && (
+             {players.length < 3 && (
                 <button onClick={() => restoreRoster(side)} className="flex-1 py-2 text-xs font-bold text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded border border-dashed border-blue-300 dark:border-blue-800 hover:border-blue-500 dark:hover:border-blue-600 transition-colors font-sans">
                     + Reset Roster
                 </button>

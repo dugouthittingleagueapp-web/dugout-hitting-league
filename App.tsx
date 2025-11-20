@@ -337,31 +337,69 @@ const App: React.FC = () => {
     const sortedLeagues = [...leagues].sort((a, b) => a.id.localeCompare(b.id, undefined, { numeric: true, sensitivity: 'base' }));
 
     return (
-      <div className="min-h-screen bg-slate-900 flex flex-col items-center justify-center p-4 font-sans">
+      <div className="min-h-screen bg-slate-950 flex flex-col font-sans relative overflow-hidden">
+        {/* Background Texture */}
+        <div className="absolute inset-0 opacity-[0.03] pointer-events-none" style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg width='40' height='40' viewBox='0 0 40 40' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M20 20l20 20M20 20L0 40M20 20L40 0M20 20L0 0' stroke='%23ffffff' stroke-width='1' fill='none'/%3E%3C/svg%3E")` }}></div>
+        
         <Navbar {...navbarProps} />
         
-        <div className="text-center mb-8 mt-12">
-            <h1 className="text-4xl font-bold text-white tracking-tight mb-2 font-sans">Dugout Hitting League</h1>
-            <p className="text-slate-400 text-lg font-sans">Select a league to view <span className="text-blue-400 font-bold font-sans">{state.season}</span> season</p>
-            {userRole === 'fan' && <p className="text-xs text-slate-500 mt-2 font-sans">Read-Only Fan Mode</p>}
-            {userRole !== 'fan' && <div className="mt-2"><span className="bg-blue-600 text-white px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider font-sans">Logged in as {userRole}</span></div>}
+        <div className="flex-1 flex flex-col items-center justify-center p-4 z-10">
+            <div className="text-center mb-16">
+                <h2 className="text-3xl sm:text-5xl font-black text-white mb-4 font-sans tracking-tight drop-shadow-xl">SELECT LEAGUE</h2>
+                <div className="h-1.5 w-24 bg-blue-600 mx-auto rounded-full mb-6 shadow-[0_0_15px_rgba(37,99,235,0.8)]"></div>
+                {userRole !== 'fan' && (
+                    <span className="inline-block bg-slate-800/80 backdrop-blur text-blue-300 border border-slate-700 px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-widest shadow-lg">
+                        Logged in as {userRole}
+                    </span>
+                )}
+            </div>
+            
+            {leagues.length === 0 ? (
+                <div className="text-center bg-slate-900/80 backdrop-blur p-8 rounded-2xl border border-slate-800 max-w-md w-full shadow-2xl">
+                    <div className="w-16 h-16 bg-slate-800 rounded-full flex items-center justify-center mx-auto mb-4">
+                        <svg className="w-8 h-8 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
+                    </div>
+                    <h3 className="text-xl font-bold text-white mb-2">No Leagues Found</h3>
+                    <p className="text-slate-400 mb-6 text-sm">Get started by logging in to create your first league category.</p>
+                    <button onClick={openLoginModal} className="w-full px-4 py-3 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-500 transition-all shadow-lg shadow-blue-900/20">Log In to Admin</button>
+                </div>
+            ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8 w-full max-w-7xl px-4">
+                {sortedLeagues.map(league => (
+                    <button key={league.id} onClick={() => handleSelectLeague(league.id)} className="group relative bg-slate-900 hover:bg-slate-800 p-1 rounded-3xl shadow-2xl transition-all duration-300 hover:-translate-y-3 hover:shadow-blue-900/20 text-left w-full aspect-[4/3] sm:aspect-[4/5] flex flex-col border border-slate-800 hover:border-blue-500/50">
+                        {/* Glow Effect */}
+                        <div className="absolute inset-0 bg-gradient-to-b from-blue-600/0 to-blue-900/0 group-hover:to-blue-900/20 rounded-3xl transition-all duration-500"></div>
+                        
+                        <div className="h-full w-full rounded-[1.2rem] p-6 flex flex-col justify-between relative overflow-hidden">
+                            {/* Card Background Graphic */}
+                            <div className="absolute -top-12 -right-12 text-slate-800/50 group-hover:text-blue-600/10 transition-all duration-700 rotate-[15deg] scale-150">
+                                <svg width="200" height="200" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8-8 8z"/><path d="M12 4c-4.41 0-8 3.59-8 8s3.59 8 8 8 8-3.59 8-8-3.59 8-8 8zm0 14c-3.31 0-6-2.69-6-6s2.69-6 6-6 6 2.69 6 6-2.69 6-6 6z"/></svg>
+                            </div>
+                            
+                            <div className="relative z-10">
+                                <div className="flex justify-between items-start">
+                                    <span className="inline-block px-2 py-1 rounded bg-slate-950 text-slate-400 text-[10px] font-bold uppercase tracking-wider border border-slate-800 group-hover:border-blue-500/50 group-hover:text-blue-400 transition-colors">{state.season}</span>
+                                    <span className="w-2 h-2 rounded-full bg-blue-500 shadow-[0_0_10px_#3b82f6]"></span>
+                                </div>
+                            </div>
+                            
+                            <div className="relative z-10 mt-auto">
+                                <h3 className="text-3xl sm:text-5xl font-black text-white uppercase italic leading-none mb-2 group-hover:text-blue-400 transition-colors drop-shadow-lg">{league.id}</h3>
+                                <div className="h-1 w-12 bg-slate-700 group-hover:bg-blue-500 transition-colors rounded-full"></div>
+                                <span className="text-xs font-bold text-slate-500 group-hover:text-slate-400 mt-2 block uppercase tracking-widest">League Division</span>
+                            </div>
+
+                            <div className="absolute bottom-6 right-6 opacity-0 group-hover:opacity-100 transition-all transform translate-x-4 group-hover:translate-x-0">
+                                <span className="w-10 h-10 rounded-full bg-blue-600 flex items-center justify-center shadow-lg shadow-blue-900/50 text-white">
+                                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M9 5l7 7-7 7"></path></svg>
+                                </span>
+                            </div>
+                        </div>
+                    </button>
+                ))}
+                </div>
+            )}
         </div>
-        
-        {leagues.length === 0 ? (
-            <div className="text-center bg-slate-800 p-8 rounded-xl border border-slate-700 max-w-md font-sans">
-                <p className="text-slate-300 mb-4 font-sans">No leagues found.</p>
-                <button onClick={openLoginModal} className="px-4 py-2 bg-blue-600 text-white rounded-lg font-bold hover:bg-blue-500 transition-colors font-sans">Log In to Create League</button>
-            </div>
-        ) : (
-            <div className="flex flex-wrap justify-center gap-6 w-full max-w-6xl px-4">
-            {sortedLeagues.map(league => (
-                <button key={league.id} onClick={() => handleSelectLeague(league.id)} className="bg-white hover:bg-slate-50 text-slate-900 p-6 rounded-2xl shadow-2xl transition-transform hover:scale-105 group w-full sm:w-64 aspect-[4/3] sm:aspect-square flex flex-col items-center justify-center">
-                    <span className="block text-3xl sm:text-4xl font-black mb-2 group-hover:text-blue-600 transition-colors uppercase text-center w-full break-words leading-tight font-sans">{league.id}</span>
-                    <span className="block text-xs font-bold text-slate-400 uppercase tracking-widest whitespace-nowrap font-sans">{state.season} Season</span>
-                </button>
-            ))}
-            </div>
-        )}
         
         {showLoginModal && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm animate-in fade-in duration-200" onClick={() => setShowLoginModal(false)}>
@@ -636,3 +674,4 @@ const App: React.FC = () => {
 };
 
 export default App;
+    

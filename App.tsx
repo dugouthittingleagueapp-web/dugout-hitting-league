@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { AgeGroup, AppState, Match, Team, Player, League, PlayerStats } from './types';
 import { Navbar } from './components/Navbar';
@@ -323,8 +322,8 @@ const App: React.FC = () => {
       currentSeason: state.season,
       leagues: leagues,
       userRole: userRole,
-      showLeagueHomeButton: state.view !== 'dashboard' && !!state.currentLeague, // Logic: Only show button if we have a league but are NOT on the dashboard
-      onGoHome: () => setState({ ...state, view: 'dashboard' }),
+      showLeagueHomeButton: state.view !== 'dashboard' && !!state.currentLeague,
+      onGoHome: () => setState({ ...state, view: 'league_select', currentLeague: null, currentMatchId: null }),
       onSwitchLeague: () => setState({ ...state, view: 'league_select', currentLeague: null, currentMatchId: null }),
       onSelectLeague: handleSelectLeague,
       onLogin: openLoginModal,
@@ -345,7 +344,7 @@ const App: React.FC = () => {
         
         <div className="flex-1 flex flex-col items-center justify-center p-4 z-10">
             <div className="text-center mb-16">
-                <h2 className="text-3xl sm:text-5xl font-black text-white mb-4 font-sans tracking-tight drop-shadow-xl">SELECT LEAGUE</h2>
+                <h2 className="text-3xl sm:text-5xl font-black text-white mb-4 font-sans tracking-tight drop-shadow-xl">SELECT A LEAGUE</h2>
                 <div className="h-1.5 w-24 bg-blue-600 mx-auto rounded-full mb-6 shadow-[0_0_15px_rgba(37,99,235,0.8)]"></div>
                 {userRole !== 'fan' && (
                     <span className="inline-block bg-slate-800/80 backdrop-blur text-blue-300 border border-slate-700 px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-widest shadow-lg">
@@ -364,34 +363,38 @@ const App: React.FC = () => {
                     <button onClick={openLoginModal} className="w-full px-4 py-3 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-500 transition-all shadow-lg shadow-blue-900/20">Log In to Admin</button>
                 </div>
             ) : (
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8 w-full max-w-7xl px-4">
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 w-full max-w-7xl px-4">
                 {sortedLeagues.map(league => (
-                    <button key={league.id} onClick={() => handleSelectLeague(league.id)} className="group relative bg-slate-900 hover:bg-slate-800 p-1 rounded-3xl shadow-2xl transition-all duration-300 hover:-translate-y-3 hover:shadow-blue-900/20 text-left w-full aspect-[4/3] sm:aspect-[4/5] flex flex-col border border-slate-800 hover:border-blue-500/50">
+                    <button key={league.id} onClick={() => handleSelectLeague(league.id)} className="group relative bg-slate-900 hover:bg-slate-800 p-1 rounded-2xl shadow-2xl transition-all duration-300 hover:-translate-y-2 hover:shadow-blue-900/20 text-left w-full aspect-[3/4] flex flex-col border border-slate-800 hover:border-blue-500/50">
                         {/* Glow Effect */}
-                        <div className="absolute inset-0 bg-gradient-to-b from-blue-600/0 to-blue-900/0 group-hover:to-blue-900/20 rounded-3xl transition-all duration-500"></div>
+                        <div className="absolute inset-0 bg-gradient-to-b from-blue-600/0 to-blue-900/0 group-hover:to-blue-900/20 rounded-2xl transition-all duration-500"></div>
                         
-                        <div className="h-full w-full rounded-[1.2rem] p-6 flex flex-col justify-between relative overflow-hidden">
+                        <div className="h-full w-full rounded-xl p-4 flex flex-col justify-between relative overflow-hidden">
                             {/* Card Background Graphic */}
-                            <div className="absolute -top-12 -right-12 text-slate-800/50 group-hover:text-blue-600/10 transition-all duration-700 rotate-[15deg] scale-150">
-                                <svg width="200" height="200" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8-8 8z"/><path d="M12 4c-4.41 0-8 3.59-8 8s3.59 8 8 8 8-3.59 8-8-3.59 8-8 8zm0 14c-3.31 0-6-2.69-6-6s2.69-6 6-6 6 2.69 6 6-2.69 6-6 6z"/></svg>
+                            <div className="absolute -top-8 -right-8 text-slate-800/50 group-hover:text-blue-600/10 transition-all duration-700 rotate-[15deg] scale-125">
+                                <svg width="140" height="140" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="0.8" strokeLinecap="round" strokeLinejoin="round">
+                                    <circle cx="12" cy="12" r="10" />
+                                    <path d="M6 4.5C8.5 7.5 9 10.5 9 12s-.5 4.5-3 7.5" />
+                                    <path d="M18 4.5C15.5 7.5 15 10.5 15 12s.5 4.5 3 7.5" />
+                                </svg>
                             </div>
                             
                             <div className="relative z-10">
                                 <div className="flex justify-between items-start">
-                                    <span className="inline-block px-2 py-1 rounded bg-slate-950 text-slate-400 text-[10px] font-bold uppercase tracking-wider border border-slate-800 group-hover:border-blue-500/50 group-hover:text-blue-400 transition-colors">{state.season}</span>
-                                    <span className="w-2 h-2 rounded-full bg-blue-500 shadow-[0_0_10px_#3b82f6]"></span>
+                                    <span className="inline-block px-1.5 py-0.5 rounded bg-slate-950 text-slate-400 text-[9px] font-bold uppercase tracking-wider border border-slate-800 group-hover:border-blue-500/50 group-hover:text-blue-400 transition-colors">{state.season}</span>
+                                    <span className="w-1.5 h-1.5 rounded-full bg-blue-500 shadow-[0_0_8px_#3b82f6]"></span>
                                 </div>
                             </div>
                             
                             <div className="relative z-10 mt-auto">
-                                <h3 className="text-3xl sm:text-5xl font-black text-white uppercase italic leading-none mb-2 group-hover:text-blue-400 transition-colors drop-shadow-lg">{league.id}</h3>
-                                <div className="h-1 w-12 bg-slate-700 group-hover:bg-blue-500 transition-colors rounded-full"></div>
-                                <span className="text-xs font-bold text-slate-500 group-hover:text-slate-400 mt-2 block uppercase tracking-widest">League Division</span>
+                                <h3 className="text-xl sm:text-2xl font-black text-white uppercase italic leading-none mb-1 group-hover:text-blue-400 transition-colors drop-shadow-lg truncate">{league.id}</h3>
+                                <div className="h-1 w-8 bg-slate-700 group-hover:bg-blue-500 transition-colors rounded-full"></div>
+                                <span className="text-[10px] font-bold text-slate-500 group-hover:text-slate-400 mt-1 block uppercase tracking-widest">League</span>
                             </div>
 
-                            <div className="absolute bottom-6 right-6 opacity-0 group-hover:opacity-100 transition-all transform translate-x-4 group-hover:translate-x-0">
-                                <span className="w-10 h-10 rounded-full bg-blue-600 flex items-center justify-center shadow-lg shadow-blue-900/50 text-white">
-                                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M9 5l7 7-7 7"></path></svg>
+                            <div className="absolute bottom-4 right-4 opacity-0 group-hover:opacity-100 transition-all transform translate-x-4 group-hover:translate-x-0">
+                                <span className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center shadow-lg shadow-blue-900/50 text-white">
+                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M9 5l7 7-7 7"></path></svg>
                                 </span>
                             </div>
                         </div>
@@ -674,4 +677,3 @@ const App: React.FC = () => {
 };
 
 export default App;
-    

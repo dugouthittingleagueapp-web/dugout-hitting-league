@@ -242,10 +242,11 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
 
   const renderTeamSection = (side: 'home' | 'away', team: Team) => {
     const inningData = side === 'home' ? currentInning.home : currentInning.away;
-    // Colors for header
+    
+    // High Contrast Colors for Header
     const headerClass = side === 'home' 
-        ? 'bg-blue-100/80 dark:bg-blue-900/40 text-blue-800 dark:text-blue-100 border-blue-200 dark:border-blue-800' 
-        : 'bg-red-100/80 dark:bg-red-900/40 text-red-800 dark:text-red-100 border-red-200 dark:border-red-800';
+        ? 'bg-blue-100 dark:bg-blue-950 text-blue-900 dark:text-blue-100 border-blue-200 dark:border-blue-900' 
+        : 'bg-red-100 dark:bg-red-950 text-red-900 dark:text-red-100 border-red-200 dark:border-red-900';
     
     const isTwoPlayerGhostMode = inningData.playerScores.length === 2 && inningData.playerScores[0].pitches.length >= 15;
     const isShortHanded = inningData.playerScores.length < team.players.length;
@@ -266,14 +267,14 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
          }
 
          return (
-            <tr key={`${playerScore.playerId}-${isGhostRow ? 'ghost' : 'norm'}`} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/50">
-                <td className="px-2 sm:px-4 py-3 font-medium text-slate-700 dark:text-slate-300 sticky left-0 bg-white dark:bg-slate-900 z-10 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)] border-r border-slate-200 dark:border-slate-800 w-[100px] sm:w-auto max-w-[120px]">
+            <tr key={`${playerScore.playerId}-${isGhostRow ? 'ghost' : 'norm'}`} className="hover:bg-slate-50/50 dark:hover:bg-white/5 border-b border-slate-100 dark:border-slate-800">
+                <td className="px-2 sm:px-4 py-3 font-medium text-slate-700 dark:text-slate-200 sticky left-0 bg-white dark:bg-slate-900 z-10 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)] border-r border-slate-200 dark:border-slate-700 w-[100px] sm:w-auto max-w-[120px]">
                     <div className="flex flex-col sm:flex-row items-start sm:items-center gap-1 sm:gap-2">
                         <div className="flex items-center gap-2">
-                            <span className={`text-[9px] sm:text-[10px] font-bold w-5 h-5 rounded-full flex items-center justify-center shrink-0 font-sans ${isGhostRow ? 'bg-slate-200 dark:bg-slate-800 text-slate-500 dark:text-slate-400' : 'bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500'}`}>
+                            <span className={`text-[9px] sm:text-[10px] font-bold w-5 h-5 rounded-full flex items-center justify-center shrink-0 font-sans ${isGhostRow ? 'bg-slate-200 dark:bg-slate-800 text-slate-500 dark:text-slate-400' : 'bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-400'}`}>
                                 {isGhostRow ? '3' : lineupIdx + 1}
                             </span>
-                            <span className="truncate text-xs sm:text-sm font-sans">
+                            <span className="truncate text-xs sm:text-sm font-sans text-slate-900 dark:text-slate-100 font-bold">
                                 {isGhostRow ? <span className="italic text-slate-400">Player 3</span> : (player ? player.name : 'Unknown')}
                             </span>
                         </div>
@@ -302,8 +303,8 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
                     </div>
                 </td>
                 {!isGhostRow && (
-                    <td className="px-3 py-3 text-center align-middle border-l border-slate-200 dark:border-slate-800 bg-slate-50/30 dark:bg-slate-900/30">
-                        <div className="text-base font-sans font-bold tabular-nums text-slate-800 dark:text-slate-200 w-8">{rowTotal}</div>
+                    <td className="px-3 py-3 text-center align-middle border-l border-slate-200 dark:border-slate-700 bg-slate-50/30 dark:bg-slate-800/30">
+                        <div className="text-base font-sans font-bold tabular-nums text-slate-800 dark:text-white w-8">{rowTotal}</div>
                     </td>
                 )}
             </tr>
@@ -312,25 +313,25 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
 
     return (
       <div className="mb-8">
-        <div className={`p-3 rounded-t-lg border-b flex justify-between items-end ${headerClass}`}>
+        <div className={`p-3 rounded-t-lg border-b flex justify-between items-end shadow-sm ${headerClass}`}>
           <div className="flex items-center gap-3">
              <div>
-                <span className="text-xs font-bold uppercase opacity-60 tracking-wider font-sans">{side === 'home' ? 'Home' : 'Away'}</span>
-                <h3 className="text-xl font-bold leading-none font-sans">{team.name}</h3>
+                <span className="text-xs font-bold uppercase opacity-80 tracking-wider font-sans">{side === 'home' ? 'Home' : 'Away'}</span>
+                <h3 className="text-xl font-black leading-none font-sans">{team.name}</h3>
              </div>
              {canRestore && <button onClick={() => handleRestoreRoster(side)} className="bg-white/80 dark:bg-slate-800 hover:bg-white text-slate-600 dark:text-slate-300 px-2 py-1 rounded text-[10px] font-bold border border-slate-200 dark:border-slate-700 shadow-sm animate-pulse font-sans">+ Reset Roster</button>}
           </div>
           <div className="text-2xl font-sans tabular-nums font-bold">{calculateTeamInningTotal(side, currentInning)} <span className="text-sm font-normal opacity-60 font-sans">pts</span></div>
         </div>
-        <div className="bg-white dark:bg-slate-900 rounded-b-lg shadow-sm border border-slate-200 dark:border-slate-800 overflow-x-auto scrollbar-hide">
-          <table className="w-full">
-            <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+        <div className="bg-white dark:bg-slate-900 rounded-b-lg shadow-md border border-slate-200 dark:border-slate-700 overflow-x-auto scrollbar-hide">
+          <table className="w-full border-collapse">
+            <tbody>
               {isTwoPlayerGhostMode ? (
                   <>
                     {renderRow(inningData.playerScores[0], 0, team.players.find(p=>p.id===inningData.playerScores[0].playerId), 0, 10, false)}
                     {renderRow(inningData.playerScores[1], 1, team.players.find(p=>p.id===inningData.playerScores[1].playerId), 0, 10, false)}
-                    <tr className="hover:bg-slate-50/50 dark:hover:bg-slate-800/50 bg-slate-50/30 dark:bg-slate-900/30">
-                        <td className="px-2 sm:px-4 py-3 font-medium text-slate-700 dark:text-slate-300 sticky left-0 bg-white dark:bg-slate-900 z-10 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)] border-r border-slate-200 dark:border-slate-800 w-[100px] sm:w-auto max-w-[120px]">
+                    <tr className="hover:bg-slate-50/50 dark:hover:bg-slate-800/50 bg-slate-50/30 dark:bg-slate-900/30 border-t border-slate-200 dark:border-slate-700">
+                        <td className="px-2 sm:px-4 py-3 font-medium text-slate-700 dark:text-slate-300 sticky left-0 bg-white dark:bg-slate-900 z-10 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)] border-r border-slate-200 dark:border-slate-700 w-[100px] sm:w-auto max-w-[120px]">
                             <div className="flex items-center gap-2">
                                 <span className="text-[9px] sm:text-[10px] font-bold w-5 h-5 rounded-full flex items-center justify-center shrink-0 bg-slate-200 dark:bg-slate-800 text-slate-500 dark:text-slate-400 font-sans">3</span>
                                 <span className="truncate text-xs sm:text-sm italic text-slate-400 dark:text-slate-500 font-sans">Player 3</span>
@@ -369,7 +370,7 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
                                 })}
                             </div>
                         </td>
-                        <td className="px-3 py-3 text-center align-middle border-l border-slate-200 dark:border-slate-800 bg-slate-50/30 dark:bg-slate-900/30">
+                        <td className="px-3 py-3 text-center align-middle border-l border-slate-200 dark:border-slate-700 bg-slate-50/30 dark:bg-slate-900/30">
                              <div className="text-base font-sans tabular-nums font-bold text-slate-800 dark:text-slate-200 w-8">
                                  {inningData.playerScores[0].pitches.slice(10, 15).reduce((s,p)=>s+(p.points||0),0) + inningData.playerScores[1].pitches.slice(10, 15).reduce((s,p)=>s+(p.points||0),0)}
                              </div>
@@ -407,7 +408,7 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
                   
                   return (
                     <div key={idx}>
-                         <div className="bg-amber-50 dark:bg-amber-900/20 p-3 rounded-t-xl border border-amber-200 dark:border-amber-800/50 flex justify-between items-center">
+                         <div className="bg-amber-50 dark:bg-amber-950 p-3 rounded-t-xl border border-amber-200 dark:border-amber-900 flex justify-between items-center">
                              <h3 className="font-bold text-amber-800 dark:text-amber-100 font-sans">Extra Innings: Round {round.roundNumber} ({round.pitchLimit} Pitches)</h3>
                              {isLastRound && (
                                  homeSum === awaySum ? (
@@ -417,15 +418,15 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
                                  )
                              )}
                          </div>
-                         <div className="bg-white dark:bg-slate-900 border-x border-b border-slate-200 dark:border-slate-800 rounded-b-xl overflow-hidden">
+                         <div className="bg-white dark:bg-slate-900 border-x border-b border-slate-200 dark:border-slate-700 rounded-b-xl overflow-hidden">
                              <table className="w-full">
                                  <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                                      {/* Away Player Row */}
                                      <tr className="bg-red-50/10 dark:bg-red-900/10">
-                                        <td className="px-4 py-3 font-medium text-slate-700 dark:text-slate-300 w-[150px]">
+                                        <td className="px-4 py-3 font-medium text-slate-700 dark:text-slate-200 w-[150px]">
                                             <div className="flex items-center gap-2">
                                                 <span className="text-xs font-bold bg-red-100 dark:bg-red-900/50 text-red-600 dark:text-red-300 px-2 py-0.5 rounded font-sans">Away</span>
-                                                <span className="font-bold text-sm truncate font-sans">{awayPlayer?.name}</span>
+                                                <span className="font-bold text-sm truncate font-sans text-slate-900 dark:text-slate-100">{awayPlayer?.name}</span>
                                             </div>
                                         </td>
                                         <td className="px-2 py-3">
@@ -442,14 +443,14 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
                                                 ))}
                                             </div>
                                         </td>
-                                        <td className="px-4 py-3 font-bold text-xl text-center font-sans tabular-nums bg-slate-50/50 dark:bg-slate-800/50 dark:text-slate-200">{awaySum}</td>
+                                        <td className="px-4 py-3 font-bold text-xl text-center font-sans tabular-nums bg-slate-50/50 dark:bg-slate-800/50 dark:text-white">{awaySum}</td>
                                      </tr>
                                      {/* Home Player Row */}
                                      <tr className="bg-blue-50/10 dark:bg-blue-900/10">
-                                        <td className="px-4 py-3 font-medium text-slate-700 dark:text-slate-300 w-[150px]">
+                                        <td className="px-4 py-3 font-medium text-slate-700 dark:text-slate-200 w-[150px]">
                                             <div className="flex items-center gap-2">
                                                 <span className="text-xs font-bold bg-blue-100 dark:bg-blue-900/50 text-blue-600 dark:text-blue-300 px-2 py-0.5 rounded font-sans">Home</span>
-                                                <span className="font-bold text-sm truncate font-sans">{homePlayer?.name}</span>
+                                                <span className="font-bold text-sm truncate font-sans text-slate-900 dark:text-slate-100">{homePlayer?.name}</span>
                                             </div>
                                         </td>
                                         <td className="px-2 py-3">
@@ -466,7 +467,7 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
                                                 ))}
                                             </div>
                                         </td>
-                                        <td className="px-4 py-3 font-bold text-xl text-center font-sans tabular-nums bg-slate-50/50 dark:bg-slate-800/50 dark:text-slate-200">{homeSum}</td>
+                                        <td className="px-4 py-3 font-bold text-xl text-center font-sans tabular-nums bg-slate-50/50 dark:bg-slate-800/50 dark:text-white">{homeSum}</td>
                                      </tr>
                                  </tbody>
                              </table>
@@ -480,7 +481,7 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
 
   return (
     <div className="min-h-screen bg-transparent pb-20 font-sans">
-      <header className="bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 sticky top-0 z-[100] shadow-sm">
+      <header className="bg-white/80 dark:bg-slate-950/90 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 sticky top-0 z-[100] shadow-sm">
         <div className="max-w-7xl mx-auto px-4 py-3 flex justify-between items-center gap-4">
           <div className="flex gap-4 sm:gap-8 items-center flex-1 overflow-hidden">
             <div className="text-center"><div className="text-[10px] sm:text-xs text-slate-500 dark:text-slate-400 uppercase font-bold font-sans">Away</div><div className="text-lg sm:text-xl font-bold text-red-700 dark:text-red-400 truncate max-w-[100px] font-sans">{teams.away.name}</div><div className="text-xl sm:text-2xl font-sans tabular-nums leading-none dark:text-white">{awayTotal}</div></div>
@@ -495,7 +496,7 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
         </div>
         <div className="flex overflow-x-auto scrollbar-hide border-t border-slate-100 dark:border-slate-800">
             {match.innings.map((ing, idx) => (
-                <button key={ing.number} onClick={() => setActiveInningIdx(idx)} className={`flex-1 py-3 text-sm font-bold uppercase tracking-wider border-b-2 transition-colors min-w-[80px] font-sans ${idx === activeInningIdx ? 'border-blue-600 text-blue-600 dark:text-blue-400 bg-blue-50/50 dark:bg-blue-900/20' : 'border-transparent text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800'}`}>Inning {ing.number}</button>
+                <button key={ing.number} onClick={() => setActiveInningIdx(idx)} className={`flex-1 py-3 text-sm font-bold uppercase tracking-wider border-b-2 transition-colors min-w-[80px] font-sans ${idx === activeInningIdx ? 'border-blue-600 text-blue-600 dark:text-blue-400 bg-blue-50/50 dark:bg-blue-900/20' : 'border-transparent text-slate-400 dark:text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800'}`}>Inning {ing.number}</button>
             ))}
             {(match.tieBreaker && match.tieBreaker.length > 0) && (
                 <button onClick={() => setActiveInningIdx(6)} className={`flex-1 py-3 text-sm font-bold uppercase tracking-wider border-b-2 transition-colors min-w-[120px] font-sans ${activeInningIdx === 6 ? 'border-amber-500 text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20' : 'border-transparent text-amber-500 hover:bg-amber-50 dark:hover:bg-amber-900/10'}`}>Extra Innings</button>

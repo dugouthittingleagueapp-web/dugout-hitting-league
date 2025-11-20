@@ -64,13 +64,13 @@ export const Navbar: React.FC<NavbarProps> = ({
                     </svg>
                 </button>
 
-                {/* Right: Auth Actions (Desktop) / Theme Toggle (Mobile placeholder if needed) */}
+                {/* Right: Theme Toggle Only (Auth moved to Menu) */}
                 {!isHomeScreen && (
                     <div className="hidden md:flex items-center gap-3">
                          {/* Theme Toggle */}
                         <button 
                             onClick={toggleTheme}
-                            className="p-2 rounded-full hover:bg-black/5 dark:hover:bg-white/10 text-slate-600 dark:text-slate-300 transition-colors mr-2"
+                            className="p-2 rounded-full hover:bg-black/5 dark:hover:bg-white/10 text-slate-600 dark:text-slate-300 transition-colors"
                             title="Toggle Theme"
                         >
                             {isDarkMode ? (
@@ -79,17 +79,6 @@ export const Navbar: React.FC<NavbarProps> = ({
                                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"></path></svg>
                             )}
                         </button>
-                        
-                        {userRole === 'fan' ? (
-                            <button onClick={onLogin} className="text-sm bg-blue-600 hover:bg-blue-500 text-white px-4 py-1.5 rounded-lg font-bold transition-all font-sans whitespace-nowrap">
-                                Log In
-                            </button>
-                        ) : (
-                            <div className="flex items-center gap-3">
-                                {userRole === 'admin' && <button onClick={onAdminDashboard} className="text-xs bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 px-3 py-1.5 rounded-lg font-bold transition-colors">Admin</button>}
-                                <button onClick={onLogout} className="text-xs text-red-500 hover:text-red-600 dark:hover:text-red-400 transition-colors">Log Out</button>
-                            </div>
-                        )}
                     </div>
                 )}
             </div>

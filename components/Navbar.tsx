@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { AgeGroup, League } from '../types';
 
@@ -46,7 +47,7 @@ export const Navbar: React.FC<NavbarProps> = ({
     <nav className="bg-slate-900 text-white p-2 sm:p-4 shadow-lg sticky top-0 z-50">
       <div className="max-w-7xl mx-auto flex justify-between items-center">
         <div className="flex items-center gap-4 cursor-pointer" onClick={onGoHome}>
-            {/* Logo Update: Neon Green DH Circle */}
+            {/* Logo Update: Neon Green DH Circle #40F540 */}
             <div className="w-12 h-12 bg-[#40F540] rounded-full flex items-center justify-center border-2 border-white shadow-lg shrink-0">
                 <span className="font-black text-slate-900 text-lg tracking-tighter font-sans">DH</span>
             </div>

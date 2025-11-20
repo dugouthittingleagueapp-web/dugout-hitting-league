@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Match, Inning, Team, TieBreakerRound } from '../types';
 import * as storage from '../services/storageService';
@@ -178,9 +179,13 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
          setTimeout(() => setShowTieBreakerSetup(true), 500);
     }
 
-    await storage.updateMatch(newMatch).catch(err => {
+    // Perform DB update in background
+    try {
+        await storage.updateMatch(newMatch);
+    } catch (err) {
         console.error("Failed to save score", err);
-    });
+        // Ideally revert optimistic update here if critical
+    }
   };
 
   const confirmCompleteGame = async () => {

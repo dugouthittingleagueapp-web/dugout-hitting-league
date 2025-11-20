@@ -24,8 +24,14 @@ const App: React.FC = () => {
   // Dashboard View State
   const [dashboardTab, setDashboardTab] = useState<'matches' | 'standings' | 'season_stats'>('matches');
 
-  // Role / Auth State
-  const [userRole, setUserRole] = useState<'fan' | 'umpire' | 'admin'>('fan');
+  // Role / Auth State - Initialize from localStorage
+  const [userRole, setUserRole] = useState<'fan' | 'umpire' | 'admin'>(() => {
+    if (typeof window !== 'undefined') {
+        const stored = localStorage.getItem('userRole');
+        if (stored === 'admin' || stored === 'umpire') return stored;
+    }
+    return 'fan';
+  });
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [passwordInput, setPasswordInput] = useState('');
   const [loginError, setLoginError] = useState('');
@@ -151,6 +157,7 @@ const App: React.FC = () => {
 
   const handleLogout = () => {
       setUserRole('fan');
+      localStorage.removeItem('userRole');
       setState({...state, view: 'league_select', currentLeague: null, currentMatchId: null}); 
       setIsMenuOpen(false);
   };
@@ -170,6 +177,7 @@ const App: React.FC = () => {
     
     if (result.success && result.role) {
       setUserRole(result.role);
+      localStorage.setItem('userRole', result.role);
       setShowLoginModal(false);
       if (result.role === 'admin') setState({...state, view: 'admin'}); 
     } else {

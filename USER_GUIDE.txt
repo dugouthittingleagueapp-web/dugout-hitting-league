@@ -47,16 +47,17 @@ C) ADMIN (Password: admin)
 3. Click "Next: Set Lineup".
 4. Drag and drop players to set the batting order.
    - If a team only has 2 players present, remove the 3rd player here.
-   - If a team has a Sub, click "+ Add Sub" to type in their name.
+   - If a team has a Sub, click "+ Add Sub". You can select a previously used sub from the list or create a new one.
 5. Click "Start Match".
 
 
 4. SCORING RULES
 ----------------
-- Click the score box (Pitch 1, 2, etc.) and select the points (0, 1, 2, 3, 4).
-- Colors: 0=Grey, 1=Cyan, 2=Green, 3=Orange, 4=Red.
+- SCORE ENTRY: Click the score box (Pitch 1, 2, etc.) and select the points (0, 1, 2, 3, 4).
+- AUTO-ADVANCE: When the last pitch of an inning is scored for both teams, the scoreboard will automatically advance to the next inning tab.
 - UNDO: If you enter a score by mistake, open the scoring modal for the next pitch and click "Undo Previous" to clear the last entered score.
 - LIVE EDITING: You can also click any previously scored box to edit it directly. Change the number and click "Update".
+- COLORS: 0=Grey, 1=Cyan, 2=Green, 3=Orange, 4=Red.
 
 5. SHORT-HANDED TEAMS (2v2 & 3v2)
 ---------------------------------

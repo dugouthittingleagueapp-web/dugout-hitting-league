@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { AgeGroup, AppState, Match, Team, Player, League, PlayerStats } from './types';
 import { Navbar } from './components/Navbar';
 import { TeamManagement } from './components/TeamManagement';
@@ -7,6 +7,8 @@ import { Scoreboard } from './components/Scoreboard';
 import { AdminDashboard } from './components/AdminDashboard';
 import { MatchSetup } from './components/MatchSetup';
 import * as storage from './services/storageService';
+
+const INACTIVITY_LIMIT = 3 * 60 * 60 * 1000; // 3 hours
 
 const App: React.FC = () => {
   const [state, setState] = useState<AppState>({ view: 'league_select', currentLeague: null, currentMatchId: null, season: '2025' });
@@ -24,14 +26,30 @@ const App: React.FC = () => {
   // Dashboard View State
   const [dashboardTab, setDashboardTab] = useState<'matches' | 'standings' | 'season_stats'>('matches');
 
-  // Role / Auth State - Initialize from localStorage
+  // Role / Auth State - Initialize from localStorage with Inactivity Check
   const [userRole, setUserRole] = useState<'fan' | 'umpire' | 'admin'>(() => {
     if (typeof window !== 'undefined') {
         const stored = localStorage.getItem('userRole');
-        if (stored === 'admin' || stored === 'umpire') return stored;
+        const lastActivity = localStorage.getItem('lastActivity');
+
+        if (stored === 'admin' || stored === 'umpire') {
+            // Check for expiration
+            if (lastActivity) {
+                const diff = Date.now() - parseInt(lastActivity, 10);
+                if (diff > INACTIVITY_LIMIT) {
+                    localStorage.removeItem('userRole');
+                    localStorage.removeItem('lastActivity');
+                    return 'fan';
+                }
+            }
+            // Update activity on load if valid
+            localStorage.setItem('lastActivity', Date.now().toString());
+            return stored;
+        }
     }
     return 'fan';
   });
+
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [passwordInput, setPasswordInput] = useState('');
   const [loginError, setLoginError] = useState('');
@@ -84,6 +102,46 @@ const App: React.FC = () => {
     try { const [m, t] = await Promise.all([storage.getMatches(league, season), storage.getTeams(league, season)]); setMatches(m); setTeams(t); } 
     catch (e) { console.error(e); } finally { setLoading(false); }
   };
+
+  const handleLogout = useCallback(() => {
+      setUserRole('fan');
+      localStorage.removeItem('userRole');
+      localStorage.removeItem('lastActivity');
+      setState(s => ({...s, view: 'league_select', currentLeague: null, currentMatchId: null})); 
+      setIsMenuOpen(false);
+  }, []);
+
+  // Session Inactivity Monitoring
+  useEffect(() => {
+      if (userRole === 'fan') return;
+
+      const updateActivity = () => {
+          localStorage.setItem('lastActivity', Date.now().toString());
+      };
+
+      const checkInactivity = () => {
+          const lastActivity = localStorage.getItem('lastActivity');
+          if (lastActivity) {
+              const diff = Date.now() - parseInt(lastActivity, 10);
+              if (diff > INACTIVITY_LIMIT) {
+                  handleLogout();
+                  alert("Session expired due to inactivity.");
+              }
+          }
+      };
+
+      // Listen for common user interactions
+      const events = ['mousedown', 'keydown', 'touchstart', 'scroll', 'click'];
+      events.forEach(evt => window.addEventListener(evt, updateActivity));
+      
+      // Check every minute
+      const interval = setInterval(checkInactivity, 60 * 1000);
+
+      return () => {
+          events.forEach(evt => window.removeEventListener(evt, updateActivity));
+          clearInterval(interval);
+      };
+  }, [userRole, handleLogout]);
 
   const handleStartGame = async (finalHomeId: string, finalAwayId: string, homeLineup: Player[], awayLineup: Player[]) => {
     if (!state.currentLeague) return;
@@ -154,13 +212,6 @@ const App: React.FC = () => {
       setLoginError('');
       setIsMenuOpen(false);
   };
-
-  const handleLogout = () => {
-      setUserRole('fan');
-      localStorage.removeItem('userRole');
-      setState({...state, view: 'league_select', currentLeague: null, currentMatchId: null}); 
-      setIsMenuOpen(false);
-  };
   
   const openAdminDashboard = () => {
       if (userRole === 'admin') {
@@ -178,8 +229,9 @@ const App: React.FC = () => {
     if (result.success && result.role) {
       setUserRole(result.role);
       localStorage.setItem('userRole', result.role);
+      localStorage.setItem('lastActivity', Date.now().toString());
       setShowLoginModal(false);
-      if (result.role === 'admin') setState({...state, view: 'admin'}); 
+      if (result.role === 'admin') setState(prev => ({...prev, view: 'admin'})); 
     } else {
       setLoginError('Incorrect password.');
     }

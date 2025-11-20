@@ -58,24 +58,21 @@ C) ADMIN (Password: admin)
 - UNDO: If you enter a score by mistake, open the scoring modal for the next pitch and click "Undo Previous" to clear the last entered score.
 - LIVE EDITING: You can also click any previously scored box to edit it directly. Change the number and click "Update".
 
-5. SPECIAL: 2-PLAYER TEAMS (GHOST MODE)
----------------------------------------
-If a team only has 2 players, the scoring format changes automatically:
+5. SHORT-HANDED TEAMS (2v2 & 3v2)
+---------------------------------
 
-- Each player gets 15 pitches per inning (Total 30 team pitches).
-- The Scoreboard will show a 3rd row called "Player 3 (Ghost)".
-  
-HOW TO SCORE IT:
-1. Player 1 hits 15 times in a row.
-   - Pitches 1-10 appear on Player 1's row.
-   - Pitches 11-15 automatically jump to the "Ghost Row" (Slots 1-5).
-2. Player 2 hits 15 times in a row.
-   - Pitches 1-10 appear on Player 2's row.
-   - Pitches 11-15 automatically jump to the "Ghost Row" (Slots 6-10).
+2v2 MATCHES:
+In a standard 2v2 match (both teams have 2 players), scoring works just like 3v3 but with fewer players.
+- Each player gets 10 pitches per inning.
+- Total Team Pitches per Inning: 20.
+- No Ghost Player is used.
 
-STATS IMPACT:
-- Only pitches 1-10 count towards the individual player's stats.
-- Pitches 11-15 count towards the TEAM total, but are recorded under "Player 3" (Ghost) for stats purposes. This prevents players from having unfair advantages on the leaderboard just because they had extra at-bats.
+3v2 MATCHES (GHOST MODE):
+If one team has 3 players and the other has 2, the 2-player team enters "Ghost Mode" to ensure they also get 30 total swings.
+- Players 1 & 2 get 15 pitches each.
+- Pitches 1-10 appear on the player's row.
+- Pitches 11-15 automatically appear on the "Ghost Row" (Player 3).
+- STATS: Only pitches 1-10 count towards the player's personal stats. Pitches 11-15 count towards the Team Total (attributed to "Player 3").
 
 6. TIE BREAKERS (EXTRA INNINGS)
 -------------------------------

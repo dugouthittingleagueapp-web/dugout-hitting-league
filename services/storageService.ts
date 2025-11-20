@@ -1,3 +1,4 @@
+
 import { AgeGroup, Match, Team, Inning, PlayerInningScore, League, PlayerStats } from '../types';
 
 const mapTeamFromDB = (dbTeam: any): Team => ({
@@ -138,13 +139,22 @@ export const createMatch = async (league: AgeGroup, homeTeamId: string, awayTeam
 };
 
 const createEmptyInning = (number: number, homeIds: string[], awayIds: string[]): Inning => {
-    // LOGIC: 2v2 Strict vs 3v2 Ghost
-    // If a team has 2 players and opponent has 3, the 2-player team gets 15 pitches (Ghost mode).
-    // If both have 2, it is Strict 2v2 (10 pitches).
-    // If both have 3, it is standard (10 pitches).
+    // LOGIC:
+    // 3v3: 10 pitches each (30 vs 30)
+    // 2v2: 10 pitches each (20 vs 20) - Standard scoring per user request
+    // 3v2 / 2v3: The short team gets 15 pitches (Ghost Mode) to balance the 30-pitch team.
 
-    const homePitches = (homeIds.length === 2 && awayIds.length === 3) ? 15 : 10;
-    const awayPitches = (awayIds.length === 2 && homeIds.length === 3) ? 15 : 10;
+    let homePitches = 10;
+    let awayPitches = 10;
+
+    const homeCount = homeIds.length;
+    const awayCount = awayIds.length;
+
+    if (homeCount === 2 && awayCount === 3) {
+        homePitches = 15; // Ghost Mode for Home
+    } else if (awayCount === 2 && homeCount === 3) {
+        awayPitches = 15; // Ghost Mode for Away
+    }
 
     const createPlayerScore = (pid: string, count: number) => ({
         playerId: pid,

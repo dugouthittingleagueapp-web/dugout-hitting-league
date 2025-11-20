@@ -21,7 +21,10 @@ export const TeamManagement: React.FC<TeamManagementProps> = ({ league, season, 
   const [editingTeamId, setEditingTeamId] = useState<string | null>(null);
   const [newTeamName, setNewTeamName] = useState('');
   const [playerNames, setPlayerNames] = useState(['', '', '']);
-  const [subNames, setSubNames] = useState<string[]>([]);
+  
+  // Subs state: stores objects to preserve IDs
+  const [subs, setSubs] = useState<{id: string, name: string}[]>([]);
+  
   const [loading, setLoading] = useState(false);
 
   useEffect(() => { loadTeams(); }, [league, season]);
@@ -73,15 +76,15 @@ export const TeamManagement: React.FC<TeamManagementProps> = ({ league, season, 
     while(pNames.length < 3) pNames.push('');
     setPlayerNames(pNames.slice(0, 3));
     
-    // Fill subs
-    setSubNames((team.subs || []).map(s => s.name));
+    // Fill subs with objects
+    setSubs(team.subs || []);
   };
 
   const cancelEdit = () => {
       setEditingTeamId(null);
       setNewTeamName('');
       setPlayerNames(['', '', '']);
-      setSubNames([]);
+      setSubs([]);
   };
 
   const handleSave = async (e: React.FormEvent) => {
@@ -99,14 +102,8 @@ export const TeamManagement: React.FC<TeamManagementProps> = ({ league, season, 
                      name
                  }));
                  
-                 // Update Subs: Try to preserve IDs if possible
-                 const finalSubs = subNames.filter(n => n.trim()).map((name, idx) => {
-                     let existingId: string = crypto.randomUUID();
-                     if (teamToUpdate.subs && teamToUpdate.subs[idx]) {
-                         existingId = teamToUpdate.subs[idx].id;
-                     }
-                     return { id: existingId, name };
-                 });
+                 // Clean empty subs before saving
+                 const finalSubs = subs.filter(s => s.name.trim());
 
                  await storage.updateTeam({
                      ...teamToUpdate,
@@ -117,8 +114,8 @@ export const TeamManagement: React.FC<TeamManagementProps> = ({ league, season, 
              }
         } else {
             // Create New
-            const cleanSubs = subNames.filter(n => n.trim());
-            await storage.createTeam(newTeamName, league, playerNames, season, cleanSubs);
+            const cleanSubNames = subs.filter(s => s.name.trim()).map(s => s.name);
+            await storage.createTeam(newTeamName, league, playerNames, season, cleanSubNames);
         }
         
         await loadTeams();
@@ -146,17 +143,17 @@ export const TeamManagement: React.FC<TeamManagementProps> = ({ league, season, 
   };
 
   const handleSubNameChange = (index: number, value: string) => {
-      const newSubs = [...subNames];
-      newSubs[index] = value;
-      setSubNames(newSubs);
+      const newSubs = [...subs];
+      newSubs[index] = { ...newSubs[index], name: value };
+      setSubs(newSubs);
   };
 
-  const addSubField = () => setSubNames([...subNames, '']);
+  const addSubField = () => setSubs([...subs, { id: crypto.randomUUID(), name: '' }]);
   
   const removeSubField = (index: number) => {
-      const newSubs = [...subNames];
+      const newSubs = [...subs];
       newSubs.splice(index, 1);
-      setSubNames(newSubs);
+      setSubs(newSubs);
   };
 
   // Helper to render sortable headers
@@ -265,13 +262,13 @@ export const TeamManagement: React.FC<TeamManagementProps> = ({ league, season, 
                     <button type="button" onClick={addSubField} className="text-xs font-bold text-blue-600 hover:text-blue-500 dark:text-blue-400 dark:hover:text-blue-300">+ Add Sub</button>
                 </div>
                 <div className="space-y-2">
-                    {subNames.map((name, idx) => (
+                    {subs.map((sub, idx) => (
                         <div key={idx} className="flex gap-2 items-center">
                             <input 
                                 type="text" 
                                 className="flex-1 bg-slate-100 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none font-sans text-slate-900 dark:text-white placeholder-slate-500 dark:placeholder-slate-600" 
                                 placeholder={`Sub Name`} 
-                                value={name} 
+                                value={sub.name} 
                                 onChange={e => handleSubNameChange(idx, e.target.value)} 
                             />
                             <button type="button" onClick={() => removeSubField(idx)} className="p-2 text-slate-400 hover:text-red-500 transition-colors">
@@ -279,7 +276,7 @@ export const TeamManagement: React.FC<TeamManagementProps> = ({ league, season, 
                             </button>
                         </div>
                     ))}
-                    {subNames.length === 0 && <p className="text-xs text-slate-400 italic font-sans">No substitutes listed.</p>}
+                    {subs.length === 0 && <p className="text-xs text-slate-400 italic font-sans">No substitutes listed.</p>}
                 </div>
             </div>
 

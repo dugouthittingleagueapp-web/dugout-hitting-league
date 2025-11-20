@@ -313,13 +313,19 @@ const App: React.FC = () => {
           const away = teams.find(t => t.id === m.awayTeamId);
           if(!home || !away) return;
 
-          const processSide = (team: Team, sideData: any) => {
+          const processSide = (team: Team, sideData: any, isHome: boolean) => {
                const playerMatchTotals = new Map<string, number>();
 
                m.innings.forEach(inning => {
                    const iData = sideData(inning); 
+                   
+                   // Check for Ghost Mode (3v2 format)
+                   const isGhostMode = iData.playerScores.length === 2 && iData.playerScores[0].pitches.length >= 15;
+
                    iData.playerScores.forEach((ps: any) => {
-                       const inningScore = ps.pitches.reduce((sum: number, p: any) => sum + (p.points || 0), 0);
+                       // In Ghost Mode, only first 10 pitches count for player stats
+                       const relevantPitches = isGhostMode ? ps.pitches.slice(0, 10) : ps.pitches;
+                       const inningScore = relevantPitches.reduce((sum: number, p: any) => sum + (p.points || 0), 0);
                        
                        const pName = team.players.find(p => p.id === ps.playerId)?.name || 'Sub';
                        if (!ps.playerId.startsWith('ghost-')) { 
@@ -329,14 +335,27 @@ const App: React.FC = () => {
                    });
                });
                
+               // Add Tie Breaker Points to Match Total
+               if (m.tieBreaker) {
+                   m.tieBreaker.forEach(tb => {
+                       const pid = isHome ? tb.homePlayerId : tb.awayPlayerId;
+                       const scores = isHome ? tb.homeScores : tb.awayScores;
+                       const tbPoints = scores.reduce((s, v) => s + (v||0), 0);
+                       
+                       if(pid) {
+                           playerMatchTotals.set(pid, (playerMatchTotals.get(pid) || 0) + tbPoints);
+                       }
+                   });
+               }
+
                playerMatchTotals.forEach((score, pId) => {
                    const pName = team.players.find(p => p.id === pId)?.name || 'Sub';
                    matchTotalBest.push({ name: pName, score, team: team.name, date: m.date });
                });
           };
 
-          processSide(home, (i: any) => i.home);
-          processSide(away, (i: any) => i.away);
+          processSide(home, (i: any) => i.home, true);
+          processSide(away, (i: any) => i.away, false);
       });
 
       const topInnings = singleInningBest.sort((a,b) => b.score - a.score).slice(0, 3);

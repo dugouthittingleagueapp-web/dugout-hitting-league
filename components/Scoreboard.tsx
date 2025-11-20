@@ -179,13 +179,9 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
          setTimeout(() => setShowTieBreakerSetup(true), 500);
     }
 
-    // Perform DB update in background
-    try {
-        await storage.updateMatch(newMatch);
-    } catch (err) {
+    await storage.updateMatch(newMatch).catch(err => {
         console.error("Failed to save score", err);
-        // Ideally revert optimistic update here if critical
-    }
+    });
   };
 
   const confirmCompleteGame = async () => {

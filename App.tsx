@@ -364,9 +364,9 @@ const App: React.FC = () => {
                     <button onClick={openLoginModal} className="w-full px-4 py-3 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-500 transition-all shadow-lg shadow-blue-900/20">Log In to Admin</button>
                 </div>
             ) : (
-                <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-3 w-full max-w-7xl px-4">
+                <div className="flex flex-wrap justify-center gap-4 w-full max-w-7xl px-4">
                 {sortedLeagues.map(league => (
-                    <button key={league.id} onClick={() => handleSelectLeague(league.id)} className="group relative bg-slate-900 hover:bg-slate-800 p-0.5 rounded-xl shadow-2xl transition-all duration-300 hover:-translate-y-1 hover:shadow-blue-900/20 text-left w-full aspect-[3/4] flex flex-col border border-slate-800 hover:border-blue-500/50">
+                    <button key={league.id} onClick={() => handleSelectLeague(league.id)} className="group relative bg-slate-900 hover:bg-slate-800 p-0.5 rounded-xl shadow-2xl transition-all duration-300 hover:-translate-y-1 hover:shadow-blue-900/20 text-left w-32 sm:w-36 md:w-40 aspect-[3/4] flex flex-col border border-slate-800 hover:border-blue-500/50">
                         {/* Glow Effect */}
                         <div className="absolute inset-0 bg-gradient-to-b from-blue-600/0 to-blue-900/0 group-hover:to-blue-900/20 rounded-xl transition-all duration-500"></div>
                         
@@ -388,7 +388,7 @@ const App: React.FC = () => {
                             </div>
                             
                             <div className="relative z-10 mt-auto">
-                                <h3 className="text-base sm:text-lg font-black text-white uppercase italic leading-none mb-0.5 group-hover:text-blue-400 transition-colors drop-shadow-lg truncate">{league.id}</h3>
+                                <h3 className="text-xl sm:text-2xl font-black text-white uppercase italic leading-none mb-0.5 group-hover:text-blue-400 transition-colors drop-shadow-lg truncate">{league.id}</h3>
                                 <div className="h-0.5 w-6 bg-slate-700 group-hover:bg-blue-500 transition-colors rounded-full"></div>
                                 <span className="text-[9px] font-bold text-slate-500 group-hover:text-slate-400 mt-1 block uppercase tracking-widest">League</span>
                             </div>

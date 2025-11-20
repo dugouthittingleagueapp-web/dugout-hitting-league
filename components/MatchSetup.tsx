@@ -16,6 +16,11 @@ export const MatchSetup: React.FC<MatchSetupProps> = ({ homeTeam, awayTeam, onSt
   const [isSwapped, setIsSwapped] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
+  // Sub Modal State
+  const [showSubModal, setShowSubModal] = useState(false);
+  const [subSide, setSubSide] = useState<'left' | 'right' | null>(null);
+  const [newSubName, setNewSubName] = useState('');
+
   // Helper to get current visual home/away names/lineups
   // If swapped: Left Side shows Away Team data, Right Side shows Home Team data
   const leftSideTeam = isSwapped ? awayTeam : homeTeam;
@@ -67,14 +72,31 @@ export const MatchSetup: React.FC<MatchSetupProps> = ({ homeTeam, awayTeam, onSt
       setter([...originalTeam.players]);
   };
 
-  const addSub = (side: 'left' | 'right') => {
-      const name = prompt("Enter Substitute Name:");
-      if (name && name.trim()) {
-          const list = side === 'left' ? getLeftSideLineup() : getRightSideLineup();
-          const setter = side === 'left' ? setLeftSideLineup : setRightSideLineup;
-          const newPlayer: Player = { id: crypto.randomUUID(), name: name.trim() };
-          setter([...list, newPlayer]);
+  const openSubModal = (side: 'left' | 'right') => {
+      setSubSide(side);
+      setNewSubName('');
+      setShowSubModal(true);
+  };
+
+  const handleAddSub = (player: Player) => {
+      if (!subSide) return;
+      const list = subSide === 'left' ? getLeftSideLineup() : getRightSideLineup();
+      const setter = subSide === 'left' ? setLeftSideLineup : setRightSideLineup;
+      
+      // Check if already in lineup
+      if (list.find(p => p.id === player.id)) {
+          alert("Player already in lineup");
+          return;
       }
+      
+      setter([...list, player]);
+      setShowSubModal(false);
+  };
+
+  const handleCreateNewSub = () => {
+      if (!newSubName.trim()) return;
+      const newPlayer: Player = { id: crypto.randomUUID(), name: newSubName.trim() };
+      handleAddSub(newPlayer);
   };
 
   const handleItemClick = (side: 'left' | 'right', index: number, player: Player) => {
@@ -160,7 +182,7 @@ export const MatchSetup: React.FC<MatchSetupProps> = ({ homeTeam, awayTeam, onSt
                 </button>
             )}
             {players.length < 3 && (
-                <button onClick={() => addSub(side)} className="flex-1 py-2 text-xs font-bold text-green-600 dark:text-green-500 hover:bg-green-50 dark:hover:bg-green-900/20 rounded border border-dashed border-green-300 dark:border-green-800 hover:border-green-500 dark:hover:border-green-600 transition-colors font-sans">
+                <button onClick={() => openSubModal(side)} className="flex-1 py-2 text-xs font-bold text-green-600 dark:text-green-500 hover:bg-green-50 dark:hover:bg-green-900/20 rounded border border-dashed border-green-300 dark:border-green-800 hover:border-green-500 dark:hover:border-green-600 transition-colors font-sans">
                     + Add Sub
                 </button>
             )}
@@ -203,6 +225,70 @@ export const MatchSetup: React.FC<MatchSetupProps> = ({ homeTeam, awayTeam, onSt
             </div>
         </div>
       </div>
+
+      {/* Add Sub Modal */}
+      {showSubModal && subSide && (
+          <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200" onClick={() => setShowSubModal(false)}>
+              <div className="bg-white dark:bg-slate-900 p-6 rounded-2xl shadow-2xl w-[90%] max-w-md font-sans border border-slate-200 dark:border-slate-700" onClick={e => e.stopPropagation()}>
+                  <div className="flex justify-between items-center mb-4">
+                      <h3 className="text-xl font-bold text-slate-800 dark:text-white font-sans">Add Substitute</h3>
+                      <button onClick={() => setShowSubModal(false)} className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200">
+                          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                      </button>
+                  </div>
+
+                  {/* Existing Subs List */}
+                  <div className="mb-6">
+                      <h4 className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase mb-2 font-sans">Available Subs</h4>
+                      <div className="space-y-2 max-h-48 overflow-y-auto">
+                          {(() => {
+                              const team = subSide === 'left' ? leftSideTeam : rightSideTeam;
+                              const subs = team.subs || [];
+                              const lineup = subSide === 'left' ? getLeftSideLineup() : getRightSideLineup();
+                              // Filter out subs already in lineup
+                              const availableSubs = subs.filter(s => !lineup.find(l => l.id === s.id));
+
+                              if (availableSubs.length === 0) {
+                                  return <p className="text-sm italic text-slate-400 dark:text-slate-600">No previous substitutes found.</p>;
+                              }
+
+                              return availableSubs.map(sub => (
+                                  <button 
+                                    key={sub.id} 
+                                    onClick={() => handleAddSub(sub)}
+                                    className="w-full flex items-center justify-between p-3 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors text-left"
+                                  >
+                                      <span className="font-bold text-slate-700 dark:text-slate-200">{sub.name}</span>
+                                      <span className="text-xs bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 px-2 py-1 rounded font-bold">Add</span>
+                                  </button>
+                              ));
+                          })()}
+                      </div>
+                  </div>
+
+                  {/* Create New Sub */}
+                  <div className="border-t border-slate-200 dark:border-slate-800 pt-4">
+                      <h4 className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase mb-2 font-sans">Create New Sub</h4>
+                      <div className="flex gap-2">
+                          <input 
+                            type="text" 
+                            value={newSubName} 
+                            onChange={e => setNewSubName(e.target.value)}
+                            placeholder="Player Name" 
+                            className="flex-1 bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-green-500 outline-none font-sans text-slate-900 dark:text-white"
+                          />
+                          <button 
+                            onClick={handleCreateNewSub} 
+                            disabled={!newSubName.trim()}
+                            className="bg-green-600 hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold px-4 py-2 rounded-lg text-sm font-sans"
+                          >
+                              Create & Add
+                          </button>
+                      </div>
+                  </div>
+              </div>
+          </div>
+      )}
     </div>
   );
 };

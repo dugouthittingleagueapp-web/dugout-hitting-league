@@ -3,7 +3,8 @@ import { AgeGroup, Match, Team, Inning, PlayerInningScore, League, PlayerStats }
 
 const mapTeamFromDB = (dbTeam: any): Team => ({
   ...dbTeam,
-  players: typeof dbTeam.players === 'string' ? JSON.parse(dbTeam.players) : dbTeam.players
+  players: typeof dbTeam.players === 'string' ? JSON.parse(dbTeam.players) : dbTeam.players,
+  subs: dbTeam.subs ? (typeof dbTeam.subs === 'string' ? JSON.parse(dbTeam.subs) : dbTeam.subs) : []
 });
 
 const mapMatchFromDB = (dbMatch: any): Match => ({
@@ -60,6 +61,7 @@ export const createTeam = async (name: string, league: AgeGroup, playerNames: st
     league,
     season,
     players: playerNames.map(name => ({ id: crypto.randomUUID(), name })),
+    subs: []
   };
   const res = await fetch('/api/teams', {
     method: 'POST',
@@ -210,10 +212,32 @@ export const calculateMatchStats = (match: Match, homeTeam: Team, awayTeam: Team
         playerId: id, name, totalPoints: 0, hits4: 0, hits3: 0, hits2: 0, hits1: 0, pitchesSeen: 0
     });
     
-    // Pre-fill players
+    // Pre-fill players AND subs from the match data
+    // We must iterate the match innings to catch players who might be subs
+    const allMatchPlayerIds = new Set<string>();
+    match.innings.forEach(i => {
+        i.home.playerScores.forEach(p => allMatchPlayerIds.add(p.playerId));
+        i.away.playerScores.forEach(p => allMatchPlayerIds.add(p.playerId));
+    });
+
+    // Add team players
     homeTeam.players.forEach(p => stats.set(p.id, initStat(p.id, p.name)));
     awayTeam.players.forEach(p => stats.set(p.id, initStat(p.id, p.name)));
     
+    // Add any subs that might be in the match but not main roster
+    // Check home subs
+    if(homeTeam.subs) {
+        homeTeam.subs.forEach(p => {
+            if(allMatchPlayerIds.has(p.id)) stats.set(p.id, initStat(p.id, p.name));
+        });
+    }
+    // Check away subs
+    if(awayTeam.subs) {
+        awayTeam.subs.forEach(p => {
+            if(allMatchPlayerIds.has(p.id)) stats.set(p.id, initStat(p.id, p.name));
+        });
+    }
+
     match.innings.forEach(inning => {
         [inning.home, inning.away].forEach(teamData => {
             const isGhostMode = teamData.playerScores.length === 2 && teamData.playerScores[0].pitches.length >= 15;
@@ -223,7 +247,7 @@ export const calculateMatchStats = (match: Match, homeTeam: Team, awayTeam: Team
             teamData.playerScores.forEach((ps, idx) => {
                 let pStats = stats.get(ps.playerId);
                 if (!pStats) {
-                     // Handle sub
+                     // Handle unknown sub (shouldn't happen if subs array is sync'd, but safety fallback)
                      pStats = initStat(ps.playerId, 'Sub');
                      stats.set(ps.playerId, pStats);
                 }
@@ -262,7 +286,13 @@ export const calculateMatchStats = (match: Match, homeTeam: Team, awayTeam: Team
         match.tieBreaker.forEach(tb => {
             const addTb = (pid: string, scores: (number|null)[]) => {
                 let s = stats.get(pid);
-                if(!s) { s = initStat(pid, 'Unknown'); stats.set(pid, s); }
+                if(!s) { 
+                     // Try to find name in teams/subs if not init
+                     const allP = [...homeTeam.players, ...(homeTeam.subs||[]), ...awayTeam.players, ...(awayTeam.subs||[])];
+                     const found = allP.find(p=>p.id===pid);
+                     s = initStat(pid, found ? found.name : 'Unknown'); 
+                     stats.set(pid, s); 
+                }
                 scores.forEach(val => {
                     if(val !== null) {
                         s!.totalPoints += val;
@@ -296,8 +326,12 @@ export const getTeamStats = async (team: Team, league: AgeGroup, season: string)
         if(home && away) {
             const mStats = calculateMatchStats(m, home, away);
             mStats.forEach(stat => {
-                // Only aggregate for THIS team's players (including their specific Ghost)
-                if(team.players.find(p => p.id === stat.playerId) || stat.playerId === `ghost-${team.id}`) {
+                // Only aggregate for THIS team's players (including subs and ghost)
+                const isMainPlayer = team.players.some(p => p.id === stat.playerId);
+                const isSub = team.subs && team.subs.some(p => p.id === stat.playerId);
+                const isGhost = stat.playerId === `ghost-${team.id}`;
+
+                if(isMainPlayer || isSub || isGhost) {
                      if(!aggStats.has(stat.playerId)) {
                          aggStats.set(stat.playerId, { ...stat });
                      } else {

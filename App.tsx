@@ -148,15 +148,27 @@ const App: React.FC = () => {
     try {
         setLoading(true);
 
+        // Function to identify and save NEW subs to the team's subs list (not players list)
         const syncSubs = async (teamId: string, lineup: Player[]) => {
             const team = teams.find(t => t.id === teamId);
             if (!team) return;
             
-            const newPlayers = lineup.filter(p => !team.players.find(tp => tp.id === p.id));
-            if (newPlayers.length > 0) {
-                const updatedTeam = { ...team, players: [...team.players, ...newPlayers] };
-                await storage.updateTeam(updatedTeam);
-                setTeams(prev => prev.map(t => t.id === teamId ? updatedTeam : t));
+            // Identify players in lineup who are NOT in the main player roster
+            const potentialSubs = lineup.filter(p => !team.players.find(tp => tp.id === p.id));
+            
+            if (potentialSubs.length > 0) {
+                // Of these potential subs, check if they are already in the subs list
+                const existingSubIds = (team.subs || []).map(s => s.id);
+                const newSubs = potentialSubs.filter(p => !existingSubIds.includes(p.id));
+                
+                if (newSubs.length > 0) {
+                    // Add ONLY the truly new subs to the subs list
+                    const updatedSubs = [...(team.subs || []), ...newSubs];
+                    const updatedTeam = { ...team, subs: updatedSubs };
+                    
+                    await storage.updateTeam(updatedTeam);
+                    setTeams(prev => prev.map(t => t.id === teamId ? updatedTeam : t));
+                }
             }
         };
 
@@ -313,11 +325,20 @@ const App: React.FC = () => {
   const calculateSeasonLeaders = () => {
       const playerStatsMap = new Map<string, PlayerStats>();
       teams.forEach(t => {
+          // Init main players
           t.players.forEach(p => {
               playerStatsMap.set(p.id, {
                   playerId: p.id, name: p.name, totalPoints: 0, hits4: 0, hits3: 0, hits2: 0, hits1: 0, pitchesSeen: 0
               });
           });
+          // Init subs if any
+          if(t.subs) {
+            t.subs.forEach(p => {
+                playerStatsMap.set(p.id, {
+                    playerId: p.id, name: p.name, totalPoints: 0, hits4: 0, hits3: 0, hits2: 0, hits1: 0, pitchesSeen: 0
+                });
+            });
+          }
       });
 
       matches.filter(m => m.isComplete).forEach(m => {
@@ -375,6 +396,9 @@ const App: React.FC = () => {
 
           const processSide = (team: Team, sideData: any, isHome: boolean) => {
                const playerMatchTotals = new Map<string, number>();
+               
+               // Merge roster for name lookup
+               const allTeamPlayers = [...team.players, ...(team.subs||[])];
 
                m.innings.forEach(inning => {
                    const iData = sideData(inning); 
@@ -387,7 +411,7 @@ const App: React.FC = () => {
                        const relevantPitches = isGhostMode ? ps.pitches.slice(0, 10) : ps.pitches;
                        const inningScore = relevantPitches.reduce((sum: number, p: any) => sum + (p.points || 0), 0);
                        
-                       const pName = team.players.find(p => p.id === ps.playerId)?.name || 'Sub';
+                       const pName = allTeamPlayers.find(p => p.id === ps.playerId)?.name || 'Sub';
                        if (!ps.playerId.startsWith('ghost-')) { 
                            singleInningBest.push({ name: pName, score: inningScore, team: team.name, date: m.date });
                            playerMatchTotals.set(ps.playerId, (playerMatchTotals.get(ps.playerId) || 0) + inningScore);
@@ -409,7 +433,7 @@ const App: React.FC = () => {
                }
 
                playerMatchTotals.forEach((score, pId) => {
-                   const pName = team.players.find(p => p.id === pId)?.name || 'Sub';
+                   const pName = allTeamPlayers.find(p => p.id === pId)?.name || 'Sub';
                    matchTotalBest.push({ name: pName, score, team: team.name, date: m.date });
                });
           };

@@ -4,13 +4,14 @@ import pool from './db.js';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   try {
-    // Ensure table exists with season column
+    // Ensure table exists with season and subs columns
     await pool.query(`
       CREATE TABLE IF NOT EXISTS teams (
         id UUID PRIMARY KEY,
         name TEXT NOT NULL,
         league TEXT NOT NULL REFERENCES leagues(id) ON DELETE CASCADE,
         players JSONB NOT NULL,
+        subs JSONB DEFAULT '[]',
         season TEXT NOT NULL DEFAULT '2025',
         created_at TIMESTAMPTZ DEFAULT NOW()
       );
@@ -20,6 +21,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       BEGIN 
         IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='teams' AND column_name='season') THEN 
           ALTER TABLE teams ADD COLUMN season TEXT NOT NULL DEFAULT '2025'; 
+        END IF; 
+      END $$;
+
+      -- Safe migration for existing tables without 'subs'
+      DO $$ 
+      BEGIN 
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='teams' AND column_name='subs') THEN 
+          ALTER TABLE teams ADD COLUMN subs JSONB DEFAULT '[]'; 
         END IF; 
       END $$;
     `);
@@ -48,24 +57,25 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(200).json(rows);
     } 
     else if (req.method === 'POST') {
-      const { id, name, league, players, season } = req.body;
+      const { id, name, league, players, subs, season } = req.body;
       if (!name || !league || !players) return res.status(400).json({ error: 'Missing fields' });
 
-      // Default to 2025 if not provided, but the UI should provide it
+      // Default to 2025 if not provided
       const teamSeason = season || '2025';
+      const teamSubs = subs || [];
 
-      const query = `INSERT INTO teams (id, name, league, players, season) VALUES ($1, $2, $3, $4, $5) RETURNING *`;
-      const values = [id, name, league, JSON.stringify(players), teamSeason];
+      const query = `INSERT INTO teams (id, name, league, players, subs, season) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`;
+      const values = [id, name, league, JSON.stringify(players), JSON.stringify(teamSubs), teamSeason];
       
       const { rows } = await pool.query(query, values);
       return res.status(201).json(rows[0]);
     }
     else if (req.method === 'PUT') {
-      const { id, name, players } = req.body;
+      const { id, name, players, subs } = req.body;
       if (!id || !name || !players) return res.status(400).json({ error: 'Missing fields' });
       
-      const query = `UPDATE teams SET name = $2, players = $3 WHERE id = $1 RETURNING *`;
-      const values = [id, name, JSON.stringify(players)];
+      const query = `UPDATE teams SET name = $2, players = $3, subs = $4 WHERE id = $1 RETURNING *`;
+      const values = [id, name, JSON.stringify(players), JSON.stringify(subs || [])];
       
       const { rows } = await pool.query(query, values);
       if (rows.length === 0) return res.status(404).json({ error: 'Team not found' });

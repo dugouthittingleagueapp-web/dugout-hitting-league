@@ -12,6 +12,11 @@ body {
   font-family: 'Inter', sans-serif !important;
 }
 
+/* Ensure tabular numbers work */
+.tabular-nums {
+    font-variant-numeric: tabular-nums;
+}
+
 /* Custom Scrollbar Hiding */
 .scrollbar-hide::-webkit-scrollbar {
     display: none;

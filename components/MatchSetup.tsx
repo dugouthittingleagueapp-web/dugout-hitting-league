@@ -22,6 +22,10 @@ export const MatchSetup: React.FC<MatchSetupProps> = ({ homeTeam, awayTeam, onSt
   const [subSide, setSubSide] = useState<'left' | 'right' | null>(null);
   const [newSubName, setNewSubName] = useState('');
 
+  // Helper to format name as First L.
+  const formatName = (p: { name: string, lastName?: string }) => 
+    `${p.name}${p.lastName ? ' ' + p.lastName.charAt(0) + '.' : ''}`;
+
   // Helper to get current visual home/away names/lineups
   // If swapped: Left Side shows Away Team data, Right Side shows Home Team data
   const leftSideTeam = isSwapped ? awayTeam : homeTeam;
@@ -144,7 +148,7 @@ export const MatchSetup: React.FC<MatchSetupProps> = ({ homeTeam, awayTeam, onSt
                     <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm shrink-0 font-sans tabular-nums ${isSelected ? 'bg-blue-500 text-white' : 'bg-slate-200 dark:bg-slate-900 text-slate-600 dark:text-slate-500'}`}>{index + 1}</div>
                     
                     <div className="flex-1 min-w-0">
-                        <div className={`font-bold truncate font-sans ${isSelected ? 'text-blue-600 dark:text-blue-400' : 'text-slate-800 dark:text-slate-200'}`}>{player.name}</div>
+                        <div className={`font-bold truncate font-sans ${isSelected ? 'text-blue-600 dark:text-blue-400' : 'text-slate-800 dark:text-slate-200'}`}>{formatName(player)}</div>
                         {isSelected && <div className="text-[10px] text-blue-600 dark:text-blue-400 font-medium animate-pulse font-sans">Tap another to swap</div>}
                     </div>
 
@@ -261,7 +265,7 @@ export const MatchSetup: React.FC<MatchSetupProps> = ({ homeTeam, awayTeam, onSt
                                     onClick={() => handleAddSub(sub)}
                                     className="w-full flex items-center justify-between p-3 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors text-left"
                                   >
-                                      <span className="font-bold text-slate-700 dark:text-slate-200">{sub.name}</span>
+                                      <span className="font-bold text-slate-700 dark:text-slate-200">{formatName(sub)}</span>
                                       <span className="text-xs bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 px-2 py-1 rounded font-bold">Add</span>
                                   </button>
                               ));

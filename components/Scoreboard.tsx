@@ -25,6 +25,12 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
   const [tbHomePlayerId, setTbHomePlayerId] = useState('');
   const [tbAwayPlayerId, setTbAwayPlayerId] = useState('');
 
+  // Helper to format name as First L.
+  const formatName = (p: { name: string, lastName?: string } | undefined) => {
+      if (!p) return 'Unknown';
+      return `${p.name}${p.lastName ? ' ' + p.lastName.charAt(0) + '.' : ''}`;
+  };
+
   // Loading
   const loadMatchData = async () => {
       const m = await storage.getMatch(matchId);
@@ -349,7 +355,7 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
                                 {isGhostRow ? '3' : lineupIdx + 1}
                             </span>
                             <span className="truncate text-xs sm:text-sm font-sans text-slate-900 dark:text-slate-100 font-bold block flex-1">
-                                {isGhostRow ? <span className="italic text-slate-400">Ghost</span> : (player ? player.name : 'Unknown')}
+                                {isGhostRow ? <span className="italic text-slate-400">Ghost</span> : formatName(player)}
                             </span>
                         </div>
                     </div>
@@ -508,7 +514,7 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
                                         <td className="px-4 py-3 font-medium text-slate-700 dark:text-slate-200 w-[120px] sm:w-[150px]">
                                             <div className="flex flex-col sm:flex-row items-start sm:items-center gap-1 sm:gap-2">
                                                 <span className="text-[10px] font-bold bg-blue-100 dark:bg-blue-900/50 text-blue-600 dark:text-blue-300 px-2 py-0.5 rounded font-sans">Away</span>
-                                                <span className="font-bold text-sm truncate font-sans text-slate-900 dark:text-slate-100 max-w-[80px] sm:max-w-none">{awayPlayer?.name}</span>
+                                                <span className="font-bold text-sm truncate font-sans text-slate-900 dark:text-slate-100 max-w-[80px] sm:max-w-none">{formatName(awayPlayer)}</span>
                                             </div>
                                         </td>
                                         <td className="px-2 py-3">
@@ -536,7 +542,7 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
                                         <td className="px-4 py-3 font-medium text-slate-700 dark:text-slate-200 w-[120px] sm:w-[150px]">
                                             <div className="flex flex-col sm:flex-row items-start sm:items-center gap-1 sm:gap-2">
                                                 <span className="text-[10px] font-bold bg-red-100 dark:bg-red-900/50 text-red-600 dark:text-red-300 px-2 py-0.5 rounded font-sans">Home</span>
-                                                <span className="font-bold text-sm truncate font-sans text-slate-900 dark:text-slate-100 max-w-[80px] sm:max-w-none">{homePlayer?.name}</span>
+                                                <span className="font-bold text-sm truncate font-sans text-slate-900 dark:text-slate-100 max-w-[80px] sm:max-w-none">{formatName(homePlayer)}</span>
                                             </div>
                                         </td>
                                         <td className="px-2 py-3">
@@ -622,13 +628,13 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
                       <div>
                           <label className="block text-xs font-bold text-slate-400 uppercase mb-1 font-sans">Away Shooter ({teams.away.name})</label>
                           <select className="w-full p-3 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 rounded-xl font-bold text-slate-800 dark:text-white font-sans" value={tbAwayPlayerId} onChange={e => setTbAwayPlayerId(e.target.value)}>
-                              {teams.away.players.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                              {teams.away.players.map(p => <option key={p.id} value={p.id}>{formatName(p)}</option>)}
                           </select>
                       </div>
                       <div>
                           <label className="block text-xs font-bold text-slate-400 uppercase mb-1 font-sans">Home Shooter ({teams.home.name})</label>
                           <select className="w-full p-3 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 rounded-xl font-bold text-slate-800 dark:text-white font-sans" value={tbHomePlayerId} onChange={e => setTbHomePlayerId(e.target.value)}>
-                              {teams.home.players.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                              {teams.home.players.map(p => <option key={p.id} value={p.id}>{formatName(p)}</option>)}
                           </select>
                       </div>
                   </div>

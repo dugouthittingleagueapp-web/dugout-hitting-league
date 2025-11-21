@@ -19,6 +19,10 @@ const mapMatchFromDB = (dbMatch: any): Match => ({
   tieBreaker: dbMatch.tie_breaker ? (typeof dbMatch.tie_breaker === 'string' ? JSON.parse(dbMatch.tie_breaker) : dbMatch.tie_breaker) : undefined
 });
 
+// Helper to format name as First L.
+const formatName = (p: { name: string, lastName?: string }) => 
+  `${p.name}${p.lastName ? ' ' + p.lastName.charAt(0) + '.' : ''}`;
+
 // League Methods
 export const getLeagues = async (): Promise<League[]> => {
   const res = await fetch('/api/leagues');
@@ -241,21 +245,21 @@ export const calculateMatchStats = (match: Match, homeTeam: Team, awayTeam: Team
         i.away.playerScores.forEach(p => allMatchPlayerIds.add(p.playerId));
     });
 
-    // Add team players
-    homeTeam.players.forEach(p => stats.set(p.id, initStat(p.id, p.name)));
-    awayTeam.players.forEach(p => stats.set(p.id, initStat(p.id, p.name)));
+    // Add team players with FORMATTED names
+    homeTeam.players.forEach(p => stats.set(p.id, initStat(p.id, formatName(p))));
+    awayTeam.players.forEach(p => stats.set(p.id, initStat(p.id, formatName(p))));
     
     // Add any subs that might be in the match but not main roster
     // Check home subs
     if(homeTeam.subs) {
         homeTeam.subs.forEach(p => {
-            if(allMatchPlayerIds.has(p.id)) stats.set(p.id, initStat(p.id, p.name));
+            if(allMatchPlayerIds.has(p.id)) stats.set(p.id, initStat(p.id, formatName(p)));
         });
     }
     // Check away subs
     if(awayTeam.subs) {
         awayTeam.subs.forEach(p => {
-            if(allMatchPlayerIds.has(p.id)) stats.set(p.id, initStat(p.id, p.name));
+            if(allMatchPlayerIds.has(p.id)) stats.set(p.id, initStat(p.id, formatName(p)));
         });
     }
 
@@ -311,7 +315,7 @@ export const calculateMatchStats = (match: Match, homeTeam: Team, awayTeam: Team
                      // Try to find name in teams/subs if not init
                      const allP = [...homeTeam.players, ...(homeTeam.subs||[]), ...awayTeam.players, ...(awayTeam.subs||[])];
                      const found = allP.find(p=>p.id===pid);
-                     s = initStat(pid, found ? found.name : 'Unknown'); 
+                     s = initStat(pid, found ? formatName(found) : 'Unknown'); 
                      stats.set(pid, s); 
                 }
                 scores.forEach(val => {

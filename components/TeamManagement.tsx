@@ -177,6 +177,10 @@ export const TeamManagement: React.FC<TeamManagementProps> = ({ league, season, 
       setSubs(newSubs);
   };
 
+  // Helper to format name as First L.
+  const formatName = (p: { name: string, lastName?: string }) => 
+    `${p.name}${p.lastName ? ' ' + p.lastName.charAt(0) + '.' : ''}`;
+
   // Helper to render sortable headers
   const renderHeader = (label: string, key: keyof PlayerStats, align: string = 'text-right', colorClass: string = '') => (
     <th 
@@ -338,7 +342,7 @@ export const TeamManagement: React.FC<TeamManagementProps> = ({ league, season, 
                 <div className="flex flex-col gap-1 mt-2">
                   {team.players.map(p => (
                     <span key={p.id} className="text-xs font-medium text-slate-600 dark:text-slate-400 font-sans">
-                        {p.name} {p.lastName && <span className="opacity-70">({p.lastName})</span>}
+                        {formatName(p)}
                     </span>
                   ))}
                 </div>
@@ -347,7 +351,7 @@ export const TeamManagement: React.FC<TeamManagementProps> = ({ league, season, 
                         <span className="text-[10px] font-bold text-slate-400 uppercase mr-1 font-sans">Subs:</span>
                         {team.subs.map(s => (
                             <span key={s.id} className="text-xs font-medium bg-slate-50 dark:bg-slate-900/50 text-slate-500 dark:text-slate-500 px-2 py-0.5 rounded border border-slate-200 dark:border-slate-800 italic font-sans">
-                                {s.name} {s.lastName && `(${s.lastName})`}
+                                {formatName(s)}
                             </span>
                         ))}
                     </div>

@@ -426,6 +426,9 @@ const App: React.FC = () => {
   const calculateSeasonLeaders = () => {
       const playerStatsMap = new Map<string, PlayerStats>();
       
+      const formatName = (p: { name: string, lastName?: string }) => 
+          `${p.name}${p.lastName ? ' ' + p.lastName.charAt(0) + '.' : ''}`;
+
       // Only process teams that are relevant to this league
       const visibleTeams = teams.filter(t => {
         if (t.league === state.currentLeague) return true;
@@ -436,14 +439,14 @@ const App: React.FC = () => {
           // Init main players
           t.players.forEach(p => {
               playerStatsMap.set(p.id, {
-                  playerId: p.id, name: p.name, totalPoints: 0, hits4: 0, hits3: 0, hits2: 0, hits1: 0, pitchesSeen: 0
+                  playerId: p.id, name: formatName(p), totalPoints: 0, hits4: 0, hits3: 0, hits2: 0, hits1: 0, pitchesSeen: 0
               });
           });
           // Init subs if any
           if(t.subs) {
             t.subs.forEach(p => {
                 playerStatsMap.set(p.id, {
-                    playerId: p.id, name: p.name, totalPoints: 0, hits4: 0, hits3: 0, hits2: 0, hits1: 0, pitchesSeen: 0
+                    playerId: p.id, name: formatName(p), totalPoints: 0, hits4: 0, hits3: 0, hits2: 0, hits1: 0, pitchesSeen: 0
                 });
             });
           }
@@ -478,6 +481,9 @@ const App: React.FC = () => {
   // --- WEEKLY LEADERS CALCULATION ---
   const calculateWeeklyLeaders = () => {
       if (!state.currentLeague) return { topInnings: [], topTotals: [] };
+      
+      const formatName = (p: { name: string, lastName?: string }) => 
+          `${p.name}${p.lastName ? ' ' + p.lastName.charAt(0) + '.' : ''}`;
 
       const now = new Date();
       const day = now.getDay(); 
@@ -519,7 +525,9 @@ const App: React.FC = () => {
                        const relevantPitches = isGhostMode ? ps.pitches.slice(0, 10) : ps.pitches;
                        const inningScore = relevantPitches.reduce((sum: number, p: any) => sum + (p.points || 0), 0);
                        
-                       const pName = allTeamPlayers.find(p => p.id === ps.playerId)?.name || 'Sub';
+                       const pNameObj = allTeamPlayers.find(p => p.id === ps.playerId);
+                       const pName = pNameObj ? formatName(pNameObj) : 'Sub';
+                       
                        if (!ps.playerId.startsWith('ghost-')) { 
                            singleInningBest.push({ name: pName, score: inningScore, team: team.name, date: m.date });
                            playerMatchTotals.set(ps.playerId, (playerMatchTotals.get(ps.playerId) || 0) + inningScore);
@@ -541,7 +549,8 @@ const App: React.FC = () => {
                }
 
                playerMatchTotals.forEach((score, pId) => {
-                   const pName = allTeamPlayers.find(p => p.id === pId)?.name || 'Sub';
+                   const pNameObj = allTeamPlayers.find(p => p.id === pId);
+                   const pName = pNameObj ? formatName(pNameObj) : 'Sub';
                    matchTotalBest.push({ name: pName, score, team: team.name, date: m.date });
                });
           };

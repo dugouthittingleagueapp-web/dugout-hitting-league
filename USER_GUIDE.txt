@@ -24,6 +24,7 @@ C) ADMIN (Password: admin)
    - Has all Umpire permissions.
    - Can Create New Leagues (e.g., 9u, 10u, Varsity).
    - Can Change the "Active Season" (e.g., switching from 2025 to 2026).
+   - Can Move Matches and Teams between leagues.
    - Can Reset Passwords.
    - Can Export Data to JSON.
 
@@ -31,20 +32,21 @@ C) ADMIN (Password: admin)
 *Security Note: For security, logged-in sessions (Umpire/Admin) will automatically expire after 3 hours of inactivity. You will need to log in again.*
 
 
-2. SETTING UP A NEW SEASON
---------------------------
+2. SETTING UP A NEW SEASON & TEAMS
+----------------------------------
 1. Log in as Admin.
-2. Go to the "Admin" dashboard.
-3. Create a League (if one doesn't exist, e.g., "Varsity").
-4. Ensure "Active Season" is set to the current year (e.g., 2025).
-5. Go back to the Dashboard.
-6. Click "Manage Teams" to add team names and rosters (3 players default).
+2. Go to the "Admin" dashboard to Create a League or Bulk Move existing teams to a new league.
+3. Ensure "Active Season" is set to the current year.
+4. Go back to the Dashboard and click "Manage Teams".
+5. TEAM ROSTERS: 
+   - Enter the player's **First Name** (Required). This is used for all scoreboards and stats (displayed as "First L.").
+   - Enter the **Last Name** (Optional). This is for Admin/Umpire tracking only and is not shown on public leaderboards.
 
 
 3. STARTING A MATCH
 -------------------
 1. Ensure you are logged in as Umpire or Admin.
-2. Select a "Home Team" and "Away Team" from the dropdowns on the left.
+2. Select a "Home Team" (Red) and "Away Team" (Blue) from the dropdowns.
 3. Click "Next: Set Lineup".
 4. Drag and drop players to set the batting order.
    - If a team only has 2 players present, remove the 3rd player here.
@@ -85,26 +87,22 @@ If the score is tied after 6 innings:
 4. Round 1 is typically 5 pitches each. If still tied, subsequent rounds may have reduced pitch counts (3 or 1) until a winner is decided.
 5. Tie-breaker points are added to the Team's total score and the individual player's match stats.
 
-7. LATE ARRIVAL (RESETTING ROSTER)
-----------------------------------
-If a game starts with 2 players, but the 3rd player arrives late:
+7. ADMIN TOOLS: MOVING DATA
+---------------------------
+If a game was scored in the wrong league, or you want to move teams to a new division:
 
-1. Wait for the start of a new inning (between Inning 2 and 6).
-2. Look for the button "+ Reset Roster" next to the team name on the scoreboard header.
-3. Click it and confirm.
-4. The game effectively resets to "Normal Mode" (3 Players, 10 Pitches each) for the REMAINDER of the game.
-5. Stats from that point forward will count for the individual players correctly.
+- **MOVE A MATCH:** Log in as Admin. On the Dashboard "Matches" tab, find the match card and hover over the actions area (right side). Click "Move" to send that match (and its stats) to a different league.
+- **BULK MOVE TEAMS:** Go to the Admin Dashboard > Bulk Move Teams. Select multiple teams and choose a destination league. This moves the teams AND all their past matches to the new league automatically.
 
-8. MOBILE NAVIGATION
---------------------
-- The app is optimized for mobile devices.
-- Use the "Menu" button (top left) or the top navigation bar to switch between screens.
-- Avoid using the browser's "Refresh" button during a live game to prevent losing unsaved local state (though matches are saved to the database after every pitch).
-- In the Scoreboard, use the horizontal tabs to switch between innings.
-- ALWAYS ON DISPLAY: When viewing a game scoreboard (Fan View or Scorer View), the app will attempt to keep your screen from dimming or locking so you can watch hands-free.
+8. MOBILE NAVIGATION & FEATURES
+-------------------------------
+- **LIVE DASHBOARD:** The main dashboard (Matches/Standings/Stats) updates automatically every 5 seconds. You do not need to refresh the page to see new scores.
+- **SMART REFRESH:** If you do refresh the browser, the app remembers exactly where you were (League, Tab, View).
+- **ALWAYS ON DISPLAY:** When viewing a game scoreboard (Fan View or Scorer View), the app keeps your screen awake so you can watch hands-free.
+- **MENU:** Use the top-left hamburger menu to switch leagues, change seasons, or toggle Dark Mode.
 
 9. STATISTICS
 -------------
 - STANDINGS: Shows Wins, Losses, Ties, Points For, Points Against.
-- SEASON STATS: Shows individual leaderboards (Total Points, 4s, 3s, etc.). Note: Ghost player stats are filtered out of this list.
+- SEASON STATS: Shows individual leaderboards (Total Points, 4s, 3s, etc.). Note: Ghost player stats are filtered out.
 - MATCH STATS: Click "Stats" on any completed game card to see the box score for that specific game.

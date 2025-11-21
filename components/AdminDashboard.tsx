@@ -69,6 +69,23 @@ export const AdminDashboard: React.FC<{ onBack: () => void }> = ({ onBack }) => 
     }
   };
 
+  const handleDeleteLeague = async (leagueId: string) => {
+    if (confirm(`Are you sure you want to delete the "${leagueId}" league? WARNING: All teams and matches associated with this league will be permanently deleted.`)) {
+        setLoading(true);
+        try {
+            await storage.deleteLeague(leagueId);
+            // Refresh
+            const newLeagues = await storage.getLeagues();
+            setLeagues(newLeagues);
+            alert('League deleted.');
+        } catch (e) {
+            alert('Failed to delete league.');
+        } finally {
+            setLoading(false);
+        }
+    }
+  };
+
   const handleUpdateSeason = async () => {
       if(!newSeasonInput.trim()) return;
       if(confirm(`Are you sure? Changing the active season to ${newSeasonInput} will hide current teams/matches from the default view (data is NOT deleted).`)) {
@@ -152,7 +169,26 @@ export const AdminDashboard: React.FC<{ onBack: () => void }> = ({ onBack }) => 
                 </div>
             </div>
 
-            <div className="pt-4 border-t border-slate-100 dark:border-slate-800">
+            <div className="mt-6 border-t border-slate-100 dark:border-slate-800 pt-6">
+                <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase mb-2 font-sans">Existing Leagues</label>
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+                    {leagues.map(l => (
+                        <div key={l.id} className="flex justify-between items-center p-3 bg-slate-50 dark:bg-slate-950 rounded-lg border border-slate-200 dark:border-slate-800">
+                            <span className="font-bold text-slate-700 dark:text-slate-300 font-sans">{l.id}</span>
+                            <button 
+                                onClick={() => handleDeleteLeague(l.id)}
+                                className="text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20 p-2 rounded transition-colors"
+                                title="Delete League"
+                            >
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                            </button>
+                        </div>
+                    ))}
+                    {leagues.length === 0 && <div className="text-sm text-slate-400 italic font-sans">No leagues found.</div>}
+                </div>
+            </div>
+
+            <div className="pt-6 border-t border-slate-100 dark:border-slate-800 mt-6">
                 <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase mb-1 font-sans">Active Season (Current: <span className="text-blue-600 dark:text-blue-400">{currentSeason}</span>)</label>
                 <p className="text-sm text-slate-500 dark:text-slate-400 mb-2 font-sans">Change this to "Reset" the league for a new year. Old data is preserved.</p>
                 <div className="flex gap-3">

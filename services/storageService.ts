@@ -23,6 +23,20 @@ const mapMatchFromDB = (dbMatch: any): Match => ({
 const formatName = (p: { name: string, lastName?: string }) => 
   `${p.name}${p.lastName ? ' ' + p.lastName.charAt(0) + '.' : ''}`;
 
+// Robust UUID Generator that works in insecure contexts
+export const generateUUID = (): string => {
+    // Try native crypto first if available and secure
+    if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+        try {
+            return crypto.randomUUID();
+        } catch (e) {
+            // Fallback if crypto throws (e.g. insecure context)
+        }
+    }
+    // Fallback timestamp + random string generator
+    return Date.now().toString(36) + Math.random().toString(36).substring(2);
+};
+
 // League Methods
 export const getLeagues = async (): Promise<League[]> => {
   const res = await fetch('/api/leagues');
@@ -41,6 +55,11 @@ export const createLeague = async (id: string): Promise<League> => {
     throw new Error(err.error || 'Failed to create league');
   }
   return await res.json();
+};
+
+export const deleteLeague = async (id: string) => {
+  const res = await fetch(`/api/leagues?id=${encodeURIComponent(id)}`, { method: 'DELETE' });
+  if (!res.ok) throw new Error('Failed to delete league');
 };
 
 // Team Methods
@@ -63,12 +82,12 @@ export const getAllTeams = async (): Promise<Team[]> => {
 
 export const createTeam = async (name: string, league: AgeGroup, players: {name: string, lastName?: string}[], season: string, subs: {name: string, lastName?: string}[] = []): Promise<Team> => {
   const newTeam = {
-    id: crypto.randomUUID(),
+    id: generateUUID(),
     name,
     league,
     season,
-    players: players.map(p => ({ id: crypto.randomUUID(), name: p.name, lastName: p.lastName })),
-    subs: subs.map(s => ({ id: crypto.randomUUID(), name: s.name, lastName: s.lastName }))
+    players: players.map(p => ({ id: generateUUID(), name: p.name, lastName: p.lastName })),
+    subs: subs.map(s => ({ id: generateUUID(), name: s.name, lastName: s.lastName }))
   };
   const res = await fetch('/api/teams', {
     method: 'POST',
@@ -133,7 +152,7 @@ export const createMatch = async (league: AgeGroup, homeTeamId: string, awayTeam
     }
 
     const match = {
-        id: crypto.randomUUID(),
+        id: generateUUID(),
         league,
         homeTeamId,
         awayTeamId,

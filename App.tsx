@@ -10,25 +10,49 @@ import * as storage from './services/storageService';
 
 const INACTIVITY_LIMIT = 3 * 60 * 60 * 1000; // 3 hours
 
+// Helper for safe local storage access (prevents SecurityError in restricted iframes/settings)
+const safeStorage = {
+    getItem: (key: string): string | null => {
+        try {
+            if (typeof window !== 'undefined') return localStorage.getItem(key);
+            return null;
+        } catch (e) {
+            return null;
+        }
+    },
+    setItem: (key: string, value: string): void => {
+        try {
+            if (typeof window !== 'undefined') localStorage.setItem(key, value);
+        } catch (e) {
+            // ignore
+        }
+    },
+    removeItem: (key: string): void => {
+        try {
+            if (typeof window !== 'undefined') localStorage.removeItem(key);
+        } catch (e) {
+            // ignore
+        }
+    }
+};
+
 const App: React.FC = () => {
   // Initialize state from localStorage if available to support "refresh current page"
   const [state, setState] = useState<AppState>(() => {
-    if (typeof window !== 'undefined') {
-        const saved = localStorage.getItem('dugout_app_state');
-        if (saved) {
-            try {
-                const parsed = JSON.parse(saved);
-                // Fallback: If we were in match_setup, revert to dashboard because setup state (ids) isn't persisted
-                if (parsed.view === 'match_setup') {
-                    parsed.view = 'dashboard';
-                }
-                // Ensure dashboardTab exists
-                if (!parsed.dashboardTab) parsed.dashboardTab = 'matches';
-                
-                return parsed;
-            } catch (e) {
-                console.error("Error parsing app state", e);
+    const saved = safeStorage.getItem('dugout_app_state');
+    if (saved) {
+        try {
+            const parsed = JSON.parse(saved);
+            // Fallback: If we were in match_setup, revert to dashboard because setup state (ids) isn't persisted
+            if (parsed.view === 'match_setup') {
+                parsed.view = 'dashboard';
             }
+            // Ensure dashboardTab exists
+            if (!parsed.dashboardTab) parsed.dashboardTab = 'matches';
+            
+            return parsed;
+        } catch (e) {
+            console.error("Error parsing app state", e);
         }
     }
     return { view: 'league_select', currentLeague: null, currentMatchId: null, season: '2025', dashboardTab: 'matches' };
@@ -36,7 +60,7 @@ const App: React.FC = () => {
 
   // Persist App State
   useEffect(() => {
-      localStorage.setItem('dugout_app_state', JSON.stringify(state));
+      safeStorage.setItem('dugout_app_state', JSON.stringify(state));
   }, [state]);
 
   const [matches, setMatches] = useState<Match[]>([]);
@@ -48,35 +72,30 @@ const App: React.FC = () => {
   
   // Theme State - Persisted
   const [isDarkMode, setIsDarkMode] = useState(() => {
-      if (typeof window !== 'undefined') {
-          const savedTheme = localStorage.getItem('dugout_theme');
-          return savedTheme ? JSON.parse(savedTheme) : true;
-      }
-      return true;
+      const savedTheme = safeStorage.getItem('dugout_theme');
+      return savedTheme ? JSON.parse(savedTheme) : true;
   });
 
   const [isMenuOpen, setIsMenuOpen] = useState(false);
 
   // Role / Auth State - Initialize from localStorage with Inactivity Check
   const [userRole, setUserRole] = useState<'fan' | 'umpire' | 'admin'>(() => {
-    if (typeof window !== 'undefined') {
-        const stored = localStorage.getItem('userRole');
-        const lastActivity = localStorage.getItem('lastActivity');
+    const stored = safeStorage.getItem('userRole');
+    const lastActivity = safeStorage.getItem('lastActivity');
 
-        if (stored === 'admin' || stored === 'umpire') {
-            // Check for expiration
-            if (lastActivity) {
-                const diff = Date.now() - parseInt(lastActivity, 10);
-                if (diff > INACTIVITY_LIMIT) {
-                    localStorage.removeItem('userRole');
-                    localStorage.removeItem('lastActivity');
-                    return 'fan';
-                }
+    if (stored === 'admin' || stored === 'umpire') {
+        // Check for expiration
+        if (lastActivity) {
+            const diff = Date.now() - parseInt(lastActivity, 10);
+            if (diff > INACTIVITY_LIMIT) {
+                safeStorage.removeItem('userRole');
+                safeStorage.removeItem('lastActivity');
+                return 'fan';
             }
-            // Update activity on load if valid
-            localStorage.setItem('lastActivity', Date.now().toString());
-            return stored;
         }
+        // Update activity on load if valid
+        safeStorage.setItem('lastActivity', Date.now().toString());
+        return stored as 'fan' | 'umpire' | 'admin';
     }
     return 'fan';
   });
@@ -105,19 +124,25 @@ const App: React.FC = () => {
     } else {
         html.classList.remove('dark');
     }
-    localStorage.setItem('dugout_theme', JSON.stringify(isDarkMode));
+    safeStorage.setItem('dugout_theme', JSON.stringify(isDarkMode));
   }, [isDarkMode]);
 
   useEffect(() => {
-    // Prevent back button navigation
-    window.history.pushState(null, document.title, window.location.href);
-    const handlePopState = (event: PopStateEvent) => {
+    // Prevent back button navigation with safe wrapper
+    try {
         window.history.pushState(null, document.title, window.location.href);
-    };
-    window.addEventListener('popstate', handlePopState);
-    return () => {
-        window.removeEventListener('popstate', handlePopState);
-    };
+        const handlePopState = (event: PopStateEvent) => {
+            try {
+                window.history.pushState(null, document.title, window.location.href);
+            } catch(e) {}
+        };
+        window.addEventListener('popstate', handlePopState);
+        return () => {
+            window.removeEventListener('popstate', handlePopState);
+        };
+    } catch (e) {
+        // Ignore security errors from history manipulation
+    }
   }, []);
 
   useEffect(() => {
@@ -172,9 +197,9 @@ const App: React.FC = () => {
 
   const handleLogout = useCallback(() => {
       setUserRole('fan');
-      localStorage.removeItem('userRole');
-      localStorage.removeItem('lastActivity');
-      localStorage.removeItem('dugout_app_state'); // Clear persisted state on logout
+      safeStorage.removeItem('userRole');
+      safeStorage.removeItem('lastActivity');
+      safeStorage.removeItem('dugout_app_state'); // Clear persisted state on logout
       setState(s => ({...s, view: 'league_select', currentLeague: null, currentMatchId: null, dashboardTab: 'matches'})); 
       setIsMenuOpen(false);
   }, []);
@@ -184,11 +209,11 @@ const App: React.FC = () => {
       if (userRole === 'fan') return;
 
       const updateActivity = () => {
-          localStorage.setItem('lastActivity', Date.now().toString());
+          safeStorage.setItem('lastActivity', Date.now().toString());
       };
 
       const checkInactivity = () => {
-          const lastActivity = localStorage.getItem('lastActivity');
+          const lastActivity = safeStorage.getItem('lastActivity');
           if (lastActivity) {
               const diff = Date.now() - parseInt(lastActivity, 10);
               if (diff > INACTIVITY_LIMIT) {
@@ -332,8 +357,8 @@ const App: React.FC = () => {
     
     if (result.success && result.role) {
       setUserRole(result.role);
-      localStorage.setItem('userRole', result.role);
-      localStorage.setItem('lastActivity', Date.now().toString());
+      safeStorage.setItem('userRole', result.role);
+      safeStorage.setItem('lastActivity', Date.now().toString());
       setShowLoginModal(false);
       if (result.role === 'admin') setState(prev => ({...prev, view: 'admin'})); 
     } else {

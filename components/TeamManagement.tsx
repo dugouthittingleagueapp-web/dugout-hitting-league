@@ -117,7 +117,7 @@ export const TeamManagement: React.FC<TeamManagementProps> = ({ league, season, 
              const teamToUpdate = teams.find(t => t.id === editingTeamId);
              if (teamToUpdate) {
                  const finalPlayers = players.map((p, idx) => ({
-                     id: teamToUpdate.players[idx]?.id || crypto.randomUUID(),
+                     id: teamToUpdate.players[idx]?.id || storage.generateUUID(),
                      name: p.name,
                      lastName: p.lastName
                  }));
@@ -169,7 +169,7 @@ export const TeamManagement: React.FC<TeamManagementProps> = ({ league, season, 
       setSubs(newSubs);
   };
 
-  const addSubField = () => setSubs([...subs, { id: crypto.randomUUID(), name: '', lastName: '' }]);
+  const addSubField = () => setSubs([...subs, { id: storage.generateUUID(), name: '', lastName: '' }]);
   
   const removeSubField = (index: number) => {
       const newSubs = [...subs];

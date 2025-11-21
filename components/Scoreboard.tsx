@@ -55,11 +55,9 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
           try {
               if ('wakeLock' in navigator) {
                   wakeLock = await (navigator as any).wakeLock.request('screen');
-                  console.debug('Screen Wake Lock active');
               }
           } catch (err) {
-              // Wake Lock request failed - usually due to battery saver or lack of support
-              console.debug('Wake Lock not available');
+              // Silently fail if wake lock is not allowed or supported
           }
       };
 
@@ -76,7 +74,7 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
 
       return () => {
           document.removeEventListener('visibilitychange', handleVisibilityChange);
-          if (wakeLock) wakeLock.release();
+          if (wakeLock) wakeLock.release().catch(() => {});
       };
   }, []);
 

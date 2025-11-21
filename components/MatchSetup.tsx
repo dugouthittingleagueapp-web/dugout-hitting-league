@@ -1,6 +1,7 @@
 
 import React, { useState } from 'react';
 import { Team, Player } from '../types';
+import * as storage from '../services/storageService';
 
 interface MatchSetupProps {
   homeTeam: Team;
@@ -101,7 +102,7 @@ export const MatchSetup: React.FC<MatchSetupProps> = ({ homeTeam, awayTeam, onSt
 
   const handleCreateNewSub = () => {
       if (!newSubName.trim()) return;
-      const newPlayer: Player = { id: crypto.randomUUID(), name: newSubName.trim() };
+      const newPlayer: Player = { id: storage.generateUUID(), name: newSubName.trim() };
       handleAddSub(newPlayer);
   };
 

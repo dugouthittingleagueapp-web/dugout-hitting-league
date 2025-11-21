@@ -1,5 +1,5 @@
 
-import { AgeGroup, Match, Team, Inning, PlayerInningScore, League, PlayerStats } from '../types';
+import { AgeGroup, Match, Team, Inning, PlayerInningScore, League, PlayerStats, Player } from '../types';
 
 const mapTeamFromDB = (dbTeam: any): Team => ({
   ...dbTeam,
@@ -40,8 +40,11 @@ export const createLeague = async (id: string): Promise<League> => {
 };
 
 // Team Methods
-export const getTeams = async (league: AgeGroup, season: string): Promise<Team[]> => {
-  const res = await fetch(`/api/teams?league=${league}&season=${season}`);
+export const getTeams = async (league: AgeGroup | null, season: string): Promise<Team[]> => {
+  let url = `/api/teams?season=${season}`;
+  if (league) url += `&league=${league}`;
+  
+  const res = await fetch(url);
   if (!res.ok) return [];
   const data = await res.json();
   return data.map(mapTeamFromDB);
@@ -54,14 +57,14 @@ export const getAllTeams = async (): Promise<Team[]> => {
   return data.map(mapTeamFromDB);
 };
 
-export const createTeam = async (name: string, league: AgeGroup, playerNames: string[], season: string, subNames: string[] = []): Promise<Team> => {
+export const createTeam = async (name: string, league: AgeGroup, players: {name: string, lastName?: string}[], season: string, subs: {name: string, lastName?: string}[] = []): Promise<Team> => {
   const newTeam = {
     id: crypto.randomUUID(),
     name,
     league,
     season,
-    players: playerNames.map(name => ({ id: crypto.randomUUID(), name })),
-    subs: subNames.map(name => ({ id: crypto.randomUUID(), name }))
+    players: players.map(p => ({ id: crypto.randomUUID(), name: p.name, lastName: p.lastName })),
+    subs: subs.map(s => ({ id: crypto.randomUUID(), name: s.name, lastName: s.lastName }))
   };
   const res = await fetch('/api/teams', {
     method: 'POST',
@@ -82,6 +85,15 @@ export const updateTeam = async (team: Team): Promise<Team> => {
   if (!res.ok) throw new Error('Failed to update team');
   const data = await res.json();
   return mapTeamFromDB(data);
+};
+
+export const moveTeams = async (teamIds: string[], targetLeague: string): Promise<void> => {
+  const res = await fetch('/api/teams', {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ action: 'move_teams', teamIds, targetLeague })
+  });
+  if (!res.ok) throw new Error('Failed to move teams');
 };
 
 export const deleteTeam = async (teamId: string) => {

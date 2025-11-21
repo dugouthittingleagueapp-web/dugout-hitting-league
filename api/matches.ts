@@ -70,7 +70,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     } 
     else if (req.method === 'PUT') {
       // We accept tieBreaker via the 'innings' field (merged in FE) or if passed as a prop we merge it here
-      const { id, isComplete, innings, tieBreaker } = req.body;
+      const { id, isComplete, innings, tieBreaker, league } = req.body;
       
       // We need to ensure the column exists
       await pool.query(`
@@ -82,8 +82,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         END $$;
       `);
       
-      const queryUpdate = `UPDATE matches SET is_complete = $2, innings = $3, tie_breaker = $4 WHERE id = $1 RETURNING *`;
-      const values = [id, isComplete, JSON.stringify(innings), tieBreaker ? JSON.stringify(tieBreaker) : null];
+      // Updated query to allow changing league (COALESCE keeps existing if undefined)
+      const queryUpdate = `
+        UPDATE matches 
+        SET is_complete = $2, innings = $3, tie_breaker = $4, league = COALESCE($5, league) 
+        WHERE id = $1 
+        RETURNING *
+      `;
+      const values = [id, isComplete, JSON.stringify(innings), tieBreaker ? JSON.stringify(tieBreaker) : null, league];
 
       const { rows } = await pool.query(queryUpdate, values);
       

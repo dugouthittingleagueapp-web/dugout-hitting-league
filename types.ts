@@ -8,7 +8,8 @@ export interface League {
 
 export interface Player {
   id: string;
-  name: string;
+  name: string; // Used as First Name / Display Name
+  lastName?: string; // Admin/Umpire clarity only
 }
 
 export interface Team {
@@ -77,6 +78,7 @@ export interface AppState {
   currentLeague: AgeGroup | null;
   currentMatchId: string | null;
   season: string;
+  dashboardTab?: 'matches' | 'standings' | 'season_stats';
 }
 
 export interface MatchSummaryData {

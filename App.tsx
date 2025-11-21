@@ -11,7 +11,34 @@ import * as storage from './services/storageService';
 const INACTIVITY_LIMIT = 3 * 60 * 60 * 1000; // 3 hours
 
 const App: React.FC = () => {
-  const [state, setState] = useState<AppState>({ view: 'league_select', currentLeague: null, currentMatchId: null, season: '2025' });
+  // Initialize state from localStorage if available to support "refresh current page"
+  const [state, setState] = useState<AppState>(() => {
+    if (typeof window !== 'undefined') {
+        const saved = localStorage.getItem('dugout_app_state');
+        if (saved) {
+            try {
+                const parsed = JSON.parse(saved);
+                // Fallback: If we were in match_setup, revert to dashboard because setup state (ids) isn't persisted
+                if (parsed.view === 'match_setup') {
+                    parsed.view = 'dashboard';
+                }
+                // Ensure dashboardTab exists
+                if (!parsed.dashboardTab) parsed.dashboardTab = 'matches';
+                
+                return parsed;
+            } catch (e) {
+                console.error("Error parsing app state", e);
+            }
+        }
+    }
+    return { view: 'league_select', currentLeague: null, currentMatchId: null, season: '2025', dashboardTab: 'matches' };
+  });
+
+  // Persist App State
+  useEffect(() => {
+      localStorage.setItem('dugout_app_state', JSON.stringify(state));
+  }, [state]);
+
   const [matches, setMatches] = useState<Match[]>([]);
   const [teams, setTeams] = useState<Team[]>([]);
   const [leagues, setLeagues] = useState<League[]>([]);
@@ -19,12 +46,16 @@ const App: React.FC = () => {
   const [selectedHomeId, setSelectedHomeId] = useState('');
   const [selectedAwayId, setSelectedAwayId] = useState('');
   
-  // Theme State
-  const [isDarkMode, setIsDarkMode] = useState(true);
-  const [isMenuOpen, setIsMenuOpen] = useState(false);
+  // Theme State - Persisted
+  const [isDarkMode, setIsDarkMode] = useState(() => {
+      if (typeof window !== 'undefined') {
+          const savedTheme = localStorage.getItem('dugout_theme');
+          return savedTheme ? JSON.parse(savedTheme) : true;
+      }
+      return true;
+  });
 
-  // Dashboard View State
-  const [dashboardTab, setDashboardTab] = useState<'matches' | 'standings' | 'season_stats'>('matches');
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
 
   // Role / Auth State - Initialize from localStorage with Inactivity Check
   const [userRole, setUserRole] = useState<'fan' | 'umpire' | 'admin'>(() => {
@@ -58,11 +89,15 @@ const App: React.FC = () => {
   const [statsModalMatch, setStatsModalMatch] = useState<Match | null>(null);
   const [statsModalData, setStatsModalData] = useState<PlayerStats[]>([]);
 
+  // Move Match Modal
+  const [moveMatchModal, setMoveMatchModal] = useState<{ matchId: string, currentLeague: string } | null>(null);
+  const [targetLeague, setTargetLeague] = useState('');
+
   // Sorting State
   const [seasonSort, setSeasonSort] = useState<{ key: keyof PlayerStats; direction: 'asc' | 'desc' }>({ key: 'totalPoints', direction: 'desc' });
   const [matchSort, setMatchSort] = useState<{ key: keyof PlayerStats; direction: 'asc' | 'desc' }>({ key: 'totalPoints', direction: 'desc' });
 
-  // Handle Theme Toggle
+  // Handle Theme Toggle & Persistence
   useEffect(() => {
     const html = document.documentElement;
     if (isDarkMode) {
@@ -70,6 +105,7 @@ const App: React.FC = () => {
     } else {
         html.classList.remove('dark');
     }
+    localStorage.setItem('dugout_theme', JSON.stringify(isDarkMode));
   }, [isDarkMode]);
 
   useEffect(() => {
@@ -88,26 +124,58 @@ const App: React.FC = () => {
     const init = async () => {
         const [ls, currentSeason] = await Promise.all([storage.getLeagues(), storage.getCurrentSeason()]);
         setLeagues(ls);
-        setState(s => ({ ...s, season: currentSeason }));
+        
+        // Only override season if we are on the landing page (view='league_select') and have no league selected.
+        // This prevents resetting the user's session season if they refresh deep in the app.
+        setState(s => {
+            if (s.view === 'league_select' && !s.currentLeague) {
+                 return { ...s, season: currentSeason };
+            }
+            return s;
+        });
     };
     init();
   }, []);
 
-  useEffect(() => {
-    if (state.currentLeague && state.view === 'dashboard') refreshDashboard(state.currentLeague, state.season);
-  }, [state.currentLeague, state.view, state.season]);
+  const refreshDashboard = useCallback(async (league: AgeGroup, season: string, silent = false) => {
+    if (!silent) setLoading(true);
+    try { 
+        // Parallelize requests for efficiency
+        const [m, t] = await Promise.all([
+            storage.getMatches(league, season),
+            storage.getTeams(null, season)
+        ]);
+        setMatches(m); 
+        setTeams(t); 
+    } 
+    catch (e) { console.error(e); } finally { if (!silent) setLoading(false); }
+  }, []);
 
-  const refreshDashboard = async (league: AgeGroup, season: string) => {
-    setLoading(true);
-    try { const [m, t] = await Promise.all([storage.getMatches(league, season), storage.getTeams(league, season)]); setMatches(m); setTeams(t); } 
-    catch (e) { console.error(e); } finally { setLoading(false); }
-  };
+  // Initial Load & View Change
+  useEffect(() => {
+    if (state.currentLeague && state.view === 'dashboard') {
+        refreshDashboard(state.currentLeague, state.season);
+    }
+  }, [state.currentLeague, state.view, state.season, refreshDashboard]);
+
+  // Live Polling for Dashboard
+  useEffect(() => {
+    if (state.view !== 'dashboard' || !state.currentLeague) return;
+    
+    const interval = setInterval(() => {
+        // Refresh silently to update scores/standings without UI flicker/loading state
+        refreshDashboard(state.currentLeague!, state.season, true);
+    }, 5000); // 5 seconds to match scoreboard update rate
+
+    return () => clearInterval(interval);
+  }, [state.view, state.currentLeague, state.season, refreshDashboard]);
 
   const handleLogout = useCallback(() => {
       setUserRole('fan');
       localStorage.removeItem('userRole');
       localStorage.removeItem('lastActivity');
-      setState(s => ({...s, view: 'league_select', currentLeague: null, currentMatchId: null})); 
+      localStorage.removeItem('dugout_app_state'); // Clear persisted state on logout
+      setState(s => ({...s, view: 'league_select', currentLeague: null, currentMatchId: null, dashboardTab: 'matches'})); 
       setIsMenuOpen(false);
   }, []);
 
@@ -200,6 +268,30 @@ const App: React.FC = () => {
     }
   };
 
+  const handleMoveMatch = async () => {
+    if (!moveMatchModal || !targetLeague) return;
+    
+    try {
+        setLoading(true);
+        const match = matches.find(m => m.id === moveMatchModal.matchId);
+        if (match) {
+            // Manually construct updated object to send to API with new league
+            const updatedMatch = { ...match, league: targetLeague };
+            await storage.updateMatch(updatedMatch);
+            
+            alert("Match moved successfully! Stats will now appear in the " + targetLeague + " league.");
+            setMoveMatchModal(null);
+            setTargetLeague('');
+            // Refresh current dashboard to remove the match from view
+            if (state.currentLeague) await refreshDashboard(state.currentLeague, state.season);
+        }
+    } catch (e) {
+        alert("Failed to move match.");
+    } finally {
+        setLoading(false);
+    }
+  };
+
   const handleOpenMatchStats = (match: Match) => {
       const home = teams.find(t => t.id === match.homeTeamId);
       const away = teams.find(t => t.id === match.awayTeamId);
@@ -281,6 +373,8 @@ const App: React.FC = () => {
 
   const calculateStandings = () => {
     const stats: Record<string, { wins: number; losses: number; ties: number; pf: number; pa: number }> = {};
+    
+    // Initialize stats for ALL loaded teams
     teams.forEach(t => { stats[t.id] = { wins: 0, losses: 0, ties: 0, pf: 0, pa: 0 }; });
 
     matches.forEach(m => {
@@ -316,7 +410,14 @@ const App: React.FC = () => {
         }
     });
 
-    return teams.map(t => ({ ...t, stats: stats[t.id] || { wins: 0, losses: 0, ties: 0, pf: 0, pa: 0 } })).sort((a, b) => {
+    // Filter to show teams that are EITHER in this league OR have played in this league
+    const visibleTeams = teams.filter(t => {
+        if (t.league === state.currentLeague) return true;
+        // Also include team if they have played a match in this league
+        return matches.some(m => m.homeTeamId === t.id || m.awayTeamId === t.id);
+    });
+
+    return visibleTeams.map(t => ({ ...t, stats: stats[t.id] || { wins: 0, losses: 0, ties: 0, pf: 0, pa: 0 } })).sort((a, b) => {
         if (b.stats.wins !== a.stats.wins) return b.stats.wins - a.stats.wins;
         return b.stats.pf - a.stats.pf;
     });
@@ -324,7 +425,14 @@ const App: React.FC = () => {
 
   const calculateSeasonLeaders = () => {
       const playerStatsMap = new Map<string, PlayerStats>();
-      teams.forEach(t => {
+      
+      // Only process teams that are relevant to this league
+      const visibleTeams = teams.filter(t => {
+        if (t.league === state.currentLeague) return true;
+        return matches.some(m => m.homeTeamId === t.id || m.awayTeamId === t.id);
+      });
+
+      visibleTeams.forEach(t => {
           // Init main players
           t.players.forEach(p => {
               playerStatsMap.set(p.id, {
@@ -449,6 +557,9 @@ const App: React.FC = () => {
   };
 
   const weeklyStats = calculateWeeklyLeaders();
+
+  // Filter teams for the Match Setup dropdown to only show current league teams
+  const leagueTeams = teams.filter(t => t.league === state.currentLeague);
 
   const navbarProps = {
       currentLeague: state.currentLeague,
@@ -577,14 +688,14 @@ const App: React.FC = () => {
                         <div className="space-y-6">
                             <div className="bg-white/60 dark:bg-slate-900/60 backdrop-blur-xl p-6 rounded-xl shadow-lg border border-white/20 dark:border-slate-800">
                                 <h2 className="text-lg font-bold text-slate-600 dark:text-slate-300 mb-4 font-sans">League Status ({state.season})</h2>
-                                <div className="flex justify-between text-center"><div><div className="text-3xl font-black text-slate-800 dark:text-white font-sans tabular-nums">{teams.length}</div><div className="text-xs text-slate-500 uppercase font-bold font-sans">Teams</div></div></div>
+                                <div className="flex justify-between text-center"><div><div className="text-3xl font-black text-slate-800 dark:text-white font-sans tabular-nums">{leagueTeams.length}</div><div className="text-xs text-slate-500 uppercase font-bold font-sans">Teams</div></div></div>
                                 <button onClick={() => setState({ ...state, view: 'team_management' })} className="w-full mt-6 py-2 px-4 bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white font-bold rounded-lg transition-colors font-sans border border-slate-300 dark:border-slate-700">Manage Teams & Stats</button>
                             </div>
                             <div className="bg-gradient-to-br from-blue-600 to-blue-800 p-6 rounded-xl shadow-xl text-white border border-blue-500/30">
                                 <h2 className="text-xl font-bold mb-4 font-sans">Start New Match</h2>
                                 <div className="space-y-3">
-                                    <select className="w-full p-3 rounded-lg text-slate-900 bg-white/90 font-bold font-sans text-sm" value={selectedHomeId} onChange={(e) => setSelectedHomeId(e.target.value)}><option value="">Select Home Team...</option>{teams.map(t => <option key={t.id} value={t.id} disabled={t.id === selectedAwayId}>{t.name}</option>)}</select>
-                                    <select className="w-full p-3 rounded-lg text-slate-900 bg-white/90 font-bold font-sans text-sm" value={selectedAwayId} onChange={(e) => setSelectedAwayId(e.target.value)}><option value="">Select Away Team...</option>{teams.map(t => <option key={t.id} value={t.id} disabled={t.id === selectedHomeId}>{t.name}</option>)}</select>
+                                    <select className="w-full p-3 rounded-lg text-slate-900 bg-white/90 font-bold font-sans text-sm" value={selectedHomeId} onChange={(e) => setSelectedHomeId(e.target.value)}><option value="">Select Home Team...</option>{leagueTeams.map(t => <option key={t.id} value={t.id} disabled={t.id === selectedAwayId}>{t.name}</option>)}</select>
+                                    <select className="w-full p-3 rounded-lg text-slate-900 bg-white/90 font-bold font-sans text-sm" value={selectedAwayId} onChange={(e) => setSelectedAwayId(e.target.value)}><option value="">Select Away Team...</option>{leagueTeams.map(t => <option key={t.id} value={t.id} disabled={t.id === selectedHomeId}>{t.name}</option>)}</select>
                                     <button disabled={!selectedHomeId || !selectedAwayId} onClick={() => setState({ ...state, view: 'match_setup' })} className="w-full bg-white text-blue-700 font-bold py-3 rounded-lg mt-4 hover:bg-blue-50 disabled:opacity-50 transition-colors font-sans shadow-lg">Next: Set Lineup</button>
                                 </div>
                             </div>
@@ -643,12 +754,12 @@ const App: React.FC = () => {
                             </div>
 
                             <div className="flex items-center gap-6 mb-6 border-b border-slate-200 dark:border-slate-800 pb-1 overflow-x-auto">
-                                <button onClick={() => setDashboardTab('matches')} className={`text-lg sm:text-xl font-bold pb-2 px-2 transition-all border-b-2 whitespace-nowrap font-sans ${dashboardTab === 'matches' ? 'text-blue-600 dark:text-blue-400 border-blue-500 drop-shadow-[0_0_10px_rgba(59,130,246,0.3)]' : 'text-slate-500 border-transparent hover:text-slate-800 dark:hover:text-slate-300 hover:border-slate-400 dark:hover:border-slate-700'}`}>Matches</button>
-                                <button onClick={() => setDashboardTab('standings')} className={`text-lg sm:text-xl font-bold pb-2 px-2 transition-all border-b-2 whitespace-nowrap font-sans ${dashboardTab === 'standings' ? 'text-blue-600 dark:text-blue-400 border-blue-500 drop-shadow-[0_0_10px_rgba(59,130,246,0.3)]' : 'text-slate-500 border-transparent hover:text-slate-800 dark:hover:text-slate-300 hover:border-slate-400 dark:hover:border-slate-700'}`}>Standings</button>
-                                <button onClick={() => setDashboardTab('season_stats')} className={`text-lg sm:text-xl font-bold pb-2 px-2 transition-all border-b-2 whitespace-nowrap font-sans ${dashboardTab === 'season_stats' ? 'text-blue-600 dark:text-blue-400 border-blue-500 drop-shadow-[0_0_10px_rgba(59,130,246,0.3)]' : 'text-slate-500 border-transparent hover:text-slate-800 dark:hover:text-slate-300 hover:border-slate-400 dark:hover:border-slate-700'}`}>Season Stats</button>
+                                <button onClick={() => setState(prev => ({ ...prev, dashboardTab: 'matches' }))} className={`text-lg sm:text-xl font-bold pb-2 px-2 transition-all border-b-2 whitespace-nowrap font-sans ${state.dashboardTab === 'matches' ? 'text-blue-600 dark:text-blue-400 border-blue-500 drop-shadow-[0_0_10px_rgba(59,130,246,0.3)]' : 'text-slate-500 border-transparent hover:text-slate-800 dark:hover:text-slate-300 hover:border-slate-400 dark:hover:border-slate-700'}`}>Matches</button>
+                                <button onClick={() => setState(prev => ({ ...prev, dashboardTab: 'standings' }))} className={`text-lg sm:text-xl font-bold pb-2 px-2 transition-all border-b-2 whitespace-nowrap font-sans ${state.dashboardTab === 'standings' ? 'text-blue-600 dark:text-blue-400 border-blue-500 drop-shadow-[0_0_10px_rgba(59,130,246,0.3)]' : 'text-slate-500 border-transparent hover:text-slate-800 dark:hover:text-slate-300 hover:border-slate-400 dark:hover:border-slate-700'}`}>Standings</button>
+                                <button onClick={() => setState(prev => ({ ...prev, dashboardTab: 'season_stats' }))} className={`text-lg sm:text-xl font-bold pb-2 px-2 transition-all border-b-2 whitespace-nowrap font-sans ${state.dashboardTab === 'season_stats' ? 'text-blue-600 dark:text-blue-400 border-blue-500 drop-shadow-[0_0_10px_rgba(59,130,246,0.3)]' : 'text-slate-500 border-transparent hover:text-slate-800 dark:hover:text-slate-300 hover:border-slate-400 dark:hover:border-slate-700'}`}>Season Stats</button>
                             </div>
 
-                            {dashboardTab === 'matches' && (
+                            {state.dashboardTab === 'matches' && (
                                 <div className="space-y-4">
                                     {matches.map(match => {
                                         const home = teams.find(t => t.id === match.homeTeamId);
@@ -659,9 +770,10 @@ const App: React.FC = () => {
                                                 <div className="flex items-center gap-4 w-full sm:w-auto min-w-0">
                                                     <div className="shrink-0"><div className={`text-[10px] font-black uppercase tracking-wider px-2 py-1 rounded font-sans border ${match.isComplete ? 'bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border-slate-300 dark:border-slate-700' : 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 border-green-500/30 animate-pulse'}`}>{match.isComplete ? 'FINAL' : 'LIVE'}</div></div>
                                                     <div className="flex flex-1 sm:flex-auto items-center sm:justify-start sm:gap-8 w-full sm:w-auto min-w-0">
-                                                        <div className="flex-1 sm:flex-none sm:w-32 text-base sm:text-lg font-bold text-slate-800 dark:text-white text-right font-sans truncate min-w-0">{home.name}</div>
+                                                        {/* Home is Red, Away is Blue */}
+                                                        <div className="flex-1 sm:flex-none sm:w-32 text-base sm:text-lg font-bold text-red-700 dark:text-red-400 text-right font-sans truncate min-w-0">{home.name}</div>
                                                         <div className="shrink-0 text-slate-400 dark:text-slate-600 text-sm sm:text-base px-2 font-sans italic font-bold">VS</div>
-                                                        <div className="flex-1 sm:flex-none sm:w-32 text-base sm:text-lg font-bold text-slate-800 dark:text-white text-left font-sans truncate min-w-0">{away.name}</div>
+                                                        <div className="flex-1 sm:flex-none sm:w-32 text-base sm:text-lg font-bold text-blue-700 dark:text-blue-400 text-left font-sans truncate min-w-0">{away.name}</div>
                                                     </div>
                                                 </div>
                                                 <div className="flex gap-2 w-full sm:w-auto justify-end shrink-0">
@@ -671,7 +783,12 @@ const App: React.FC = () => {
                                                     {userRole === 'fan' ? (match.isComplete ? 'View' : 'Watch Live') : (match.isComplete ? 'View' : 'Score')}
                                                 </button>
                                                 
-                                                {(userRole === 'admin' || userRole === 'umpire') && <button onClick={() => handleDeleteMatch(match.id)} className="flex-initial px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-transparent text-red-500 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 hover:border-red-400 dark:hover:border-red-500/50 font-bold text-xs sm:text-sm transition-all font-sans opacity-0 group-hover:opacity-100">Del</button>}
+                                                {userRole === 'admin' && (
+                                                    <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                        <button onClick={() => setMoveMatchModal({ matchId: match.id, currentLeague: match.league })} className="px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-transparent text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-900/20 font-bold text-xs sm:text-sm transition-all font-sans" title="Move to another league">Move</button>
+                                                        <button onClick={() => handleDeleteMatch(match.id)} className="px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-transparent text-red-500 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 hover:border-red-400 dark:hover:border-red-500/50 font-bold text-xs sm:text-sm transition-all font-sans">Del</button>
+                                                    </div>
+                                                )}
                                                 </div>
                                             </div>
                                         );
@@ -680,7 +797,7 @@ const App: React.FC = () => {
                                 </div>
                             )}
 
-                            {dashboardTab === 'standings' && (
+                            {state.dashboardTab === 'standings' && (
                                 <div className="bg-white/60 dark:bg-slate-900/50 backdrop-blur-xl rounded-xl shadow-sm border border-white/20 dark:border-slate-800 overflow-hidden">
                                     <div className="overflow-x-auto">
                                         <table className="w-full text-left text-sm">
@@ -714,7 +831,7 @@ const App: React.FC = () => {
                                 </div>
                             )}
 
-                            {dashboardTab === 'season_stats' && (
+                            {state.dashboardTab === 'season_stats' && (
                                 <div className="bg-white/60 dark:bg-slate-900/50 backdrop-blur-xl rounded-xl shadow-sm border border-white/20 dark:border-slate-800 overflow-hidden">
                                     <div className="p-4 bg-slate-100 dark:bg-slate-950 border-b border-slate-200 dark:border-slate-800"><h3 className="font-bold text-slate-600 dark:text-slate-300 font-sans uppercase tracking-wider text-xs">Top 50 Players</h3></div>
                                     <div className="overflow-x-auto">
@@ -770,6 +887,35 @@ const App: React.FC = () => {
               </form>
             </div>
           </div>
+        )}
+
+        {moveMatchModal && (
+            <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/80 backdrop-blur-sm animate-in fade-in duration-200" onClick={() => setMoveMatchModal(null)}>
+                <div className="bg-white dark:bg-slate-900 p-6 rounded-2xl shadow-2xl w-full max-w-md transform scale-100 animate-in zoom-in-95 duration-200 font-sans border border-slate-200 dark:border-slate-700" onClick={e => e.stopPropagation()}>
+                    <h3 className="text-xl font-bold text-slate-800 dark:text-white mb-2 text-center font-sans">Move Match to Another League</h3>
+                    <p className="text-sm text-slate-500 dark:text-slate-400 mb-6 text-center font-sans">Select the destination league. Stats will transfer automatically.</p>
+                    
+                    <div className="space-y-4">
+                        <div>
+                            <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase mb-1 font-sans">Destination League</label>
+                            <select 
+                                className="w-full p-3 border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 rounded-lg font-bold text-slate-800 dark:text-white font-sans"
+                                value={targetLeague}
+                                onChange={e => setTargetLeague(e.target.value)}
+                            >
+                                <option value="">Select League...</option>
+                                {leagues.filter(l => l.id !== moveMatchModal.currentLeague).map(l => (
+                                    <option key={l.id} value={l.id}>{l.id}</option>
+                                ))}
+                            </select>
+                        </div>
+                        <div className="flex gap-3 pt-2">
+                            <button onClick={() => setMoveMatchModal(null)} className="flex-1 py-3 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 font-bold font-sans hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors">Cancel</button>
+                            <button onClick={handleMoveMatch} disabled={!targetLeague} className="flex-1 py-3 rounded-lg bg-blue-600 text-white font-bold font-sans hover:bg-blue-700 disabled:opacity-50 transition-colors shadow-lg shadow-blue-900/20">Move Match</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
         )}
 
         {statsModalMatch && (

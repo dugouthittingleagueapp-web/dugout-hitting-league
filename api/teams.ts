@@ -82,6 +82,39 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       
       return res.status(200).json(rows[0]);
     }
+    else if (req.method === 'PATCH') {
+      const { action, teamIds, targetLeague } = req.body;
+
+      if (action === 'move_teams') {
+        if (!teamIds || !Array.isArray(teamIds) || teamIds.length === 0 || !targetLeague) {
+           return res.status(400).json({ error: 'Invalid request parameters' });
+        }
+
+        // 1. Update Teams
+        // We use Postgres ANY() for array checking
+        const updateTeamsQuery = `
+            UPDATE teams 
+            SET league = $1 
+            WHERE id = ANY($2)
+        `;
+        await pool.query(updateTeamsQuery, [targetLeague, teamIds]);
+
+        // 2. Update Matches
+        // If a team moves, their games should move with them to preserve stats for that league.
+        // We update any match where EITHER the home or away team is in the moved list.
+        // This ensures partial moves (if user does one team at a time) still carry stats.
+        const updateMatchesQuery = `
+            UPDATE matches
+            SET league = $1
+            WHERE home_team_id = ANY($2) OR away_team_id = ANY($2)
+        `;
+        await pool.query(updateMatchesQuery, [targetLeague, teamIds]);
+
+        return res.status(200).json({ success: true });
+      }
+      
+      return res.status(400).json({ error: 'Invalid action' });
+    }
     else if (req.method === 'DELETE') {
       const { id } = req.query;
       if (!id) return res.status(400).json({ error: 'Missing ID' });

@@ -41,6 +41,39 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
       }
   };
 
+  // Wake Lock for Mobile/Tablet viewing
+  useEffect(() => {
+      let wakeLock: any = null;
+
+      const requestWakeLock = async () => {
+          try {
+              if ('wakeLock' in navigator) {
+                  wakeLock = await (navigator as any).wakeLock.request('screen');
+                  console.debug('Screen Wake Lock active');
+              }
+          } catch (err) {
+              // Wake Lock request failed - usually due to battery saver or lack of support
+              console.debug('Wake Lock not available');
+          }
+      };
+
+      requestWakeLock();
+
+      const handleVisibilityChange = () => {
+          // The lock is released when visibility changes, so we must re-acquire it
+          if (document.visibilityState === 'visible') {
+              requestWakeLock();
+          }
+      };
+
+      document.addEventListener('visibilitychange', handleVisibilityChange);
+
+      return () => {
+          document.removeEventListener('visibilitychange', handleVisibilityChange);
+          if (wakeLock) wakeLock.release();
+      };
+  }, []);
+
   useEffect(() => {
     const init = async () => {
         setLoading(true);
@@ -284,9 +317,10 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
     // Only called when !isExtraInnings, so currentInning is valid.
     const inningData = side === 'home' ? currentInning.home : currentInning.away;
     
+    // Colors: Home = Red, Away = Blue
     const headerClass = side === 'home' 
-        ? 'bg-blue-100 dark:bg-blue-950 text-blue-900 dark:text-blue-100 border-blue-200 dark:border-blue-900' 
-        : 'bg-red-100 dark:bg-red-950 text-red-900 dark:text-red-100 border-red-200 dark:border-red-900';
+        ? 'bg-red-100 dark:bg-red-950 text-red-900 dark:text-red-100 border-red-200 dark:border-red-900' 
+        : 'bg-blue-100 dark:bg-blue-950 text-blue-900 dark:text-blue-100 border-blue-200 dark:border-blue-900';
     
     const isTwoPlayerGhostMode = inningData.playerScores.length === 2 && inningData.playerScores[0].pitches.length >= 15;
     const isShortHanded = inningData.playerScores.length < team.players.length;
@@ -469,11 +503,11 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
                          <div className="bg-white dark:bg-slate-900 border-x border-b border-slate-200 dark:border-slate-700 rounded-b-xl overflow-hidden overflow-x-auto">
                              <table className="w-full min-w-[300px]">
                                  <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                                     {/* Away Player Row */}
-                                     <tr className="bg-red-50/10 dark:bg-red-900/10">
+                                     {/* Away Player Row (Blue) */}
+                                     <tr className="bg-blue-50/10 dark:bg-blue-900/10">
                                         <td className="px-4 py-3 font-medium text-slate-700 dark:text-slate-200 w-[120px] sm:w-[150px]">
                                             <div className="flex flex-col sm:flex-row items-start sm:items-center gap-1 sm:gap-2">
-                                                <span className="text-[10px] font-bold bg-red-100 dark:bg-red-900/50 text-red-600 dark:text-red-300 px-2 py-0.5 rounded font-sans">Away</span>
+                                                <span className="text-[10px] font-bold bg-blue-100 dark:bg-blue-900/50 text-blue-600 dark:text-blue-300 px-2 py-0.5 rounded font-sans">Away</span>
                                                 <span className="font-bold text-sm truncate font-sans text-slate-900 dark:text-slate-100 max-w-[80px] sm:max-w-none">{awayPlayer?.name}</span>
                                             </div>
                                         </td>
@@ -497,11 +531,11 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
                                         </td>
                                         <td className="px-4 py-3 font-bold text-xl text-center font-sans tabular-nums bg-slate-50/50 dark:bg-slate-800/50 dark:text-white">{awaySum}</td>
                                      </tr>
-                                     {/* Home Player Row */}
-                                     <tr className="bg-blue-50/10 dark:bg-blue-900/10">
+                                     {/* Home Player Row (Red) */}
+                                     <tr className="bg-red-50/10 dark:bg-red-900/10">
                                         <td className="px-4 py-3 font-medium text-slate-700 dark:text-slate-200 w-[120px] sm:w-[150px]">
                                             <div className="flex flex-col sm:flex-row items-start sm:items-center gap-1 sm:gap-2">
-                                                <span className="text-[10px] font-bold bg-blue-100 dark:bg-blue-900/50 text-blue-600 dark:text-blue-300 px-2 py-0.5 rounded font-sans">Home</span>
+                                                <span className="text-[10px] font-bold bg-red-100 dark:bg-red-900/50 text-red-600 dark:text-red-300 px-2 py-0.5 rounded font-sans">Home</span>
                                                 <span className="font-bold text-sm truncate font-sans text-slate-900 dark:text-slate-100 max-w-[80px] sm:max-w-none">{homePlayer?.name}</span>
                                             </div>
                                         </td>
@@ -542,13 +576,13 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
           <div className="flex gap-2 sm:gap-8 items-center flex-1 min-w-0">
             <div className="text-center flex-1 min-w-0">
                 <div className="text-[10px] sm:text-xs text-slate-500 dark:text-slate-400 uppercase font-bold font-sans">Away</div>
-                <div className="text-lg sm:text-xl font-bold text-red-700 dark:text-red-400 truncate w-full font-sans px-1">{teams.away.name}</div>
+                <div className="text-lg sm:text-xl font-bold text-blue-700 dark:text-blue-400 truncate w-full font-sans px-1">{teams.away.name}</div>
                 <div className="text-xl sm:text-2xl font-sans tabular-nums leading-none dark:text-white">{awayTotal}</div>
             </div>
             <div className="text-slate-300 dark:text-slate-600 text-xl font-light font-sans">vs</div>
             <div className="text-center flex-1 min-w-0">
                 <div className="text-[10px] sm:text-xs text-slate-500 dark:text-slate-400 uppercase font-bold font-sans">Home</div>
-                <div className="text-lg sm:text-xl font-bold text-blue-700 dark:text-blue-400 truncate w-full font-sans px-1">{teams.home.name}</div>
+                <div className="text-lg sm:text-xl font-bold text-red-700 dark:text-red-400 truncate w-full font-sans px-1">{teams.home.name}</div>
                 <div className="text-xl sm:text-2xl font-sans tabular-nums leading-none dark:text-white">{homeTotal}</div>
             </div>
           </div>

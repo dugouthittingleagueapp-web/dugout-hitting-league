@@ -9,6 +9,11 @@ interface TeamManagementProps {
   onBack: () => void;
 }
 
+interface EditablePlayer {
+  name: string; // First Name
+  lastName: string; // Last Name
+}
+
 export const TeamManagement: React.FC<TeamManagementProps> = ({ league, season, onBack }) => {
   const [teams, setTeams] = useState<Team[]>([]);
   const [selectedTeam, setSelectedTeam] = useState<Team | null>(null);
@@ -20,10 +25,16 @@ export const TeamManagement: React.FC<TeamManagementProps> = ({ league, season, 
   // Creation/Edit State
   const [editingTeamId, setEditingTeamId] = useState<string | null>(null);
   const [newTeamName, setNewTeamName] = useState('');
-  const [playerNames, setPlayerNames] = useState(['', '', '']);
+  
+  // Roster State - Now objects with first/last name
+  const [players, setPlayers] = useState<EditablePlayer[]>([
+      { name: '', lastName: '' }, 
+      { name: '', lastName: '' }, 
+      { name: '', lastName: '' }
+  ]);
   
   // Subs state: stores objects to preserve IDs
-  const [subs, setSubs] = useState<{id: string, name: string}[]>([]);
+  const [subs, setSubs] = useState<{id: string, name: string, lastName?: string}[]>([]);
   
   const [loading, setLoading] = useState(false);
 
@@ -71,25 +82,33 @@ export const TeamManagement: React.FC<TeamManagementProps> = ({ league, season, 
   const handleEditTeam = (team: Team) => {
     setEditingTeamId(team.id);
     setNewTeamName(team.name);
-    // Fill player names, ensure at least 3
-    const pNames = team.players.map(p => p.name);
-    while(pNames.length < 3) pNames.push('');
-    setPlayerNames(pNames.slice(0, 3));
     
-    // Fill subs with objects
+    // Fill players, separate First/Last if needed or just load
+    const currentPlayers = team.players.map(p => ({
+        name: p.name,
+        lastName: p.lastName || ''
+    }));
+    
+    // Ensure at least 3
+    while(currentPlayers.length < 3) currentPlayers.push({ name: '', lastName: '' });
+    
+    setPlayers(currentPlayers.slice(0, 3));
+    
+    // Fill subs
     setSubs(team.subs || []);
   };
 
   const cancelEdit = () => {
       setEditingTeamId(null);
       setNewTeamName('');
-      setPlayerNames(['', '', '']);
+      setPlayers([{ name: '', lastName: '' }, { name: '', lastName: '' }, { name: '', lastName: '' }]);
       setSubs([]);
   };
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newTeamName.trim() || playerNames.some(p => !p.trim())) return;
+    // Validate: Team Name and First Names are required
+    if (!newTeamName.trim() || players.some(p => !p.name.trim())) return;
     setLoading(true);
 
     try {
@@ -97,9 +116,10 @@ export const TeamManagement: React.FC<TeamManagementProps> = ({ league, season, 
              // Update existing
              const teamToUpdate = teams.find(t => t.id === editingTeamId);
              if (teamToUpdate) {
-                 const finalPlayers = playerNames.map((name, idx) => ({
+                 const finalPlayers = players.map((p, idx) => ({
                      id: teamToUpdate.players[idx]?.id || crypto.randomUUID(),
-                     name
+                     name: p.name,
+                     lastName: p.lastName
                  }));
                  
                  // Clean empty subs before saving
@@ -114,8 +134,9 @@ export const TeamManagement: React.FC<TeamManagementProps> = ({ league, season, 
              }
         } else {
             // Create New
-            const cleanSubNames = subs.filter(s => s.name.trim()).map(s => s.name);
-            await storage.createTeam(newTeamName, league, playerNames, season, cleanSubNames);
+            const cleanSubs = subs.filter(s => s.name.trim());
+            // Map players from EditablePlayer to API expected format
+            await storage.createTeam(newTeamName, league, players, season, cleanSubs);
         }
         
         await loadTeams();
@@ -136,19 +157,19 @@ export const TeamManagement: React.FC<TeamManagementProps> = ({ league, season, 
     }
   };
 
-  const handlePlayerNameChange = (index: number, value: string) => {
-    const newNames = [...playerNames];
-    newNames[index] = value;
-    setPlayerNames(newNames);
+  const handlePlayerChange = (index: number, field: keyof EditablePlayer, value: string) => {
+    const newPlayers = [...players];
+    newPlayers[index] = { ...newPlayers[index], [field]: value };
+    setPlayers(newPlayers);
   };
 
-  const handleSubNameChange = (index: number, value: string) => {
+  const handleSubChange = (index: number, field: 'name' | 'lastName', value: string) => {
       const newSubs = [...subs];
-      newSubs[index] = { ...newSubs[index], name: value };
+      newSubs[index] = { ...newSubs[index], [field]: value };
       setSubs(newSubs);
   };
 
-  const addSubField = () => setSubs([...subs, { id: crypto.randomUUID(), name: '' }]);
+  const addSubField = () => setSubs([...subs, { id: crypto.randomUUID(), name: '', lastName: '' }]);
   
   const removeSubField = (index: number) => {
       const newSubs = [...subs];
@@ -248,10 +269,28 @@ export const TeamManagement: React.FC<TeamManagementProps> = ({ league, season, 
             
             <div className="space-y-3">
               <label className="block text-xs font-bold text-slate-500 uppercase font-sans">Main Roster (3 Players)</label>
-              {playerNames.map((name, idx) => (
-                <div key={idx} className="relative">
-                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs font-bold font-sans">#{idx + 1}</span>
-                    <input type="text" className="w-full bg-slate-100 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-lg pl-8 pr-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none font-sans text-slate-900 dark:text-white placeholder-slate-500 dark:placeholder-slate-600" placeholder={`Name`} value={name} onChange={e => handlePlayerNameChange(idx, e.target.value)} required />
+              <div className="grid grid-cols-2 gap-2 mb-1">
+                  <span className="text-[10px] uppercase text-slate-400 font-bold font-sans">First Name (Display)</span>
+                  <span className="text-[10px] uppercase text-slate-400 font-bold font-sans">Last Name (Admin)</span>
+              </div>
+              {players.map((player, idx) => (
+                <div key={idx} className="relative flex gap-2">
+                    <span className="absolute -left-5 top-1/2 -translate-y-1/2 text-slate-400 text-xs font-bold font-sans">#{idx + 1}</span>
+                    <input 
+                        type="text" 
+                        className="w-1/2 bg-slate-100 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none font-sans text-slate-900 dark:text-white placeholder-slate-500 dark:placeholder-slate-600" 
+                        placeholder="First Name" 
+                        value={player.name} 
+                        onChange={e => handlePlayerChange(idx, 'name', e.target.value)} 
+                        required 
+                    />
+                    <input 
+                        type="text" 
+                        className="w-1/2 bg-slate-100 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none font-sans text-slate-900 dark:text-white placeholder-slate-500 dark:placeholder-slate-600" 
+                        placeholder="Last Name (Optional)" 
+                        value={player.lastName} 
+                        onChange={e => handlePlayerChange(idx, 'lastName', e.target.value)} 
+                    />
                 </div>
               ))}
             </div>
@@ -267,9 +306,16 @@ export const TeamManagement: React.FC<TeamManagementProps> = ({ league, season, 
                             <input 
                                 type="text" 
                                 className="flex-1 bg-slate-100 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none font-sans text-slate-900 dark:text-white placeholder-slate-500 dark:placeholder-slate-600" 
-                                placeholder={`Sub Name`} 
+                                placeholder="First Name" 
                                 value={sub.name} 
-                                onChange={e => handleSubNameChange(idx, e.target.value)} 
+                                onChange={e => handleSubChange(idx, 'name', e.target.value)} 
+                            />
+                            <input 
+                                type="text" 
+                                className="flex-1 bg-slate-100 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none font-sans text-slate-900 dark:text-white placeholder-slate-500 dark:placeholder-slate-600" 
+                                placeholder="Last Name" 
+                                value={sub.lastName || ''} 
+                                onChange={e => handleSubChange(idx, 'lastName', e.target.value)} 
                             />
                             <button type="button" onClick={() => removeSubField(idx)} className="p-2 text-slate-400 hover:text-red-500 transition-colors">
                                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
@@ -289,16 +335,20 @@ export const TeamManagement: React.FC<TeamManagementProps> = ({ league, season, 
             <div key={team.id} className={`bg-white/60 dark:bg-slate-900/60 backdrop-blur-xl p-4 rounded-xl shadow-sm border flex justify-between items-center group transition-colors ${editingTeamId === team.id ? 'border-blue-500 ring-1 ring-blue-500' : 'border-slate-200 dark:border-slate-800 hover:border-blue-400'}`}>
               <div>
                 <h4 className="font-bold text-lg text-slate-800 dark:text-slate-200 font-sans">{team.name}</h4>
-                <div className="flex flex-wrap gap-2 mt-2">
+                <div className="flex flex-col gap-1 mt-2">
                   {team.players.map(p => (
-                    <span key={p.id} className="text-xs font-medium bg-slate-100 dark:bg-slate-950 text-slate-600 dark:text-slate-400 px-2.5 py-1 rounded-md border border-slate-200 dark:border-slate-800 font-sans">{p.name}</span>
+                    <span key={p.id} className="text-xs font-medium text-slate-600 dark:text-slate-400 font-sans">
+                        {p.name} {p.lastName && <span className="opacity-70">({p.lastName})</span>}
+                    </span>
                   ))}
                 </div>
                 {team.subs && team.subs.length > 0 && (
                     <div className="flex flex-wrap gap-2 mt-2 items-center">
                         <span className="text-[10px] font-bold text-slate-400 uppercase mr-1 font-sans">Subs:</span>
                         {team.subs.map(s => (
-                            <span key={s.id} className="text-xs font-medium bg-slate-50 dark:bg-slate-900/50 text-slate-500 dark:text-slate-500 px-2 py-0.5 rounded border border-slate-200 dark:border-slate-800 italic font-sans">{s.name}</span>
+                            <span key={s.id} className="text-xs font-medium bg-slate-50 dark:bg-slate-900/50 text-slate-500 dark:text-slate-500 px-2 py-0.5 rounded border border-slate-200 dark:border-slate-800 italic font-sans">
+                                {s.name} {s.lastName && `(${s.lastName})`}
+                            </span>
                         ))}
                     </div>
                 )}

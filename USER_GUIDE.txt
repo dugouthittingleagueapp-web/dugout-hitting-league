@@ -1,4 +1,5 @@
 
+
 DUGOUT HITTING LEAGUE - OPERATIONAL GUIDE
 =========================================
 
@@ -100,6 +101,7 @@ If a game starts with 2 players, but the 3rd player arrives late:
 - Use the "Menu" button (top left) or the top navigation bar to switch between screens.
 - Avoid using the browser's "Refresh" button during a live game to prevent losing unsaved local state (though matches are saved to the database after every pitch).
 - In the Scoreboard, use the horizontal tabs to switch between innings.
+- ALWAYS ON DISPLAY: When viewing a game scoreboard (Fan View or Scorer View), the app will attempt to keep your screen from dimming or locking so you can watch hands-free.
 
 9. STATISTICS
 -------------

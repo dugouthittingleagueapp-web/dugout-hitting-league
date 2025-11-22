@@ -10,6 +10,7 @@ html, body {
   touch-action: pan-y; /* Allows vertical gestures */
   -webkit-font-smoothing: antialiased;
   overscroll-behavior-y: none; /* Prevents bounce on the root */
+  overscroll-behavior-x: none; /* Prevents horizontal rubber banding */
 }
 
 #root {

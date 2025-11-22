@@ -213,7 +213,7 @@ export const TeamManagement: React.FC<TeamManagementProps> = ({ league, season, 
 
             <div className="bg-white/60 dark:bg-slate-900/60 backdrop-blur-xl rounded-xl shadow-sm border border-slate-200 dark:border-slate-800 overflow-hidden mb-8">
                 <div className="p-4 bg-slate-100 dark:bg-slate-950 border-b border-slate-200 dark:border-slate-800"><h3 className="font-bold text-slate-700 dark:text-slate-300 font-sans">Hitting Statistics</h3></div>
-                <div className="overflow-x-auto touch-pan-x">
+                <div className="overflow-x-auto touch-auto">
                     <table className="w-full text-left text-sm">
                         <thead className="bg-slate-100 dark:bg-slate-950 text-slate-500 dark:text-slate-400 uppercase font-bold text-xs border-b border-slate-200 dark:border-slate-800">
                             <tr>

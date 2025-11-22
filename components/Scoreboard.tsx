@@ -96,11 +96,10 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
   // Scroll Locking Effect for Modals
   useEffect(() => {
       if (showTieBreakerSetup || showFinishModal) {
-          document.body.style.overflow = 'hidden';
+          // document.body.style.overflow = 'hidden'; // Removed, handled by layout
       } else {
-          document.body.style.overflow = '';
+          // document.body.style.overflow = '';
       }
-      return () => { document.body.style.overflow = ''; };
   }, [showTieBreakerSetup, showFinishModal]);
 
   if (loading) return <div className="flex items-center justify-center h-screen text-slate-400 font-bold font-sans">Loading Match Data...</div>;
@@ -584,7 +583,7 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
   };
 
   return (
-    <div className="min-h-screen w-full overflow-x-hidden bg-transparent pb-20 font-sans">
+    <div className="min-h-full w-full overflow-x-hidden bg-transparent pb-20 font-sans">
       <header className="bg-white/80 dark:bg-slate-950/90 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 sticky top-0 z-[50] shadow-sm">
         <div className="max-w-7xl mx-auto px-4 py-3 flex justify-between items-center gap-2 sm:gap-4">
           <div className="flex gap-2 sm:gap-8 items-center flex-1 min-w-0">

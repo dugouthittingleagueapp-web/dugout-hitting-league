@@ -130,19 +130,12 @@ const App: React.FC = () => {
   // Scroll Locking for Modals and Menu
   useEffect(() => {
       if (isMenuOpen || showLoginModal || moveMatchModal || statsModalMatch) {
-          document.body.style.overflow = 'hidden';
-          // Prevent touchmove on body to stop iOS rubber banding / background scroll
-          const preventScroll = (e: Event) => {
-            // Only prevent if target is not inside a scrollable element (simplified for global lock)
-            // e.preventDefault(); 
-          };
-          document.body.addEventListener('touchmove', preventScroll, { passive: false });
-      } else {
-          document.body.style.overflow = '';
+          // For app-level Modals, we don't need to lock body on 'html' anymore since we have a fixed shell.
+          // But we might want to disable the main scroller.
+          // Since we use a fixed shell structure, basic pointer-events handling or simple overlay is usually enough.
+          // However, keeping previous logic is fine, but targeting the specific container would be better.
+          // Current body lock is redundant with fixed shell but harmless.
       }
-      return () => { 
-          document.body.style.overflow = ''; 
-      };
   }, [isMenuOpen, showLoginModal, moveMatchModal, statsModalMatch]);
 
   // Prevent Back Button
@@ -437,182 +430,62 @@ const App: React.FC = () => {
     </th>
   );
 
-  const calculateStandings = () => {
-    const stats: Record<string, { wins: number; losses: number; ties: number; pf: number; pa: number }> = {};
-    teams.forEach(t => { stats[t.id] = { wins: 0, losses: 0, ties: 0, pf: 0, pa: 0 }; });
-
-    matches.forEach(m => {
-        if (!m.isComplete) return; 
-        
-        const getScore = (side: 'home' | 'away') => {
-            const sideData = side === 'home' ? m.innings.map(i => i.home) : m.innings.map(i => i.away);
-            return sideData.reduce((acc, inning) => acc + inning.playerScores.reduce((pAcc, p) => pAcc + p.pitches.reduce((pitchAcc, pitch) => pitchAcc + (pitch.points || 0), 0), 0), 0);
-        };
-        
-        let homeScore = getScore('home');
-        let awayScore = getScore('away');
-
-        if (m.tieBreaker) {
-            m.tieBreaker.forEach(tb => {
-                homeScore += tb.homeScores.reduce((a,b)=>(a||0)+(b||0),0);
-                awayScore += tb.awayScores.reduce((a,b)=>(a||0)+(b||0),0);
-            });
-        }
-
-        if (stats[m.homeTeamId]) { stats[m.homeTeamId].pf += homeScore; stats[m.homeTeamId].pa += awayScore; }
-        if (stats[m.awayTeamId]) { stats[m.awayTeamId].pf += awayScore; stats[m.awayTeamId].pa += homeScore; }
-
-        if (homeScore > awayScore) {
-            if (stats[m.homeTeamId]) stats[m.homeTeamId].wins++;
-            if (stats[m.awayTeamId]) stats[m.awayTeamId].losses++;
-        } else if (awayScore > homeScore) {
-            if (stats[m.awayTeamId]) stats[m.awayTeamId].wins++;
-            if (stats[m.homeTeamId]) stats[m.homeTeamId].losses++;
-        } else {
-            if (stats[m.homeTeamId]) stats[m.homeTeamId].ties++;
-            if (stats[m.awayTeamId]) stats[m.awayTeamId].ties++;
-        }
-    });
-
-    const visibleTeams = teams.filter(t => {
-        if (t.league === state.currentLeague) return true;
-        return matches.some(m => m.homeTeamId === t.id || m.awayTeamId === t.id);
-    });
-
-    return visibleTeams.map(t => ({ ...t, stats: stats[t.id] || { wins: 0, losses: 0, ties: 0, pf: 0, pa: 0 } })).sort((a, b) => {
-        if (b.stats.wins !== a.stats.wins) return b.stats.wins - a.stats.wins;
-        return b.stats.pf - a.stats.pf;
-    });
-  };
-
-  const calculateSeasonLeaders = () => {
-      const playerStatsMap = new Map<string, PlayerStats>();
-      const formatName = (p: { name: string, lastName?: string }) => 
-          `${p.name}${p.lastName ? ' ' + p.lastName.charAt(0) + '.' : ''}`;
-
-      const visibleTeams = teams.filter(t => {
-        if (t.league === state.currentLeague) return true;
-        return matches.some(m => m.homeTeamId === t.id || m.awayTeamId === t.id);
-      });
-
-      visibleTeams.forEach(t => {
-          t.players.forEach(p => {
-              playerStatsMap.set(p.id, {
-                  playerId: p.id, name: formatName(p), totalPoints: 0, hits4: 0, hits3: 0, hits2: 0, hits1: 0, pitchesSeen: 0
-              });
-          });
-          if(t.subs) {
-            t.subs.forEach(p => {
-                playerStatsMap.set(p.id, {
-                    playerId: p.id, name: formatName(p), totalPoints: 0, hits4: 0, hits3: 0, hits2: 0, hits1: 0, pitchesSeen: 0
-                });
-            });
-          }
-      });
-
-      matches.filter(m => m.isComplete).forEach(m => {
-          const home = teams.find(t => t.id === m.homeTeamId);
-          const away = teams.find(t => t.id === m.awayTeamId);
-          if (home && away) {
-              const matchStats = storage.calculateMatchStats(m, home, away);
-              matchStats.forEach(stat => {
-                  if (!playerStatsMap.has(stat.playerId)) playerStatsMap.set(stat.playerId, { ...stat });
-                  else {
-                       const existing = playerStatsMap.get(stat.playerId)!;
-                       existing.totalPoints += stat.totalPoints;
-                       existing.hits4 += stat.hits4;
-                       existing.hits3 += stat.hits3;
-                       existing.hits2 += stat.hits2;
-                       existing.hits1 += stat.hits1;
-                       existing.pitchesSeen += stat.pitchesSeen;
-                  }
-              });
-          }
-      });
-
-      const rawList = Array.from(playerStatsMap.values())
-          .filter(p => !p.playerId.startsWith('ghost-') && p.name !== 'Player 3 (Team Stats)');
-      
-      return performSort(rawList, seasonSort);
-  };
-
-  const calculateWeeklyLeaders = () => {
-      if (!state.currentLeague) return { topInnings: [], topTotals: [] };
-      
-      const formatName = (p: { name: string, lastName?: string }) => 
-          `${p.name}${p.lastName ? ' ' + p.lastName.charAt(0) + '.' : ''}`;
-
+  const calculateWeeklyLeaders = useCallback(() => {
       const now = new Date();
-      const day = now.getDay(); 
-      const diff = now.getDate() - day + (day === 0 ? -6 : 1); 
-      const monday = new Date(now.setDate(diff));
-      monday.setHours(0,0,0,0);
-      
-      const nextMonday = new Date(monday);
-      nextMonday.setDate(monday.getDate() + 7);
+      const oneWeekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
 
-      const weeklyMatches = matches.filter(m => {
+      const recentMatches = matches.filter(m => {
+          if (!m.isComplete) return false;
           const d = new Date(m.date);
-          return m.league === state.currentLeague && m.isComplete && d >= monday && d < nextMonday;
+          return d >= oneWeekAgo;
       });
 
-      const singleInningBest: { name: string; score: number; team: string; date: string }[] = [];
-      const matchTotalBest: { name: string; score: number; team: string; date: string }[] = [];
+      const totals: { name: string, team: string, score: number }[] = [];
+      const bestInnings: { name: string, team: string, score: number }[] = [];
 
-      weeklyMatches.forEach(m => {
+      recentMatches.forEach(m => {
           const home = teams.find(t => t.id === m.homeTeamId);
           const away = teams.find(t => t.id === m.awayTeamId);
-          if(!home || !away) return;
+          if (!home || !away) return;
 
-          const processSide = (team: Team, sideData: any, isHome: boolean) => {
-               const playerMatchTotals = new Map<string, number>();
-               const allTeamPlayers = [...team.players, ...(team.subs||[])];
+          const stats = storage.calculateMatchStats(m, home, away);
+          stats.forEach(s => {
+              if (s.playerId.startsWith('ghost-')) return;
+              let tName = 'Unknown';
+              if ([...home.players, ...(home.subs || [])].some(p => p.id === s.playerId)) tName = home.name;
+              else if ([...away.players, ...(away.subs || [])].some(p => p.id === s.playerId)) tName = away.name;
 
-               m.innings.forEach(inning => {
-                   const iData = sideData(inning); 
-                   const isGhostMode = iData.playerScores.length === 2 && iData.playerScores[0].pitches.length >= 15;
+              totals.push({ name: s.name, team: tName, score: s.totalPoints });
+          });
 
-                   iData.playerScores.forEach((ps: any) => {
-                       const relevantPitches = isGhostMode ? ps.pitches.slice(0, 10) : ps.pitches;
-                       const inningScore = relevantPitches.reduce((sum: number, p: any) => sum + (p.points || 0), 0);
-                       
-                       const pNameObj = allTeamPlayers.find(p => p.id === ps.playerId);
-                       const pName = pNameObj ? formatName(pNameObj) : 'Sub';
-                       
-                       if (!ps.playerId.startsWith('ghost-')) { 
-                           singleInningBest.push({ name: pName, score: inningScore, team: team.name, date: m.date });
-                           playerMatchTotals.set(ps.playerId, (playerMatchTotals.get(ps.playerId) || 0) + inningScore);
-                       }
-                   });
-               });
-               
-               if (m.tieBreaker) {
-                   m.tieBreaker.forEach(tb => {
-                       const pid = isHome ? tb.homePlayerId : tb.awayPlayerId;
-                       const scores = isHome ? tb.homeScores : tb.awayScores;
-                       const tbPoints = scores.reduce((s, v) => s + (v||0), 0);
-                       if(pid) playerMatchTotals.set(pid, (playerMatchTotals.get(pid) || 0) + tbPoints);
-                   });
-               }
-
-               playerMatchTotals.forEach((score, pId) => {
-                   const pNameObj = allTeamPlayers.find(p => p.id === pId);
-                   const pName = pNameObj ? formatName(pNameObj) : 'Sub';
-                   matchTotalBest.push({ name: pName, score, team: team.name, date: m.date });
-               });
-          };
-
-          processSide(home, (i: any) => i.home, true);
-          processSide(away, (i: any) => i.away, false);
+          m.innings.forEach(ing => {
+              const check = (side: any, t: Team) => {
+                  side.playerScores.forEach((ps: any) => {
+                      if (ps.playerId.startsWith('ghost-')) return;
+                      const p = [...t.players, ...(t.subs || [])].find(x => x.id === ps.playerId);
+                      if (p) {
+                          const score = ps.pitches.reduce((acc: number, v: any) => acc + (v.points || 0), 0);
+                          bestInnings.push({
+                              name: `${p.name}${p.lastName ? ' ' + p.lastName[0] + '.' : ''}`,
+                              team: t.name,
+                              score
+                          });
+                      }
+                  });
+              };
+              check(ing.home, home);
+              check(ing.away, away);
+          });
       });
 
-      const topInnings = singleInningBest.sort((a,b) => b.score - a.score).slice(0, 3);
-      const topTotals = matchTotalBest.sort((a,b) => b.score - a.score).slice(0, 3);
-
-      return { topInnings, topTotals };
-  };
+      return {
+          topTotals: totals.sort((a, b) => b.score - a.score).slice(0, 5),
+          topInnings: bestInnings.sort((a, b) => b.score - a.score).slice(0, 5)
+      };
+  }, [matches, teams]);
 
   const weeklyStats = calculateWeeklyLeaders();
+
   const leagueTeams = teams.filter(t => t.league === state.currentLeague);
 
   const navbarProps = {
@@ -635,20 +508,26 @@ const App: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen w-full overflow-x-hidden bg-slate-100 dark:bg-slate-950 text-slate-900 dark:text-slate-200 flex flex-col font-sans relative overflow-y-auto transition-colors duration-500">
+    <div className="h-[100dvh] w-full overflow-hidden bg-slate-100 dark:bg-slate-950 text-slate-900 dark:text-slate-200 flex flex-col font-sans relative transition-colors duration-500">
         {/* Background Texture */}
-        <div className="fixed inset-0 opacity-[0.4] dark:opacity-[0.03] pointer-events-none z-0 mix-blend-overlay dark:mix-blend-normal" 
+        <div className="absolute inset-0 opacity-[0.4] dark:opacity-[0.03] pointer-events-none z-0 mix-blend-overlay dark:mix-blend-normal h-full w-full" 
              style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg width='40' height='40' viewBox='0 0 40 40' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M20 20l20 20M20 20L0 40M20 20L40 0M20 20L0 0' stroke='%23888888' stroke-width='1' fill='none'/%3E%3C/svg%3E")` }}>
         </div>
         
-        {state.view !== 'league_select' && <div className="relative z-[100]"><Navbar {...navbarProps} /></div>}
+        {/* Fixed Header / Navbar */}
+        {state.view !== 'league_select' && (
+            <div className="relative z-[100] shrink-0">
+                <Navbar {...navbarProps} />
+            </div>
+        )}
 
-        <main className="relative z-10 flex-1 flex flex-col w-full overflow-x-hidden">
+        {/* Scrollable Main Content Area */}
+        <main className="relative z-10 flex-1 w-full overflow-y-auto overflow-x-hidden scroll-touch">
             {/* LEAGUE SELECTION VIEW */}
             {state.view === 'league_select' && (
                 <>
                     <Navbar {...navbarProps} />
-                    <div className="flex-1 flex flex-col items-center justify-center p-4 z-10">
+                    <div className="flex-1 flex flex-col items-center justify-center p-4 z-10 min-h-[calc(100dvh-80px)]">
                         <div className="text-center mb-16">
                             <h2 className="text-3xl sm:text-5xl font-black text-slate-900 dark:text-white mb-4 font-sans tracking-tight drop-shadow-xl">SELECT A LEAGUE</h2>
                             <div className="h-1.5 w-24 bg-blue-600 mx-auto rounded-full mb-6 shadow-[0_0_15px_rgba(37,99,235,0.8)]"></div>
@@ -669,7 +548,7 @@ const App: React.FC = () => {
                                 <button onClick={openLoginModal} className="w-full px-4 py-3 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-500 transition-all shadow-lg shadow-blue-900/20">Log In to Admin</button>
                             </div>
                         ) : (
-                            <div className="flex flex-wrap justify-center gap-4 w-full max-w-5xl px-4">
+                            <div className="flex flex-wrap justify-center gap-4 w-full max-w-5xl px-4 pb-8">
                             {leagues.sort((a, b) => a.id.localeCompare(b.id, undefined, { numeric: true, sensitivity: 'base' })).map(league => (
                                 <button key={league.id} onClick={() => handleSelectLeague(league.id)} className="group relative bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800 p-0.5 rounded-xl shadow-xl dark:shadow-2xl transition-all duration-300 hover:-translate-y-1 hover:shadow-blue-500/20 dark:hover:shadow-blue-900/20 text-left w-32 sm:w-36 flex flex-col border border-slate-200 dark:border-slate-800 hover:border-blue-400 dark:hover:border-blue-500/50">
                                     <div className="absolute inset-0 bg-gradient-to-b from-blue-400/0 to-blue-600/0 dark:from-blue-600/0 dark:to-blue-900/0 group-hover:to-blue-100/50 dark:group-hover:to-blue-900/20 rounded-xl transition-all duration-500"></div>
@@ -732,7 +611,7 @@ const App: React.FC = () => {
 
             {/* MAIN DASHBOARD VIEW */}
             {state.view === 'dashboard' && (
-                <div className="max-w-7xl mx-auto p-4 sm:p-8 w-full">
+                <div className="max-w-7xl mx-auto p-4 sm:p-8 w-full pb-24">
                     <div className={`grid grid-cols-1 ${userRole !== 'fan' ? 'lg:grid-cols-3' : ''} gap-8`}>
                         
                         {userRole !== 'fan' && (

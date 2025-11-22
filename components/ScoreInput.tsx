@@ -1,5 +1,5 @@
-
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 
 interface ScoreInputProps {
   pitchNumber: number;
@@ -86,7 +86,7 @@ export const ScoreInput: React.FC<ScoreInputProps> = ({ pitchNumber, value, pitc
         </button>
       </div>
       
-      {isEditing && (
+      {isEditing && createPortal(
         <div 
             className="fixed inset-0 z-[9999] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200 p-4 touch-none" 
             onClick={onClose} 
@@ -138,7 +138,8 @@ export const ScoreInput: React.FC<ScoreInputProps> = ({ pitchNumber, value, pitc
                     )}
                 </div>
             </div>
-        </div>
+        </div>,
+        document.body
       )}
     </>
   );

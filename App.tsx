@@ -1,5 +1,5 @@
-
 import React, { useState, useEffect, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import { AgeGroup, AppState, Match, Team, Player, League, PlayerStats } from './types';
 import { Navbar } from './components/Navbar';
 import { TeamManagement } from './components/TeamManagement';
@@ -522,7 +522,7 @@ const App: React.FC = () => {
         )}
 
         {/* Scrollable Main Content Area */}
-        <main className="relative z-10 flex-1 w-full overflow-y-auto overflow-x-hidden scroll-touch">
+        <main className="relative flex-1 w-full overflow-y-auto overflow-x-hidden scroll-touch">
             {/* LEAGUE SELECTION VIEW */}
             {state.view === 'league_select' && (
                 <>
@@ -734,7 +734,7 @@ const App: React.FC = () => {
             )}
         </main>
         {/* Modals (Login, Move Match, Stats) rendered here - Code unchanged */}
-        {showLoginModal && (
+        {showLoginModal && createPortal(
           <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/80 backdrop-blur-sm animate-in fade-in duration-200" onClick={() => setShowLoginModal(false)}>
             <div className="bg-slate-900 p-8 rounded-2xl shadow-2xl w-full max-w-sm transform scale-100 animate-in zoom-in-95 duration-200 font-sans border border-slate-700" onClick={e => e.stopPropagation()}>
               <h3 className="text-xl font-bold text-white mb-4 text-center font-sans">Access Control</h3>
@@ -747,10 +747,11 @@ const App: React.FC = () => {
                 <button type="submit" disabled={loading} className="w-full bg-blue-600 text-white font-bold py-3 rounded-lg hover:bg-blue-500 transition-colors font-sans shadow-lg shadow-blue-900/20">{loading ? 'Verifying...' : 'Log In'}</button>
               </form>
             </div>
-          </div>
+          </div>,
+          document.body
         )}
 
-        {moveMatchModal && (
+        {moveMatchModal && createPortal(
             <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/80 backdrop-blur-sm animate-in fade-in duration-200" onClick={() => setMoveMatchModal(null)}>
                 <div className="bg-white dark:bg-slate-900 p-6 rounded-2xl shadow-2xl w-full max-w-md transform scale-100 animate-in zoom-in-95 duration-200 font-sans border border-slate-200 dark:border-slate-700" onClick={e => e.stopPropagation()}>
                     <h3 className="text-xl font-bold text-slate-800 dark:text-white mb-2 text-center font-sans">Move Match to Another League</h3>
@@ -776,10 +777,11 @@ const App: React.FC = () => {
                         </div>
                     </div>
                 </div>
-            </div>
+            </div>,
+            document.body
         )}
 
-        {statsModalMatch && (
+        {statsModalMatch && createPortal(
             <div className="fixed inset-0 z-[150] flex items-center justify-center bg-black/80 backdrop-blur-sm animate-in fade-in duration-200" onClick={() => setStatsModalMatch(null)}>
                 <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl w-full max-w-3xl max-h-[90vh] overflow-hidden flex flex-col transform scale-100 animate-in zoom-in-95 duration-200 font-sans border border-slate-200 dark:border-slate-700" onClick={e => e.stopPropagation()}>
                     <div className="p-6 border-b border-slate-200 dark:border-slate-800 flex justify-between items-center bg-slate-50 dark:bg-slate-950">
@@ -821,7 +823,8 @@ const App: React.FC = () => {
                         <button onClick={() => setStatsModalMatch(null)} className="px-6 py-2 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-600 dark:text-slate-300 font-bold rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 hover:text-slate-900 dark:hover:text-white font-sans transition-colors">Close</button>
                     </div>
                 </div>
-            </div>
+            </div>,
+            document.body
         )}
     </div>
   );

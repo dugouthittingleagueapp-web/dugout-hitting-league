@@ -1,5 +1,5 @@
-
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { Match, Inning, Team, TieBreakerRound } from '../types';
 import * as storage from '../services/storageService';
 import { ScoreInput } from './ScoreInput';
@@ -96,7 +96,7 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
   // Scroll Locking Effect for Modals
   useEffect(() => {
       if (showTieBreakerSetup || showFinishModal) {
-          // document.body.style.overflow = 'hidden'; // Removed, handled by layout
+          // document.body.style.overflow = 'hidden'; // Removed, handled by layout or portals
       } else {
           // document.body.style.overflow = '';
       }
@@ -625,7 +625,7 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
       </main>
 
       {/* Tie Breaker Setup Modal */}
-      {showTieBreakerSetup && (
+      {showTieBreakerSetup && createPortal(
           <div className="fixed inset-0 z-[70] flex items-center justify-center bg-slate-900/80 backdrop-blur-sm animate-in fade-in duration-300">
               <div className="bg-white dark:bg-slate-900 p-6 sm:p-8 rounded-2xl shadow-2xl w-[90%] max-w-md font-sans transform scale-100 animate-in zoom-in-95 border border-slate-200 dark:border-slate-700">
                   <h2 className="text-2xl font-black text-amber-600 mb-2 text-center font-sans">TIE GAME!</h2>
@@ -650,16 +650,18 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
                       Start Extra Innings
                   </button>
               </div>
-          </div>
+          </div>,
+          document.body
       )}
 
-      {showFinishModal && !isReadOnly && (
+      {showFinishModal && !isReadOnly && createPortal(
         <div className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
             <div className="bg-white dark:bg-slate-900 p-6 rounded-2xl shadow-2xl max-w-sm w-[90%] transform scale-100 animate-in zoom-in-95 duration-200 font-sans border border-slate-200 dark:border-slate-700">
                 <div className="mb-4 text-center"><h3 className="text-xl font-bold text-slate-800 dark:text-white font-sans">Finalize Game?</h3><p className="text-slate-500 dark:text-slate-400 mt-2 text-sm font-sans">Are you sure you want to finalize this game?</p></div>
                 <div className="grid grid-cols-2 gap-3"><button onClick={() => setShowFinishModal(false)} className="py-3 rounded-xl font-bold text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors font-sans">No</button><button onClick={confirmCompleteGame} className="py-3 rounded-xl font-bold text-white bg-green-600 hover:bg-green-700 shadow-lg shadow-green-200 dark:shadow-none transition-colors font-sans">Yes, Finalize</button></div>
             </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );

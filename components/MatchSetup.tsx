@@ -1,5 +1,5 @@
-
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { Team, Player } from '../types';
 import * as storage from '../services/storageService';
 
@@ -245,7 +245,7 @@ export const MatchSetup: React.FC<MatchSetupProps> = ({ homeTeam, awayTeam, onSt
       </div>
 
       {/* Add Sub Modal */}
-      {showSubModal && subSide && (
+      {showSubModal && subSide && createPortal(
           <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200" onClick={() => setShowSubModal(false)}>
               <div className="bg-white dark:bg-slate-900 p-6 rounded-2xl shadow-2xl w-[90%] max-w-md font-sans border border-slate-200 dark:border-slate-700" onClick={e => e.stopPropagation()}>
                   <div className="flex justify-between items-center mb-4">
@@ -305,7 +305,8 @@ export const MatchSetup: React.FC<MatchSetupProps> = ({ homeTeam, awayTeam, onSt
                       </div>
                   </div>
               </div>
-          </div>
+          </div>,
+          document.body
       )}
     </div>
   );

@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { AgeGroup, League } from '../types';
 
@@ -82,7 +81,7 @@ export const Navbar: React.FC<NavbarProps> = ({
             ) : (
                 // --- DASHBOARD LAYOUT (Fixed Horizontal Bar) ---
                 // Increased min-height to ensure logo fits without cutting off
-                <div className="flex items-center justify-between relative min-h-[7rem] pb-2">
+                <div className="flex items-center justify-between relative min-h-[8rem] pb-2">
                     
                     {/* Left: Hamburger */}
                     <div className="z-30 flex-shrink-0 self-center">
@@ -99,7 +98,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                             <img 
                                 src="https://imgur.com/SqDq8L3.png" 
                                 alt="Dugout Hitting League" 
-                                className="h-24 drop-shadow-[0_0_10px_rgba(59,130,246,0.3)] object-contain"
+                                className="h-28 drop-shadow-[0_0_10px_rgba(59,130,246,0.3)] object-contain"
                             />
                         </div>
                     </div>

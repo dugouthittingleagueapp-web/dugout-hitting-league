@@ -52,7 +52,7 @@ export const Navbar: React.FC<NavbarProps> = ({
 
   return (
     <>
-        <nav className={`bg-slate-100/90 dark:bg-slate-950/90 backdrop-blur-md text-slate-900 dark:text-white shadow-lg sticky top-0 z-[999] transition-all duration-500 ease-in-out border-b border-slate-200 dark:border-slate-800 ${isHomeScreen ? 'py-6 sm:py-10 border-b-0' : 'pt-4 pb-0'}`}>
+        <nav className={`bg-slate-100/90 dark:bg-slate-950/90 backdrop-blur-md text-slate-900 dark:text-white shadow-lg sticky top-0 z-[999] transition-all duration-500 ease-in-out border-b border-slate-200 dark:border-slate-800 ${isHomeScreen ? 'py-6 sm:py-10 border-b-0' : 'pt-2 pb-0'}`}>
         <div className="max-w-7xl mx-auto w-full px-4 sm:px-6 relative">
             
             {isHomeScreen ? (
@@ -61,7 +61,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                     {/* Absolute Hamburger (Top Left) */}
                     <div className="absolute top-0 left-4 sm:left-6">
                         <button onClick={() => setMenuOpen(true)} className="p-2 rounded-lg hover:bg-black/5 dark:hover:bg-white/10 transition-colors">
-                            <svg className="w-6 h-6 text-slate-700 dark:text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <svg className="w-8 h-8 text-slate-700 dark:text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h16M4 18h16"></path>
                             </svg>
                         </button>
@@ -81,12 +81,13 @@ export const Navbar: React.FC<NavbarProps> = ({
                 </div>
             ) : (
                 // --- DASHBOARD LAYOUT (Fixed Horizontal Bar) ---
-                <div className="flex items-center justify-between relative min-h-[5rem] mb-1">
+                // Increased min-height to ensure logo fits without cutting off
+                <div className="flex items-center justify-between relative min-h-[7rem] pb-2">
                     
                     {/* Left: Hamburger */}
-                    <div className="z-30 flex-shrink-0">
+                    <div className="z-30 flex-shrink-0 self-center">
                         <button onClick={() => setMenuOpen(true)} className="p-2 rounded-lg hover:bg-black/5 dark:hover:bg-white/10 transition-colors">
-                            <svg className="w-6 h-6 text-slate-700 dark:text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <svg className="w-8 h-8 text-slate-700 dark:text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h16M4 18h16"></path>
                             </svg>
                         </button>
@@ -94,30 +95,31 @@ export const Navbar: React.FC<NavbarProps> = ({
 
                     {/* Center: Logo (Mobile Only - Absolute Center) */}
                     <div className="md:hidden absolute inset-0 flex items-center justify-center pointer-events-none z-20">
-                        <div className="pointer-events-auto flex items-center justify-center cursor-pointer" onClick={onGoHome}>
+                        <div className="pointer-events-auto flex items-center justify-center cursor-pointer h-full" onClick={onGoHome}>
                             <img 
                                 src="https://imgur.com/SqDq8L3.png" 
                                 alt="Dugout Hitting League" 
-                                className="h-16 drop-shadow-[0_0_10px_rgba(59,130,246,0.3)] object-contain"
+                                className="h-24 drop-shadow-[0_0_10px_rgba(59,130,246,0.3)] object-contain"
                             />
                         </div>
                     </div>
 
                     {/* Right: Desktop Layout (Logo Right Justified) */}
-                    <div className="hidden md:flex items-center ml-auto z-30">
-                        {/* Desktop Logo Group with Separator */}
-                        <div className="flex items-center cursor-pointer group" onClick={onGoHome}>
-                             <div className="flex flex-col items-end pr-4">
-                                <h1 className="text-xl font-black tracking-tighter italic uppercase leading-none text-slate-900 dark:text-white">Dugout</h1>
-                                <span className="font-bold text-blue-600 dark:text-blue-400 text-[10px] tracking-[0.25em] uppercase block leading-none mt-1">Hitting League</span>
+                    <div className="hidden md:flex items-center ml-auto z-30 h-full">
+                        <div className="flex items-center cursor-pointer group h-full" onClick={onGoHome}>
+                             {/* Dugout Text Logo (Left of Image) */}
+                             <div className="flex flex-col items-end pr-6 justify-center h-full">
+                                <h1 className="text-3xl font-black tracking-tighter italic uppercase leading-none text-slate-900 dark:text-white transform skew-x-[-10deg]">Dugout</h1>
                             </div>
                             
-                            <div className="h-12 w-px bg-slate-300 dark:bg-slate-700 mx-1"></div>
+                            {/* Vertical Separator Line */}
+                            <div className="h-16 w-px bg-slate-300 dark:bg-slate-700 mx-2"></div>
 
+                            {/* League Logo Image (Far Right) */}
                             <img 
                                 src="https://imgur.com/SqDq8L3.png" 
                                 alt="Dugout Hitting League" 
-                                className="h-20 drop-shadow-[0_0_15px_rgba(59,130,246,0.2)] object-contain shrink-0 pl-4 pb-1"
+                                className="h-28 drop-shadow-[0_0_15px_rgba(59,130,246,0.2)] object-contain shrink-0 pl-6"
                             />
                         </div>
                     </div>
@@ -128,16 +130,17 @@ export const Navbar: React.FC<NavbarProps> = ({
         {currentLeague && (
             <div className="w-full border-t border-slate-200 dark:border-slate-800/50">
                 <div className="max-w-7xl mx-auto flex items-center gap-3 px-4 sm:px-6 py-3 relative z-[900]">
-                    <div className="flex items-center gap-2 bg-white/50 dark:bg-slate-800/50 px-2 py-1 rounded-md border border-slate-200 dark:border-slate-700/50 shrink-0">
-                        <span className="w-2 h-2 rounded-full bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.6)]"></span>
-                        <span className="text-[10px] font-bold uppercase tracking-wider text-slate-600 dark:text-slate-300">{currentLeague} League</span>
+                    {/* League Indicator (Left) */}
+                    <div className="flex items-center gap-2 bg-white/50 dark:bg-slate-800/50 px-3 py-1.5 rounded-md border border-slate-200 dark:border-slate-700/50 shrink-0">
+                        <span className="w-2.5 h-2.5 rounded-full bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.6)]"></span>
+                        <span className="text-xs font-bold uppercase tracking-wider text-slate-600 dark:text-slate-300">{currentLeague} League</span>
                     </div>
 
-                    {/* Desktop Only Controls */}
-                    <div className="hidden md:flex ml-auto items-center gap-4 relative z-[1000]">
+                    {/* Controls (Right) - Season & Switch League */}
+                    <div className="ml-auto flex items-center gap-6 relative z-[1000]">
                         {/* Season Selector */}
                         <div className="relative">
-                            <button onClick={() => setShowSeasonMenu(!showSeasonMenu)} className="text-[10px] font-bold uppercase tracking-wider text-slate-500 hover:text-slate-800 dark:hover:text-slate-300 transition-colors flex items-center gap-1">
+                            <button onClick={() => setShowSeasonMenu(!showSeasonMenu)} className="text-xs font-bold uppercase tracking-wider text-slate-500 hover:text-slate-800 dark:hover:text-slate-300 transition-colors flex items-center gap-1">
                                 Season: <span className="text-slate-900 dark:text-white">{currentSeason}</span>
                                 <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path></svg>
                             </button>
@@ -154,7 +157,7 @@ export const Navbar: React.FC<NavbarProps> = ({
 
                         {/* Switch League */}
                         <div className="relative">
-                            <button onClick={() => setShowLeagueMenu(!showLeagueMenu)} className="text-[10px] font-bold uppercase tracking-wider text-slate-500 hover:text-slate-800 dark:hover:text-slate-300 transition-colors flex items-center gap-1">
+                            <button onClick={() => setShowLeagueMenu(!showLeagueMenu)} className="text-xs font-bold uppercase tracking-wider text-slate-500 hover:text-slate-800 dark:hover:text-slate-300 transition-colors flex items-center gap-1">
                             Switch League
                             <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path></svg>
                             </button>
@@ -186,15 +189,15 @@ export const Navbar: React.FC<NavbarProps> = ({
                 {/* Drawer Content */}
                 <div className="relative bg-white dark:bg-slate-950 w-[80%] max-w-xs h-full shadow-2xl border-r border-slate-200 dark:border-slate-800 flex flex-col animate-in slide-in-from-left duration-300">
                     <div className="p-6 border-b border-slate-200 dark:border-slate-800 flex justify-between items-center">
-                        <h2 className="text-xl font-black italic uppercase text-slate-900 dark:text-white tracking-tight">Settings</h2>
+                        <h2 className="text-xl font-black italic uppercase text-slate-900 dark:text-white tracking-tight">Menu</h2>
                         <button onClick={() => setMenuOpen(false)} className="text-slate-400 hover:text-slate-800 dark:hover:text-white">
-                            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                            <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path></svg>
                         </button>
                     </div>
                     
                     <div className="p-6 flex-1 overflow-y-auto space-y-8">
                         
-                        {/* Theme Toggle in Drawer */}
+                        {/* Theme Toggle in Drawer (Removed from main nav per request) */}
                         <div>
                             <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">Appearance</h3>
                             <button onClick={toggleTheme} className="w-full flex items-center justify-between p-3 rounded-xl bg-slate-100 dark:bg-slate-900 hover:bg-slate-200 dark:hover:bg-slate-800 transition-colors">

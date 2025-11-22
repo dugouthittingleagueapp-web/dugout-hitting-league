@@ -8,6 +8,7 @@ html {
   touch-action: pan-y;
   overscroll-behavior-x: none; /* Prevents horizontal rubber banding */
   overscroll-behavior-y: none;
+  width: 100%;
   max-width: 100vw;
 }
 

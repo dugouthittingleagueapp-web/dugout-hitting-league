@@ -53,62 +53,83 @@ export const Navbar: React.FC<NavbarProps> = ({
   return (
     <>
         <nav className={`bg-slate-100/90 dark:bg-slate-950/90 backdrop-blur-md text-slate-900 dark:text-white shadow-lg sticky top-0 z-[999] transition-all duration-500 ease-in-out border-b border-slate-200 dark:border-slate-800 ${isHomeScreen ? 'py-6 sm:py-10 border-b-0' : 'py-3'}`}>
-        <div className={`max-w-7xl mx-auto w-full px-4 sm:px-6 flex ${isHomeScreen ? 'flex-col items-center gap-6' : 'justify-between items-center'}`}>
+        <div className="max-w-7xl mx-auto w-full px-4 sm:px-6 relative">
             
-            {/* Top Bar Row */}
-            <div className={`w-full flex items-center justify-between ${isHomeScreen ? 'absolute top-0 left-0 w-full p-4' : ''}`}>
-                
-                {/* Left: Hamburger Menu */}
-                <button onClick={() => setMenuOpen(true)} className="p-2 rounded-lg hover:bg-black/5 dark:hover:bg-white/10 transition-colors">
-                    <svg className="w-6 h-6 text-slate-700 dark:text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h16M4 18h16"></path>
-                    </svg>
-                </button>
-
-                {/* Right: Theme Toggle Only (Auth moved to Menu) */}
-                {!isHomeScreen && (
-                    <div className="hidden md:flex items-center gap-3">
-                         {/* Theme Toggle */}
-                        <button 
-                            onClick={toggleTheme}
-                            className="p-2 rounded-full hover:bg-black/5 dark:hover:bg-white/10 text-slate-600 dark:text-slate-300 transition-colors"
-                            title="Toggle Theme"
-                        >
-                            {isDarkMode ? (
-                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"></path></svg>
-                            ) : (
-                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"></path></svg>
-                            )}
+            {isHomeScreen ? (
+                // --- HOME SCREEN LAYOUT (Vertical Stack) ---
+                <div className="flex flex-col items-center gap-6 w-full">
+                    {/* Absolute Hamburger (Top Left) */}
+                    <div className="absolute top-0 left-4 sm:left-6">
+                        <button onClick={() => setMenuOpen(true)} className="p-2 rounded-lg hover:bg-black/5 dark:hover:bg-white/10 transition-colors">
+                            <svg className="w-6 h-6 text-slate-700 dark:text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h16M4 18h16"></path>
+                            </svg>
                         </button>
                     </div>
-                )}
-            </div>
 
-            {/* Center Logo Area */}
-            <div 
-                className={`flex items-center gap-4 cursor-pointer group ${isHomeScreen ? 'flex-col transform hover:scale-105 transition-transform duration-500 mt-8' : '-ml-12'}`} 
-                onClick={onGoHome}
-            >
-                <img 
-                    src="https://imgur.com/SqDq8L3.png" 
-                    alt="Dugout Hitting League" 
-                    className={`${isHomeScreen ? 'w-56 sm:w-80 drop-shadow-[0_0_40px_rgba(59,130,246,0.3)]' : 'w-48 sm:w-64 drop-shadow-[0_0_15px_rgba(59,130,246,0.2)]'} object-contain shrink-0 transition-all duration-500`}
-                />
-                {!isHomeScreen && (
-                    <div className="hidden lg:block pt-1 pl-4 border-l border-slate-300 dark:border-slate-700 ml-2">
-                        <h1 className="text-xl font-black tracking-tighter italic uppercase leading-none text-slate-900 dark:text-white">Dugout</h1>
-                        <span className="font-bold text-blue-600 dark:text-blue-400 text-[10px] tracking-[0.25em] uppercase block leading-none mt-0.5">Hitting League</span>
+                    {/* Centered Logo */}
+                    <div 
+                        className="flex flex-col items-center gap-4 cursor-pointer group transform hover:scale-105 transition-transform duration-500 mt-8" 
+                        onClick={onGoHome}
+                    >
+                        <img 
+                            src="https://imgur.com/SqDq8L3.png" 
+                            alt="Dugout Hitting League" 
+                            className="w-56 sm:w-80 drop-shadow-[0_0_40px_rgba(59,130,246,0.3)] object-contain shrink-0 transition-all duration-500"
+                        />
                     </div>
-                )}
-            </div>
-            
-            {/* Right Spacer for layout balance on non-home screens */}
-            {!isHomeScreen && <div className="w-8"></div>}
+                </div>
+            ) : (
+                // --- DASHBOARD LAYOUT (Fixed Horizontal Bar) ---
+                <div className="flex items-center justify-between relative min-h-[3rem]">
+                    
+                    {/* Left: Hamburger */}
+                    <div className="z-10 flex-shrink-0">
+                        <button onClick={() => setMenuOpen(true)} className="p-2 rounded-lg hover:bg-black/5 dark:hover:bg-white/10 transition-colors">
+                            <svg className="w-6 h-6 text-slate-700 dark:text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h16M4 18h16"></path>
+                            </svg>
+                        </button>
+                    </div>
+
+                    {/* Center: Logo (Absolute to ensure perfect centering without pushing controls) */}
+                    <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                        <div className="pointer-events-auto flex items-center gap-4 cursor-pointer group" onClick={onGoHome}>
+                            <img 
+                                src="https://imgur.com/SqDq8L3.png" 
+                                alt="Dugout Hitting League" 
+                                className="w-48 sm:w-64 drop-shadow-[0_0_15px_rgba(59,130,246,0.2)] object-contain shrink-0 transition-all duration-500"
+                            />
+                            <div className="hidden lg:block pt-1 pl-4 border-l border-slate-300 dark:border-slate-700 ml-2">
+                                <h1 className="text-xl font-black tracking-tighter italic uppercase leading-none text-slate-900 dark:text-white">Dugout</h1>
+                                <span className="font-bold text-blue-600 dark:text-blue-400 text-[10px] tracking-[0.25em] uppercase block leading-none mt-0.5">Hitting League</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Right: Theme Toggle */}
+                    <div className="z-10 flex-shrink-0 flex items-center gap-3">
+                         <div className="hidden md:flex items-center gap-3">
+                             <button 
+                                onClick={toggleTheme}
+                                className="p-2 rounded-full hover:bg-black/5 dark:hover:bg-white/10 text-slate-600 dark:text-slate-300 transition-colors"
+                                title="Toggle Theme"
+                            >
+                                {isDarkMode ? (
+                                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"></path></svg>
+                                ) : (
+                                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"></path></svg>
+                                )}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
         
         {currentLeague && (
-            <div className="max-w-7xl mx-auto mt-2 flex items-center gap-3 px-4 sm:px-6 pt-2 border-t border-slate-200 dark:border-slate-800/50">
-                <div className="flex items-center gap-2 bg-white/50 dark:bg-slate-800/50 px-2 py-1 rounded-md border border-slate-200 dark:border-slate-700/50">
+            <div className="max-w-7xl mx-auto mt-2 flex items-center gap-3 px-4 sm:px-6 pt-2 border-t border-slate-200 dark:border-slate-800/50 relative z-[900]">
+                <div className="flex items-center gap-2 bg-white/50 dark:bg-slate-800/50 px-2 py-1 rounded-md border border-slate-200 dark:border-slate-700/50 shrink-0">
                     <span className="w-2 h-2 rounded-full bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.6)]"></span>
                     <span className="text-[10px] font-bold uppercase tracking-wider text-slate-600 dark:text-slate-300">{currentLeague} League</span>
                 </div>

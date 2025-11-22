@@ -7,12 +7,15 @@ html {
   overflow-x: hidden;
   touch-action: pan-x pan-y;
   overscroll-behavior: none; /* Prevents rubber banding */
+  max-width: 100vw;
 }
 
 body {
   font-family: 'Inter', sans-serif;
   overflow-x: hidden;
   width: 100%;
+  max-width: 100vw;
+  position: relative;
   overscroll-behavior: none;
   touch-action: pan-x pan-y; /* Allows scroll but disables pinch zoom */
 }

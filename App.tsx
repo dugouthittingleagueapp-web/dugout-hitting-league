@@ -719,17 +719,19 @@ const App: React.FC = () => {
                         
                         {userRole !== 'fan' && (
                         <div className="space-y-6">
-                            <div className="bg-white/60 dark:bg-slate-900/60 backdrop-blur-xl p-6 rounded-xl shadow-lg border border-white/20 dark:border-slate-800">
-                                <h2 className="text-lg font-bold text-slate-600 dark:text-slate-300 mb-4 font-sans">League Status ({state.season})</h2>
-                                <div className="flex justify-between text-center"><div><div className="text-3xl font-black text-slate-800 dark:text-white font-sans tabular-nums">{leagueTeams.length}</div><div className="text-xs text-slate-500 uppercase font-bold font-sans">Teams</div></div></div>
-                                <button onClick={() => setState({ ...state, view: 'team_management' })} className="w-full mt-6 py-2 px-4 bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white font-bold rounded-lg transition-colors font-sans border border-slate-300 dark:border-slate-700">Manage Teams & Stats</button>
+                            {/* Manage Teams Box - Smaller */}
+                            <div className="bg-white/60 dark:bg-slate-900/60 backdrop-blur-xl p-3 sm:p-4 rounded-xl shadow-lg border border-white/20 dark:border-slate-800">
+                                <h2 className="text-sm sm:text-base font-bold text-slate-600 dark:text-slate-300 mb-2 font-sans">League Status ({state.season})</h2>
+                                <div className="flex justify-between text-center"><div><div className="text-2xl sm:text-3xl font-black text-slate-800 dark:text-white font-sans tabular-nums">{leagueTeams.length}</div><div className="text-[10px] sm:text-xs text-slate-500 uppercase font-bold font-sans">Teams</div></div></div>
+                                <button onClick={() => setState({ ...state, view: 'team_management' })} className="w-full mt-3 py-1.5 sm:py-2 px-3 bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white font-bold rounded-lg transition-colors font-sans border border-slate-300 dark:border-slate-700 text-xs sm:text-sm">Manage Teams & Stats</button>
                             </div>
-                            <div className="bg-gradient-to-br from-blue-600 to-blue-800 p-6 rounded-xl shadow-xl text-white border border-blue-500/30">
-                                <h2 className="text-xl font-bold mb-4 font-sans">Start New Match</h2>
-                                <div className="space-y-3">
-                                    <select className="w-full p-3 rounded-lg text-slate-900 bg-white/90 font-bold font-sans text-sm" value={selectedHomeId} onChange={(e) => setSelectedHomeId(e.target.value)}><option value="">Select Home Team...</option>{leagueTeams.map(t => <option key={t.id} value={t.id} disabled={t.id === selectedAwayId}>{t.name}</option>)}</select>
-                                    <select className="w-full p-3 rounded-lg text-slate-900 bg-white/90 font-bold font-sans text-sm" value={selectedAwayId} onChange={(e) => setSelectedAwayId(e.target.value)}><option value="">Select Away Team...</option>{leagueTeams.map(t => <option key={t.id} value={t.id} disabled={t.id === selectedHomeId}>{t.name}</option>)}</select>
-                                    <button disabled={!selectedHomeId || !selectedAwayId} onClick={() => setState({ ...state, view: 'match_setup' })} className="w-full bg-white text-blue-700 font-bold py-3 rounded-lg mt-4 hover:bg-blue-50 disabled:opacity-50 transition-colors font-sans shadow-lg">Next: Set Lineup</button>
+                            {/* Start New Match Box - Larger on Tablets */}
+                            <div className="bg-gradient-to-br from-blue-600 to-blue-800 p-6 sm:p-8 rounded-xl shadow-xl text-white border border-blue-500/30">
+                                <h2 className="text-xl sm:text-2xl font-bold mb-4 sm:mb-6 font-sans">Start New Match</h2>
+                                <div className="space-y-3 sm:space-y-4">
+                                    <select className="w-full p-3 sm:p-4 rounded-lg text-slate-900 bg-white/90 font-bold font-sans text-sm sm:text-base" value={selectedHomeId} onChange={(e) => setSelectedHomeId(e.target.value)}><option value="">Select Home Team...</option>{leagueTeams.map(t => <option key={t.id} value={t.id} disabled={t.id === selectedAwayId}>{t.name}</option>)}</select>
+                                    <select className="w-full p-3 sm:p-4 rounded-lg text-slate-900 bg-white/90 font-bold font-sans text-sm sm:text-base" value={selectedAwayId} onChange={(e) => setSelectedAwayId(e.target.value)}><option value="">Select Away Team...</option>{leagueTeams.map(t => <option key={t.id} value={t.id} disabled={t.id === selectedHomeId}>{t.name}</option>)}</select>
+                                    <button disabled={!selectedHomeId || !selectedAwayId} onClick={() => setState({ ...state, view: 'match_setup' })} className="w-full bg-white text-blue-700 font-bold py-3 sm:py-6 rounded-xl mt-4 sm:mt-6 hover:bg-blue-50 disabled:opacity-50 transition-all font-sans shadow-lg text-base sm:text-2xl transform active:scale-95">Next: Set Lineup</button>
                                 </div>
                             </div>
                             <div className="text-center">

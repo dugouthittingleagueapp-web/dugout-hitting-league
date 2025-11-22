@@ -10,6 +10,7 @@ interface TeamManagementProps {
 }
 
 interface EditablePlayer {
+  id?: string; // Track ID to ensure stats stick to the correct player during edits
   name: string; // First Name
   lastName: string; // Last Name
 }
@@ -84,7 +85,9 @@ export const TeamManagement: React.FC<TeamManagementProps> = ({ league, season, 
     setNewTeamName(team.name);
     
     // Fill players, separate First/Last if needed or just load
-    const currentPlayers = team.players.map(p => ({
+    // Explicitly type as EditablePlayer[] to allow optional IDs for new empty slots
+    const currentPlayers: EditablePlayer[] = team.players.map(p => ({
+        id: p.id,
         name: p.name,
         lastName: p.lastName || ''
     }));
@@ -116,8 +119,8 @@ export const TeamManagement: React.FC<TeamManagementProps> = ({ league, season, 
              // Update existing
              const teamToUpdate = teams.find(t => t.id === editingTeamId);
              if (teamToUpdate) {
-                 const finalPlayers = players.map((p, idx) => ({
-                     id: teamToUpdate.players[idx]?.id || storage.generateUUID(),
+                 const finalPlayers = players.map((p) => ({
+                     id: p.id || storage.generateUUID(), // Use preserved ID if available
                      name: p.name,
                      lastName: p.lastName
                  }));

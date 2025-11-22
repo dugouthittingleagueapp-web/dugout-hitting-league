@@ -127,6 +127,24 @@ const App: React.FC = () => {
     safeStorage.setItem('dugout_theme', JSON.stringify(isDarkMode));
   }, [isDarkMode]);
 
+  // Scroll Locking for Modals and Menu
+  useEffect(() => {
+      if (isMenuOpen || showLoginModal || moveMatchModal || statsModalMatch) {
+          document.body.style.overflow = 'hidden';
+          // Prevent touchmove on body to stop iOS rubber banding / background scroll
+          const preventScroll = (e: Event) => {
+            // Only prevent if target is not inside a scrollable element (simplified for global lock)
+            // e.preventDefault(); 
+          };
+          document.body.addEventListener('touchmove', preventScroll, { passive: false });
+      } else {
+          document.body.style.overflow = '';
+      }
+      return () => { 
+          document.body.style.overflow = ''; 
+      };
+  }, [isMenuOpen, showLoginModal, moveMatchModal, statsModalMatch]);
+
   // Prevent Back Button
   useEffect(() => {
     try {

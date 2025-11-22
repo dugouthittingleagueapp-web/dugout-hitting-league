@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Team, Player } from '../types';
 import * as storage from '../services/storageService';
 
@@ -22,6 +22,16 @@ export const MatchSetup: React.FC<MatchSetupProps> = ({ homeTeam, awayTeam, onSt
   const [showSubModal, setShowSubModal] = useState(false);
   const [subSide, setSubSide] = useState<'left' | 'right' | null>(null);
   const [newSubName, setNewSubName] = useState('');
+
+  // Lock Body Scroll Effect
+  useEffect(() => {
+      if (showSubModal) {
+          document.body.style.overflow = 'hidden';
+      } else {
+          document.body.style.overflow = '';
+      }
+      return () => { document.body.style.overflow = ''; };
+  }, [showSubModal]);
 
   // Helper to format name as First L.
   const formatName = (p: { name: string, lastName?: string }) => 

@@ -1,4 +1,5 @@
-import React from 'react';
+
+import React, { useEffect } from 'react';
 
 interface UserGuideProps {
   onClose: () => void;
@@ -8,6 +9,11 @@ export const UserGuide: React.FC<UserGuideProps> = ({ onClose }) => {
   const handlePrint = () => {
     window.print();
   };
+
+  useEffect(() => {
+    document.body.style.overflow = 'hidden';
+    return () => { document.body.style.overflow = ''; };
+  }, []);
 
   return (
     <div className="fixed inset-0 z-[3000] flex items-center justify-center bg-slate-900/80 backdrop-blur-sm animate-in fade-in duration-200 overflow-y-auto print:bg-white print:fixed print:inset-0 print:z-[10000] print:block">

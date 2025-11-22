@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 
 interface ScoreInputProps {
@@ -25,11 +26,20 @@ export const ScoreInput: React.FC<ScoreInputProps> = ({ pitchNumber, value, pitc
   useEffect(() => {
     if (isEditing) {
       document.body.style.overflow = 'hidden';
+      
+      // Aggressively prevent touchmove on body to stop iOS rubber banding / background scroll
+      const preventScroll = (e: Event) => {
+          e.preventDefault();
+      };
+      
+      // passive: false is required to allow preventDefault
+      document.body.addEventListener('touchmove', preventScroll, { passive: false });
+      
+      return () => {
+        document.body.style.overflow = '';
+        document.body.removeEventListener('touchmove', preventScroll);
+      };
     }
-    
-    return () => {
-      document.body.style.overflow = '';
-    };
   }, [isEditing]);
 
   const handleSelect = (score: number) => {
@@ -77,8 +87,21 @@ export const ScoreInput: React.FC<ScoreInputProps> = ({ pitchNumber, value, pitc
       </div>
       
       {isEditing && (
-        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200 p-4" onClick={onClose} role="dialog" aria-modal="true" aria-labelledby="modal-title">
-            <div className="bg-white dark:bg-slate-900 p-5 sm:p-6 rounded-2xl shadow-2xl w-full max-w-sm sm:max-w-md transform scale-100 animate-in zoom-in-95 duration-200 font-sans border border-slate-200 dark:border-slate-800" onClick={e => e.stopPropagation()}>
+        <div 
+            className="fixed inset-0 z-[9999] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200 p-4 touch-none" 
+            onClick={onClose} 
+            role="dialog" 
+            aria-modal="true" 
+            aria-labelledby="modal-title"
+            // Secondary strict check against background touches
+            onTouchMove={(e) => { if(e.target === e.currentTarget) e.preventDefault(); }}
+        >
+            <div 
+                className="bg-white dark:bg-slate-900 p-5 sm:p-6 rounded-2xl shadow-2xl w-full max-w-sm sm:max-w-md transform scale-100 animate-in zoom-in-95 duration-200 font-sans border border-slate-200 dark:border-slate-800" 
+                onClick={e => e.stopPropagation()}
+                // Stop propagation so the body listener doesn't block potential internal interactions
+                onTouchMove={e => e.stopPropagation()}
+            >
                 <div className="text-center mb-4 sm:mb-6">
                     <div className="flex justify-center items-center gap-2 mb-2">
                          <div className="bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 text-sm sm:text-base font-bold px-3 py-1 rounded-full font-sans">Pitch #{pitchNumber}</div>

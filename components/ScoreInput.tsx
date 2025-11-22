@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 
 interface ScoreInputProps {
@@ -21,6 +20,17 @@ export const ScoreInput: React.FC<ScoreInputProps> = ({ pitchNumber, value, pitc
       setLocalValue(value);
     }
   }, [isEditing, value]);
+
+  // Lock body scroll when modal is open
+  useEffect(() => {
+    if (isEditing) {
+      document.body.style.overflow = 'hidden';
+    }
+    
+    return () => {
+      document.body.style.overflow = '';
+    };
+  }, [isEditing]);
 
   const handleSelect = (score: number) => {
     if (value !== null) {

@@ -3,8 +3,16 @@
 @tailwind components;
 @tailwind utilities;
 
+html {
+  overflow-x: hidden;
+  touch-action: manipulation; /* Disables double-tap zoom */
+}
+
 body {
   font-family: 'Inter', sans-serif;
+  overflow-x: hidden;
+  width: 100%;
+  overscroll-behavior-x: none; /* Prevents browser swipe navigation */
 }
 
 /* Force numeric font consistency globally */

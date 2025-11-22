@@ -108,7 +108,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                         <div className="flex items-center cursor-pointer group h-full" onClick={onGoHome}>
                              {/* Dugout Text Logo (Left of Image) */}
                              <div className="flex flex-col items-end pr-6 justify-center h-full">
-                                <h1 className="text-3xl font-black tracking-tighter italic uppercase leading-none text-slate-900 dark:text-white transform skew-x-[-10deg]">Dugout</h1>
+                                <h1 className="text-3xl font-black tracking-tighter italic uppercase leading-none text-slate-900 dark:text-white transform skew-x-[-10deg]">Dugout Hitting League</h1>
                             </div>
                             
                             {/* Vertical Separator Line */}

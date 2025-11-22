@@ -116,7 +116,7 @@ export const ScoreInput: React.FC<ScoreInputProps> = ({ pitchNumber, value, pitc
                     {[0, 1, 2, 3, 4].map((score) => {
                         const isSelected = value !== null ? localValue === score : value === score;
                         return (
-                          <button key={score} onClick={() => handleSelect(score)} aria-pressed={isSelected} className={`aspect-square rounded-xl text-3xl sm:text-4xl font-bold flex items-center justify-center transition-all active:scale-95 font-sans ${getValueColor(score)} ${isSelected ? 'ring-4 ring-offset-2 ring-blue-400 dark:ring-offset-slate-900 shadow-lg scale-105' : 'hover:brightness-95 shadow-sm'}`}>
+                          <button key={score} onClick={() => handleSelect(score)} aria-pressed={isSelected} className={`h-24 sm:h-32 w-full rounded-xl text-3xl sm:text-4xl font-bold flex items-center justify-center transition-all active:scale-95 font-sans ${getValueColor(score)} ${isSelected ? 'ring-4 ring-offset-2 ring-blue-400 dark:ring-offset-slate-900 shadow-lg scale-105' : 'hover:brightness-95 shadow-sm'}`}>
                               {score}
                           </button>
                         );

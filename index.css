@@ -5,14 +5,16 @@
 
 html {
   overflow-x: hidden;
-  touch-action: manipulation; /* Disables double-tap zoom */
+  touch-action: pan-x pan-y;
+  overscroll-behavior: none; /* Prevents rubber banding */
 }
 
 body {
   font-family: 'Inter', sans-serif;
   overflow-x: hidden;
   width: 100%;
-  overscroll-behavior-x: none; /* Prevents browser swipe navigation */
+  overscroll-behavior: none;
+  touch-action: pan-x pan-y; /* Allows scroll but disables pinch zoom */
 }
 
 /* Force numeric font consistency globally */

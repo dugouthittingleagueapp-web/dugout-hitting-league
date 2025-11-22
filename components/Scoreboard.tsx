@@ -574,7 +574,7 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
   };
 
   return (
-    <div className="min-h-screen bg-transparent pb-20 font-sans">
+    <div className="min-h-screen w-full overflow-x-hidden bg-transparent pb-20 font-sans">
       <header className="bg-white/80 dark:bg-slate-950/90 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 sticky top-0 z-[50] shadow-sm">
         <div className="max-w-7xl mx-auto px-4 py-3 flex justify-between items-center gap-2 sm:gap-4">
           <div className="flex gap-2 sm:gap-8 items-center flex-1 min-w-0">

@@ -429,36 +429,54 @@ const App: React.FC = () => {
           return d >= oneWeekAgo;
       });
 
-      const totals: { name: string, team: string, score: number }[] = [];
-      const bestInnings: { name: string, team: string, score: number }[] = [];
+      // Use Map to store best performance per player ID to ensure uniqueness
+      const bestTotalsMap = new Map<string, { name: string, team: string, score: number }>();
+      const bestInningsMap = new Map<string, { name: string, team: string, score: number }>();
 
       recentMatches.forEach(m => {
           const home = teams.find(t => t.id === m.homeTeamId);
           const away = teams.find(t => t.id === m.awayTeamId);
           if (!home || !away) return;
 
+          // 1. Best Total Score (Match Level)
           const stats = storage.calculateMatchStats(m, home, away);
           stats.forEach(s => {
               if (s.playerId.startsWith('ghost-')) return;
+              
               let tName = 'Unknown';
               if ([...home.players, ...(home.subs || [])].some(p => p.id === s.playerId)) tName = home.name;
               else if ([...away.players, ...(away.subs || [])].some(p => p.id === s.playerId)) tName = away.name;
 
-              totals.push({ name: s.name, team: tName, score: s.totalPoints });
+              // Update max score for this player if new score is higher
+              const existing = bestTotalsMap.get(s.playerId);
+              if (!existing || s.totalPoints > existing.score) {
+                  bestTotalsMap.set(s.playerId, { name: s.name, team: tName, score: s.totalPoints });
+              }
           });
 
+          // 2. Best Single Inning
           m.innings.forEach(ing => {
               const check = (side: any, t: Team) => {
+                  // Ghost Mode Check: 2 players and pitch array initialized to >10 (typically 15)
+                  const isGhostMode = side.playerScores.length === 2 && side.playerScores[0].pitches.length >= 15;
+
                   side.playerScores.forEach((ps: any) => {
                       if (ps.playerId.startsWith('ghost-')) return;
                       const p = [...t.players, ...(t.subs || [])].find(x => x.id === ps.playerId);
                       if (p) {
-                          const score = ps.pitches.reduce((acc: number, v: any) => acc + (v.points || 0), 0);
-                          bestInnings.push({
-                              name: `${p.name}${p.lastName ? ' ' + p.lastName[0] + '.' : ''}`,
-                              team: t.name,
-                              score
-                          });
+                          // Only count first 10 pitches if in ghost mode
+                          const pitchesToCount = isGhostMode ? ps.pitches.slice(0, 10) : ps.pitches;
+                          const score = pitchesToCount.reduce((acc: number, v: any) => acc + (v.points || 0), 0);
+                          
+                          // Update max inning score for this player
+                          const existing = bestInningsMap.get(p.id);
+                          if (!existing || score > existing.score) {
+                              bestInningsMap.set(p.id, { 
+                                  name: `${p.name}${p.lastName ? ' ' + p.lastName[0] + '.' : ''}`,
+                                  team: t.name,
+                                  score
+                              });
+                          }
                       }
                   });
               };
@@ -468,8 +486,8 @@ const App: React.FC = () => {
       });
 
       return {
-          topTotals: totals.sort((a, b) => b.score - a.score).slice(0, 5),
-          topInnings: bestInnings.sort((a, b) => b.score - a.score).slice(0, 5)
+          topTotals: Array.from(bestTotalsMap.values()).sort((a, b) => b.score - a.score).slice(0, 5),
+          topInnings: Array.from(bestInningsMap.values()).sort((a, b) => b.score - a.score).slice(0, 5)
       };
   }, [matches, teams]);
 

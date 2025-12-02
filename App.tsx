@@ -429,7 +429,8 @@ const App: React.FC = () => {
           return d >= oneWeekAgo;
       });
 
-      // Use Map to store best performance per player ID to ensure uniqueness
+      // Use Map to store best performance per player ID to ensure uniqueness.
+      // Key = Player ID, Value = { name, team, score }
       const bestTotalsMap = new Map<string, { name: string, team: string, score: number }>();
       const bestInningsMap = new Map<string, { name: string, team: string, score: number }>();
 
@@ -439,15 +440,19 @@ const App: React.FC = () => {
           if (!home || !away) return;
 
           // 1. Best Total Score (Match Level)
+          // calculateMatchStats already handles the 2-player mode properly for total stats (11-15 go to ghost)
           const stats = storage.calculateMatchStats(m, home, away);
           stats.forEach(s => {
               if (s.playerId.startsWith('ghost-')) return;
               
               let tName = 'Unknown';
-              if ([...home.players, ...(home.subs || [])].some(p => p.id === s.playerId)) tName = home.name;
-              else if ([...away.players, ...(away.subs || [])].some(p => p.id === s.playerId)) tName = away.name;
+              const isHome = [...home.players, ...(home.subs || [])].some(p => p.id === s.playerId);
+              const isAway = [...away.players, ...(away.subs || [])].some(p => p.id === s.playerId);
 
-              // Update max score for this player if new score is higher
+              if (isHome) tName = home.name;
+              else if (isAway) tName = away.name;
+
+              // Update max total score for this player if new score is higher
               const existing = bestTotalsMap.get(s.playerId);
               if (!existing || s.totalPoints > existing.score) {
                   bestTotalsMap.set(s.playerId, { name: s.name, team: tName, score: s.totalPoints });
@@ -456,23 +461,26 @@ const App: React.FC = () => {
 
           // 2. Best Single Inning
           m.innings.forEach(ing => {
-              const check = (side: any, t: Team) => {
+              const processSide = (side: any, t: Team) => {
                   // Ghost Mode Check: 2 players and pitch array initialized to >10 (typically 15)
                   const isGhostMode = side.playerScores.length === 2 && side.playerScores[0].pitches.length >= 15;
 
                   side.playerScores.forEach((ps: any) => {
                       if (ps.playerId.startsWith('ghost-')) return;
+                      
                       const p = [...t.players, ...(t.subs || [])].find(x => x.id === ps.playerId);
                       if (p) {
-                          // Only count first 10 pitches if in ghost mode
+                          // CRITICAL RULE: If in ghost mode, strictly only count the first 10 pitches for individual stats.
+                          // The remaining 5 pitches are for team totals only.
                           const pitchesToCount = isGhostMode ? ps.pitches.slice(0, 10) : ps.pitches;
                           const score = pitchesToCount.reduce((acc: number, v: any) => acc + (v.points || 0), 0);
                           
-                          // Update max inning score for this player
+                          // Update max inning score for this player, ensuring only their best single performance is kept
                           const existing = bestInningsMap.get(p.id);
                           if (!existing || score > existing.score) {
+                              const formattedName = `${p.name}${p.lastName ? ' ' + p.lastName[0] + '.' : ''}`;
                               bestInningsMap.set(p.id, { 
-                                  name: `${p.name}${p.lastName ? ' ' + p.lastName[0] + '.' : ''}`,
+                                  name: formattedName,
                                   team: t.name,
                                   score
                               });
@@ -480,11 +488,12 @@ const App: React.FC = () => {
                       }
                   });
               };
-              check(ing.home, home);
-              check(ing.away, away);
+              processSide(ing.home, home);
+              processSide(ing.away, away);
           });
       });
 
+      // Convert Maps to sorted arrays and take top 5
       return {
           topTotals: Array.from(bestTotalsMap.values()).sort((a, b) => b.score - a.score).slice(0, 5),
           topInnings: Array.from(bestInningsMap.values()).sort((a, b) => b.score - a.score).slice(0, 5)
@@ -515,7 +524,7 @@ const App: React.FC = () => {
   };
 
   return (
-    // Changed: Uses min-h-screen and native scrolling instead of h-[100dvh] overflow-y-auto for better mobile feel
+    // Reduced padding on mobile (p-3)
     <div className="min-h-screen w-full bg-slate-100 dark:bg-slate-950 text-slate-900 dark:text-slate-200 flex flex-col font-sans relative transition-colors duration-500">
         {/* Background Texture */}
         <div className="fixed inset-0 opacity-[0.4] dark:opacity-[0.03] pointer-events-none z-0 mix-blend-overlay dark:mix-blend-normal h-full w-full" 

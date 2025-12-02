@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+
+import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { Match, Inning, Team, TieBreakerRound } from '../types';
 import * as storage from '../services/storageService';
@@ -9,6 +10,17 @@ interface ScoreboardProps {
   onExit: () => void;
   isReadOnly?: boolean;
 }
+
+const getLiveInningIndex = (m: Match): number => {
+    if (m.tieBreaker && m.tieBreaker.length > 0) return 6;
+    for (let i = 0; i < 6; i++) {
+        const ing = m.innings[i];
+        const isHomeDone = ing.home.playerScores.every(p => p.pitches.every(pt => pt.points !== null));
+        const isAwayDone = ing.away.playerScores.every(p => p.pitches.every(pt => pt.points !== null));
+        if (!isHomeDone || !isAwayDone) return i;
+    }
+    return 5;
+};
 
 export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadOnly = false }) => {
   const [match, setMatch] = useState<Match | null>(null);
@@ -27,6 +39,15 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
 
   // Edit Completed Game State
   const [isEditingCompleted, setIsEditingCompleted] = useState(false);
+
+  // Refs for Smart Auto-Advance Logic
+  const activeInningRef = useRef(activeInningIdx);
+  const lastLiveInningRef = useRef<number>(-1);
+
+  // Sync activeInningIdx to ref to avoid stale closures in polling interval
+  useEffect(() => {
+      activeInningRef.current = activeInningIdx;
+  }, [activeInningIdx]);
 
   // Helper to format name as First L.
   const formatName = (p: { name: string, lastName?: string } | undefined) => {
@@ -47,6 +68,27 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
         // Default selection for Tie Breaker dropdowns
         if (home && !tbHomePlayerId && home.players.length > 0) setTbHomePlayerId(home.players[0].id);
         if (away && !tbAwayPlayerId && away.players.length > 0) setTbAwayPlayerId(away.players[0].id);
+
+        // Smart Auto-Advance for Fan Mode
+        if (isReadOnly) {
+            const liveIdx = getLiveInningIndex(m);
+            const currentTab = activeInningRef.current;
+            const lastLive = lastLiveInningRef.current;
+            
+            if (lastLive === -1) {
+                // Initial Load: Jump straight to the live action
+                lastLiveInningRef.current = liveIdx;
+                setActiveInningIdx(liveIdx);
+            } else if (liveIdx > lastLive) {
+                // The game has advanced to a new inning since last poll.
+                // Only pull the user forward if they were watching the *previous* live inning.
+                // If they were looking back at history (e.g. Inning 1 while game is in Inning 3), leave them alone.
+                if (currentTab === lastLive) {
+                     setActiveInningIdx(liveIdx);
+                }
+                lastLiveInningRef.current = liveIdx;
+            }
+        }
       }
   };
 
@@ -84,6 +126,7 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
   useEffect(() => {
     const init = async () => {
         setLoading(true);
+        lastLiveInningRef.current = -1; // Reset tracking on new match load
         await loadMatchData();
         setLoading(false);
     };
@@ -410,7 +453,7 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
           <div className="flex items-center gap-2 sm:gap-3">
              <div>
                 <span className="text-[9px] sm:text-xs font-bold uppercase opacity-80 tracking-wider font-sans">{side === 'home' ? 'Home' : 'Away'}</span>
-                <h3 className="text-[10px] sm:text-xl font-black leading-tight font-sans break-words whitespace-normal">{team.name}</h3>
+                <h3 className="text-[9px] sm:text-xl font-black leading-tight font-sans break-words whitespace-normal">{team.name}</h3>
              </div>
              {canRestore && <button onClick={() => handleRestoreRoster(side)} className="bg-white/80 dark:bg-slate-800 hover:bg-white text-slate-600 dark:text-slate-300 px-2 py-1 rounded text-[10px] font-bold border border-slate-200 dark:border-slate-700 shadow-sm animate-pulse font-sans">+ Reset Roster</button>}
           </div>

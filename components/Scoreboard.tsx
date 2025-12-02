@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { Match, Inning, Team, TieBreakerRound } from '../types';
@@ -373,7 +372,7 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
                     </div>
                 </td>
                 <td className="px-0.5 sm:px-2 py-1 sm:py-2">
-                    <div className="flex gap-1 sm:gap-2 justify-start overflow-x-auto scrollbar-hide py-1 touch-auto">
+                    <div className="flex w-full sm:justify-between gap-1 sm:gap-2 justify-start overflow-x-auto scrollbar-hide py-1 touch-auto">
                         {visiblePitches.map((pitch: any, idx: number) => {
                             const realPitchIdx = pitchStartIndex + idx;
                             const displayNum = isGhostRow ? pitchStartIndex + idx + 1 : realPitchIdx + 1;
@@ -432,7 +431,7 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
                             </div>
                         </td>
                         <td className="px-0.5 sm:px-2 py-1 sm:py-2">
-                            <div className="flex items-center gap-1 sm:gap-2 justify-start overflow-x-auto scrollbar-hide py-1 touch-auto">
+                            <div className="flex w-full sm:justify-between items-center gap-1 sm:gap-2 justify-start overflow-x-auto scrollbar-hide py-1 touch-auto">
                                 {inningData.playerScores[0].pitches.slice(10, 15).map((pitch, idx) => {
                                     const taken = inningData.playerScores[0].pitches.filter((p:any) => p.points !== null).length;
                                     const left = 15 - taken;

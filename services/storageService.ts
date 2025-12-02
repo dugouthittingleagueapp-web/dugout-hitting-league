@@ -1,23 +1,4 @@
-
 import { AgeGroup, Match, Team, Inning, PlayerInningScore, League, PlayerStats, Player } from '../types';
-
-const mapTeamFromDB = (dbTeam: any): Team => ({
-  ...dbTeam,
-  players: typeof dbTeam.players === 'string' ? JSON.parse(dbTeam.players) : dbTeam.players,
-  subs: dbTeam.subs ? (typeof dbTeam.subs === 'string' ? JSON.parse(dbTeam.subs) : dbTeam.subs) : []
-});
-
-const mapMatchFromDB = (dbMatch: any): Match => ({
-  id: dbMatch.id,
-  league: dbMatch.league,
-  homeTeamId: dbMatch.home_team_id,
-  awayTeamId: dbMatch.away_team_id,
-  date: dbMatch.date,
-  isComplete: dbMatch.is_complete,
-  innings: typeof dbMatch.innings === 'string' ? JSON.parse(dbMatch.innings) : dbMatch.innings,
-  season: dbMatch.season || '2025',
-  tieBreaker: dbMatch.tie_breaker ? (typeof dbMatch.tie_breaker === 'string' ? JSON.parse(dbMatch.tie_breaker) : dbMatch.tie_breaker) : undefined
-});
 
 // Helper to format name as First L.
 const formatName = (p: { name: string, lastName?: string }) => 
@@ -39,9 +20,11 @@ export const generateUUID = (): string => {
 
 // League Methods
 export const getLeagues = async (): Promise<League[]> => {
-  const res = await fetch('/api/leagues');
-  if (!res.ok) return [];
-  return await res.json();
+  try {
+      const res = await fetch('/api/leagues');
+      if (!res.ok) return [];
+      return await res.json();
+  } catch (e) { return []; }
 };
 
 export const createLeague = async (id: string): Promise<League> => {
@@ -57,101 +40,183 @@ export const createLeague = async (id: string): Promise<League> => {
   return await res.json();
 };
 
-export const deleteLeague = async (id: string) => {
-  const res = await fetch(`/api/leagues?id=${encodeURIComponent(id)}`, { method: 'DELETE' });
-  if (!res.ok) throw new Error('Failed to delete league');
+export const deleteLeague = async (id: string): Promise<void> => {
+    await fetch(`/api/leagues?id=${id}`, { method: 'DELETE' });
 };
 
 // Team Methods
-export const getTeams = async (league: AgeGroup | null, season: string): Promise<Team[]> => {
-  let url = `/api/teams?season=${season}`;
-  if (league) url += `&league=${league}`;
-  
-  const res = await fetch(url);
-  if (!res.ok) return [];
-  const data = await res.json();
-  return data.map(mapTeamFromDB);
+export const getTeams = async (league: string | null, season: string): Promise<Team[]> => {
+    let url = `/api/teams?season=${season}`;
+    if (league) url += `&league=${league}`;
+    
+    try {
+        const res = await fetch(url);
+        if (!res.ok) return [];
+        const data = await res.json();
+        // Parse JSON fields
+        return data.map((t: any) => ({
+            ...t,
+            players: typeof t.players === 'string' ? JSON.parse(t.players) : t.players,
+            subs: t.subs ? (typeof t.subs === 'string' ? JSON.parse(t.subs) : t.subs) : []
+        }));
+    } catch (e) { return []; }
 };
 
 export const getAllTeams = async (): Promise<Team[]> => {
-  const res = await fetch(`/api/teams`);
-  if (!res.ok) return [];
-  const data = await res.json();
-  return data.map(mapTeamFromDB);
+    try {
+        const res = await fetch('/api/teams');
+        if (!res.ok) return [];
+        const data = await res.json();
+        return data.map((t: any) => ({
+            ...t,
+            players: typeof t.players === 'string' ? JSON.parse(t.players) : t.players,
+            subs: t.subs ? (typeof t.subs === 'string' ? JSON.parse(t.subs) : t.subs) : []
+        }));
+    } catch(e) { return []; }
 };
 
-export const createTeam = async (name: string, league: AgeGroup, players: {name: string, lastName?: string}[], season: string, subs: {name: string, lastName?: string}[] = []): Promise<Team> => {
-  const newTeam = {
-    id: generateUUID(),
-    name,
-    league,
-    season,
-    players: players.map(p => ({ id: generateUUID(), name: p.name, lastName: p.lastName })),
-    subs: subs.map(s => ({ id: generateUUID(), name: s.name, lastName: s.lastName }))
-  };
-  const res = await fetch('/api/teams', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(newTeam)
-  });
-  if (!res.ok) throw new Error('Failed to save team');
-  const data = await res.json();
-  return mapTeamFromDB(data);
+export const createTeam = async (name: string, league: string, players: Player[], season: string, subs: Player[] = []): Promise<Team> => {
+    const team: Team = {
+        id: generateUUID(),
+        name,
+        league,
+        players,
+        subs,
+        season
+    };
+    
+    const res = await fetch('/api/teams', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(team)
+    });
+    
+    if(!res.ok) throw new Error("Failed to create team");
+    const data = await res.json();
+    return {
+        ...data,
+        players: typeof data.players === 'string' ? JSON.parse(data.players) : data.players,
+        subs: data.subs ? (typeof data.subs === 'string' ? JSON.parse(data.subs) : data.subs) : []
+    };
 };
 
 export const updateTeam = async (team: Team): Promise<Team> => {
-  const res = await fetch('/api/teams', {
-    method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(team)
-  });
-  if (!res.ok) throw new Error('Failed to update team');
-  const data = await res.json();
-  return mapTeamFromDB(data);
+    const res = await fetch('/api/teams', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(team)
+    });
+    if(!res.ok) throw new Error("Failed to update team");
+    const data = await res.json();
+    return {
+        ...data,
+        players: typeof data.players === 'string' ? JSON.parse(data.players) : data.players,
+        subs: data.subs ? (typeof data.subs === 'string' ? JSON.parse(data.subs) : data.subs) : []
+    };
+};
+
+export const deleteTeam = async (id: string): Promise<void> => {
+    await fetch(`/api/teams?id=${id}`, { method: 'DELETE' });
 };
 
 export const moveTeams = async (teamIds: string[], targetLeague: string): Promise<void> => {
-  const res = await fetch('/api/teams', {
-    method: 'PATCH',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ action: 'move_teams', teamIds, targetLeague })
-  });
-  if (!res.ok) throw new Error('Failed to move teams');
-};
-
-export const deleteTeam = async (teamId: string) => {
-  await fetch(`/api/teams?id=${teamId}`, { method: 'DELETE' });
+    const res = await fetch('/api/teams', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'move_teams', teamIds, targetLeague })
+    });
+    if(!res.ok) throw new Error("Failed to move teams");
 };
 
 // Match Methods
-export const getMatches = async (league: AgeGroup, season: string): Promise<Match[]> => {
-  const res = await fetch(`/api/matches?league=${league}&season=${season}`);
-  if (!res.ok) return [];
-  const data = await res.json();
-  return data.map(mapMatchFromDB);
+const mapMatchFromDB = (dbMatch: any): Match => ({
+  id: dbMatch.id,
+  league: dbMatch.league,
+  homeTeamId: dbMatch.home_team_id,
+  awayTeamId: dbMatch.away_team_id,
+  date: dbMatch.date,
+  isComplete: dbMatch.is_complete,
+  innings: typeof dbMatch.innings === 'string' ? JSON.parse(dbMatch.innings) : dbMatch.innings,
+  season: dbMatch.season || '2025',
+  tieBreaker: dbMatch.tie_breaker ? (typeof dbMatch.tie_breaker === 'string' ? JSON.parse(dbMatch.tie_breaker) : dbMatch.tie_breaker) : undefined
+});
+
+export const getMatches = async (league: string, season: string): Promise<Match[]> => {
+    try {
+        const res = await fetch(`/api/matches?league=${league}&season=${season}`);
+        if (!res.ok) return [];
+        const data = await res.json();
+        return data.map(mapMatchFromDB);
+    } catch(e) { return []; }
 };
 
 export const getAllMatches = async (): Promise<Match[]> => {
-  const res = await fetch('/api/matches');
-  if (!res.ok) return [];
-  const data = await res.json();
-  return data.map(mapMatchFromDB);
+    try {
+        const res = await fetch('/api/matches');
+        if(!res.ok) return [];
+        const data = await res.json();
+        return data.map(mapMatchFromDB);
+    } catch(e) { return []; }
 };
 
-export const getMatch = async (id: string): Promise<Match | undefined> => {
-  const res = await fetch(`/api/matches?id=${id}`);
-  if (!res.ok) return undefined;
-  const data = await res.json();
-  return mapMatchFromDB(data);
+export const getMatch = async (id: string): Promise<Match | null> => {
+    try {
+        const res = await fetch(`/api/matches?id=${id}`);
+        if(!res.ok) return null;
+        const data = await res.json();
+        return mapMatchFromDB(data);
+    } catch(e) { return null; }
 };
 
-export const createMatch = async (league: AgeGroup, homeTeamId: string, awayTeamId: string, homePlayerIds: string[], awayPlayerIds: string[], season: string): Promise<Match> => {
+export const createMatch = async (
+  league: string, 
+  homeTeamId: string, 
+  awayTeamId: string, 
+  homeLineupIds: string[], 
+  awayLineupIds: string[], 
+  season: string
+): Promise<Match> => {
+    // 1. Generate 6 Innings
     const innings: Inning[] = [];
     for (let i = 1; i <= 6; i++) {
-        innings.push(createEmptyInning(i, homePlayerIds, awayPlayerIds));
+        innings.push({
+            number: i,
+            home: {
+                teamId: homeTeamId,
+                playerScores: homeLineupIds.map(pid => ({
+                    playerId: pid,
+                    pitches: Array(10).fill({ points: null })
+                }))
+            },
+            away: {
+                teamId: awayTeamId,
+                playerScores: awayLineupIds.map(pid => ({
+                    playerId: pid,
+                    pitches: Array(10).fill({ points: null })
+                }))
+            }
+        });
     }
 
-    const match = {
+    // 2-Player Ghost Logic Check
+    // If only 2 players, they get 15 pitches. We structure the DB as 2 players with 15 slots.
+    // The UI handles the visual "Ghost Row".
+    if (homeLineupIds.length === 2) {
+        innings.forEach(ing => {
+            ing.home.playerScores.forEach(ps => {
+                ps.pitches = Array(15).fill({ points: null });
+            });
+        });
+    }
+    if (awayLineupIds.length === 2) {
+        innings.forEach(ing => {
+            ing.away.playerScores.forEach(ps => {
+                ps.pitches = Array(15).fill({ points: null });
+            });
+        });
+    }
+
+    const match: any = {
         id: generateUUID(),
         league,
         homeTeamId,
@@ -161,46 +226,15 @@ export const createMatch = async (league: AgeGroup, homeTeamId: string, awayTeam
         innings,
         season
     };
-    
+
     const res = await fetch('/api/matches', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(match)
     });
     
-    if (!res.ok) throw new Error('Failed to create match');
-    const data = await res.json();
-    return mapMatchFromDB(data);
-};
-
-const createEmptyInning = (number: number, homeIds: string[], awayIds: string[]): Inning => {
-    // LOGIC:
-    // 3v3: 10 pitches each (30 vs 30)
-    // 2v2: 10 pitches each (20 vs 20) - Standard scoring per user request
-    // 3v2 / 2v3: The short team gets 15 pitches (Ghost Mode) to balance the 30-pitch team.
-
-    let homePitches = 10;
-    let awayPitches = 10;
-
-    const homeCount = homeIds.length;
-    const awayCount = awayIds.length;
-
-    if (homeCount === 2 && awayCount === 3) {
-        homePitches = 15; // Ghost Mode for Home
-    } else if (awayCount === 2 && homeCount === 3) {
-        awayPitches = 15; // Ghost Mode for Away
-    }
-
-    const createPlayerScore = (pid: string, count: number) => ({
-        playerId: pid,
-        pitches: Array(count).fill(null).map(() => ({ points: null }))
-    });
-
-    return {
-        number,
-        home: { teamId: 'home', playerScores: homeIds.map(id => createPlayerScore(id, homePitches)) },
-        away: { teamId: 'away', playerScores: awayIds.map(id => createPlayerScore(id, awayPitches)) }
-    };
+    if(!res.ok) throw new Error("Failed to create match");
+    return mapMatchFromDB(await res.json());
 };
 
 export const updateMatch = async (match: Match): Promise<Match> => {
@@ -209,222 +243,287 @@ export const updateMatch = async (match: Match): Promise<Match> => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(match)
     });
-    if (!res.ok) throw new Error('Failed to update match');
-    const data = await res.json();
-    return mapMatchFromDB(data);
+    if(!res.ok) throw new Error("Failed to update match");
+    return mapMatchFromDB(await res.json());
 };
 
-export const deleteMatch = async (matchId: string) => {
-    await fetch(`/api/matches?id=${matchId}`, { method: 'DELETE' });
+export const deleteMatch = async (id: string): Promise<void> => {
+    await fetch(`/api/matches?id=${id}`, { method: 'DELETE' });
 };
 
+// Roster Restoration Logic (Late Player Arrival)
 export const restoreTeamRoster = async (matchId: string, teamId: string, currentInningIdx: number): Promise<Match> => {
     const match = await getMatch(matchId);
     if (!match) throw new Error("Match not found");
-    
-    // Fetch actual team to get full player list
+
+    // Fetch team to get full roster
     const allTeams = await getAllTeams();
     const team = allTeams.find(t => t.id === teamId);
     if (!team) throw new Error("Team not found");
+    
+    // We assume the team now has 3 players (or more) and we want to reset scoring to standard 3-player format
+    // for all REMAINING innings (currentInningIdx onwards).
+    
+    // Get the first 3 players from the team roster as the new standard lineup
+    const standardLineup = team.players.slice(0, 3);
+    
+    if (standardLineup.length < 3) throw new Error("Team still has less than 3 players");
 
     const newInnings = [...match.innings];
     
-    // Reset future innings.
-    const startResetIdx = currentInningIdx + 1;
-
-    for(let i = startResetIdx; i < 6; i++) {
-        const oldHomeIds = newInnings[i].home.playerScores.map(p => p.playerId);
-        const oldAwayIds = newInnings[i].away.playerScores.map(p => p.playerId);
+    for (let i = currentInningIdx; i < 6; i++) {
+        const inning = newInnings[i];
+        const isHome = inning.home.teamId === teamId;
+        const targetTeamData = isHome ? inning.home : inning.away;
         
-        const isHome = match.homeTeamId === teamId;
-        
-        const newHomeIds = isHome ? team.players.map(p=>p.id) : oldHomeIds;
-        const newAwayIds = !isHome ? team.players.map(p=>p.id) : oldAwayIds;
-        
-        newInnings[i] = createEmptyInning(i+1, newHomeIds, newAwayIds);
+        // Reset this inning's scores for this team
+        targetTeamData.playerScores = standardLineup.map(p => ({
+            playerId: p.id,
+            pitches: Array(10).fill({ points: null })
+        }));
     }
-    
-    const updated = { ...match, innings: newInnings };
-    return await updateMatch(updated);
+
+    const updatedMatch = { ...match, innings: newInnings };
+    return await updateMatch(updatedMatch);
 };
 
-// Stats Calculation Helper
+// Settings & Auth
+export const getCurrentSeason = async (): Promise<string> => {
+    try {
+        const res = await fetch('/api/settings');
+        if(!res.ok) return '2025';
+        const data = await res.json();
+        return data.currentSeason || '2025';
+    } catch(e) { return '2025'; }
+};
+
+export const updateCurrentSeason = async (season: string): Promise<void> => {
+    await fetch('/api/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'update_season', season })
+    });
+};
+
+export const verifyPassword = async (password: string): Promise<{ success: boolean; role?: 'admin' | 'umpire' }> => {
+    const res = await fetch('/api/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'verify', password })
+    });
+    if(!res.ok) return { success: false };
+    return await res.json();
+};
+
+export const updateAdminPassword = async (password: string) => {
+    await fetch('/api/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'update_password', password })
+    });
+};
+
+export const updateUmpirePassword = async (password: string) => {
+    await fetch('/api/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'update_umpire_password', password })
+    });
+};
+
+export const exportData = async (): Promise<string> => {
+    const [leagues, teams, matches] = await Promise.all([
+        getLeagues(),
+        getAllTeams(),
+        getAllMatches()
+    ]);
+    return JSON.stringify({ leagues, teams, matches }, null, 2);
+};
+
+// Statistics Calculations
+export const calculateTeamGameTotal = (match: Match, home: Team, away: Team, side: 'home' | 'away') => {
+    const baseScore = match.innings.reduce((sum, inning) => {
+        const teamData = side === 'home' ? inning.home : inning.away;
+        return sum + teamData.playerScores.reduce((pSum, player) => 
+            pSum + player.pitches.reduce((s, p) => s + (p.points || 0), 0), 0);
+    }, 0);
+
+    let tieScore = 0;
+    if (match.tieBreaker) {
+        match.tieBreaker.forEach(round => {
+            const scores = side === 'home' ? round.homeScores : round.awayScores;
+            tieScore += scores.reduce((a, b) => (a || 0) + (b || 0), 0);
+        });
+    }
+    return baseScore + tieScore;
+};
+
 export const calculateMatchStats = (match: Match, homeTeam: Team, awayTeam: Team): PlayerStats[] => {
     const stats = new Map<string, PlayerStats>();
-    
-    const initStat = (id: string, name: string): PlayerStats => ({
-        playerId: id, name, totalPoints: 0, hits4: 0, hits3: 0, hits2: 0, hits1: 0, pitchesSeen: 0
-    });
-    
-    // Pre-fill players AND subs from the match data
-    // We must iterate the match innings to catch players who might be subs
-    const allMatchPlayerIds = new Set<string>();
-    match.innings.forEach(i => {
-        i.home.playerScores.forEach(p => allMatchPlayerIds.add(p.playerId));
-        i.away.playerScores.forEach(p => allMatchPlayerIds.add(p.playerId));
-    });
 
-    // Add team players with FORMATTED names
-    homeTeam.players.forEach(p => stats.set(p.id, initStat(p.id, formatName(p))));
-    awayTeam.players.forEach(p => stats.set(p.id, initStat(p.id, formatName(p))));
-    
-    // Add any subs that might be in the match but not main roster
-    // Check home subs
-    if(homeTeam.subs) {
-        homeTeam.subs.forEach(p => {
-            if(allMatchPlayerIds.has(p.id)) stats.set(p.id, initStat(p.id, formatName(p)));
-        });
-    }
-    // Check away subs
-    if(awayTeam.subs) {
-        awayTeam.subs.forEach(p => {
-            if(allMatchPlayerIds.has(p.id)) stats.set(p.id, initStat(p.id, formatName(p)));
-        });
-    }
+    // Helper to process scores
+    const processScores = (playerScores: PlayerInningScore[], team: Team) => {
+        // Ghost Mode Logic Check for this inning/team
+        const isGhostMode = playerScores.length === 2 && playerScores[0].pitches.length >= 15;
 
-    match.innings.forEach(inning => {
-        [inning.home, inning.away].forEach(teamData => {
-            const isGhostMode = teamData.playerScores.length === 2 && teamData.playerScores[0].pitches.length >= 15;
-            const actualTeamId = teamData.teamId === 'home' ? match.homeTeamId : match.awayTeamId;
-            const ghostId = `ghost-${actualTeamId}`; // Unique ID for this team's ghost
+        playerScores.forEach((ps, idx) => {
+            const playerId = ps.playerId;
+            const pitches = ps.pitches;
+            
+            // Determine Player Name
+            let name = "Unknown";
+            const rosterPlayer = [...team.players, ...(team.subs || [])].find(p => p.id === playerId);
+            if (rosterPlayer) name = formatName(rosterPlayer);
 
-            teamData.playerScores.forEach((ps, idx) => {
-                let pStats = stats.get(ps.playerId);
-                if (!pStats) {
-                     // Handle unknown sub (shouldn't happen if subs array is sync'd, but safety fallback)
-                     pStats = initStat(ps.playerId, 'Sub');
-                     stats.set(ps.playerId, pStats);
-                }
+            // Init Stat Entry
+            if (!stats.has(playerId)) {
+                stats.set(playerId, {
+                    playerId,
+                    name,
+                    totalPoints: 0,
+                    hits4: 0,
+                    hits3: 0,
+                    hits2: 0,
+                    hits1: 0,
+                    pitchesSeen: 0
+                });
+            }
+            const stat = stats.get(playerId)!;
 
-                // In Ghost mode, only first 10 pitches count for player. 11-15 go to ghost.
-                const playerPitches = isGhostMode ? ps.pitches.slice(0, 10) : ps.pitches;
-                const ghostPitches = isGhostMode ? ps.pitches.slice(10, 15) : [];
-
-                const processPitch = (p: any, statObj: PlayerStats) => {
+            // Count Pitches
+            // In Ghost Mode: Player gets 1-10. Ghost gets 11-15.
+            if (isGhostMode) {
+                // Real Player Part (First 10)
+                pitches.slice(0, 10).forEach(p => {
                     if (p.points !== null) {
-                        statObj.totalPoints += p.points;
-                        statObj.pitchesSeen += 1;
-                        if (p.points === 4) statObj.hits4++;
-                        if (p.points === 3) statObj.hits3++;
-                        if (p.points === 2) statObj.hits2++;
-                        if (p.points === 1) statObj.hits1++;
-                    }
-                };
-
-                playerPitches.forEach(p => processPitch(p, pStats!));
-                
-                if (ghostPitches.length > 0) {
-                    let ghostStats = stats.get(ghostId);
-                    if (!ghostStats) {
-                        ghostStats = initStat(ghostId, 'Player 3 (Ghost)');
-                        stats.set(ghostId, ghostStats);
-                    }
-                    ghostPitches.forEach(p => processPitch(p, ghostStats!));
-                }
-            });
-        });
-    });
-    
-    // Process Tie Breaker
-    if(match.tieBreaker) {
-        match.tieBreaker.forEach(tb => {
-            const addTb = (pid: string, scores: (number|null)[]) => {
-                let s = stats.get(pid);
-                if(!s) { 
-                     // Try to find name in teams/subs if not init
-                     const allP = [...homeTeam.players, ...(homeTeam.subs||[]), ...awayTeam.players, ...(awayTeam.subs||[])];
-                     const found = allP.find(p=>p.id===pid);
-                     s = initStat(pid, found ? formatName(found) : 'Unknown'); 
-                     stats.set(pid, s); 
-                }
-                scores.forEach(val => {
-                    if(val !== null) {
-                        s!.totalPoints += val;
-                        s!.pitchesSeen++;
-                        if (val === 4) s!.hits4++;
-                        if (val === 3) s!.hits3++;
-                        if (val === 2) s!.hits2++;
-                        if (val === 1) s!.hits1++;
+                        stat.pitchesSeen++;
+                        stat.totalPoints += p.points;
+                        if (p.points === 4) stat.hits4++;
+                        if (p.points === 3) stat.hits3++;
+                        if (p.points === 2) stat.hits2++;
+                        if (p.points === 1) stat.hits1++;
                     }
                 });
-            };
-            addTb(tb.homePlayerId, tb.homeScores);
-            addTb(tb.awayPlayerId, tb.awayScores);
+
+                // Ghost Part (11-15) - Attribute to a "Team Ghost" ID
+                const ghostId = `ghost-${team.id}`;
+                if (!stats.has(ghostId)) {
+                    stats.set(ghostId, {
+                        playerId: ghostId,
+                        name: `${team.name} (Ghost)`,
+                        totalPoints: 0,
+                        hits4: 0, hits3: 0, hits2: 0, hits1: 0, pitchesSeen: 0
+                    });
+                }
+                const ghostStat = stats.get(ghostId)!;
+                pitches.slice(10, 15).forEach(p => {
+                    if (p.points !== null) {
+                        ghostStat.pitchesSeen++;
+                        ghostStat.totalPoints += p.points;
+                         if (p.points === 4) ghostStat.hits4++;
+                        if (p.points === 3) ghostStat.hits3++;
+                        if (p.points === 2) ghostStat.hits2++;
+                        if (p.points === 1) ghostStat.hits1++;
+                    }
+                });
+
+            } else {
+                // Standard Mode
+                pitches.forEach(p => {
+                    if (p.points !== null) {
+                        stat.pitchesSeen++;
+                        stat.totalPoints += p.points;
+                        if (p.points === 4) stat.hits4++;
+                        if (p.points === 3) stat.hits3++;
+                        if (p.points === 2) stat.hits2++;
+                        if (p.points === 1) stat.hits1++;
+                    }
+                });
+            }
+        });
+    };
+
+    match.innings.forEach(ing => {
+        processScores(ing.home.playerScores, homeTeam);
+        processScores(ing.away.playerScores, awayTeam);
+    });
+    
+    // Add Tie Breaker Stats
+    if(match.tieBreaker) {
+        match.tieBreaker.forEach(round => {
+            // Home
+            const homeId = round.homePlayerId;
+            if(stats.has(homeId)) {
+                const s = stats.get(homeId)!;
+                round.homeScores.forEach(pt => {
+                    if(pt !== null) {
+                        s.pitchesSeen++;
+                        s.totalPoints += pt;
+                        if(pt===4) s.hits4++;
+                        if(pt===3) s.hits3++;
+                        if(pt===2) s.hits2++;
+                        if(pt===1) s.hits1++;
+                    }
+                });
+            }
+            // Away
+            const awayId = round.awayPlayerId;
+            if(stats.has(awayId)) {
+                const s = stats.get(awayId)!;
+                round.awayScores.forEach(pt => {
+                     if(pt !== null) {
+                        s.pitchesSeen++;
+                        s.totalPoints += pt;
+                        if(pt===4) s.hits4++;
+                        if(pt===3) s.hits3++;
+                        if(pt===2) s.hits2++;
+                        if(pt===1) s.hits1++;
+                    }
+                });
+            }
         });
     }
 
     return Array.from(stats.values());
 };
 
-export const getTeamStats = async (team: Team, league: AgeGroup, season: string): Promise<PlayerStats[]> => {
+export const getTeamStats = async (team: Team, league: string, season: string): Promise<PlayerStats[]> => {
     const matches = await getMatches(league, season);
     const teamMatches = matches.filter(m => (m.homeTeamId === team.id || m.awayTeamId === team.id) && m.isComplete);
     
+    // We need the opponent team data for calculateMatchStats to work correctly (names, etc)
+    // Optimization: We could fetch all teams once, but here we'll just fetch all.
     const allTeams = await getAllTeams();
-
-    const aggStats = new Map<string, PlayerStats>();
     
+    const aggregatedStats = new Map<string, PlayerStats>();
+
     teamMatches.forEach(m => {
         const home = allTeams.find(t => t.id === m.homeTeamId);
         const away = allTeams.find(t => t.id === m.awayTeamId);
-        if(home && away) {
-            const mStats = calculateMatchStats(m, home, away);
-            mStats.forEach(stat => {
-                // Only aggregate for THIS team's players (including subs and ghost)
-                const isMainPlayer = team.players.some(p => p.id === stat.playerId);
-                const isSub = team.subs && team.subs.some(p => p.id === stat.playerId);
-                const isGhost = stat.playerId === `ghost-${team.id}`;
+        if(!home || !away) return;
 
-                if(isMainPlayer || isSub || isGhost) {
-                     if(!aggStats.has(stat.playerId)) {
-                         aggStats.set(stat.playerId, { ...stat });
-                     } else {
-                         const ex = aggStats.get(stat.playerId)!;
-                         ex.totalPoints += stat.totalPoints;
-                         ex.hits4 += stat.hits4;
-                         ex.hits3 += stat.hits3;
-                         ex.hits2 += stat.hits2;
-                         ex.hits1 += stat.hits1;
-                         ex.pitchesSeen += stat.pitchesSeen;
-                     }
+        const matchStats = calculateMatchStats(m, home, away);
+        
+        matchStats.forEach(stat => {
+            // Filter only players from THIS team
+            // Check via ID if they are in the team roster/subs
+            const isMember = [...team.players, ...(team.subs || [])].some(p => p.id === stat.playerId) || stat.playerId === `ghost-${team.id}`;
+            
+            if(isMember) {
+                if(!aggregatedStats.has(stat.playerId)) {
+                    aggregatedStats.set(stat.playerId, { ...stat });
+                } else {
+                    const ex = aggregatedStats.get(stat.playerId)!;
+                    ex.totalPoints += stat.totalPoints;
+                    ex.hits4 += stat.hits4;
+                    ex.hits3 += stat.hits3;
+                    ex.hits2 += stat.hits2;
+                    ex.hits1 += stat.hits1;
+                    ex.pitchesSeen += stat.pitchesSeen;
                 }
-            });
-        }
+            }
+        });
     });
 
-    return Array.from(aggStats.values()).filter(s => !s.playerId.startsWith('ghost-'));
-};
-
-// Settings & Admin
-export const verifyPassword = async (password: string): Promise<{success: boolean, role?: 'admin'|'umpire'}> => {
-    const res = await fetch('/api/settings', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'verify', password })
-    });
-    return await res.json();
-};
-
-export const updateAdminPassword = async (password: string) => {
-     await fetch('/api/settings', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'update_password', password }) });
-};
-
-export const updateUmpirePassword = async (password: string) => {
-     await fetch('/api/settings', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'update_umpire_password', password }) });
-};
-
-export const getCurrentSeason = async (): Promise<string> => {
-    const res = await fetch('/api/settings');
-    if(!res.ok) return '2025';
-    const data = await res.json();
-    return data.currentSeason || '2025';
-};
-
-export const updateCurrentSeason = async (season: string) => {
-    await fetch('/api/settings', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'update_season', season }) });
-};
-
-export const exportData = async (): Promise<string> => {
-    const [teams, matches, leagues] = await Promise.all([getAllTeams(), getAllMatches(), getLeagues()]);
-    return JSON.stringify({ teams, matches, leagues }, null, 2);
+    return Array.from(aggregatedStats.values());
 };

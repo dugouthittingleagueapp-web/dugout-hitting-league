@@ -355,10 +355,10 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
 
          return (
             <tr key={`${playerScore.playerId}-${isGhostRow ? 'ghost' : 'norm'}`} className="hover:bg-slate-50/50 dark:hover:bg-white/5 border-b border-slate-100 dark:border-slate-800">
-                <td className="px-2 py-2 sm:py-3 font-medium text-slate-700 dark:text-slate-200 sticky left-0 bg-white dark:bg-slate-900 z-20 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)] border-r border-slate-200 dark:border-slate-700 w-[100px] sm:w-auto max-w-[120px]">
+                <td className="px-1 sm:px-2 py-1 sm:py-2 font-medium text-slate-700 dark:text-slate-200 sticky left-0 bg-white dark:bg-slate-900 z-20 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)] border-r border-slate-200 dark:border-slate-700 w-[90px] sm:w-auto max-w-[120px]">
                     <div className="flex flex-col sm:flex-row items-start sm:items-center gap-1 sm:gap-2">
                         <div className="flex items-center gap-2 w-full">
-                            <span className={`text-[9px] sm:text-[10px] font-bold w-5 h-5 rounded-full flex items-center justify-center shrink-0 font-sans ${isGhostRow ? 'bg-slate-200 dark:bg-slate-800 text-slate-500 dark:text-slate-400' : 'bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-400'}`}>
+                            <span className={`text-[9px] sm:text-[10px] font-bold w-4 h-4 sm:w-5 sm:h-5 rounded-full flex items-center justify-center shrink-0 font-sans ${isGhostRow ? 'bg-slate-200 dark:bg-slate-800 text-slate-500 dark:text-slate-400' : 'bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-400'}`}>
                                 {isGhostRow ? '3' : lineupIdx + 1}
                             </span>
                             <span className="truncate text-xs sm:text-sm font-sans text-slate-900 dark:text-slate-100 font-bold block flex-1">
@@ -367,7 +367,7 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
                         </div>
                     </div>
                 </td>
-                <td className="px-1 sm:px-2 py-2 sm:py-3">
+                <td className="px-1 sm:px-2 py-1 sm:py-2">
                     <div className="flex gap-1 sm:gap-2 justify-start overflow-x-auto scrollbar-hide py-1 touch-auto">
                         {visiblePitches.map((pitch: any, idx: number) => {
                             const realPitchIdx = pitchStartIndex + idx;
@@ -392,8 +392,8 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
                     </div>
                 </td>
                 {!isGhostRow && (
-                    <td className="px-2 sm:px-3 py-3 text-center align-middle border-l border-slate-200 dark:border-slate-700 bg-slate-50/30 dark:bg-slate-800/30">
-                        <div className="text-base font-sans font-bold tabular-nums text-slate-800 dark:text-white w-8">{rowTotal}</div>
+                    <td className="px-1 sm:px-3 py-1 sm:py-2 text-center align-middle border-l border-slate-200 dark:border-slate-700 bg-slate-50/30 dark:bg-slate-800/30">
+                        <div className="text-sm sm:text-base font-sans font-bold tabular-nums text-slate-800 dark:text-white w-6 sm:w-8">{rowTotal}</div>
                     </td>
                 )}
             </tr>
@@ -401,16 +401,16 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
     };
 
     return (
-      <div className="mb-8">
-        <div className={`p-3 rounded-t-lg border-b flex justify-between items-end shadow-sm ${headerClass}`}>
-          <div className="flex items-center gap-3">
+      <div className="mb-4 sm:mb-8">
+        <div className={`p-2 sm:p-3 rounded-t-lg border-b flex justify-between items-end shadow-sm ${headerClass}`}>
+          <div className="flex items-center gap-2 sm:gap-3">
              <div>
-                <span className="text-xs font-bold uppercase opacity-80 tracking-wider font-sans">{side === 'home' ? 'Home' : 'Away'}</span>
-                <h3 className="text-xl font-black leading-none font-sans truncate max-w-[150px] sm:max-w-none">{team.name}</h3>
+                <span className="text-[10px] sm:text-xs font-bold uppercase opacity-80 tracking-wider font-sans">{side === 'home' ? 'Home' : 'Away'}</span>
+                <h3 className="text-lg sm:text-xl font-black leading-none font-sans truncate max-w-[150px] sm:max-w-none">{team.name}</h3>
              </div>
              {canRestore && <button onClick={() => handleRestoreRoster(side)} className="bg-white/80 dark:bg-slate-800 hover:bg-white text-slate-600 dark:text-slate-300 px-2 py-1 rounded text-[10px] font-bold border border-slate-200 dark:border-slate-700 shadow-sm animate-pulse font-sans">+ Reset Roster</button>}
           </div>
-          <div className="text-2xl font-sans tabular-nums font-bold">{calculateTeamInningTotal(side, currentInning)} <span className="text-sm font-normal opacity-60 font-sans">pts</span></div>
+          <div className="text-xl sm:text-2xl font-sans tabular-nums font-bold">{calculateTeamInningTotal(side, currentInning)} <span className="text-xs sm:text-sm font-normal opacity-60 font-sans">pts</span></div>
         </div>
         <div className="bg-white dark:bg-slate-900 rounded-b-lg shadow-md border border-slate-200 dark:border-slate-700 overflow-x-auto scrollbar-hide relative touch-auto">
           <table className="w-full border-collapse">
@@ -420,13 +420,13 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
                     {renderRow(inningData.playerScores[0], 0, team.players.find(p=>p.id===inningData.playerScores[0].playerId), 0, 10, false)}
                     {renderRow(inningData.playerScores[1], 1, team.players.find(p=>p.id===inningData.playerScores[1].playerId), 0, 10, false)}
                     <tr className="hover:bg-slate-50/50 dark:hover:bg-slate-800/50 bg-slate-50/30 dark:bg-slate-900/30 border-t border-slate-200 dark:border-slate-700">
-                        <td className="px-2 py-3 font-medium text-slate-700 dark:text-slate-300 sticky left-0 bg-white dark:bg-slate-900 z-20 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)] border-r border-slate-200 dark:border-slate-700 w-[100px] sm:w-auto max-w-[120px]">
+                        <td className="px-1 sm:px-2 py-1 sm:py-2 font-medium text-slate-700 dark:text-slate-300 sticky left-0 bg-white dark:bg-slate-900 z-20 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)] border-r border-slate-200 dark:border-slate-700 w-[90px] sm:w-auto max-w-[120px]">
                             <div className="flex items-center gap-2 w-full">
-                                <span className="text-[9px] sm:text-[10px] font-bold w-5 h-5 rounded-full flex items-center justify-center shrink-0 bg-slate-200 dark:bg-slate-800 text-slate-500 dark:text-slate-400 font-sans">3</span>
+                                <span className="text-[9px] sm:text-[10px] font-bold w-4 h-4 sm:w-5 sm:h-5 rounded-full flex items-center justify-center shrink-0 bg-slate-200 dark:bg-slate-800 text-slate-500 dark:text-slate-400 font-sans">3</span>
                                 <span className="truncate text-xs sm:text-sm italic text-slate-400 dark:text-slate-500 font-sans flex-1">Ghost</span>
                             </div>
                         </td>
-                        <td className="px-1 sm:px-2 py-3">
+                        <td className="px-1 sm:px-2 py-1 sm:py-2">
                             <div className="flex items-center gap-1 sm:gap-2 justify-start overflow-x-auto scrollbar-hide py-1 touch-auto">
                                 {inningData.playerScores[0].pitches.slice(10, 15).map((pitch, idx) => {
                                     const taken = inningData.playerScores[0].pitches.filter((p:any) => p.points !== null).length;
@@ -445,7 +445,7 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
                                     />
                                     );
                                 })}
-                                <div className="w-px h-14 bg-slate-300 dark:bg-slate-700 mx-1"></div>
+                                <div className="w-px h-12 sm:h-14 bg-slate-300 dark:bg-slate-700 mx-1"></div>
                                 {inningData.playerScores[1].pitches.slice(10, 15).map((pitch, idx) => {
                                     const taken = inningData.playerScores[1].pitches.filter((p:any) => p.points !== null).length;
                                     const left = 15 - taken;
@@ -465,8 +465,8 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
                                 })}
                             </div>
                         </td>
-                        <td className="px-2 sm:px-3 py-3 text-center align-middle border-l border-slate-200 dark:border-slate-700 bg-slate-50/30 dark:bg-slate-900/30">
-                             <div className="text-base font-sans tabular-nums font-bold text-slate-800 dark:text-slate-200 w-8">
+                        <td className="px-1 sm:px-3 py-1 sm:py-2 text-center align-middle border-l border-slate-200 dark:border-slate-700 bg-slate-50/30 dark:bg-slate-900/30">
+                             <div className="text-sm sm:text-base font-sans tabular-nums font-bold text-slate-800 dark:text-slate-200 w-6 sm:w-8">
                                  {inningData.playerScores[0].pitches.slice(10, 15).reduce((s,p)=>s+(p.points||0),0) + inningData.playerScores[1].pitches.slice(10, 15).reduce((s,p)=>s+(p.points||0),0)}
                              </div>
                         </td>
@@ -585,7 +585,7 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
   return (
     <div className="min-h-full w-full overflow-x-hidden bg-transparent pb-20 font-sans">
       <header className="bg-white/80 dark:bg-slate-950/90 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 sticky top-0 z-[50] shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 py-3 flex justify-between items-center gap-2 sm:gap-4">
+        <div className="max-w-7xl mx-auto px-2 sm:px-4 py-2 sm:py-3 flex justify-between items-center gap-2 sm:gap-4">
           <div className="flex gap-2 sm:gap-8 items-center flex-1 min-w-0">
             <div className="text-center flex-1 min-w-0">
                 <div className="text-[10px] sm:text-xs text-slate-500 dark:text-slate-400 uppercase font-bold font-sans">Away</div>
@@ -607,10 +607,10 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
         </div>
         <div className="flex overflow-x-auto scrollbar-hide border-t border-slate-100 dark:border-slate-800 touch-auto">
             {match.innings.map((ing, idx) => (
-                <button key={ing.number} onClick={() => setActiveInningIdx(idx)} className={`flex-1 py-3 text-sm font-bold uppercase tracking-wider border-b-2 transition-colors min-w-[80px] font-sans ${idx === activeInningIdx ? 'border-blue-600 text-blue-600 dark:text-blue-400 bg-blue-50/50 dark:bg-blue-900/20' : 'border-transparent text-slate-400 dark:text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800'}`}>Inning {ing.number}</button>
+                <button key={ing.number} onClick={() => setActiveInningIdx(idx)} className={`flex-1 py-2 sm:py-3 text-xs sm:text-sm font-bold uppercase tracking-wider border-b-2 transition-colors min-w-[60px] sm:min-w-[80px] font-sans ${idx === activeInningIdx ? 'border-blue-600 text-blue-600 dark:text-blue-400 bg-blue-50/50 dark:bg-blue-900/20' : 'border-transparent text-slate-400 dark:text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800'}`}>Inning {ing.number}</button>
             ))}
             {(match.tieBreaker && match.tieBreaker.length > 0) && (
-                <button onClick={() => setActiveInningIdx(6)} className={`flex-1 py-3 text-sm font-bold uppercase tracking-wider border-b-2 transition-colors min-w-[120px] font-sans ${activeInningIdx === 6 ? 'border-amber-500 text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20' : 'border-transparent text-amber-500 hover:bg-amber-50 dark:hover:bg-amber-900/10'}`}>Extra Innings</button>
+                <button onClick={() => setActiveInningIdx(6)} className={`flex-1 py-2 sm:py-3 text-xs sm:text-sm font-bold uppercase tracking-wider border-b-2 transition-colors min-w-[100px] sm:min-w-[120px] font-sans ${activeInningIdx === 6 ? 'border-amber-500 text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20' : 'border-transparent text-amber-500 hover:bg-amber-50 dark:hover:bg-amber-900/10'}`}>Extra Innings</button>
             )}
         </div>
       </header>
@@ -628,40 +628,54 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
       {showTieBreakerSetup && createPortal(
           <div className="fixed inset-0 z-[70] flex items-center justify-center bg-slate-900/80 backdrop-blur-sm animate-in fade-in duration-300">
               <div className="bg-white dark:bg-slate-900 p-6 sm:p-8 rounded-2xl shadow-2xl w-[90%] max-w-md font-sans transform scale-100 animate-in zoom-in-95 border border-slate-200 dark:border-slate-700">
-                  <h2 className="text-2xl font-black text-amber-600 mb-2 text-center font-sans">TIE GAME!</h2>
-                  <p className="text-slate-500 dark:text-slate-400 text-center mb-6 font-sans">Select one player from each team for Extra Innings.</p>
+                  <h2 className="text-xl font-bold text-slate-800 dark:text-white mb-4 text-center font-sans">Tie Breaker Setup</h2>
+                  <p className="text-slate-500 dark:text-slate-400 mb-6 text-center font-sans text-sm">Regulation ended in a tie! Select one shooter from each team for overtime.</p>
                   
-                  <div className="space-y-4 mb-8">
+                  <div className="space-y-4 mb-6">
                       <div>
-                          <label className="block text-xs font-bold text-slate-400 uppercase mb-1 font-sans">Away Shooter ({teams.away.name})</label>
-                          <select className="w-full p-3 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 rounded-xl font-bold text-slate-800 dark:text-white font-sans" value={tbAwayPlayerId} onChange={e => setTbAwayPlayerId(e.target.value)}>
-                              {teams.away.players.map(p => <option key={p.id} value={p.id}>{formatName(p)}</option>)}
+                          <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase mb-1 font-sans">Home Shooter</label>
+                          <select 
+                            className="w-full p-3 border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 rounded-lg font-bold text-slate-800 dark:text-white font-sans"
+                            value={tbHomePlayerId}
+                            onChange={e => setTbHomePlayerId(e.target.value)}
+                          >
+                              {teams.home.players.map(p => <option key={p.id} value={p.id}>{formatName(p)}</option>)}
                           </select>
                       </div>
                       <div>
-                          <label className="block text-xs font-bold text-slate-400 uppercase mb-1 font-sans">Home Shooter ({teams.home.name})</label>
-                          <select className="w-full p-3 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 rounded-xl font-bold text-slate-800 dark:text-white font-sans" value={tbHomePlayerId} onChange={e => setTbHomePlayerId(e.target.value)}>
-                              {teams.home.players.map(p => <option key={p.id} value={p.id}>{formatName(p)}</option>)}
+                          <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase mb-1 font-sans">Away Shooter</label>
+                          <select 
+                            className="w-full p-3 border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 rounded-lg font-bold text-slate-800 dark:text-white font-sans"
+                            value={tbAwayPlayerId}
+                            onChange={e => setTbAwayPlayerId(e.target.value)}
+                          >
+                              {teams.away.players.map(p => <option key={p.id} value={p.id}>{formatName(p)}</option>)}
                           </select>
                       </div>
                   </div>
                   
-                  <button onClick={startTieBreakerRound} className="w-full py-4 bg-amber-500 hover:bg-amber-600 text-white font-black uppercase tracking-widest rounded-xl shadow-lg shadow-amber-200 dark:shadow-none transition-colors font-sans">
-                      Start Extra Innings
-                  </button>
+                  <button onClick={startTieBreakerRound} className="w-full py-3 bg-amber-600 hover:bg-amber-700 text-white font-bold rounded-xl shadow-lg shadow-amber-900/20 transition-all font-sans">Start Overtime</button>
               </div>
           </div>,
           document.body
       )}
 
-      {showFinishModal && !isReadOnly && createPortal(
-        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
-            <div className="bg-white dark:bg-slate-900 p-6 rounded-2xl shadow-2xl max-w-sm w-[90%] transform scale-100 animate-in zoom-in-95 duration-200 font-sans border border-slate-200 dark:border-slate-700">
-                <div className="mb-4 text-center"><h3 className="text-xl font-bold text-slate-800 dark:text-white font-sans">Finalize Game?</h3><p className="text-slate-500 dark:text-slate-400 mt-2 text-sm font-sans">Are you sure you want to finalize this game?</p></div>
-                <div className="grid grid-cols-2 gap-3"><button onClick={() => setShowFinishModal(false)} className="py-3 rounded-xl font-bold text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors font-sans">No</button><button onClick={confirmCompleteGame} className="py-3 rounded-xl font-bold text-white bg-green-600 hover:bg-green-700 shadow-lg shadow-green-200 dark:shadow-none transition-colors font-sans">Yes, Finalize</button></div>
-            </div>
-        </div>,
-        document.body
+      {/* Finish Game Modal */}
+      {showFinishModal && createPortal(
+          <div className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-900/80 backdrop-blur-sm animate-in fade-in duration-300">
+              <div className="bg-white dark:bg-slate-900 p-6 sm:p-8 rounded-2xl shadow-2xl w-[90%] max-w-sm text-center font-sans transform scale-100 animate-in zoom-in-95 border border-slate-200 dark:border-slate-700">
+                  <div className="w-16 h-16 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center mx-auto mb-4">
+                      <svg className="w-8 h-8 text-green-600 dark:text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path></svg>
+                  </div>
+                  <h2 className="text-2xl font-bold text-slate-800 dark:text-white mb-2 font-sans">Finish Match?</h2>
+                  <p className="text-slate-500 dark:text-slate-400 mb-6 font-sans">This will finalize the score and update league standings. This cannot be undone.</p>
+                  <div className="flex gap-3">
+                      <button onClick={() => setShowFinishModal(false)} className="flex-1 py-3 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 font-bold rounded-xl hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors font-sans">Cancel</button>
+                      <button onClick={confirmCompleteGame} className="flex-1 py-3 bg-green-600 text-white font-bold rounded-xl hover:bg-green-700 shadow-lg shadow-green-900/20 transition-colors font-sans">Confirm</button>
+                  </div>
+              </div>
+          </div>,
+          document.body
       )}
     </div>
   );

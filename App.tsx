@@ -744,7 +744,7 @@ const App: React.FC = () => {
 
             {/* MAIN DASHBOARD VIEW */}
             {state.view === 'dashboard' && (
-                <div className="max-w-7xl mx-auto p-4 sm:p-8 w-full pb-24">
+                <div className="max-w-7xl mx-auto p-2 sm:p-6 w-full pb-20">
                     <div className={`grid grid-cols-1 ${userRole !== 'fan' ? 'lg:grid-cols-3' : ''} gap-8`}>
                         
                         {userRole !== 'fan' && (
@@ -756,12 +756,12 @@ const App: React.FC = () => {
                                 <button onClick={() => setState({ ...state, view: 'team_management' })} className="w-full mt-3 py-1.5 sm:py-2 px-3 bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white font-bold rounded-lg transition-colors font-sans border border-slate-300 dark:border-slate-700 text-xs sm:text-sm">Manage Teams & Stats</button>
                             </div>
                             {/* Start New Match Box - Larger on Tablets */}
-                            <div className="bg-gradient-to-br from-blue-600 to-blue-800 p-6 sm:p-8 rounded-xl shadow-xl text-white border border-blue-500/30">
-                                <h2 className="text-xl sm:text-2xl font-bold mb-4 sm:mb-6 font-sans">Start New Match</h2>
+                            <div className="bg-gradient-to-br from-blue-600 to-blue-800 p-4 sm:p-8 rounded-xl shadow-xl text-white border border-blue-500/30">
+                                <h2 className="text-lg sm:text-2xl font-bold mb-4 sm:mb-6 font-sans">Start New Match</h2>
                                 <div className="space-y-3 sm:space-y-4">
-                                    <select className="w-full p-3 sm:p-4 rounded-lg text-slate-900 bg-white/90 font-bold font-sans text-sm sm:text-base" value={selectedHomeId} onChange={(e) => setSelectedHomeId(e.target.value)}><option value="">Select Home Team...</option>{leagueTeams.map(t => <option key={t.id} value={t.id} disabled={t.id === selectedAwayId}>{t.name}</option>)}</select>
-                                    <select className="w-full p-3 sm:p-4 rounded-lg text-slate-900 bg-white/90 font-bold font-sans text-sm sm:text-base" value={selectedAwayId} onChange={(e) => setSelectedAwayId(e.target.value)}><option value="">Select Away Team...</option>{leagueTeams.map(t => <option key={t.id} value={t.id} disabled={t.id === selectedHomeId}>{t.name}</option>)}</select>
-                                    <button disabled={!selectedHomeId || !selectedAwayId} onClick={() => setState({ ...state, view: 'match_setup' })} className="w-full bg-white text-blue-700 font-bold py-3 sm:py-6 rounded-xl mt-4 sm:mt-6 hover:bg-blue-50 disabled:opacity-50 transition-all font-sans shadow-lg text-base sm:text-2xl transform active:scale-95">Next: Set Lineup</button>
+                                    <select className="w-full p-2.5 sm:p-4 rounded-lg text-slate-900 bg-white/90 font-bold font-sans text-sm sm:text-base" value={selectedHomeId} onChange={(e) => setSelectedHomeId(e.target.value)}><option value="">Select Home Team...</option>{leagueTeams.map(t => <option key={t.id} value={t.id} disabled={t.id === selectedAwayId}>{t.name}</option>)}</select>
+                                    <select className="w-full p-2.5 sm:p-4 rounded-lg text-slate-900 bg-white/90 font-bold font-sans text-sm sm:text-base" value={selectedAwayId} onChange={(e) => setSelectedAwayId(e.target.value)}><option value="">Select Away Team...</option>{leagueTeams.map(t => <option key={t.id} value={t.id} disabled={t.id === selectedHomeId}>{t.name}</option>)}</select>
+                                    <button disabled={!selectedHomeId || !selectedAwayId} onClick={() => setState({ ...state, view: 'match_setup' })} className="w-full bg-white text-blue-700 font-bold py-3 sm:py-5 rounded-xl mt-4 sm:mt-6 hover:bg-blue-50 disabled:opacity-50 transition-all font-sans shadow-lg text-base sm:text-xl transform active:scale-95">Next: Set Lineup</button>
                                 </div>
                             </div>
                             <div className="text-center">
@@ -772,7 +772,7 @@ const App: React.FC = () => {
                         )}
 
                         <div className={`${userRole !== 'fan' ? 'lg:col-span-2' : 'col-span-1'}`}>
-                            <div className="bg-gradient-to-r from-indigo-600 to-purple-700 rounded-xl shadow-xl p-6 mb-8 text-white border border-indigo-500/30 relative overflow-hidden">
+                            <div className="bg-gradient-to-r from-indigo-600 to-purple-700 rounded-xl shadow-xl p-4 sm:p-6 mb-8 text-white border border-indigo-500/30 relative overflow-hidden">
                                 <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/carbon-fibre.png')] opacity-10"></div>
                                 <div className="relative z-10">
                                     <h3 className="font-bold text-white/90 uppercase tracking-wider text-sm mb-4 border-b border-white/20 pb-2 font-sans flex items-center gap-2">
@@ -783,15 +783,15 @@ const App: React.FC = () => {
                                         <div>
                                             <h4 className="font-bold text-lg mb-2 font-sans text-indigo-100">Best Total Score</h4>
                                             {weeklyStats.topTotals.length > 0 ? (
-                                                <ul className="space-y-2">
+                                                <ul className="space-y-1.5 sm:space-y-2">
                                                     {weeklyStats.topTotals.map((s, idx) => (
-                                                        <li key={idx} className="flex justify-between items-center bg-black/20 p-2 rounded border border-white/5 hover:bg-black/30 transition-colors">
+                                                        <li key={idx} className="flex justify-between items-center bg-black/20 p-1.5 sm:p-2 rounded border border-white/5 hover:bg-black/30 transition-colors">
                                                             <div className="flex items-center gap-2">
                                                                 <span className="font-bold bg-white text-indigo-600 w-6 h-6 flex items-center justify-center rounded-full text-xs font-sans shadow tabular-nums">{idx+1}</span>
-                                                                <span className="font-semibold font-sans">{s.name}</span>
+                                                                <span className="font-semibold font-sans text-sm sm:text-base">{s.name}</span>
                                                                 <span className="text-xs text-white/60 font-sans">({s.team})</span>
                                                             </div>
-                                                            <span className="font-sans tabular-nums font-bold text-xl">{s.score}</span>
+                                                            <span className="font-sans tabular-nums font-bold text-lg sm:text-xl">{s.score}</span>
                                                         </li>
                                                     ))}
                                                 </ul>
@@ -800,15 +800,15 @@ const App: React.FC = () => {
                                         <div>
                                             <h4 className="font-bold text-lg mb-2 font-sans text-purple-100">Best Single Inning</h4>
                                             {weeklyStats.topInnings.length > 0 ? (
-                                                <ul className="space-y-2">
+                                                <ul className="space-y-1.5 sm:space-y-2">
                                                     {weeklyStats.topInnings.map((s, idx) => (
-                                                        <li key={idx} className="flex justify-between items-center bg-black/20 p-2 rounded border border-white/5 hover:bg-black/30 transition-colors">
+                                                        <li key={idx} className="flex justify-between items-center bg-black/20 p-1.5 sm:p-2 rounded border border-white/5 hover:bg-black/30 transition-colors">
                                                             <div className="flex items-center gap-2">
                                                                 <span className="font-bold bg-white text-purple-600 w-6 h-6 flex items-center justify-center rounded-full text-xs font-sans shadow tabular-nums">{idx+1}</span>
-                                                                <span className="font-semibold font-sans">{s.name}</span>
+                                                                <span className="font-semibold font-sans text-sm sm:text-base">{s.name}</span>
                                                                 <span className="text-xs text-white/60 font-sans">({s.team})</span>
                                                             </div>
-                                                            <span className="font-sans tabular-nums font-bold text-xl">{s.score}</span>
+                                                            <span className="font-sans tabular-nums font-bold text-lg sm:text-xl">{s.score}</span>
                                                         </li>
                                                     ))}
                                                 </ul>
@@ -831,13 +831,13 @@ const App: React.FC = () => {
                                         const away = teams.find(t => t.id === match.awayTeamId);
                                         if (!home || !away) return null;
                                         return (
-                                            <div key={match.id} className="bg-white/60 dark:bg-slate-900/60 backdrop-blur-xl p-4 sm:p-5 rounded-xl shadow-md dark:shadow-sm border border-white/20 dark:border-slate-800 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 hover:bg-white/80 dark:hover:bg-slate-800/50 transition-colors group">
-                                                <div className="flex items-center gap-4 w-full sm:w-auto min-w-0">
-                                                    <div className="shrink-0"><div className={`text-[10px] font-black uppercase tracking-wider px-2 py-1 rounded font-sans border ${match.isComplete ? 'bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border-slate-300 dark:border-slate-700' : 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 border-green-500/30 animate-pulse'}`}>{match.isComplete ? 'FINAL' : 'LIVE'}</div></div>
+                                            <div key={match.id} className="bg-white/60 dark:bg-slate-900/60 backdrop-blur-xl p-3 sm:p-5 rounded-xl shadow-md dark:shadow-sm border border-white/20 dark:border-slate-800 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 sm:gap-4 hover:bg-white/80 dark:hover:bg-slate-800/50 transition-colors group">
+                                                <div className="flex items-center gap-2 sm:gap-4 w-full sm:w-auto min-w-0">
+                                                    <div className="shrink-0"><div className={`text-[9px] sm:text-[10px] font-black uppercase tracking-wider px-2 py-1 rounded font-sans border ${match.isComplete ? 'bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border-slate-300 dark:border-slate-700' : 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 border-green-500/30 animate-pulse'}`}>{match.isComplete ? 'FINAL' : 'LIVE'}</div></div>
                                                     <div className="flex flex-1 sm:flex-auto items-center sm:justify-start sm:gap-8 w-full sm:w-auto min-w-0">
-                                                        <div className="flex-1 sm:flex-none sm:w-32 text-base sm:text-lg font-bold text-red-700 dark:text-red-400 text-right font-sans truncate min-w-0">{home.name}</div>
-                                                        <div className="shrink-0 text-slate-400 dark:text-slate-600 text-sm sm:text-base px-2 font-sans italic font-bold">VS</div>
-                                                        <div className="flex-1 sm:flex-none sm:w-32 text-base sm:text-lg font-bold text-blue-700 dark:text-blue-400 text-left font-sans truncate min-w-0">{away.name}</div>
+                                                        <div className="flex-1 sm:flex-none sm:w-32 text-sm sm:text-lg font-bold text-red-700 dark:text-red-400 text-right font-sans truncate min-w-0">{home.name}</div>
+                                                        <div className="shrink-0 text-slate-400 dark:text-slate-600 text-xs sm:text-base px-2 font-sans italic font-bold">VS</div>
+                                                        <div className="flex-1 sm:flex-none sm:w-32 text-sm sm:text-lg font-bold text-blue-700 dark:text-blue-400 text-left font-sans truncate min-w-0">{away.name}</div>
                                                     </div>
                                                 </div>
                                                 <div className="flex gap-2 w-full sm:w-auto justify-end shrink-0">

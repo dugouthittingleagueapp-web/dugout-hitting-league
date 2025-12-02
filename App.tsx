@@ -836,9 +836,9 @@ const App: React.FC = () => {
                                                 <div className="flex items-center gap-2 sm:gap-4 w-full sm:w-auto min-w-0">
                                                     <div className="shrink-0"><div className={`text-[8px] sm:text-[10px] font-black uppercase tracking-wider px-2 py-1 rounded font-sans border ${match.isComplete ? 'bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border-slate-300 dark:border-slate-700' : 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 border-green-500/30 animate-pulse'}`}>{match.isComplete ? 'FINAL' : 'LIVE'}</div></div>
                                                     <div className="flex flex-1 sm:flex-auto items-center sm:justify-start sm:gap-8 w-full sm:w-auto min-w-0">
-                                                        <div className="flex-1 sm:flex-none sm:w-32 text-xs sm:text-lg font-bold text-red-700 dark:text-red-400 text-right font-sans truncate min-w-0">{home.name}</div>
+                                                        <div className="flex-1 sm:flex-none sm:w-32 text-[10px] sm:text-lg font-bold text-red-700 dark:text-red-400 text-right font-sans break-words min-w-0 leading-tight">{home.name}</div>
                                                         <div className="shrink-0 text-slate-400 dark:text-slate-600 text-[10px] sm:text-base px-1 sm:px-2 font-sans italic font-bold">VS</div>
-                                                        <div className="flex-1 sm:flex-none sm:w-32 text-xs sm:text-lg font-bold text-blue-700 dark:text-blue-400 text-left font-sans truncate min-w-0">{away.name}</div>
+                                                        <div className="flex-1 sm:flex-none sm:w-32 text-[10px] sm:text-lg font-bold text-blue-700 dark:text-blue-400 text-left font-sans break-words min-w-0 leading-tight">{away.name}</div>
                                                     </div>
                                                 </div>
                                                 <div className="flex gap-2 w-full sm:w-auto justify-end shrink-0">

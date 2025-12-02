@@ -1,594 +1,1041 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { createPortal } from 'react-dom';
+import { AgeGroup, AppState, Match, Team, Player, League, PlayerStats, Inning, TieBreakerRound } from './types';
 import { Navbar } from './components/Navbar';
 import { TeamManagement } from './components/TeamManagement';
-import { MatchSetup } from './components/MatchSetup';
 import { Scoreboard } from './components/Scoreboard';
 import { AdminDashboard } from './components/AdminDashboard';
-import { UserGuide } from './components/UserGuide';
+import { MatchSetup } from './components/MatchSetup';
 import * as storage from './services/storageService';
-import { generateLeagueReport } from './services/geminiService';
-import { AppState, Team, Match, League, AgeGroup, Player } from './types';
 
-// Login Modal
-const LoginModal = ({ onClose, onLogin }: { onClose: () => void, onLogin: (role: 'admin' | 'umpire') => void }) => {
-  const [password, setPassword] = useState('');
-  const [error, setError] = useState('');
+const INACTIVITY_LIMIT = 3 * 60 * 60 * 1000; // 3 hours
 
-  const handleVerify = async () => {
-    const res = await storage.verifyPassword(password);
-    if (res.success && res.role) {
-      onLogin(res.role);
+// Helper for safe local storage access (prevents SecurityError in restricted iframes/settings)
+const safeStorage = {
+    getItem: (key: string): string | null => {
+        try {
+            if (typeof window !== 'undefined') return localStorage.getItem(key);
+            return null;
+        } catch (e) {
+            return null;
+        }
+    },
+    setItem: (key: string, value: string): void => {
+        try {
+            if (typeof window !== 'undefined') localStorage.setItem(key, value);
+        } catch (e) {
+            // ignore
+        }
+    },
+    removeItem: (key: string): void => {
+        try {
+            if (typeof window !== 'undefined') localStorage.removeItem(key);
+        } catch (e) {
+            // ignore
+        }
+    }
+};
+
+const App: React.FC = () => {
+  // Initialize state from localStorage if available to support "refresh current page"
+  const [state, setState] = useState<AppState>(() => {
+    const saved = safeStorage.getItem('dugout_app_state');
+    if (saved) {
+        try {
+            const parsed = JSON.parse(saved);
+            // Fallback: If we were in match_setup, revert to dashboard because setup state (ids) isn't persisted
+            if (parsed.view === 'match_setup') {
+                parsed.view = 'dashboard';
+            }
+            // Ensure dashboardTab exists
+            if (!parsed.dashboardTab) parsed.dashboardTab = 'matches';
+            
+            return parsed;
+        } catch (e) {
+            console.error("Error parsing app state", e);
+        }
+    }
+    return { view: 'league_select', currentLeague: null, currentMatchId: null, season: '2025', dashboardTab: 'matches' };
+  });
+
+  // Persist App State
+  useEffect(() => {
+      safeStorage.setItem('dugout_app_state', JSON.stringify(state));
+  }, [state]);
+
+  const [matches, setMatches] = useState<Match[]>([]);
+  const [teams, setTeams] = useState<Team[]>([]);
+  const [leagues, setLeagues] = useState<League[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [selectedHomeId, setSelectedHomeId] = useState('');
+  const [selectedAwayId, setSelectedAwayId] = useState('');
+  
+  // Theme State - Persisted
+  const [isDarkMode, setIsDarkMode] = useState(() => {
+      const savedTheme = safeStorage.getItem('dugout_theme');
+      return savedTheme ? JSON.parse(savedTheme) : true;
+  });
+
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
+
+  // Role / Auth State - Initialize from localStorage with Inactivity Check
+  const [userRole, setUserRole] = useState<'fan' | 'umpire' | 'admin'>(() => {
+    const stored = safeStorage.getItem('userRole');
+    const lastActivity = safeStorage.getItem('lastActivity');
+
+    if (stored === 'admin' || stored === 'umpire') {
+        // Check for expiration
+        if (lastActivity) {
+            const diff = Date.now() - parseInt(lastActivity, 10);
+            if (diff > INACTIVITY_LIMIT) {
+                safeStorage.removeItem('userRole');
+                safeStorage.removeItem('lastActivity');
+                return 'fan';
+            }
+        }
+        // Update activity on load if valid
+        safeStorage.setItem('lastActivity', Date.now().toString());
+        return stored as 'fan' | 'umpire' | 'admin';
+    }
+    return 'fan';
+  });
+
+  const [showLoginModal, setShowLoginModal] = useState(false);
+  const [passwordInput, setPasswordInput] = useState('');
+  const [loginError, setLoginError] = useState('');
+
+  // Match Stats Modal
+  const [statsModalMatch, setStatsModalMatch] = useState<Match | null>(null);
+  const [statsModalData, setStatsModalData] = useState<PlayerStats[]>([]);
+
+  // Move Match Modal
+  const [moveMatchModal, setMoveMatchModal] = useState<{ matchId: string, currentLeague: string } | null>(null);
+  const [targetLeague, setTargetLeague] = useState('');
+
+  // Sorting State
+  const [seasonSort, setSeasonSort] = useState<{ key: keyof PlayerStats; direction: 'asc' | 'desc' }>({ key: 'totalPoints', direction: 'desc' });
+  const [matchSort, setMatchSort] = useState<{ key: keyof PlayerStats; direction: 'asc' | 'desc' }>({ key: 'totalPoints', direction: 'desc' });
+
+  // Handle Theme Toggle & Persistence
+  useEffect(() => {
+    const html = document.documentElement;
+    if (isDarkMode) {
+        html.classList.add('dark');
     } else {
-      setError('Invalid Password');
+        html.classList.remove('dark');
+    }
+    safeStorage.setItem('dugout_theme', JSON.stringify(isDarkMode));
+  }, [isDarkMode]);
+
+  // Scroll Locking for Modals and Menu
+  useEffect(() => {
+      if (isMenuOpen || showLoginModal || moveMatchModal || statsModalMatch) {
+          // For app-level Modals, we don't need to lock body on 'html' anymore since we have a fixed shell.
+          // But we might want to disable the main scroller.
+          // Since we use a fixed shell structure, basic pointer-events handling or simple overlay is usually enough.
+          // However, keeping previous logic is fine, but targeting the specific container would be better.
+          // Current body lock is redundant with fixed shell but harmless.
+      }
+  }, [isMenuOpen, showLoginModal, moveMatchModal, statsModalMatch]);
+
+  // Prevent Back Button
+  useEffect(() => {
+    try {
+        window.history.pushState(null, document.title, window.location.href);
+        const handlePopState = (event: PopStateEvent) => {
+            try {
+                window.history.pushState(null, document.title, window.location.href);
+            } catch(e) {}
+        };
+        window.addEventListener('popstate', handlePopState);
+        return () => {
+            window.removeEventListener('popstate', handlePopState);
+        };
+    } catch (e) {
+        // Ignore security errors
+    }
+  }, []);
+
+  // Strict Zoom Prevention for iOS/Tablets
+  useEffect(() => {
+    // Prevent pinch zoom events (iOS)
+    const preventGesture = (e: Event) => {
+        e.preventDefault();
+    };
+    
+    // Prevent double-tap zoom or multi-touch zoom
+    const preventTouchZoom = (e: TouchEvent) => {
+        if (e.touches.length > 1) {
+            e.preventDefault();
+        }
+    };
+
+    // Prevent Wheel zoom (trackpads)
+    const preventWheelZoom = (e: WheelEvent) => {
+        if (e.ctrlKey) {
+            e.preventDefault();
+        }
+    };
+
+    // Add non-passive listeners
+    document.addEventListener('gesturestart', preventGesture);
+    document.addEventListener('gesturechange', preventGesture);
+    document.addEventListener('gestureend', preventGesture);
+    document.addEventListener('touchmove', preventTouchZoom, { passive: false });
+    document.addEventListener('wheel', preventWheelZoom, { passive: false });
+
+    return () => {
+        document.removeEventListener('gesturestart', preventGesture);
+        document.removeEventListener('gesturechange', preventGesture);
+        document.removeEventListener('gestureend', preventGesture);
+        document.removeEventListener('touchmove', preventTouchZoom);
+        document.removeEventListener('wheel', preventWheelZoom);
+    };
+  }, []);
+
+  useEffect(() => {
+    const init = async () => {
+        const [ls, currentSeason] = await Promise.all([storage.getLeagues(), storage.getCurrentSeason()]);
+        setLeagues(ls);
+        
+        // Only override season if we are on the landing page (view='league_select') and have no league selected.
+        setState(s => {
+            if (s.view === 'league_select' && !s.currentLeague) {
+                 return { ...s, season: currentSeason };
+            }
+            return s;
+        });
+    };
+    init();
+  }, []);
+
+  const refreshDashboard = useCallback(async (league: AgeGroup, season: string, silent = false) => {
+    if (!silent) setLoading(true);
+    try { 
+        const [m, t] = await Promise.all([
+            storage.getMatches(league, season),
+            storage.getTeams(null, season)
+        ]);
+        setMatches(m); 
+        setTeams(t); 
+    } 
+    catch (e) { console.error(e); } finally { if (!silent) setLoading(false); }
+  }, []);
+
+  // Initial Load & View Change
+  useEffect(() => {
+    if (state.currentLeague && state.view === 'dashboard') {
+        refreshDashboard(state.currentLeague, state.season);
+    }
+  }, [state.currentLeague, state.view, state.season, refreshDashboard]);
+
+  // Live Polling
+  useEffect(() => {
+    if (state.view !== 'dashboard' || !state.currentLeague) return;
+    const interval = setInterval(() => {
+        refreshDashboard(state.currentLeague!, state.season, true);
+    }, 5000);
+    return () => clearInterval(interval);
+  }, [state.view, state.currentLeague, state.season, refreshDashboard]);
+
+  const handleLogout = useCallback(() => {
+      setUserRole('fan');
+      safeStorage.removeItem('userRole');
+      safeStorage.removeItem('lastActivity');
+      safeStorage.removeItem('dugout_app_state'); 
+      setState(s => ({...s, view: 'league_select', currentLeague: null, currentMatchId: null, dashboardTab: 'matches'})); 
+      setIsMenuOpen(false);
+  }, []);
+
+  // Session Inactivity
+  useEffect(() => {
+      if (userRole === 'fan') return;
+
+      const updateActivity = () => {
+          safeStorage.setItem('lastActivity', Date.now().toString());
+      };
+
+      const checkInactivity = () => {
+          const lastActivity = safeStorage.getItem('lastActivity');
+          if (lastActivity) {
+              const diff = Date.now() - parseInt(lastActivity, 10);
+              if (diff > INACTIVITY_LIMIT) {
+                  handleLogout();
+                  alert("Session expired due to inactivity.");
+              }
+          }
+      };
+
+      const events = ['mousedown', 'keydown', 'touchstart', 'scroll', 'click'];
+      events.forEach(evt => window.addEventListener(evt, updateActivity));
+      
+      const interval = setInterval(checkInactivity, 60 * 1000);
+
+      return () => {
+          events.forEach(evt => window.removeEventListener(evt, updateActivity));
+          clearInterval(interval);
+      };
+  }, [userRole, handleLogout]);
+
+  const handleStartGame = async (finalHomeId: string, finalAwayId: string, homeLineup: Player[], awayLineup: Player[]) => {
+    if (!state.currentLeague) return;
+    try {
+        setLoading(true);
+
+        const syncSubs = async (teamId: string, lineup: Player[]) => {
+            const team = teams.find(t => t.id === teamId);
+            if (!team) return;
+            
+            const potentialSubs = lineup.filter(p => !team.players.find(tp => tp.id === p.id));
+            
+            if (potentialSubs.length > 0) {
+                const existingSubIds = (team.subs || []).map(s => s.id);
+                const newSubs = potentialSubs.filter(p => !existingSubIds.includes(p.id));
+                
+                if (newSubs.length > 0) {
+                    const updatedSubs = [...(team.subs || []), ...newSubs];
+                    const updatedTeam = { ...team, subs: updatedSubs };
+                    
+                    await storage.updateTeam(updatedTeam);
+                    setTeams(prev => prev.map(t => t.id === teamId ? updatedTeam : t));
+                }
+            }
+        };
+
+        await Promise.all([
+            syncSubs(finalHomeId, homeLineup),
+            syncSubs(finalAwayId, awayLineup)
+        ]);
+
+        const homeIds = homeLineup.map(p => p.id);
+        const awayIds = awayLineup.map(p => p.id);
+        
+        const newMatch = await storage.createMatch(state.currentLeague, finalHomeId, finalAwayId, homeIds, awayIds, state.season);
+        
+        setSelectedHomeId(''); setSelectedAwayId(''); setLoading(false);
+        setState({ ...state, view: 'scoring', currentMatchId: newMatch.id });
+    } catch (e) { alert("Error starting match: " + e); setLoading(false); }
+  };
+
+  const handleDeleteMatch = async (matchId: string) => {
+    if (!confirm("Are you sure you want to delete this match? This cannot be undone.")) return;
+    try {
+        setLoading(true);
+        await storage.deleteMatch(matchId);
+        if (state.currentLeague) await refreshDashboard(state.currentLeague, state.season);
+        else setLoading(false);
+    } catch (e) {
+        alert("Failed to delete match");
+        setLoading(false);
     }
   };
 
-  return (
-    <div className="fixed inset-0 z-[3000] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
-      <div className="bg-white dark:bg-slate-900 p-6 rounded-2xl shadow-2xl max-w-sm w-full border border-slate-200 dark:border-slate-800">
-        <h3 className="text-xl font-bold mb-4 text-slate-800 dark:text-white font-sans">Staff Login</h3>
-        <input 
-          type="password" 
-          value={password}
-          onChange={e => setPassword(e.target.value)}
-          placeholder="Enter Password"
-          className="w-full p-3 border border-slate-300 dark:border-slate-700 rounded-lg mb-4 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white outline-none focus:ring-2 focus:ring-blue-500 font-sans"
-          onKeyDown={e => e.key === 'Enter' && handleVerify()}
-          autoFocus
-        />
-        {error && <p className="text-red-500 text-sm mb-4 font-bold font-sans">{error}</p>}
-        <div className="flex gap-2">
-          <button onClick={onClose} className="flex-1 py-2 bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 rounded-lg font-bold font-sans hover:bg-slate-300 dark:hover:bg-slate-700 transition-colors">Cancel</button>
-          <button onClick={handleVerify} className="flex-1 py-2 bg-blue-600 text-white rounded-lg font-bold hover:bg-blue-700 font-sans transition-colors">Login</button>
+  const handleMoveMatch = async () => {
+    if (!moveMatchModal || !targetLeague) return;
+    try {
+        setLoading(true);
+        const match = matches.find(m => m.id === moveMatchModal.matchId);
+        if (match) {
+            const updatedMatch = { ...match, league: targetLeague };
+            await storage.updateMatch(updatedMatch);
+            
+            alert("Match moved successfully! Stats will now appear in the " + targetLeague + " league.");
+            setMoveMatchModal(null);
+            setTargetLeague('');
+            if (state.currentLeague) await refreshDashboard(state.currentLeague, state.season);
+        }
+    } catch (e) {
+        alert("Failed to move match.");
+    } finally {
+        setLoading(false);
+    }
+  };
+
+  const handleOpenMatchStats = (match: Match) => {
+      const home = teams.find(t => t.id === match.homeTeamId);
+      const away = teams.find(t => t.id === match.awayTeamId);
+      if (home && away) {
+          const stats = storage.calculateMatchStats(match, home, away);
+          setStatsModalData(stats);
+          setStatsModalMatch(match);
+      }
+  };
+
+  const handleSeasonChange = (newSeason: string) => {
+      setState({ ...state, season: newSeason, view: state.currentLeague ? 'dashboard' : 'league_select' });
+  };
+
+  const handleSelectLeague = (leagueId: string) => {
+      setState({ ...state, view: 'dashboard', currentLeague: leagueId, currentMatchId: null });
+  };
+
+  const openLoginModal = () => {
+      setShowLoginModal(true);
+      setPasswordInput('');
+      setLoginError('');
+      setIsMenuOpen(false);
+  };
+  
+  const openAdminDashboard = () => {
+      if (userRole === 'admin') {
+          setState({ ...state, view: 'admin' });
+          setIsMenuOpen(false);
+      }
+  };
+
+  const handleLoginSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    const result = await storage.verifyPassword(passwordInput);
+    setLoading(false);
+    
+    if (result.success && result.role) {
+      setUserRole(result.role);
+      safeStorage.setItem('userRole', result.role);
+      safeStorage.setItem('lastActivity', Date.now().toString());
+      setShowLoginModal(false);
+      if (result.role === 'admin') setState(prev => ({...prev, view: 'admin'})); 
+    } else {
+      setLoginError('Incorrect password.');
+    }
+  };
+
+  const performSort = (data: PlayerStats[], config: { key: keyof PlayerStats; direction: 'asc' | 'desc' }) => {
+      return [...data].sort((a, b) => {
+        const valA = a[config.key];
+        const valB = b[config.key];
+        
+        if (typeof valA === 'string' && typeof valB === 'string') {
+            return config.direction === 'asc' ? valA.localeCompare(valB) : valB.localeCompare(valA);
+        }
+        
+        if (valA < valB) return config.direction === 'asc' ? -1 : 1;
+        if (valA > valB) return config.direction === 'asc' ? 1 : -1;
+        return 0;
+      });
+  };
+
+  const renderSortHeader = (label: string, key: keyof PlayerStats, config: { key: keyof PlayerStats; direction: 'asc' | 'desc' }, setConfig: any, align: string = 'text-right', colorClass: string = '') => (
+    <th 
+        className={`px-4 py-3 cursor-pointer hover:bg-black/10 dark:hover:bg-white/10 transition-colors select-none ${align} ${colorClass}`}
+        onClick={() => setConfig({ key, direction: config.key === key && config.direction === 'desc' ? 'asc' : 'desc' })}
+        title="Click to sort"
+    >
+        <div className={`flex items-center gap-1 ${align === 'text-right' ? 'justify-end' : 'justify-start'}`}>
+            {label}
+            {config.key === key && (
+                <span className="text-[10px] text-slate-400">{config.direction === 'asc' ? '▲' : '▼'}</span>
+            )}
         </div>
-      </div>
+    </th>
+  );
+
+  const calculateWeeklyLeaders = useCallback(() => {
+      const now = new Date();
+      const oneWeekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+
+      const recentMatches = matches.filter(m => {
+          if (!m.isComplete) return false;
+          const d = new Date(m.date);
+          return d >= oneWeekAgo;
+      });
+
+      // Track unique players by ID to ensure they only appear once with their best score
+      const uniqueTotals = new Map<string, { name: string, team: string, score: number }>();
+      const uniqueInnings = new Map<string, { name: string, team: string, score: number }>();
+
+      recentMatches.forEach(m => {
+          const home = teams.find(t => t.id === m.homeTeamId);
+          const away = teams.find(t => t.id === m.awayTeamId);
+          if (!home || !away) return;
+
+          // 1. Calculate Match Totals Manually (Strict 10-pitch limit for Ghost Mode)
+          const matchPlayerTotals = new Map<string, number>();
+
+          // Process Innings
+          m.innings.forEach(ing => {
+              [ing.home, ing.away].forEach(side => {
+                   const isGhostMode = side.playerScores.length === 2 && side.playerScores[0].pitches.length >= 15;
+                   side.playerScores.forEach(ps => {
+                       if (ps.playerId.startsWith('ghost-')) return;
+                       
+                       let pitchesToCount = ps.pitches;
+                       // Strictly slice first 10 for individual stats in Ghost Mode
+                       if (isGhostMode && pitchesToCount.length > 10) {
+                           pitchesToCount = pitchesToCount.slice(0, 10);
+                       }
+                       
+                       const pts = pitchesToCount.reduce((sum, p) => sum + (p.points || 0), 0);
+                       matchPlayerTotals.set(ps.playerId, (matchPlayerTotals.get(ps.playerId) || 0) + pts);
+                   });
+              });
+          });
+
+          // Process Tie Breakers (No ghost mode in tie breakers usually, but standard addition)
+          if (m.tieBreaker) {
+              m.tieBreaker.forEach(tb => {
+                  const addTbScore = (pid: string, scores: (number|null)[]) => {
+                      const pts = scores.reduce((sum, s) => sum + (s || 0), 0);
+                      matchPlayerTotals.set(pid, (matchPlayerTotals.get(pid) || 0) + pts);
+                  };
+                  addTbScore(tb.homePlayerId, tb.homeScores);
+                  addTbScore(tb.awayPlayerId, tb.awayScores);
+              });
+          }
+
+          // Update Leaderboard with this Match's Totals
+          matchPlayerTotals.forEach((totalScore, playerId) => {
+               // Find player info
+               let player = [...home.players, ...(home.subs||[])].find(p => p.id === playerId);
+               let teamName = home.name;
+               if (!player) {
+                   player = [...away.players, ...(away.subs||[])].find(p => p.id === playerId);
+                   teamName = away.name;
+               }
+
+               if (player) {
+                   const fullName = `${player.name}${player.lastName ? ' ' + player.lastName[0] + '.' : ''}`;
+                   // Check if this is the best score for this player so far
+                   const existing = uniqueTotals.get(playerId);
+                   if (!existing || totalScore > existing.score) {
+                       uniqueTotals.set(playerId, { name: fullName, team: teamName, score: totalScore });
+                   }
+               }
+          });
+
+          // 2. Best Inning (Existing Logic - ensure consistency)
+          m.innings.forEach(ing => {
+              [ing.home, ing.away].forEach((side, sideIdx) => {
+                  const team = sideIdx === 0 ? home : away;
+                  const isGhostMode = side.playerScores.length === 2 && side.playerScores[0].pitches.length >= 15;
+
+                  side.playerScores.forEach(ps => {
+                      if (ps.playerId.startsWith('ghost-')) return;
+
+                      const p = [...team.players, ...(team.subs||[])].find(x => x.id === ps.playerId);
+                      if (p) {
+                          let pitchesToCount = ps.pitches;
+                          if (isGhostMode && pitchesToCount.length > 10) {
+                              pitchesToCount = pitchesToCount.slice(0, 10);
+                          }
+                          const score = pitchesToCount.reduce((sum, v) => sum + (v.points || 0), 0);
+                          
+                          const existing = uniqueInnings.get(p.id);
+                          if (!existing || score > existing.score) {
+                              const fullName = `${p.name}${p.lastName ? ' ' + p.lastName[0] + '.' : ''}`;
+                              uniqueInnings.set(p.id, { name: fullName, team: team.name, score });
+                          }
+                      }
+                  });
+              });
+          });
+      });
+
+      return {
+          topTotals: Array.from(uniqueTotals.values()).sort((a, b) => b.score - a.score).slice(0, 5),
+          topInnings: Array.from(uniqueInnings.values()).sort((a, b) => b.score - a.score).slice(0, 5)
+      };
+  }, [matches, teams]);
+
+  const weeklyStats = calculateWeeklyLeaders();
+
+  const leagueTeams = teams.filter(t => t.league === state.currentLeague);
+
+  // --- NEW: Standings Calculation ---
+  const standings = useMemo(() => {
+    if (!state.currentLeague) return [];
+    
+    // Initialize stats for all teams in the current league
+    const stats = new Map<string, { id: string, name: string, gp: number, w: number, l: number, t: number, pf: number, pa: number }>();
+    leagueTeams.forEach(t => {
+      stats.set(t.id, { id: t.id, name: t.name, gp: 0, w: 0, l: 0, t: 0, pf: 0, pa: 0 });
+    });
+
+    matches.forEach(m => {
+      if (!m.isComplete) return;
+      
+      const getScore = (innings: Inning[], side: 'home' | 'away', tb?: TieBreakerRound[]) => {
+         let score = innings.reduce((acc, ing) => {
+             const team = side === 'home' ? ing.home : ing.away;
+             return acc + team.playerScores.reduce((pAcc, p) => pAcc + p.pitches.reduce((piAcc, pi) => piAcc + (pi.points || 0), 0), 0);
+         }, 0);
+         if(tb) {
+             tb.forEach(r => {
+                 const rScore = side === 'home' ? r.homeScores : r.awayScores;
+                 score += rScore.reduce((a,b) => a + (b||0), 0);
+             });
+         }
+         return score;
+      };
+
+      const hScore = getScore(m.innings, 'home', m.tieBreaker);
+      const aScore = getScore(m.innings, 'away', m.tieBreaker);
+
+      const update = (id: string, s: number, os: number) => {
+          if (!stats.has(id)) return;
+          const rec = stats.get(id)!;
+          rec.gp++;
+          rec.pf += s;
+          rec.pa += os;
+          if (s > os) rec.w++;
+          else if (s < os) rec.l++;
+          else rec.t++;
+      };
+      
+      update(m.homeTeamId, hScore, aScore);
+      update(m.awayTeamId, aScore, hScore);
+    });
+
+    return Array.from(stats.values()).sort((a, b) => {
+        if (a.w !== b.w) return b.w - a.w;
+        if (a.t !== b.t) return b.t - a.t;
+        if (a.pf !== b.pf) return b.pf - a.pf;
+        return a.pa - b.pa;
+    });
+  }, [matches, leagueTeams, state.currentLeague]);
+
+  // --- NEW: Season Stats Calculation ---
+  const seasonStats = useMemo(() => {
+      if (!state.currentLeague) return [];
+      const aggStats = new Map<string, PlayerStats>();
+      
+      matches.forEach(m => {
+          if (!m.isComplete) return;
+          const home = teams.find(t => t.id === m.homeTeamId);
+          const away = teams.find(t => t.id === m.awayTeamId);
+          if (!home || !away) return;
+          
+          const mStats = storage.calculateMatchStats(m, home, away);
+          mStats.forEach(s => {
+              if (s.playerId.startsWith('ghost-')) return;
+              if (!aggStats.has(s.playerId)) {
+                  aggStats.set(s.playerId, { ...s });
+              } else {
+                  const curr = aggStats.get(s.playerId)!;
+                  curr.totalPoints += s.totalPoints;
+                  curr.hits4 += s.hits4;
+                  curr.hits3 += s.hits3;
+                  curr.hits2 += s.hits2;
+                  curr.hits1 += s.hits1;
+                  curr.pitchesSeen += s.pitchesSeen;
+              }
+          });
+      });
+      return Array.from(aggStats.values());
+  }, [matches, teams, state.currentLeague]);
+
+
+  const navbarProps = {
+      currentLeague: state.currentLeague,
+      currentSeason: state.season,
+      leagues: leagues,
+      userRole: userRole,
+      showLeagueHomeButton: state.view !== 'dashboard' && !!state.currentLeague,
+      onGoHome: () => setState({ ...state, view: 'league_select', currentLeague: null, currentMatchId: null }),
+      onSwitchLeague: () => setState({ ...state, view: 'league_select', currentLeague: null, currentMatchId: null }),
+      onSelectLeague: handleSelectLeague,
+      onLogin: openLoginModal,
+      onLogout: handleLogout,
+      onAdminDashboard: openAdminDashboard,
+      onSeasonChange: handleSeasonChange,
+      isDarkMode: isDarkMode,
+      toggleTheme: () => setIsDarkMode(!isDarkMode),
+      isMenuOpen: isMenuOpen,
+      setMenuOpen: setIsMenuOpen
+  };
+
+  return (
+    <div className="h-[100dvh] w-full overflow-hidden bg-slate-100 dark:bg-slate-950 text-slate-900 dark:text-slate-200 flex flex-col font-sans relative transition-colors duration-500">
+        {/* Background Texture */}
+        <div className="absolute inset-0 opacity-[0.4] dark:opacity-[0.03] pointer-events-none z-0 mix-blend-overlay dark:mix-blend-normal h-full w-full" 
+             style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg width='40' height='40' viewBox='0 0 40 40' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M20 20l20 20M20 20L0 40M20 20L40 0M20 20L0 0' stroke='%23888888' stroke-width='1' fill='none'/%3E%3C/svg%3E")` }}>
+        </div>
+        
+        {/* Scrollable Main Content Area */}
+        <main className="relative flex-1 w-full overflow-y-auto overflow-x-hidden scroll-touch">
+            {/* Fixed Header / Navbar - moved inside scrollable area so it scrolls away */}
+            {state.view !== 'league_select' && <Navbar {...navbarProps} />}
+
+            {/* LEAGUE SELECTION VIEW */}
+            {state.view === 'league_select' && (
+                <>
+                    <Navbar {...navbarProps} />
+                    <div className="flex-1 flex flex-col items-center justify-center p-4 z-10 min-h-[calc(100dvh-80px)]">
+                        <div className="text-center mb-16">
+                            <h2 className="text-3xl sm:text-5xl font-black text-slate-900 dark:text-white mb-4 font-sans tracking-tight drop-shadow-xl">SELECT A LEAGUE</h2>
+                            <div className="h-1.5 w-24 bg-blue-600 mx-auto rounded-full mb-6 shadow-[0_0_15px_rgba(37,99,235,0.8)]"></div>
+                            {userRole !== 'fan' && (
+                                <span className="inline-block bg-white/50 dark:bg-slate-800/80 backdrop-blur text-blue-600 dark:text-blue-300 border border-slate-200 dark:border-slate-700 px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-widest shadow-lg">
+                                    Logged in as {userRole}
+                                </span>
+                            )}
+                        </div>
+                        
+                        {leagues.length === 0 ? (
+                            <div className="text-center bg-white/80 dark:bg-slate-900/80 backdrop-blur p-8 rounded-2xl border border-slate-200 dark:border-slate-800 max-w-md w-full shadow-2xl">
+                                <div className="w-16 h-16 bg-slate-100 dark:bg-slate-800 rounded-full flex items-center justify-center mx-auto mb-4">
+                                    <svg className="w-8 h-8 text-slate-400 dark:text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
+                                </div>
+                                <h3 className="text-xl font-bold text-slate-800 dark:text-white mb-2">No Leagues Found</h3>
+                                <p className="text-slate-500 dark:text-slate-400 mb-6 text-sm">Get started by logging in to create your first league category.</p>
+                                <button onClick={openLoginModal} className="w-full px-4 py-3 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-500 transition-all shadow-lg shadow-blue-900/20">Log In to Admin</button>
+                            </div>
+                        ) : (
+                            <div className="flex flex-wrap justify-center gap-4 w-full max-w-5xl px-4 pb-8">
+                            {leagues.sort((a, b) => a.id.localeCompare(b.id, undefined, { numeric: true, sensitivity: 'base' })).map(league => (
+                                <button key={league.id} onClick={() => handleSelectLeague(league.id)} className="group relative bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800 p-0.5 rounded-xl shadow-xl dark:shadow-2xl transition-all duration-300 hover:-translate-y-1 hover:shadow-blue-500/20 dark:hover:shadow-blue-900/20 text-left w-32 sm:w-36 flex flex-col border border-slate-200 dark:border-slate-800 hover:border-blue-400 dark:hover:border-blue-500/50">
+                                    <div className="absolute inset-0 bg-gradient-to-b from-blue-400/0 to-blue-600/0 dark:from-blue-600/0 dark:to-blue-900/0 group-hover:to-blue-100/50 dark:group-hover:to-blue-900/20 rounded-xl transition-all duration-500"></div>
+                                    
+                                    <div className="h-full w-full rounded-lg p-3 flex flex-col justify-between relative overflow-hidden min-h-[100px]">
+                                        <div className="absolute -top-2 -right-2 text-slate-200 dark:text-slate-800/40 group-hover:text-blue-100 dark:group-hover:text-blue-600/10 transition-all duration-700 rotate-[15deg] scale-125">
+                                            <svg width="60" height="60" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1" strokeLinecap="round" strokeLinejoin="round">
+                                                <circle cx="12" cy="12" r="10" />
+                                                <path d="M6 4.5C8.5 7.5 9 10.5 9 12s-.5 4.5-3 7.5" />
+                                                <path d="M18 4.5C15.5 7.5 15 10.5 15 12s.5 4.5 3 7.5" />
+                                            </svg>
+                                        </div>
+                                        
+                                        <div className="relative z-10">
+                                            <div className="flex justify-between items-start">
+                                                <span className="inline-block px-1 py-0.5 rounded bg-slate-100 dark:bg-slate-950 text-slate-500 dark:text-slate-400 text-[8px] font-bold uppercase tracking-wider border border-slate-200 dark:border-slate-800 group-hover:border-blue-400 group-hover:text-blue-500 transition-colors">{state.season}</span>
+                                                <span className="w-1.5 h-1.5 rounded-full bg-blue-500 shadow-[0_0_8px_#3b82f6]"></span>
+                                            </div>
+                                        </div>
+                                        
+                                        <div className="relative z-10 mt-4 text-center">
+                                            <h3 className="text-xl sm:text-2xl font-black text-slate-800 dark:text-white uppercase italic leading-none mb-0.5 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors drop-shadow-sm truncate">{league.id}</h3>
+                                        </div>
+                                    </div>
+                                </button>
+                            ))}
+                            </div>
+                        )}
+                    </div>
+                </>
+            )}
+
+            {/* ADMIN VIEW */}
+            {state.view === 'admin' && (
+                <div className="flex-1 bg-slate-50 dark:bg-slate-950 text-slate-800 dark:text-slate-200 w-full">
+                    <AdminDashboard onBack={() => setState({ ...state, view: 'league_select' })} />
+                </div>
+            )}
+
+            {/* MATCH SETUP VIEW */}
+            {state.view === 'match_setup' && selectedHomeId && selectedAwayId && state.currentLeague && (
+                <div className="flex-1 bg-slate-50 dark:bg-slate-950 text-slate-800 dark:text-slate-200 w-full">
+                    <MatchSetup homeTeam={teams.find(t => t.id === selectedHomeId)!} awayTeam={teams.find(t => t.id === selectedAwayId)!} onStart={handleStartGame} onCancel={() => setState({ ...state, view: 'dashboard' })} />
+                </div>
+            )}
+
+            {/* SCORING VIEW */}
+            {state.view === 'scoring' && state.currentMatchId && (
+                <div className="flex-1 bg-slate-100 dark:bg-slate-950 text-slate-800 dark:text-slate-200 w-full overflow-hidden">
+                    <Scoreboard matchId={state.currentMatchId} onExit={() => setState({ ...state, view: 'dashboard', currentMatchId: null })} isReadOnly={userRole === 'fan'} />
+                </div>
+            )}
+
+            {/* TEAM MANAGEMENT VIEW */}
+            {state.view === 'team_management' && state.currentLeague && (
+                <div className="flex-1 bg-slate-50 dark:bg-slate-950 text-slate-800 dark:text-slate-200 w-full">
+                    <TeamManagement league={state.currentLeague} season={state.season} onBack={() => setState({ ...state, view: 'dashboard' })} />
+                </div>
+            )}
+
+            {/* MAIN DASHBOARD VIEW */}
+            {state.view === 'dashboard' && (
+                <div className="max-w-7xl mx-auto p-2 sm:p-6 w-full pb-20">
+                    <div className={`grid grid-cols-1 ${userRole !== 'fan' ? 'lg:grid-cols-3' : ''} gap-4 sm:gap-8`}>
+                        
+                        {userRole !== 'fan' && (
+                        <div className="space-y-4 sm:space-y-6">
+                            {/* Manage Teams Box - Smaller */}
+                            <div className="bg-white/60 dark:bg-slate-900/60 backdrop-blur-xl p-2 sm:p-4 rounded-xl shadow-lg border border-white/20 dark:border-slate-800">
+                                <h2 className="text-sm sm:text-base font-bold text-slate-600 dark:text-slate-300 mb-2 font-sans">League Status ({state.season})</h2>
+                                <div className="flex justify-between text-center"><div><div className="text-2xl sm:text-3xl font-black text-slate-800 dark:text-white font-sans tabular-nums">{leagueTeams.length}</div><div className="text-[10px] sm:text-xs text-slate-500 uppercase font-bold font-sans">Teams</div></div></div>
+                                <button onClick={() => setState({ ...state, view: 'team_management' })} className="w-full mt-3 py-1.5 sm:py-2 px-3 bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white font-bold rounded-lg transition-colors font-sans border border-slate-300 dark:border-slate-700 text-xs sm:text-sm">Manage Teams & Stats</button>
+                            </div>
+                            {/* Start New Match Box - Larger on Tablets */}
+                            <div className="bg-gradient-to-br from-blue-600 to-blue-800 p-3 sm:p-8 rounded-xl shadow-xl text-white border border-blue-500/30">
+                                <h2 className="text-base sm:text-2xl font-bold mb-2 sm:mb-6 font-sans">Start New Match</h2>
+                                <div className="space-y-2 sm:space-y-4">
+                                    <select className="w-full p-2 sm:p-4 rounded-lg text-slate-900 bg-white/90 font-bold font-sans text-xs sm:text-base" value={selectedAwayId} onChange={(e) => setSelectedAwayId(e.target.value)}><option value="">Select Away Team...</option>{leagueTeams.map(t => <option key={t.id} value={t.id} disabled={t.id === selectedHomeId}>{t.name}</option>)}</select>
+                                    <select className="w-full p-2 sm:p-4 rounded-lg text-slate-900 bg-white/90 font-bold font-sans text-xs sm:text-base" value={selectedHomeId} onChange={(e) => setSelectedHomeId(e.target.value)}><option value="">Select Home Team...</option>{leagueTeams.map(t => <option key={t.id} value={t.id} disabled={t.id === selectedAwayId}>{t.name}</option>)}</select>
+                                    <button disabled={!selectedHomeId || !selectedAwayId} onClick={() => setState({ ...state, view: 'match_setup' })} className="w-full bg-white text-blue-700 font-bold py-2.5 sm:py-5 rounded-xl mt-2 sm:mt-6 hover:bg-blue-50 disabled:opacity-50 transition-all font-sans shadow-lg text-sm sm:text-xl transform active:scale-95">Next: Set Lineup</button>
+                                </div>
+                            </div>
+                            <div className="text-center">
+                                <span className="bg-white/50 dark:bg-slate-800 text-slate-600 dark:text-slate-400 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider font-sans border border-slate-200 dark:border-slate-700">Role: {userRole}</span>
+                                <button onClick={handleLogout} className="text-xs text-red-500 hover:text-red-400 ml-2 underline font-sans">Log Out</button>
+                            </div>
+                        </div>
+                        )}
+
+                        <div className={`${userRole !== 'fan' ? 'lg:col-span-2' : 'col-span-1'}`}>
+                            <div className="bg-gradient-to-r from-indigo-600 to-purple-700 rounded-xl shadow-xl p-3 sm:p-6 mb-6 sm:mb-8 text-white border border-indigo-500/30 relative overflow-hidden">
+                                <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/carbon-fibre.png')] opacity-10"></div>
+                                <div className="relative z-10">
+                                    <h3 className="font-bold text-white/90 uppercase tracking-wider text-xs sm:text-sm mb-3 sm:mb-4 border-b border-white/20 pb-2 font-sans flex items-center gap-2">
+                                        <svg className="w-4 h-4 text-yellow-400" fill="currentColor" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"></path></svg>
+                                        Weekly Leaders ({state.currentLeague})
+                                    </h3>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-8">
+                                        <div>
+                                            <h4 className="font-bold text-sm sm:text-lg mb-2 font-sans text-indigo-100">Best Total Score</h4>
+                                            {weeklyStats.topTotals.length > 0 ? (
+                                                <ul className="space-y-1 sm:space-y-2">
+                                                    {weeklyStats.topTotals.map((s, idx) => (
+                                                        <li key={idx} className="flex justify-between items-center bg-black/20 p-1 sm:p-2 rounded border border-white/5 hover:bg-black/30 transition-colors">
+                                                            <div className="flex items-center gap-2">
+                                                                <span className="font-bold bg-white text-indigo-600 w-5 h-5 sm:w-6 sm:h-6 flex items-center justify-center rounded-full text-[10px] sm:text-xs font-sans shadow tabular-nums">{idx+1}</span>
+                                                                <span className="font-semibold font-sans text-xs sm:text-base">{s.name}</span>
+                                                                <span className="text-[10px] sm:text-xs text-white/60 font-sans">({s.team})</span>
+                                                            </div>
+                                                            <span className="font-sans tabular-nums font-bold text-base sm:text-xl">{s.score}</span>
+                                                        </li>
+                                                    ))}
+                                                </ul>
+                                            ) : <p className="text-white/40 italic text-sm font-sans">No matches yet this week.</p>}
+                                        </div>
+                                        <div>
+                                            <h4 className="font-bold text-sm sm:text-lg mb-2 font-sans text-purple-100">Best Single Inning</h4>
+                                            {weeklyStats.topInnings.length > 0 ? (
+                                                <ul className="space-y-1 sm:space-y-2">
+                                                    {weeklyStats.topInnings.map((s, idx) => (
+                                                        <li key={idx} className="flex justify-between items-center bg-black/20 p-1 sm:p-2 rounded border border-white/5 hover:bg-black/30 transition-colors">
+                                                            <div className="flex items-center gap-2">
+                                                                <span className="font-bold bg-white text-purple-600 w-5 h-5 sm:w-6 sm:h-6 flex items-center justify-center rounded-full text-[10px] sm:text-xs font-sans shadow tabular-nums">{idx+1}</span>
+                                                                <span className="font-semibold font-sans text-xs sm:text-base">{s.name}</span>
+                                                                <span className="text-[10px] sm:text-xs text-white/60 font-sans">({s.team})</span>
+                                                            </div>
+                                                            <span className="font-sans tabular-nums font-bold text-base sm:text-xl">{s.score}</span>
+                                                        </li>
+                                                    ))}
+                                                </ul>
+                                            ) : <p className="text-white/40 italic text-sm font-sans">No matches yet this week.</p>}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="flex items-center gap-4 sm:gap-6 mb-4 sm:mb-6 border-b border-slate-200 dark:border-slate-800 pb-1 overflow-x-auto touch-auto">
+                                <button onClick={() => setState(prev => ({ ...prev, dashboardTab: 'matches' }))} className={`text-base sm:text-xl font-bold pb-2 px-2 transition-all border-b-2 whitespace-nowrap font-sans ${state.dashboardTab === 'matches' ? 'text-blue-600 dark:text-blue-400 border-blue-500 drop-shadow-[0_0_10px_rgba(59,130,246,0.3)]' : 'text-slate-500 border-transparent hover:text-slate-800 dark:hover:text-slate-300 hover:border-slate-400 dark:hover:border-slate-700'}`}>Matches</button>
+                                <button onClick={() => setState(prev => ({ ...prev, dashboardTab: 'standings' }))} className={`text-base sm:text-xl font-bold pb-2 px-2 transition-all border-b-2 whitespace-nowrap font-sans ${state.dashboardTab === 'standings' ? 'text-blue-600 dark:text-blue-400 border-blue-500 drop-shadow-[0_0_10px_rgba(59,130,246,0.3)]' : 'text-slate-500 border-transparent hover:text-slate-800 dark:hover:text-slate-300 hover:border-slate-400 dark:hover:border-slate-700'}`}>Standings</button>
+                                <button onClick={() => setState(prev => ({ ...prev, dashboardTab: 'season_stats' }))} className={`text-base sm:text-xl font-bold pb-2 px-2 transition-all border-b-2 whitespace-nowrap font-sans ${state.dashboardTab === 'season_stats' ? 'text-blue-600 dark:text-blue-400 border-blue-500 drop-shadow-[0_0_10px_rgba(59,130,246,0.3)]' : 'text-slate-500 border-transparent hover:text-slate-800 dark:hover:text-slate-300 hover:border-slate-400 dark:hover:border-slate-700'}`}>Season Stats</button>
+                            </div>
+
+                            {state.dashboardTab === 'matches' && (
+                                <div className="space-y-3 sm:space-y-4">
+                                    {matches.map(match => {
+                                        const home = teams.find(t => t.id === match.homeTeamId);
+                                        const away = teams.find(t => t.id === match.awayTeamId);
+                                        if (!home || !away) return null;
+                                        return (
+                                            <div key={match.id} className="bg-white/60 dark:bg-slate-900/60 backdrop-blur-xl p-2.5 sm:p-5 rounded-xl shadow-md dark:shadow-sm border border-white/20 dark:border-slate-800 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 sm:gap-4 hover:bg-white/80 dark:hover:bg-slate-800/50 transition-colors group">
+                                                <div className="flex items-center gap-2 sm:gap-4 w-full sm:w-auto min-w-0">
+                                                    <div className="shrink-0"><div className={`text-[8px] sm:text-[10px] font-black uppercase tracking-wider px-2 py-1 rounded font-sans border ${match.isComplete ? 'bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border-slate-300 dark:border-slate-700' : 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 border-green-500/30 animate-pulse'}`}>{match.isComplete ? 'FINAL' : 'LIVE'}</div></div>
+                                                    <div className="flex flex-1 sm:flex-auto items-center sm:justify-start sm:gap-8 w-full sm:w-auto min-w-0">
+                                                        <div className="flex-1 sm:flex-none sm:w-32 text-xs sm:text-lg font-bold text-red-700 dark:text-red-400 text-right font-sans truncate min-w-0">{home.name}</div>
+                                                        <div className="shrink-0 text-slate-400 dark:text-slate-600 text-[10px] sm:text-base px-1 sm:px-2 font-sans italic font-bold">VS</div>
+                                                        <div className="flex-1 sm:flex-none sm:w-32 text-xs sm:text-lg font-bold text-blue-700 dark:text-blue-400 text-left font-sans truncate min-w-0">{away.name}</div>
+                                                    </div>
+                                                </div>
+                                                <div className="flex gap-2 w-full sm:w-auto justify-end shrink-0">
+                                                <button onClick={() => handleOpenMatchStats(match)} className="flex-1 sm:flex-none text-center px-2 sm:px-3 py-1.5 sm:py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800/50 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 hover:border-blue-400 dark:hover:border-blue-500/50 font-bold text-xs sm:text-sm transition-all font-sans">Stats</button>
+                                                
+                                                <button onClick={() => setState({ ...state, view: 'scoring', currentMatchId: match.id })} className="flex-1 sm:flex-none text-center px-2 sm:px-3 py-1.5 sm:py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800/50 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 hover:text-slate-900 dark:hover:text-white font-bold text-xs sm:text-sm transition-all font-sans">
+                                                    {userRole === 'fan' ? (match.isComplete ? 'View' : 'Watch Live') : (match.isComplete ? 'View' : 'Score')}
+                                                </button>
+                                                
+                                                {userRole === 'admin' && (
+                                                    <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                        <button onClick={() => setMoveMatchModal({ matchId: match.id, currentLeague: match.league })} className="px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-transparent text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-900/20 font-bold text-xs sm:text-sm transition-all font-sans" title="Move to another league">Move</button>
+                                                        <button onClick={() => handleDeleteMatch(match.id)} className="px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-transparent text-red-500 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 hover:border-red-400 dark:hover:border-red-500/50 font-bold text-xs sm:text-sm transition-all font-sans">Del</button>
+                                                    </div>
+                                                )}
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                    {matches.length === 0 && <div className="text-center py-12 text-slate-500 bg-white/40 dark:bg-slate-900/30 rounded-xl border border-slate-300 dark:border-slate-800 border-dashed font-sans">No matches found for this season.</div>}
+                                </div>
+                            )}
+
+                            {state.dashboardTab === 'standings' && (
+                                <div className="bg-white/60 dark:bg-slate-900/60 backdrop-blur-xl rounded-xl shadow-md border border-white/20 dark:border-slate-800 overflow-hidden">
+                                  <div className="overflow-x-auto">
+                                      <table className="w-full text-left text-sm">
+                                          <thead className="bg-slate-100 dark:bg-slate-950 text-slate-500 dark:text-slate-400 font-bold text-xs uppercase border-b border-slate-200 dark:border-slate-800">
+                                              <tr>
+                                                  <th className="px-4 py-3 text-center w-12">#</th>
+                                                  <th className="px-4 py-3">Team</th>
+                                                  <th className="px-4 py-3 text-center">GP</th>
+                                                  <th className="px-4 py-3 text-center">W</th>
+                                                  <th className="px-4 py-3 text-center">L</th>
+                                                  <th className="px-4 py-3 text-center">T</th>
+                                                  <th className="px-4 py-3 text-center">PF</th>
+                                                  <th className="px-4 py-3 text-center">PA</th>
+                                                  <th className="px-4 py-3 text-center hidden sm:table-cell">Diff</th>
+                                              </tr>
+                                          </thead>
+                                          <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                                              {standings.map((t, i) => (
+                                                  <tr key={t.id} className="hover:bg-white/50 dark:hover:bg-slate-800/50 transition-colors">
+                                                      <td className="px-4 py-3 text-center font-bold text-slate-400 dark:text-slate-500">{i + 1}</td>
+                                                      <td className="px-4 py-3 font-bold text-slate-900 dark:text-white text-base">{t.name}</td>
+                                                      <td className="px-4 py-3 text-center text-slate-600 dark:text-slate-300 font-bold">{t.gp}</td>
+                                                      <td className="px-4 py-3 text-center font-bold text-green-600 dark:text-green-500 bg-green-50 dark:bg-green-900/10">{t.w}</td>
+                                                      <td className="px-4 py-3 text-center text-slate-500 dark:text-slate-400">{t.l}</td>
+                                                      <td className="px-4 py-3 text-center text-slate-500 dark:text-slate-400">{t.t}</td>
+                                                      <td className="px-4 py-3 text-center font-bold text-blue-600 dark:text-blue-400 tabular-nums">{t.pf}</td>
+                                                      <td className="px-4 py-3 text-center text-slate-500 dark:text-slate-400 tabular-nums">{t.pa}</td>
+                                                      <td className="px-4 py-3 text-center hidden sm:table-cell font-bold tabular-nums text-slate-500">{t.pf - t.pa}</td>
+                                                  </tr>
+                                              ))}
+                                              {standings.length === 0 && (
+                                                  <tr><td colSpan={9} className="p-8 text-center text-slate-500 italic">No standings available yet.</td></tr>
+                                              )}
+                                          </tbody>
+                                      </table>
+                                  </div>
+                                </div>
+                            )}
+
+                            {state.dashboardTab === 'season_stats' && (
+                                <div className="bg-white/60 dark:bg-slate-900/60 backdrop-blur-xl rounded-xl shadow-md border border-white/20 dark:border-slate-800 overflow-hidden">
+                                    <div className="overflow-x-auto">
+                                        <table className="w-full text-left text-sm">
+                                            <thead className="bg-slate-100 dark:bg-slate-950 text-slate-500 dark:text-slate-400 font-bold text-xs uppercase border-b border-slate-200 dark:border-slate-800 sticky top-0 z-10">
+                                                <tr>
+                                                    {renderSortHeader('Player', 'name', seasonSort, setSeasonSort, 'text-left', 'px-6')}
+                                                    {renderSortHeader('Total Pts', 'totalPoints', seasonSort, setSeasonSort)}
+                                                    {renderSortHeader('4s', 'hits4', seasonSort, setSeasonSort, 'text-right', 'text-rose-600 dark:text-rose-500')}
+                                                    {renderSortHeader('3s', 'hits3', seasonSort, setSeasonSort, 'text-right', 'text-amber-600 dark:text-amber-500')}
+                                                    {renderSortHeader('2s', 'hits2', seasonSort, setSeasonSort, 'text-right', 'text-green-600 dark:text-green-500')}
+                                                    {renderSortHeader('1s', 'hits1', seasonSort, setSeasonSort, 'text-right', 'text-cyan-600 dark:text-cyan-500')}
+                                                    {renderSortHeader('Pitches', 'pitchesSeen', seasonSort, setSeasonSort, 'text-right', 'text-slate-500')}
+                                                </tr>
+                                            </thead>
+                                            <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-slate-600 dark:text-slate-300">
+                                                {performSort(seasonStats, seasonSort).map(stat => (
+                                                    <tr key={stat.playerId} className="hover:bg-white/50 dark:hover:bg-slate-800/50 transition-colors">
+                                                        <td className="px-6 py-3 font-bold text-slate-900 dark:text-white font-sans">{stat.name}</td>
+                                                        <td className="px-4 py-3 text-right font-sans tabular-nums font-bold text-lg text-slate-900 dark:text-white">{stat.totalPoints}</td>
+                                                        <td className="px-4 py-3 text-right font-sans tabular-nums">{stat.hits4}</td>
+                                                        <td className="px-4 py-3 text-right font-sans tabular-nums">{stat.hits3}</td>
+                                                        <td className="px-4 py-3 text-right font-sans tabular-nums">{stat.hits2}</td>
+                                                        <td className="px-4 py-3 text-right font-sans tabular-nums">{stat.hits1}</td>
+                                                        <td className="px-4 py-3 text-right font-sans tabular-nums text-slate-500">{stat.pitchesSeen}</td>
+                                                    </tr>
+                                                ))}
+                                                {seasonStats.length === 0 && (
+                                                  <tr><td colSpan={7} className="p-8 text-center text-slate-500 italic">No player stats recorded yet.</td></tr>
+                                                )}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            )}
+        </main>
+        {/* Modals (Login, Move Match, Stats) rendered here - Code unchanged */}
+        {showLoginModal && createPortal(
+          <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/80 backdrop-blur-sm animate-in fade-in duration-200" onClick={() => setShowLoginModal(false)}>
+            <div className="bg-slate-900 p-8 rounded-2xl shadow-2xl w-full max-w-sm transform scale-100 animate-in zoom-in-95 duration-200 font-sans border border-slate-700" onClick={e => e.stopPropagation()}>
+              <h3 className="text-xl font-bold text-white mb-4 text-center font-sans">Access Control</h3>
+              <p className="text-sm text-slate-400 mb-4 text-center font-sans">Enter password for Umpire or Admin access.</p>
+              <form onSubmit={handleLoginSubmit}>
+                <div className="mb-4">
+                  <input type="password" autoFocus className={`w-full bg-slate-950 border rounded-lg px-4 py-3 text-lg outline-none focus:ring-2 text-white placeholder-slate-600 font-sans ${loginError ? 'border-red-500 focus:ring-red-900' : 'border-slate-700 focus:ring-blue-900'}`} value={passwordInput} onChange={e => setPasswordInput(e.target.value)} placeholder="Password" />
+                  {loginError && <p className="text-red-500 text-xs mt-2 font-bold font-sans">{loginError}</p>}
+                </div>
+                <button type="submit" disabled={loading} className="w-full bg-blue-600 text-white font-bold py-3 rounded-lg hover:bg-blue-500 transition-colors font-sans shadow-lg shadow-blue-900/20">{loading ? 'Verifying...' : 'Log In'}</button>
+              </form>
+            </div>
+          </div>,
+          document.body
+        )}
+
+        {moveMatchModal && createPortal(
+            <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/80 backdrop-blur-sm animate-in fade-in duration-200" onClick={() => setMoveMatchModal(null)}>
+                <div className="bg-white dark:bg-slate-900 p-6 rounded-2xl shadow-2xl w-full max-w-md transform scale-100 animate-in zoom-in-95 duration-200 font-sans border border-slate-200 dark:border-slate-700" onClick={e => e.stopPropagation()}>
+                    <h3 className="text-xl font-bold text-slate-800 dark:text-white mb-2 text-center font-sans">Move Match to Another League</h3>
+                    <p className="text-sm text-slate-500 dark:text-slate-400 mb-6 text-center font-sans">Select the destination league. Stats will transfer automatically.</p>
+                    
+                    <div className="space-y-4">
+                        <div>
+                            <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase mb-1 font-sans">Destination League</label>
+                            <select 
+                                className="w-full p-3 border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 rounded-lg font-bold text-slate-800 dark:text-white font-sans"
+                                value={targetLeague}
+                                onChange={e => setTargetLeague(e.target.value)}
+                            >
+                                <option value="">Select League...</option>
+                                {leagues.filter(l => l.id !== moveMatchModal.currentLeague).map(l => (
+                                    <option key={l.id} value={l.id}>{l.id}</option>
+                                ))}
+                            </select>
+                        </div>
+                        <div className="flex gap-3 pt-2">
+                            <button onClick={() => setMoveMatchModal(null)} className="flex-1 py-3 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 font-bold font-sans hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors">Cancel</button>
+                            <button onClick={handleMoveMatch} disabled={!targetLeague} className="flex-1 py-3 rounded-lg bg-blue-600 text-white font-bold font-sans hover:bg-blue-700 disabled:opacity-50 transition-colors shadow-lg shadow-blue-900/20">Move Match</button>
+                        </div>
+                    </div>
+                </div>
+            </div>,
+            document.body
+        )}
+
+        {statsModalMatch && createPortal(
+            <div className="fixed inset-0 z-[150] flex items-center justify-center bg-black/80 backdrop-blur-sm animate-in fade-in duration-200" onClick={() => setStatsModalMatch(null)}>
+                <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl w-full max-w-3xl max-h-[90vh] overflow-hidden flex flex-col transform scale-100 animate-in zoom-in-95 duration-200 font-sans border border-slate-200 dark:border-slate-700" onClick={e => e.stopPropagation()}>
+                    <div className="p-6 border-b border-slate-200 dark:border-slate-800 flex justify-between items-center bg-slate-50 dark:bg-slate-950">
+                        <div>
+                            <h3 className="text-xl font-bold text-slate-800 dark:text-white font-sans">Match Statistics</h3>
+                            <p className="text-sm text-slate-500 dark:text-slate-400 font-sans">{new Date(statsModalMatch.date).toLocaleDateString()}</p>
+                        </div>
+                        <button onClick={() => setStatsModalMatch(null)} className="text-slate-500 hover:text-slate-800 dark:hover:text-white font-bold text-xl transition-colors">&times;</button>
+                    </div>
+                    <div className="overflow-y-auto p-0 bg-white dark:bg-slate-900">
+                        <table className="w-full text-left text-sm">
+                            <thead className="bg-slate-100 dark:bg-slate-900 text-slate-500 dark:text-slate-400 uppercase font-bold text-xs sticky top-0 z-10 shadow-sm border-b border-slate-200 dark:border-slate-800">
+                                <tr>
+                                    {renderSortHeader('Player', 'name', matchSort, setMatchSort, 'text-left', 'px-6')}
+                                    {renderSortHeader('Total Pts', 'totalPoints', matchSort, setMatchSort)}
+                                    {renderSortHeader('4s', 'hits4', matchSort, setMatchSort, 'text-right', 'text-rose-600 dark:text-rose-500')}
+                                    {renderSortHeader('3s', 'hits3', matchSort, setMatchSort, 'text-right', 'text-amber-600 dark:text-amber-500')}
+                                    {renderSortHeader('2s', 'hits2', matchSort, setMatchSort, 'text-right', 'text-green-600 dark:text-green-500')}
+                                    {renderSortHeader('1s', 'hits1', matchSort, setMatchSort, 'text-right', 'text-cyan-600 dark:text-cyan-500')}
+                                    {renderSortHeader('Pitches', 'pitchesSeen', matchSort, setMatchSort, 'text-right', 'text-slate-500')}
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-slate-600 dark:text-slate-300">
+                                {performSort(statsModalData, matchSort).map(stat => (
+                                    <tr key={stat.playerId} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
+                                        <td className="px-6 py-3 font-bold text-slate-900 dark:text-white font-sans">{stat.name}</td>
+                                        <td className="px-4 py-3 text-right font-sans tabular-nums font-bold text-lg text-slate-900 dark:text-white">{stat.totalPoints}</td>
+                                        <td className="px-4 py-3 text-right font-sans tabular-nums">{stat.hits4}</td>
+                                        <td className="px-4 py-3 text-right font-sans tabular-nums">{stat.hits3}</td>
+                                        <td className="px-4 py-3 text-right font-sans tabular-nums">{stat.hits2}</td>
+                                        <td className="px-4 py-3 text-right font-sans tabular-nums">{stat.hits1}</td>
+                                        <td className="px-4 py-3 text-right font-sans tabular-nums text-slate-500">{stat.pitchesSeen}</td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                    <div className="p-4 border-t border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 flex justify-end">
+                        <button onClick={() => setStatsModalMatch(null)} className="px-6 py-2 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-600 dark:text-slate-300 font-bold rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 hover:text-slate-900 dark:hover:text-white font-sans transition-colors">Close</button>
+                    </div>
+                </div>
+            </div>,
+            document.body
+        )}
     </div>
   );
 };
-
-// Main App Component
-function App() {
-  // --- STATE ---
-  const [appState, setAppState] = useState<AppState>({
-    view: 'league_select',
-    currentLeague: null,
-    currentMatchId: null,
-    season: '2025',
-    dashboardTab: 'matches'
-  });
-  
-  const [userRole, setUserRole] = useState<'fan' | 'umpire' | 'admin'>('fan');
-  const [isDarkMode, setIsDarkMode] = useState(false);
-  const [isMenuOpen, setMenuOpen] = useState(false);
-  const [showLogin, setShowLogin] = useState(false);
-  const [showGuide, setShowGuide] = useState(false);
-  
-  // Data
-  const [leagues, setLeagues] = useState<League[]>([]);
-  const [teams, setTeams] = useState<Team[]>([]);
-  const [matches, setMatches] = useState<Match[]>([]);
-  const [loading, setLoading] = useState(false);
-  
-  // Gemini Report
-  const [report, setReport] = useState<string | null>(null);
-  const [generatingReport, setGeneratingReport] = useState(false);
-
-  // Match Setup State
-  const [pendingMatchTeams, setPendingMatchTeams] = useState<{home: Team, away: Team} | null>(null);
-
-  // --- EFFECTS ---
-  
-  // Initial Load
-  useEffect(() => {
-    // Check system preference for dark mode
-    if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
-      setIsDarkMode(true);
-    }
-    
-    loadLeagues();
-    loadCurrentSeason();
-  }, []);
-
-  // Fetch Data when League/Season changes
-  useEffect(() => {
-    if (appState.currentLeague && appState.season) {
-      loadLeagueData(appState.currentLeague, appState.season);
-    }
-  }, [appState.currentLeague, appState.season]);
-
-  const loadLeagues = async () => {
-    const ls = await storage.getLeagues();
-    setLeagues(ls);
-  };
-  
-  const loadCurrentSeason = async () => {
-      const s = await storage.getCurrentSeason();
-      setAppState(prev => ({ ...prev, season: s }));
-  };
-
-  const loadLeagueData = async (league: AgeGroup, season: string) => {
-    setLoading(true);
-    const [t, m] = await Promise.all([
-      storage.getTeams(league, season),
-      storage.getMatches(league, season)
-    ]);
-    setTeams(t);
-    setMatches(m);
-    setLoading(false);
-  };
-
-  // --- ACTIONS ---
-
-  const handleSelectLeague = (leagueId: string) => {
-    setAppState(prev => ({ ...prev, view: 'dashboard', currentLeague: leagueId }));
-  };
-
-  const handleSwitchLeague = () => {
-      setAppState(prev => ({ ...prev, view: 'league_select', currentLeague: null }));
-  };
-
-  const handleLogin = (role: 'admin' | 'umpire') => {
-    setUserRole(role);
-    setShowLogin(false);
-  };
-  
-  const handleLogout = () => {
-      setUserRole('fan');
-      setAppState(prev => ({ ...prev, view: 'league_select', currentLeague: null }));
-  };
-
-  const handleGenerateReport = async () => {
-      setGeneratingReport(true);
-      try {
-          const text = await generateLeagueReport();
-          setReport(text);
-      } catch(e) {
-          alert("Failed to generate report.");
-      }
-      setGeneratingReport(false);
-  };
-
-  // Match Creation Flow
-  const startMatchSetup = () => {
-    setNewMatchModalOpen(true);
-  };
-
-  // --- RENDER HELPERS ---
-  
-  // Dashboard Render
-  const renderDashboard = () => {
-     if (!appState.currentLeague) return null;
-     
-     // Filter matches
-     const leagueMatches = matches; // already filtered by API/loadLeagueData usually, but double check
-     const upcomingMatches = leagueMatches.filter(m => !m.isComplete);
-     const completedMatches = leagueMatches.filter(m => m.isComplete);
-     
-     // Standings Calculation
-     const standings = teams.map(t => {
-         const played = completedMatches.filter(m => m.homeTeamId === t.id || m.awayTeamId === t.id);
-         const wins = played.filter(m => {
-             const homeScore = m.innings.reduce((sum, i) => sum + i.home.playerScores.reduce((pSum, ps) => pSum + ps.pitches.reduce((v, p) => v + (p.points||0), 0), 0), 0) + (m.tieBreaker?.reduce((s, t) => s + t.homeScores.reduce((a,b)=>a+(b||0),0), 0) || 0);
-             const awayScore = m.innings.reduce((sum, i) => sum + i.away.playerScores.reduce((pSum, ps) => pSum + ps.pitches.reduce((v, p) => v + (p.points||0), 0), 0), 0) + (m.tieBreaker?.reduce((s, t) => s + t.awayScores.reduce((a,b)=>a+(b||0),0), 0) || 0);
-             return (m.homeTeamId === t.id && homeScore > awayScore) || (m.awayTeamId === t.id && awayScore > homeScore);
-         }).length;
-         return { ...t, wins, losses: played.length - wins, played: played.length };
-     }).sort((a,b) => b.wins - a.wins || (b.played - b.losses) - (a.played - a.losses));
-
-     return (
-       <div className="max-w-7xl mx-auto p-4 sm:p-6 pb-24">
-           {/* Actions Bar */}
-           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
-               <div className="flex bg-slate-200 dark:bg-slate-800 p-1 rounded-xl">
-                   <button 
-                      onClick={() => setAppState(prev => ({ ...prev, dashboardTab: 'matches' }))}
-                      className={`px-4 py-2 rounded-lg text-sm font-bold font-sans transition-all ${appState.dashboardTab === 'matches' ? 'bg-white dark:bg-slate-700 shadow text-slate-900 dark:text-white' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700'}`}
-                   >Matches</button>
-                   <button 
-                      onClick={() => setAppState(prev => ({ ...prev, dashboardTab: 'standings' }))}
-                      className={`px-4 py-2 rounded-lg text-sm font-bold font-sans transition-all ${appState.dashboardTab === 'standings' ? 'bg-white dark:bg-slate-700 shadow text-slate-900 dark:text-white' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700'}`}
-                   >Standings</button>
-               </div>
-               
-               <div className="flex gap-2 w-full sm:w-auto">
-                   <button onClick={() => setShowGuide(true)} className="px-3 py-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 rounded-lg font-bold text-xs sm:text-sm font-sans flex items-center justify-center gap-2">
-                       <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-                       Rules
-                   </button>
-                   {userRole !== 'fan' && (
-                       <>
-                           <button onClick={() => setAppState(prev => ({ ...prev, view: 'team_management' }))} className="px-3 py-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 rounded-lg font-bold text-xs sm:text-sm font-sans">
-                               Teams
-                           </button>
-                           {teams.length >= 2 && (
-                               <button onClick={() => setNewMatchModalOpen(true)} className="px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-bold text-xs sm:text-sm shadow-lg shadow-blue-900/20 font-sans flex items-center justify-center gap-1">
-                                   + New Match
-                               </button>
-                           )}
-                       </>
-                   )}
-               </div>
-           </div>
-           
-           {/* Content */}
-           {appState.dashboardTab === 'matches' && (
-               <div className="space-y-4">
-                   {matches.length === 0 && (
-                       <div className="text-center py-12 bg-white/50 dark:bg-slate-900/50 rounded-xl border border-dashed border-slate-300 dark:border-slate-800">
-                           <p className="text-slate-500 font-sans">No matches scheduled yet.</p>
-                           {userRole !== 'fan' && teams.length >= 2 && <button onClick={() => setNewMatchModalOpen(true)} className="mt-4 text-blue-600 font-bold hover:underline font-sans">Start a Match</button>}
-                       </div>
-                   )}
-                   
-                   {matches.map(match => {
-                       const home = teams.find(t => t.id === match.homeTeamId) || { name: 'Unknown', players: [], league: '' } as Team;
-                       const away = teams.find(t => t.id === match.awayTeamId) || { name: 'Unknown', players: [], league: '' } as Team;
-                       
-                       // Calculate scores for display
-                       const getScore = (m: Match, side: 'home'|'away') => {
-                           let total = m.innings.reduce((sum, i) => {
-                               const inningSide = side === 'home' ? i.home : i.away;
-                               return sum + inningSide.playerScores.reduce((pSum, ps) => pSum + ps.pitches.reduce((v, p) => v + (p.points||0), 0), 0);
-                           }, 0);
-                           if (m.tieBreaker) {
-                               total += m.tieBreaker.reduce((s, tb) => s + (side === 'home' ? tb.homeScores : tb.awayScores).reduce((a,b)=>a+(b||0),0), 0);
-                           }
-                           return total;
-                       };
-                       
-                       const homeScore = getScore(match, 'home');
-                       const awayScore = getScore(match, 'away');
-                       
-                       return (
-                           <div key={match.id} onClick={() => openMatch(match.id)} className="bg-white/80 dark:bg-slate-900/80 backdrop-blur-sm p-4 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm hover:shadow-md transition-all cursor-pointer group">
-                                <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
-                                     <div className="flex items-center gap-2 sm:gap-4 w-full sm:w-auto min-w-0 flex-1">
-                                        <div className="shrink-0"><div className={`text-[8px] sm:text-[10px] font-black uppercase tracking-wider px-2 py-1 rounded font-sans border ${match.isComplete ? 'bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border-slate-300 dark:border-slate-700' : 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 border-green-500/30 animate-pulse'}`}>{match.isComplete ? 'FINAL' : 'LIVE'}</div></div>
-                                        <div className="flex flex-1 sm:flex-auto items-center sm:justify-start sm:gap-8 w-full sm:w-auto min-w-0">
-                                            <div className="flex-1 sm:flex-none sm:w-40 text-xs sm:text-lg font-bold text-red-700 dark:text-red-400 text-right font-sans leading-tight break-words line-clamp-2 min-w-0">{home.name}</div>
-                                            <div className="shrink-0 text-slate-400 dark:text-slate-600 text-[10px] sm:text-base px-1 sm:px-2 font-sans italic font-bold">VS</div>
-                                            <div className="flex-1 sm:flex-none sm:w-40 text-xs sm:text-lg font-bold text-blue-700 dark:text-blue-400 text-left font-sans leading-tight break-words line-clamp-2 min-w-0">{away.name}</div>
-                                        </div>
-                                    </div>
-                                    
-                                    <div className="flex items-center gap-6 sm:gap-8 justify-center w-full sm:w-auto border-t sm:border-t-0 border-slate-100 dark:border-slate-800 pt-2 sm:pt-0">
-                                        <div className="text-center">
-                                            <div className="text-2xl font-black text-slate-800 dark:text-white tabular-nums font-sans leading-none">{homeScore}</div>
-                                        </div>
-                                        <div className="text-slate-300 dark:text-slate-600 font-light text-xl">-</div>
-                                        <div className="text-center">
-                                            <div className="text-2xl font-black text-slate-800 dark:text-white tabular-nums font-sans leading-none">{awayScore}</div>
-                                        </div>
-                                    </div>
-                                    
-                                    <div className="hidden sm:block text-slate-400 dark:text-slate-600">
-                                        <svg className="w-5 h-5 group-hover:text-blue-500 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7"></path></svg>
-                                    </div>
-                                </div>
-                           </div>
-                       );
-                   })}
-               </div>
-           )}
-
-           {appState.dashboardTab === 'standings' && (
-               <div className="bg-white/60 dark:bg-slate-900/60 backdrop-blur-xl rounded-xl border border-slate-200 dark:border-slate-800 overflow-hidden">
-                   <table className="w-full text-left text-sm">
-                       <thead className="bg-slate-100 dark:bg-slate-950 text-slate-500 dark:text-slate-400 uppercase font-bold text-xs">
-                           <tr>
-                               <th className="px-4 py-3 font-sans">Team</th>
-                               <th className="px-4 py-3 text-center font-sans">W</th>
-                               <th className="px-4 py-3 text-center font-sans">L</th>
-                               <th className="px-4 py-3 text-center font-sans">GP</th>
-                           </tr>
-                       </thead>
-                       <tbody className="divide-y divide-slate-200 dark:divide-slate-800">
-                           {standings.map((t, i) => (
-                               <tr key={t.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/50">
-                                   <td className="px-4 py-3 font-bold text-slate-800 dark:text-white font-sans flex items-center gap-2">
-                                       <span className="text-slate-400 w-4">{i+1}.</span>
-                                       {t.name}
-                                   </td>
-                                   <td className="px-4 py-3 text-center font-bold text-green-600 dark:text-green-400 font-sans">{t.wins}</td>
-                                   <td className="px-4 py-3 text-center font-bold text-red-600 dark:text-red-400 font-sans">{t.losses}</td>
-                                   <td className="px-4 py-3 text-center text-slate-600 dark:text-slate-400 font-sans">{t.played}</td>
-                               </tr>
-                           ))}
-                           {standings.length === 0 && <tr><td colSpan={4} className="px-4 py-8 text-center text-slate-500 italic font-sans">No teams in this league yet.</td></tr>}
-                       </tbody>
-                   </table>
-               </div>
-           )}
-           
-           {/* Gemini Report Button */}
-           <div className="mt-8">
-               <button onClick={handleGenerateReport} disabled={generatingReport} className="w-full py-4 bg-gradient-to-r from-purple-600 to-indigo-600 text-white font-bold rounded-xl shadow-lg shadow-purple-900/20 hover:from-purple-500 hover:to-indigo-500 transition-all font-sans flex items-center justify-center gap-2">
-                    {generatingReport ? (
-                        <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
-                    ) : (
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
-                    )}
-                    Generate AI League Report
-               </button>
-               {report && (
-                   <div className="mt-4 p-6 bg-purple-50 dark:bg-purple-900/20 border border-purple-100 dark:border-purple-800 rounded-xl animate-in fade-in slide-in-from-bottom-4 duration-500">
-                       <h4 className="font-black uppercase text-purple-800 dark:text-purple-300 mb-2 font-sans flex items-center gap-2">
-                           <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/></svg>
-                           Gemini Insights
-                       </h4>
-                       <p className="text-slate-700 dark:text-slate-300 leading-relaxed font-sans">{report}</p>
-                   </div>
-               )}
-           </div>
-       </div>
-     );
-  };
-
-  // --- ACTIONS & MODALS ---
-  
-  const [newMatchModalOpen, setNewMatchModalOpen] = useState(false);
-  const [selectedHomeId, setSelectedHomeId] = useState('');
-  const [selectedAwayId, setSelectedAwayId] = useState('');
-
-  const handleCreateMatchSetup = () => {
-      const home = teams.find(t => t.id === selectedHomeId);
-      const away = teams.find(t => t.id === selectedAwayId);
-      if(home && away) {
-          setPendingMatchTeams({home, away});
-          setNewMatchModalOpen(false);
-          setAppState(prev => ({ ...prev, view: 'match_setup' }));
-      }
-  };
-
-  const openMatch = (matchId: string) => {
-      setAppState(prev => ({ ...prev, view: 'scoring', currentMatchId: matchId }));
-  };
-
-  const startScoring = async (homeId: string, awayId: string, homeLineup: Player[], awayLineup: Player[]) => {
-      if(!appState.currentLeague) return;
-      
-      const homeIds = homeLineup.map(p=>p.id);
-      const awayIds = awayLineup.map(p=>p.id);
-      
-      try {
-          const newMatch = await storage.createMatch(appState.currentLeague, homeId, awayId, homeIds, awayIds, appState.season);
-          setMatches(prev => [newMatch, ...prev]);
-          setAppState(prev => ({ ...prev, view: 'scoring', currentMatchId: newMatch.id }));
-          setPendingMatchTeams(null);
-      } catch (e) {
-          alert("Failed to create match");
-      }
-  };
-
-  // Scoreboard Handlers
-  const currentMatch = matches.find(m => m.id === appState.currentMatchId);
-  
-  const updateScore = async (inningIdx: number, teamId: string, lineupIdx: number, pitchIdx: number, score: number) => {
-      if(!currentMatch) return;
-      const newInnings = [...currentMatch.innings];
-      const teamSide = newInnings[inningIdx].home.teamId === 'home' && currentMatch.homeTeamId === teamId ? 'home' : 'away';
-      
-      // Update specific pitch
-      if (teamSide === 'home') {
-          newInnings[inningIdx].home.playerScores[lineupIdx].pitches[pitchIdx].points = score;
-      } else {
-          newInnings[inningIdx].away.playerScores[lineupIdx].pitches[pitchIdx].points = score;
-      }
-      
-      const updated = { ...currentMatch, innings: newInnings };
-      
-      // Optimistic Update
-      setMatches(prev => prev.map(m => m.id === updated.id ? updated : m));
-      
-      // API call
-      await storage.updateMatch(updated);
-  };
-
-  const updateTieBreaker = async (roundIdx: number, teamId: string, pitchIdx: number, score: number) => {
-      if(!currentMatch || !currentMatch.tieBreaker) return;
-      const newTB = [...currentMatch.tieBreaker];
-      const isHome = teamId === currentMatch.homeTeamId;
-      
-      if(isHome) newTB[roundIdx].homeScores[pitchIdx] = score;
-      else newTB[roundIdx].awayScores[pitchIdx] = score;
-      
-      const updated = { ...currentMatch, tieBreaker: newTB };
-      setMatches(prev => prev.map(m => m.id === updated.id ? updated : m));
-      await storage.updateMatch(updated);
-  };
-  
-  const addTieBreakerRound = async () => {
-      if(!currentMatch) return;
-      const lastInning = currentMatch.innings[5]; // 6th inning
-      const homePid = lastInning.home.playerScores[0].playerId;
-      const awayPid = lastInning.away.playerScores[0].playerId;
-      
-      const newRound = {
-          roundNumber: (currentMatch.tieBreaker?.length || 0) + 1,
-          pitchLimit: 5,
-          homePlayerId: homePid,
-          awayPlayerId: awayPid,
-          homeScores: Array(5).fill(null),
-          awayScores: Array(5).fill(null)
-      };
-      
-      const updated = { ...currentMatch, tieBreaker: [...(currentMatch.tieBreaker || []), newRound] };
-      setMatches(prev => prev.map(m => m.id === updated.id ? updated : m));
-      await storage.updateMatch(updated);
-  };
-
-  const completeGame = async () => {
-      if(!currentMatch) return;
-      const updated = { ...currentMatch, isComplete: true };
-      setMatches(prev => prev.map(m => m.id === updated.id ? updated : m));
-      await storage.updateMatch(updated);
-      setAppState(prev => ({ ...prev, view: 'dashboard' }));
-  };
-  
-  const restoreRoster = async (teamId: string, inningIdx: number) => {
-      if(!currentMatch) return;
-      try {
-        const updated = await storage.restoreTeamRoster(currentMatch.id, teamId, inningIdx);
-        setMatches(prev => prev.map(m => m.id === updated.id ? updated : m));
-      } catch(e) {
-        alert("Failed to restore roster.");
-      }
-  };
-
-  // --- MAIN RENDER SWITCH ---
-  
-  return (
-    <div className={isDarkMode ? 'dark' : ''}>
-      <div className="min-h-screen bg-slate-50 dark:bg-slate-950 transition-colors">
-        
-        {/* Navigation */}
-        <Navbar 
-            currentLeague={appState.currentLeague}
-            currentSeason={appState.season}
-            leagues={leagues}
-            userRole={userRole}
-            onGoHome={handleSwitchLeague}
-            onSwitchLeague={handleSwitchLeague}
-            onSelectLeague={handleSelectLeague}
-            onLogin={() => setShowLogin(true)}
-            onLogout={handleLogout}
-            onAdminDashboard={() => setAppState(prev => ({ ...prev, view: 'admin' }))}
-            onSeasonChange={s => setAppState(prev => ({ ...prev, season: s }))}
-            isDarkMode={isDarkMode}
-            toggleTheme={() => setIsDarkMode(!isDarkMode)}
-            isMenuOpen={isMenuOpen}
-            setMenuOpen={setMenuOpen}
-        />
-        
-        {/* Modals */}
-        {showLogin && <LoginModal onClose={() => setShowLogin(false)} onLogin={handleLogin} />}
-        {showGuide && <UserGuide onClose={() => setShowGuide(false)} />}
-        
-        {/* Team Selector Modal for New Match */}
-        {newMatchModalOpen && (
-            <div className="fixed inset-0 z-[2000] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in zoom-in-95 duration-200">
-                <div className="bg-white dark:bg-slate-900 p-6 rounded-2xl shadow-2xl max-w-lg w-full border border-slate-200 dark:border-slate-800">
-                    <h3 className="text-xl font-bold mb-4 text-slate-800 dark:text-white font-sans">Start New Match</h3>
-                    <div className="space-y-4">
-                        <div>
-                            <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Home Team</label>
-                            <select className="w-full p-3 bg-slate-100 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-lg font-sans dark:text-white" value={selectedHomeId} onChange={e => setSelectedHomeId(e.target.value)}>
-                                <option value="">Select Team...</option>
-                                {teams.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
-                            </select>
-                        </div>
-                        <div>
-                            <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Away Team</label>
-                            <select className="w-full p-3 bg-slate-100 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-lg font-sans dark:text-white" value={selectedAwayId} onChange={e => setSelectedAwayId(e.target.value)}>
-                                <option value="">Select Team...</option>
-                                {teams.filter(t => t.id !== selectedHomeId).map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
-                            </select>
-                        </div>
-                    </div>
-                    <div className="flex gap-3 mt-6">
-                        <button onClick={() => setNewMatchModalOpen(false)} className="flex-1 py-3 bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 rounded-xl font-bold font-sans">Cancel</button>
-                        <button onClick={handleCreateMatchSetup} disabled={!selectedHomeId || !selectedAwayId} className="flex-1 py-3 bg-blue-600 text-white rounded-xl font-bold font-sans hover:bg-blue-700 disabled:opacity-50">Next: Set Lineup</button>
-                    </div>
-                </div>
-            </div>
-        )}
-
-        {/* Views */}
-        
-        {/* LEAGUE SELECT (Landing) */}
-        {appState.view === 'league_select' && (
-            <div className="max-w-7xl mx-auto px-4 py-12 flex flex-col items-center">
-                <div className="text-center mb-12 animate-in slide-in-from-bottom-4 duration-700">
-                    <h1 className="text-4xl sm:text-6xl font-black italic uppercase text-slate-900 dark:text-white mb-4 tracking-tighter">
-                        Select Your <span className="text-blue-600 dark:text-blue-400">League</span>
-                    </h1>
-                    <p className="text-slate-500 dark:text-slate-400 text-lg font-bold font-sans max-w-2xl mx-auto">
-                        Welcome to the Dugout Hitting League. Choose a league to view standings, schedules, and live match scores.
-                    </p>
-                </div>
-                
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 w-full max-w-5xl">
-                    {leagues.map((l, i) => (
-                        <button 
-                            key={l.id} 
-                            onClick={() => handleSelectLeague(l.id)}
-                            className="group relative overflow-hidden bg-white dark:bg-slate-900 p-8 rounded-2xl shadow-xl hover:shadow-2xl hover:scale-105 transition-all duration-300 border border-slate-200 dark:border-slate-800 text-left"
-                            style={{ animationDelay: `${i * 100}ms` }}
-                        >
-                            <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
-                                <svg className="w-24 h-24 text-blue-600 dark:text-blue-400" fill="currentColor" viewBox="0 0 24 24"><path d="M15.18 4L12.5 15.63H9.82L12.5 4h2.68zm2.68 15.63l2.68-11.63h-2.68l-2.68 11.63h2.68zm-8.04 0L7.14 8H4.46l2.68 11.63h2.68z"/></svg>
-                            </div>
-                            <h3 className="text-3xl font-black italic uppercase text-slate-800 dark:text-white mb-2 relative z-10">{l.id}</h3>
-                            <div className="flex items-center gap-2 text-blue-600 dark:text-blue-400 font-bold text-sm uppercase tracking-wider relative z-10 font-sans">
-                                Enter League 
-                                <svg className="w-4 h-4 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 8l4 4m0 0l-4 4m4-4H3"></path></svg>
-                            </div>
-                        </button>
-                    ))}
-                    {leagues.length === 0 && (
-                        <div className="col-span-full text-center py-12 text-slate-400 font-sans">
-                            No leagues found. <button onClick={() => setShowLogin(true)} className="text-blue-500 underline">Login as Admin</button> to create one.
-                        </div>
-                    )}
-                </div>
-            </div>
-        )}
-
-        {/* DASHBOARD */}
-        {appState.view === 'dashboard' && renderDashboard()}
-        
-        {/* TEAM MANAGEMENT */}
-        {appState.view === 'team_management' && appState.currentLeague && (
-            <TeamManagement 
-                league={appState.currentLeague} 
-                season={appState.season}
-                onBack={() => setAppState(prev => ({ ...prev, view: 'dashboard' }))} 
-            />
-        )}
-        
-        {/* MATCH SETUP */}
-        {appState.view === 'match_setup' && pendingMatchTeams && (
-            <MatchSetup 
-                homeTeam={pendingMatchTeams.home}
-                awayTeam={pendingMatchTeams.away}
-                onCancel={() => { setPendingMatchTeams(null); setAppState(prev => ({ ...prev, view: 'dashboard' })); }}
-                onStart={startScoring}
-            />
-        )}
-        
-        {/* SCORING / LIVE MATCH */}
-        {appState.view === 'scoring' && currentMatch && (
-            <>
-                <div className="max-w-7xl mx-auto px-4 pt-4 pb-0">
-                    <button onClick={() => setAppState(prev => ({ ...prev, view: 'dashboard', currentMatchId: null }))} className="flex items-center gap-2 text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-white transition-colors font-bold text-sm font-sans mb-2">
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path></svg>
-                        Back to Dashboard
-                    </button>
-                </div>
-                <Scoreboard 
-                    match={currentMatch}
-                    teams={{ 
-                        home: teams.find(t => t.id === currentMatch.homeTeamId)!, 
-                        away: teams.find(t => t.id === currentMatch.awayTeamId)! 
-                    }}
-                    isReadOnly={userRole === 'fan'}
-                    onUpdateScore={updateScore}
-                    onUpdateTieBreaker={updateTieBreaker}
-                    onCompleteGame={completeGame}
-                    onAddTieBreakerRound={addTieBreakerRound}
-                    onRestoreRoster={restoreRoster}
-                />
-            </>
-        )}
-        
-        {/* ADMIN DASHBOARD */}
-        {appState.view === 'admin' && (
-            <AdminDashboard onBack={() => setAppState(prev => ({ ...prev, view: 'dashboard' }))} />
-        )}
-
-      </div>
-    </div>
-  );
-}
 
 export default App;

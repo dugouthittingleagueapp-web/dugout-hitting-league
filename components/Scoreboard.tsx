@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { Match, Inning, Team, TieBreakerRound } from '../types';
@@ -411,7 +410,7 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
           <div className="flex items-center gap-2 sm:gap-3">
              <div>
                 <span className="text-[9px] sm:text-xs font-bold uppercase opacity-80 tracking-wider font-sans">{side === 'home' ? 'Home' : 'Away'}</span>
-                <h3 className="text-base sm:text-xl font-black leading-none font-sans truncate max-w-[150px] sm:max-w-none">{team.name}</h3>
+                <h3 className="text-base sm:text-xl font-black leading-none font-sans break-words whitespace-normal">{team.name}</h3>
              </div>
              {canRestore && <button onClick={() => handleRestoreRoster(side)} className="bg-white/80 dark:bg-slate-800 hover:bg-white text-slate-600 dark:text-slate-300 px-2 py-1 rounded text-[10px] font-bold border border-slate-200 dark:border-slate-700 shadow-sm animate-pulse font-sans">+ Reset Roster</button>}
           </div>
@@ -594,13 +593,13 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
           <div className="flex gap-2 sm:gap-8 items-center flex-1 min-w-0">
             <div className="text-center flex-1 min-w-0">
                 <div className="text-[8px] sm:text-xs text-slate-500 dark:text-slate-400 uppercase font-bold font-sans">Away</div>
-                <div className="text-base sm:text-xl font-bold text-blue-700 dark:text-blue-400 truncate w-full font-sans px-1">{teams.away.name}</div>
+                <div className="text-xs sm:text-xl font-bold text-blue-700 dark:text-blue-400 w-full font-sans px-1 break-words whitespace-normal leading-tight line-clamp-2">{teams.away.name}</div>
                 <div className="text-lg sm:text-2xl font-sans tabular-nums leading-none dark:text-white">{awayTotal}</div>
             </div>
             <div className="text-slate-300 dark:text-slate-600 text-base sm:text-xl font-light font-sans">vs</div>
             <div className="text-center flex-1 min-w-0">
                 <div className="text-[8px] sm:text-xs text-slate-500 dark:text-slate-400 uppercase font-bold font-sans">Home</div>
-                <div className="text-base sm:text-xl font-bold text-red-700 dark:text-red-400 truncate w-full font-sans px-1">{teams.home.name}</div>
+                <div className="text-xs sm:text-xl font-bold text-red-700 dark:text-red-400 w-full font-sans px-1 break-words whitespace-normal leading-tight line-clamp-2">{teams.home.name}</div>
                 <div className="text-lg sm:text-2xl font-sans tabular-nums leading-none dark:text-white">{homeTotal}</div>
             </div>
           </div>

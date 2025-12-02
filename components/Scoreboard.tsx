@@ -26,6 +26,9 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
   const [tbHomePlayerId, setTbHomePlayerId] = useState('');
   const [tbAwayPlayerId, setTbAwayPlayerId] = useState('');
 
+  // Edit Completed Game State
+  const [isEditingCompleted, setIsEditingCompleted] = useState(false);
+
   // Helper to format name as First L.
   const formatName = (p: { name: string, lastName?: string } | undefined) => {
       if (!p) return 'Unknown';
@@ -210,7 +213,7 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
     const isFinalInning = activeInningIdx === 5; 
     let shouldOpenTieBreaker = false;
 
-    if (isFinalInning && side === 'home') {
+    if (isFinalInning && side === 'home' && !match.isComplete) {
         const isLastPlayer = lineupIdx === teamData.playerScores.length - 1;
         const totalPitches = teamData.playerScores[lineupIdx].pitches.length;
         const isLastPitch = pitchIdx === totalPitches - 1;
@@ -243,7 +246,7 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
 
     if (shouldOpenTieBreaker) {
          setTimeout(() => setShowTieBreakerSetup(true), 500);
-    } else if (!isEdit && activeInningIdx < 5) {
+    } else if (!isEdit && activeInningIdx < 5 && !match.isComplete) {
         // Check for Full Inning Completion to auto-advance
         const currentInningData = newMatch.innings[activeInningIdx];
         const isHomeComplete = currentInningData.home.playerScores.every(p => p.pitches.every(pt => pt.points !== null));
@@ -338,7 +341,8 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
     
     const isTwoPlayerGhostMode = inningData.playerScores.length === 2 && inningData.playerScores[0].pitches.length >= 15;
     const isShortHanded = inningData.playerScores.length < team.players.length;
-    const canRestore = !isReadOnly && isShortHanded && activeInningIdx >= 1;
+    // Do not allow resetting roster if match is complete, even in edit mode, to preserve structure.
+    const canRestore = !isReadOnly && isShortHanded && activeInningIdx >= 1 && !match.isComplete;
 
     const renderRow = (playerScore: any, lineupIdx: number, player: any, pitchStartIndex: number, pitchEndIndex: number, isGhostRow = false) => {
          const visiblePitches = playerScore.pitches.slice(pitchStartIndex, pitchEndIndex);
@@ -381,7 +385,7 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
                                     pitchNumber={displayNum} 
                                     value={pitch.points} 
                                     pitchesRemaining={pitchesLeft}
-                                    readOnly={isReadOnly || match.isComplete} 
+                                    readOnly={isReadOnly || (match.isComplete && !isEditingCompleted)} 
                                     isEditing={isEditing} 
                                     onOpen={() => setActiveCell({ side, lineupIdx, pitchIdx: realPitchIdx })} 
                                     onClose={() => setActiveCell(null)} 
@@ -438,7 +442,7 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
                                     <ScoreInput 
                                         key={`p1-${realPitchIdx}`} pitchNumber={11+idx} value={pitch.points} 
                                         pitchesRemaining={left}
-                                        readOnly={isReadOnly || match.isComplete} 
+                                        readOnly={isReadOnly || (match.isComplete && !isEditingCompleted)} 
                                         isEditing={isEditing} 
                                         onOpen={() => setActiveCell({ side, lineupIdx: 0, pitchIdx: realPitchIdx })} onClose={() => setActiveCell(null)} 
                                         onChange={(val) => handleScoreUpdate(side, 0, realPitchIdx, val)} 
@@ -456,7 +460,7 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
                                     <ScoreInput 
                                         key={`p2-${realPitchIdx}`} pitchNumber={11+idx} value={pitch.points} 
                                         pitchesRemaining={left}
-                                        readOnly={isReadOnly || match.isComplete} 
+                                        readOnly={isReadOnly || (match.isComplete && !isEditingCompleted)} 
                                         isEditing={isEditing} 
                                         onOpen={() => setActiveCell({ side, lineupIdx: 1, pitchIdx: realPitchIdx })} onClose={() => setActiveCell(null)} 
                                         onChange={(val) => handleScoreUpdate(side, 1, realPitchIdx, val)} 
@@ -506,7 +510,7 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
                     <div key={idx}>
                          <div className="bg-amber-50 dark:bg-amber-950 p-3 rounded-t-xl border border-amber-200 dark:border-amber-900 flex justify-between items-center">
                              <h3 className="font-bold text-amber-800 dark:text-amber-100 font-sans text-sm sm:text-base">Extra Innings: Round {round.roundNumber} ({round.pitchLimit} Pitches)</h3>
-                             {isLastRound && (
+                             {isLastRound && !match.isComplete && (
                                  homeSum === awaySum ? (
                                     <button onClick={() => startTieBreakerRound()} className="px-3 py-1.5 sm:px-4 sm:py-2 bg-amber-600 hover:bg-amber-700 text-white font-bold rounded-lg text-xs sm:text-sm shadow font-sans">Next Round</button>
                                  ) : (
@@ -532,7 +536,7 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
                                                     return (
                                                     <ScoreInput 
                                                         key={`ot-away-${idx}-${pIdx}`} pitchNumber={pIdx+1} value={score}
-                                                        readOnly={isReadOnly || (!isLastRound && match.isComplete)}
+                                                        readOnly={isReadOnly || (match.isComplete && !isEditingCompleted)}
                                                         isEditing={isEditing}
                                                         onOpen={() => setActiveCell({ side: 'away', lineupIdx: 0, pitchIdx: pIdx, roundIdx: idx })}
                                                         onClose={() => setActiveCell(null)}
@@ -560,7 +564,7 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
                                                     return (
                                                     <ScoreInput 
                                                         key={`ot-home-${idx}-${pIdx}`} pitchNumber={pIdx+1} value={score}
-                                                        readOnly={isReadOnly || (!isLastRound && match.isComplete)}
+                                                        readOnly={isReadOnly || (match.isComplete && !isEditingCompleted)}
                                                         isEditing={isEditing}
                                                         onOpen={() => setActiveCell({ side: 'home', lineupIdx: 0, pitchIdx: pIdx, roundIdx: idx })}
                                                         onClose={() => setActiveCell(null)}
@@ -602,7 +606,20 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
           </div>
           <div className="flex items-center gap-2 shrink-0">
             {isReadOnly && <div className="flex items-center gap-1.5 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 px-3 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-wider animate-pulse font-sans"><span className="w-2 h-2 rounded-full bg-red-600"></span>LIVE</div>}
+            
+            {/* Complete Button (Only if NOT Complete and NOT ReadOnly) */}
             {!isReadOnly && !match.isComplete && !isExtraInnings && <button onClick={() => setShowFinishModal(true)} className="bg-green-600 hover:bg-green-700 text-white text-xs sm:text-sm font-bold py-2 px-3 sm:px-4 rounded-lg shadow-sm transition-colors font-sans">Complete</button>}
+            
+            {/* Edit/Lock Toggle (Only if Complete and NOT ReadOnly) */}
+            {!isReadOnly && match.isComplete && (
+                <button 
+                    onClick={() => setIsEditingCompleted(!isEditingCompleted)} 
+                    className={`text-xs sm:text-sm font-bold py-2 px-3 rounded-lg transition-colors font-sans border ${isEditingCompleted ? 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 border-amber-300 dark:border-amber-700' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-slate-300 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-700'}`}
+                >
+                    {isEditingCompleted ? 'Lock Score' : 'Edit Score'}
+                </button>
+            )}
+
             <button onClick={onExit} className="text-xs sm:text-sm font-bold text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-white bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 py-2 px-3 rounded-lg transition-colors font-sans">Exit</button>
           </div>
         </div>

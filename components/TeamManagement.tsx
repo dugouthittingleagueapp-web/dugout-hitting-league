@@ -138,15 +138,8 @@ export const TeamManagement: React.FC<TeamManagementProps> = ({ league, season, 
         } else {
             // Create New
             const cleanSubs = subs.filter(s => s.name.trim());
-            
-            // Map players from EditablePlayer to API expected format (ensure IDs exist)
-            const finalPlayers = players.map(p => ({
-                id: p.id || storage.generateUUID(),
-                name: p.name,
-                lastName: p.lastName
-            }));
-
-            await storage.createTeam(newTeamName, league, finalPlayers, season, cleanSubs);
+            // Map players from EditablePlayer to API expected format
+            await storage.createTeam(newTeamName, league, players, season, cleanSubs);
         }
         
         await loadTeams();

@@ -440,36 +440,54 @@ const App: React.FC = () => {
           return d >= oneWeekAgo;
       });
 
-      const totals: { name: string, team: string, score: number }[] = [];
-      const bestInnings: { name: string, team: string, score: number }[] = [];
+      // Track unique players by ID to ensure they only appear once with their best score
+      const uniqueTotals = new Map<string, { name: string, team: string, score: number }>();
+      const uniqueInnings = new Map<string, { name: string, team: string, score: number }>();
 
       recentMatches.forEach(m => {
           const home = teams.find(t => t.id === m.homeTeamId);
           const away = teams.find(t => t.id === m.awayTeamId);
           if (!home || !away) return;
 
+          // 1. Match Totals (Already handles Ghost logic correctly in storageService for match total points)
           const stats = storage.calculateMatchStats(m, home, away);
           stats.forEach(s => {
               if (s.playerId.startsWith('ghost-')) return;
+              
               let tName = 'Unknown';
+              // Find team name
               if ([...home.players, ...(home.subs || [])].some(p => p.id === s.playerId)) tName = home.name;
               else if ([...away.players, ...(away.subs || [])].some(p => p.id === s.playerId)) tName = away.name;
-
-              totals.push({ name: s.name, team: tName, score: s.totalPoints });
+              
+              // Only keep the best total for this player
+              const existing = uniqueTotals.get(s.playerId);
+              if (!existing || s.totalPoints > existing.score) {
+                   uniqueTotals.set(s.playerId, { name: s.name, team: tName, score: s.totalPoints });
+              }
           });
 
+          // 2. Best Inning (Handle Ghost logic manually)
           m.innings.forEach(ing => {
               const check = (side: any, t: Team) => {
                   side.playerScores.forEach((ps: any) => {
                       if (ps.playerId.startsWith('ghost-')) return;
+                      
                       const p = [...t.players, ...(t.subs || [])].find(x => x.id === ps.playerId);
                       if (p) {
-                          const score = ps.pitches.reduce((acc: number, v: any) => acc + (v.points || 0), 0);
-                          bestInnings.push({
-                              name: `${p.name}${p.lastName ? ' ' + p.lastName[0] + '.' : ''}`,
-                              team: t.name,
-                              score
-                          });
+                          // Rule: In Ghost Mode (2-player team, >10 pitches), only the first 10 pitches count for individual Best Inning
+                          let pitchesToCount = ps.pitches;
+                          if (pitchesToCount.length > 10) {
+                              pitchesToCount = pitchesToCount.slice(0, 10);
+                          }
+                          
+                          const score = pitchesToCount.reduce((acc: number, v: any) => acc + (v.points || 0), 0);
+                          
+                          // Dedupe: Update if this inning is better than previous best for this player
+                          const existing = uniqueInnings.get(p.id);
+                          if (!existing || score > existing.score) {
+                              const fullName = `${p.name}${p.lastName ? ' ' + p.lastName[0] + '.' : ''}`;
+                              uniqueInnings.set(p.id, { name: fullName, team: t.name, score });
+                          }
                       }
                   });
               };
@@ -479,8 +497,8 @@ const App: React.FC = () => {
       });
 
       return {
-          topTotals: totals.sort((a, b) => b.score - a.score).slice(0, 5),
-          topInnings: bestInnings.sort((a, b) => b.score - a.score).slice(0, 5)
+          topTotals: Array.from(uniqueTotals.values()).sort((a, b) => b.score - a.score).slice(0, 5),
+          topInnings: Array.from(uniqueInnings.values()).sort((a, b) => b.score - a.score).slice(0, 5)
       };
   }, [matches, teams]);
 

@@ -114,25 +114,7 @@ const App: React.FC = () => {
   const [targetLeague, setTargetLeague] = useState('');
 
   // Sorting State
-  const [seasonSort, setSeasonSort] = useState<{ key: keyof PlayerStats; direction: 'asc' | 'desc' }>({ key: 'totalPoints', direction: 'desc' });
   const [matchSort, setMatchSort] = useState<{ key: keyof PlayerStats; direction: 'asc' | 'desc' }>({ key: 'totalPoints', direction: 'desc' });
-
-  // Navbar Scroll Logic
-  const [isNavbarVisible, setIsNavbarVisible] = useState(true);
-  const [lastScrollY, setLastScrollY] = useState(0);
-
-  const handleScroll = (e: React.UIEvent<HTMLElement>) => {
-      const currentScrollY = e.currentTarget.scrollTop;
-      // Simple threshold to prevent jitter
-      if (Math.abs(currentScrollY - lastScrollY) < 10) return;
-
-      if (currentScrollY > lastScrollY && currentScrollY > 50) {
-          setIsNavbarVisible(false);
-      } else {
-          setIsNavbarVisible(true);
-      }
-      setLastScrollY(currentScrollY);
-  };
 
   // Handle Theme Toggle & Persistence
   useEffect(() => {
@@ -144,17 +126,6 @@ const App: React.FC = () => {
     }
     safeStorage.setItem('dugout_theme', JSON.stringify(isDarkMode));
   }, [isDarkMode]);
-
-  // Scroll Locking for Modals and Menu
-  useEffect(() => {
-      if (isMenuOpen || showLoginModal || moveMatchModal || statsModalMatch) {
-          // For app-level Modals, we don't need to lock body on 'html' anymore since we have a fixed shell.
-          // But we might want to disable the main scroller.
-          // Since we use a fixed shell structure, basic pointer-events handling or simple overlay is usually enough.
-          // However, keeping previous logic is fine, but targeting the specific container would be better.
-          // Current body lock is redundant with fixed shell but harmless.
-      }
-  }, [isMenuOpen, showLoginModal, moveMatchModal, statsModalMatch]);
 
   // Prevent Back Button
   useEffect(() => {
@@ -245,9 +216,6 @@ const App: React.FC = () => {
     if (state.currentLeague && state.view === 'dashboard') {
         refreshDashboard(state.currentLeague, state.season);
     }
-    // Reset navbar visibility and scroll pos on view/league change
-    setIsNavbarVisible(true);
-    setLastScrollY(0);
   }, [state.currentLeague, state.view, state.season, refreshDashboard]);
 
   // Live Polling
@@ -529,77 +497,70 @@ const App: React.FC = () => {
   };
 
   return (
-    <div className="h-[100dvh] w-full overflow-hidden bg-slate-100 dark:bg-slate-950 text-slate-900 dark:text-slate-200 flex flex-col font-sans relative transition-colors duration-500">
-        {/* Background Texture */}
-        <div className="absolute inset-0 opacity-[0.4] dark:opacity-[0.03] pointer-events-none z-0 mix-blend-overlay dark:mix-blend-normal h-full w-full" 
+    <div className="h-[100dvh] w-full overflow-y-auto overflow-x-hidden bg-slate-100 dark:bg-slate-950 text-slate-900 dark:text-slate-200 flex flex-col font-sans relative transition-colors duration-500">
+        {/* Background Texture - Fixed so it covers screen while scrolling */}
+        <div className="fixed inset-0 opacity-[0.4] dark:opacity-[0.03] pointer-events-none z-0 mix-blend-overlay dark:mix-blend-normal h-full w-full" 
              style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg width='40' height='40' viewBox='0 0 40 40' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M20 20l20 20M20 20L0 40M20 20L40 0M20 20L0 0' stroke='%23888888' stroke-width='1' fill='none'/%3E%3C/svg%3E")` }}>
         </div>
         
-        {/* Fixed Header / Navbar */}
-        {state.view !== 'league_select' && (
-            <div className={`relative z-[100] shrink-0 transition-[margin] duration-300 ease-in-out ${isNavbarVisible ? 'mt-0' : '-mt-36'}`}>
-                <Navbar {...navbarProps} />
-            </div>
-        )}
+        {/* Navbar always in normal flow at top */}
+        <Navbar {...navbarProps} />
 
-        {/* Scrollable Main Content Area */}
-        <main className="relative flex-1 w-full overflow-y-auto overflow-x-hidden scroll-touch" onScroll={handleScroll}>
+        {/* Main Content Area - Flows naturally */}
+        <main className="relative flex-1 w-full flex flex-col">
             {/* LEAGUE SELECTION VIEW */}
             {state.view === 'league_select' && (
-                <>
-                    <Navbar {...navbarProps} />
-                    <div className="flex-1 flex flex-col items-center justify-center p-4 z-10 min-h-[calc(100dvh-80px)]">
-                        <div className="text-center mb-16">
-                            <h2 className="text-3xl sm:text-5xl font-black text-slate-900 dark:text-white mb-4 font-sans tracking-tight drop-shadow-xl">SELECT A LEAGUE</h2>
-                            <div className="h-1.5 w-24 bg-blue-600 mx-auto rounded-full mb-6 shadow-[0_0_15px_rgba(37,99,235,0.8)]"></div>
-                            {userRole !== 'fan' && (
-                                <span className="inline-block bg-white/50 dark:bg-slate-800/80 backdrop-blur text-blue-600 dark:text-blue-300 border border-slate-200 dark:border-slate-700 px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-widest shadow-lg">
-                                    Logged in as {userRole}
-                                </span>
-                            )}
-                        </div>
-                        
-                        {leagues.length === 0 ? (
-                            <div className="text-center bg-white/80 dark:bg-slate-900/80 backdrop-blur p-8 rounded-2xl border border-slate-200 dark:border-slate-800 max-w-md w-full shadow-2xl">
-                                <div className="w-16 h-16 bg-slate-100 dark:bg-slate-800 rounded-full flex items-center justify-center mx-auto mb-4">
-                                    <svg className="w-8 h-8 text-slate-400 dark:text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
-                                </div>
-                                <h3 className="text-xl font-bold text-slate-800 dark:text-white mb-2">No Leagues Found</h3>
-                                <p className="text-slate-500 dark:text-slate-400 mb-6 text-sm">Get started by logging in to create your first league category.</p>
-                                <button onClick={openLoginModal} className="w-full px-4 py-3 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-500 transition-all shadow-lg shadow-blue-900/20">Log In to Admin</button>
-                            </div>
-                        ) : (
-                            <div className="flex flex-wrap justify-center gap-4 w-full max-w-5xl px-4 pb-8">
-                            {leagues.sort((a, b) => a.id.localeCompare(b.id, undefined, { numeric: true, sensitivity: 'base' })).map(league => (
-                                <button key={league.id} onClick={() => handleSelectLeague(league.id)} className="group relative bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800 p-0.5 rounded-xl shadow-xl dark:shadow-2xl transition-all duration-300 hover:-translate-y-1 hover:shadow-blue-500/20 dark:hover:shadow-blue-900/20 text-left w-32 sm:w-36 flex flex-col border border-slate-200 dark:border-slate-800 hover:border-blue-400 dark:hover:border-blue-500/50">
-                                    <div className="absolute inset-0 bg-gradient-to-b from-blue-400/0 to-blue-600/0 dark:from-blue-600/0 dark:to-blue-900/0 group-hover:to-blue-100/50 dark:group-hover:to-blue-900/20 rounded-xl transition-all duration-500"></div>
-                                    
-                                    <div className="h-full w-full rounded-lg p-3 flex flex-col justify-between relative overflow-hidden min-h-[100px]">
-                                        <div className="absolute -top-2 -right-2 text-slate-200 dark:text-slate-800/40 group-hover:text-blue-100 dark:group-hover:text-blue-600/10 transition-all duration-700 rotate-[15deg] scale-125">
-                                            <svg width="60" height="60" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1" strokeLinecap="round" strokeLinejoin="round">
-                                                <circle cx="12" cy="12" r="10" />
-                                                <path d="M6 4.5C8.5 7.5 9 10.5 9 12s-.5 4.5-3 7.5" />
-                                                <path d="M18 4.5C15.5 7.5 15 10.5 15 12s.5 4.5 3 7.5" />
-                                            </svg>
-                                        </div>
-                                        
-                                        <div className="relative z-10">
-                                            <div className="flex justify-between items-start">
-                                                <span className="inline-block px-1 py-0.5 rounded bg-slate-100 dark:bg-slate-950 text-slate-500 dark:text-slate-400 text-[8px] font-bold uppercase tracking-wider border border-slate-200 dark:border-slate-800 group-hover:border-blue-400 group-hover:text-blue-500 transition-colors">{state.season}</span>
-                                                <span className="w-1.5 h-1.5 rounded-full bg-blue-500 shadow-[0_0_8px_#3b82f6]"></span>
-                                            </div>
-                                        </div>
-                                        
-                                        <div className="relative z-10 mt-4 text-center">
-                                            <h3 className="text-xl sm:text-2xl font-black text-slate-800 dark:text-white uppercase italic leading-none mb-0.5 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors drop-shadow-sm truncate">{league.id}</h3>
-                                        </div>
-                                    </div>
-                                </button>
-                            ))}
-                            </div>
+                <div className="flex-1 flex flex-col items-center justify-center p-4 z-10 min-h-[calc(100dvh-80px)]">
+                    <div className="text-center mb-16">
+                        <h2 className="text-3xl sm:text-5xl font-black text-slate-900 dark:text-white mb-4 font-sans tracking-tight drop-shadow-xl">SELECT A LEAGUE</h2>
+                        <div className="h-1.5 w-24 bg-blue-600 mx-auto rounded-full mb-6 shadow-[0_0_15px_rgba(37,99,235,0.8)]"></div>
+                        {userRole !== 'fan' && (
+                            <span className="inline-block bg-white/50 dark:bg-slate-800/80 backdrop-blur text-blue-600 dark:text-blue-300 border border-slate-200 dark:border-slate-700 px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-widest shadow-lg">
+                                Logged in as {userRole}
+                            </span>
                         )}
                     </div>
-                </>
+                    
+                    {leagues.length === 0 ? (
+                        <div className="text-center bg-white/80 dark:bg-slate-900/80 backdrop-blur p-8 rounded-2xl border border-slate-200 dark:border-slate-800 max-w-md w-full shadow-2xl">
+                            <div className="w-16 h-16 bg-slate-100 dark:bg-slate-800 rounded-full flex items-center justify-center mx-auto mb-4">
+                                <svg className="w-8 h-8 text-slate-400 dark:text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
+                            </div>
+                            <h3 className="text-xl font-bold text-slate-800 dark:text-white mb-2">No Leagues Found</h3>
+                            <p className="text-slate-500 dark:text-slate-400 mb-6 text-sm">Get started by logging in to create your first league category.</p>
+                            <button onClick={openLoginModal} className="w-full px-4 py-3 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-500 transition-all shadow-lg shadow-blue-900/20">Log In to Admin</button>
+                        </div>
+                    ) : (
+                        <div className="flex flex-wrap justify-center gap-4 w-full max-w-5xl px-4 pb-8">
+                        {leagues.sort((a, b) => a.id.localeCompare(b.id, undefined, { numeric: true, sensitivity: 'base' })).map(league => (
+                            <button key={league.id} onClick={() => handleSelectLeague(league.id)} className="group relative bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800 p-0.5 rounded-xl shadow-xl dark:shadow-2xl transition-all duration-300 hover:-translate-y-1 hover:shadow-blue-500/20 dark:hover:shadow-blue-900/20 text-left w-32 sm:w-36 flex flex-col border border-slate-200 dark:border-slate-800 hover:border-blue-400 dark:hover:border-blue-500/50">
+                                <div className="absolute inset-0 bg-gradient-to-b from-blue-400/0 to-blue-600/0 dark:from-blue-600/0 dark:to-blue-900/0 group-hover:to-blue-100/50 dark:group-hover:to-blue-900/20 rounded-xl transition-all duration-500"></div>
+                                
+                                <div className="h-full w-full rounded-lg p-3 flex flex-col justify-between relative overflow-hidden min-h-[100px]">
+                                    <div className="absolute -top-2 -right-2 text-slate-200 dark:text-slate-800/40 group-hover:text-blue-100 dark:group-hover:text-blue-600/10 transition-all duration-700 rotate-[15deg] scale-125">
+                                        <svg width="60" height="60" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1" strokeLinecap="round" strokeLinejoin="round">
+                                            <circle cx="12" cy="12" r="10" />
+                                            <path d="M6 4.5C8.5 7.5 9 10.5 9 12s-.5 4.5-3 7.5" />
+                                            <path d="M18 4.5C15.5 7.5 15 10.5 15 12s.5 4.5 3 7.5" />
+                                        </svg>
+                                    </div>
+                                    
+                                    <div className="relative z-10">
+                                        <div className="flex justify-between items-start">
+                                            <span className="inline-block px-1 py-0.5 rounded bg-slate-100 dark:bg-slate-950 text-slate-500 dark:text-slate-400 text-[8px] font-bold uppercase tracking-wider border border-slate-200 dark:border-slate-800 group-hover:border-blue-400 group-hover:text-blue-500 transition-colors">{state.season}</span>
+                                            <span className="w-1.5 h-1.5 rounded-full bg-blue-500 shadow-[0_0_8px_#3b82f6]"></span>
+                                        </div>
+                                    </div>
+                                    
+                                    <div className="relative z-10 mt-4 text-center">
+                                        <h3 className="text-xl sm:text-2xl font-black text-slate-800 dark:text-white uppercase italic leading-none mb-0.5 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors drop-shadow-sm truncate">{league.id}</h3>
+                                    </div>
+                                </div>
+                            </button>
+                        ))}
+                        </div>
+                    )}
+                </div>
             )}
 
             {/* ADMIN VIEW */}

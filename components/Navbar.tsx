@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { AgeGroup, League } from '../types';
 
@@ -51,7 +52,7 @@ export const Navbar: React.FC<NavbarProps> = ({
 
   return (
     <>
-        <nav className={`bg-slate-100/90 dark:bg-slate-950/90 backdrop-blur-md text-slate-900 dark:text-white shadow-lg sticky top-0 z-[999] transition-all duration-500 ease-in-out border-b border-slate-200 dark:border-slate-800 ${isHomeScreen ? 'py-6 sm:py-10 border-b-0' : 'pt-2 pb-0'}`}>
+        <nav className={`bg-slate-100/90 dark:bg-slate-950/90 backdrop-blur-md text-slate-900 dark:text-white shadow-lg z-[999] border-b border-slate-200 dark:border-slate-800 ${isHomeScreen ? 'py-6 sm:py-10 border-b-0' : 'pt-2 pb-0'}`}>
         <div className="max-w-7xl mx-auto w-full px-4 sm:px-6 relative">
             
             {isHomeScreen ? (

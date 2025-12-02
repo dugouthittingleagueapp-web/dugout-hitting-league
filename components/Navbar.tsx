@@ -37,7 +37,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   isDarkMode,
   toggleTheme,
   isMenuOpen,
-  setMenuOpen
+  setMenuOpen,
 }) => {
   const [showSeasonMenu, setShowSeasonMenu] = useState(false);
   const [showLeagueMenu, setShowLeagueMenu] = useState(false);
@@ -59,7 +59,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                 // --- HOME SCREEN LAYOUT (Vertical Stack) ---
                 <div className="flex flex-col items-center gap-6 w-full">
                     {/* Absolute Hamburger (Top Left) */}
-                    <div className="absolute top-0 left-4 sm:left-6">
+                    <div className="absolute top-0 left-4 sm:left-6 flex gap-2">
                         <button onClick={() => setMenuOpen(true)} className="p-2 rounded-lg hover:bg-black/5 dark:hover:bg-white/10 transition-colors">
                             <svg className="w-8 h-8 text-slate-700 dark:text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h16M4 18h16"></path>
@@ -105,7 +105,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                     </div>
 
                     {/* Right: Desktop Layout (Logo Right Justified) */}
-                    <div className="hidden md:flex items-center ml-auto z-30 h-full">
+                    <div className="hidden md:flex items-center ml-auto z-30 h-full gap-4">
                         <div className="flex items-center cursor-pointer group h-full" onClick={onGoHome}>
                              {/* Dugout Text Logo (Left of Image) */}
                              <div className="flex flex-col items-end pr-6 justify-center h-full">

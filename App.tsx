@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { AgeGroup, AppState, Match, Team, Player, League, PlayerStats, Inning, TieBreakerRound } from './types';
@@ -641,7 +642,7 @@ const App: React.FC = () => {
       isDarkMode: isDarkMode,
       toggleTheme: () => setIsDarkMode(!isDarkMode),
       isMenuOpen: isMenuOpen,
-      setMenuOpen: setIsMenuOpen
+      setMenuOpen: setIsMenuOpen,
   };
 
   return (

@@ -187,7 +187,7 @@ export const TeamManagement: React.FC<TeamManagementProps> = ({ league, season, 
   // Helper to render sortable headers
   const renderHeader = (label: string, key: keyof PlayerStats, align: string = 'text-right', colorClass: string = '') => (
     <th 
-        className={`px-2 sm:px-4 py-2 sm:py-3 cursor-pointer hover:bg-black/5 dark:hover:bg-white/5 transition-colors select-none ${align} ${colorClass}`}
+        className={`px-4 py-3 cursor-pointer hover:bg-black/5 dark:hover:bg-white/5 transition-colors select-none ${align} ${colorClass}`}
         onClick={() => handleSort(key)}
         title="Click to sort"
     >
@@ -202,23 +202,23 @@ export const TeamManagement: React.FC<TeamManagementProps> = ({ league, season, 
 
   if (selectedTeam) {
     return (
-        <div className="p-2 sm:p-6 max-w-5xl mx-auto">
+        <div className="p-4 sm:p-6 max-w-5xl mx-auto">
             <div className="flex justify-between items-center mb-6">
                 <div>
                     <div className="flex items-center gap-2">
-                        <h2 className="text-2xl sm:text-3xl font-bold text-slate-800 dark:text-white font-sans">{selectedTeam.name}</h2>
+                        <h2 className="text-3xl font-bold text-slate-800 dark:text-white font-sans">{selectedTeam.name}</h2>
                         <span className="bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-400 text-xs font-bold px-2 py-1 rounded font-sans">{season}</span>
                     </div>
                     <p className="text-slate-500 font-bold uppercase tracking-wider font-sans">Stats & Roster</p>
                 </div>
-                <button onClick={() => setSelectedTeam(null)} className="px-3 sm:px-4 py-2 rounded-lg bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 font-medium transition-colors font-sans border border-slate-300 dark:border-slate-700 text-sm sm:text-base">Back</button>
+                <button onClick={() => setSelectedTeam(null)} className="px-4 py-2 rounded-lg bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 font-medium transition-colors font-sans border border-slate-300 dark:border-slate-700">Back to List</button>
             </div>
 
             <div className="bg-white/60 dark:bg-slate-900/60 backdrop-blur-xl rounded-xl shadow-sm border border-slate-200 dark:border-slate-800 overflow-hidden mb-8">
                 <div className="p-4 bg-slate-100 dark:bg-slate-950 border-b border-slate-200 dark:border-slate-800"><h3 className="font-bold text-slate-700 dark:text-slate-300 font-sans">Hitting Statistics</h3></div>
                 <div className="overflow-x-auto touch-auto">
-                    <table className="w-full text-left text-xs sm:text-sm">
-                        <thead className="bg-slate-100 dark:bg-slate-950 text-slate-500 dark:text-slate-400 uppercase font-bold text-[10px] sm:text-xs border-b border-slate-200 dark:border-slate-800">
+                    <table className="w-full text-left text-sm">
+                        <thead className="bg-slate-100 dark:bg-slate-950 text-slate-500 dark:text-slate-400 uppercase font-bold text-xs border-b border-slate-200 dark:border-slate-800">
                             <tr>
                                 {renderHeader('Player', 'name', 'text-left')}
                                 {renderHeader('Total Points', 'totalPoints')}
@@ -232,13 +232,13 @@ export const TeamManagement: React.FC<TeamManagementProps> = ({ league, season, 
                         <tbody className="divide-y divide-slate-200 dark:divide-slate-800">
                             {sortedStats.map(stat => (
                                 <tr key={stat.playerId} className="hover:bg-black/5 dark:hover:bg-slate-800/50 transition-colors">
-                                    <td className="px-2 sm:px-4 py-2 sm:py-3 font-bold text-slate-800 dark:text-white font-sans">{stat.name}</td>
-                                    <td className="px-2 sm:px-4 py-2 sm:py-3 text-right font-sans tabular-nums font-bold text-base sm:text-lg text-slate-900 dark:text-white">{stat.totalPoints}</td>
-                                    <td className="px-2 sm:px-4 py-2 sm:py-3 text-right font-sans tabular-nums text-slate-600 dark:text-slate-400">{stat.hits4}</td>
-                                    <td className="px-2 sm:px-4 py-2 sm:py-3 text-right font-sans tabular-nums text-slate-600 dark:text-slate-400">{stat.hits3}</td>
-                                    <td className="px-2 sm:px-4 py-2 sm:py-3 text-right font-sans tabular-nums text-slate-600 dark:text-slate-400">{stat.hits2}</td>
-                                    <td className="px-2 sm:px-4 py-2 sm:py-3 text-right font-sans tabular-nums text-slate-600 dark:text-slate-400">{stat.hits1}</td>
-                                    <td className="px-2 sm:px-4 py-2 sm:py-3 text-right font-sans tabular-nums text-slate-500">{stat.pitchesSeen}</td>
+                                    <td className="px-4 py-3 font-bold text-slate-800 dark:text-white font-sans">{stat.name}</td>
+                                    <td className="px-4 py-3 text-right font-sans tabular-nums font-bold text-lg text-slate-900 dark:text-white">{stat.totalPoints}</td>
+                                    <td className="px-4 py-3 text-right font-sans tabular-nums text-slate-600 dark:text-slate-400">{stat.hits4}</td>
+                                    <td className="px-4 py-3 text-right font-sans tabular-nums text-slate-600 dark:text-slate-400">{stat.hits3}</td>
+                                    <td className="px-4 py-3 text-right font-sans tabular-nums text-slate-600 dark:text-slate-400">{stat.hits2}</td>
+                                    <td className="px-4 py-3 text-right font-sans tabular-nums text-slate-600 dark:text-slate-400">{stat.hits1}</td>
+                                    <td className="px-4 py-3 text-right font-sans tabular-nums text-slate-500">{stat.pitchesSeen}</td>
                                 </tr>
                             ))}
                             {sortedStats.length === 0 && (
@@ -253,22 +253,22 @@ export const TeamManagement: React.FC<TeamManagementProps> = ({ league, season, 
   }
 
   return (
-    <div className="p-2 sm:p-6 max-w-4xl mx-auto">
+    <div className="p-4 sm:p-6 max-w-4xl mx-auto">
       <div className="flex justify-between items-center mb-6">
         <div>
-            <h2 className="text-xl sm:text-2xl font-bold text-slate-800 dark:text-white font-sans">Manage Teams</h2>
-            <p className="text-slate-500 text-xs sm:text-sm font-bold uppercase tracking-wider font-sans">{league} League <span className="text-slate-400 mx-1">•</span> {season}</p>
+            <h2 className="text-2xl font-bold text-slate-800 dark:text-white font-sans">Manage Teams</h2>
+            <p className="text-slate-500 text-sm font-bold uppercase tracking-wider font-sans">{league} League <span className="text-slate-400 mx-1">•</span> {season}</p>
         </div>
-        <button onClick={onBack} className="px-3 sm:px-4 py-2 rounded-lg bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 font-medium transition-colors font-sans border border-slate-300 dark:border-slate-700 text-xs sm:text-base">Dashboard</button>
+        <button onClick={onBack} className="px-4 py-2 rounded-lg bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 font-medium transition-colors font-sans border border-slate-300 dark:border-slate-700">Back to Dashboard</button>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-8">
-        <div className="bg-white/60 dark:bg-slate-900/60 backdrop-blur-xl p-4 sm:p-6 rounded-xl shadow-md border border-slate-200 dark:border-slate-800 h-fit">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+        <div className="bg-white/60 dark:bg-slate-900/60 backdrop-blur-xl p-6 rounded-xl shadow-md border border-slate-200 dark:border-slate-800 h-fit">
           <div className="flex justify-between items-center mb-4">
-            <h3 className="text-base sm:text-lg font-semibold text-slate-800 dark:text-slate-200 font-sans">{editingTeamId ? 'Edit Team' : `Add New Team (${season})`}</h3>
+            <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-200 font-sans">{editingTeamId ? 'Edit Team' : `Add New Team (${season})`}</h3>
             {editingTeamId && <button onClick={cancelEdit} className="text-xs text-red-500 hover:text-red-400 font-bold font-sans">Cancel Edit</button>}
           </div>
-          <form onSubmit={handleSave} className="space-y-4 sm:space-y-5">
+          <form onSubmit={handleSave} className="space-y-5">
             <div>
               <label className="block text-xs font-bold text-slate-500 uppercase mb-1 font-sans">Team Name</label>
               <input type="text" className="w-full bg-slate-100 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 outline-none font-sans text-slate-900 dark:text-white placeholder-slate-500 dark:placeholder-slate-600" placeholder="e.g. Tigers" value={newTeamName} onChange={e => setNewTeamName(e.target.value)} required />
@@ -339,7 +339,7 @@ export const TeamManagement: React.FC<TeamManagementProps> = ({ league, season, 
         <div className="space-y-4">
           <h3 className="text-lg font-semibold text-slate-500 border-b border-slate-200 dark:border-slate-800 pb-2 font-sans">Current Teams ({teams.length})</h3>
           {teams.map(team => (
-            <div key={team.id} className={`bg-white/60 dark:bg-slate-900/60 backdrop-blur-xl p-3 sm:p-4 rounded-xl shadow-sm border flex justify-between items-center group transition-colors ${editingTeamId === team.id ? 'border-blue-500 ring-1 ring-blue-500' : 'border-slate-200 dark:border-slate-800 hover:border-blue-400'}`}>
+            <div key={team.id} className={`bg-white/60 dark:bg-slate-900/60 backdrop-blur-xl p-4 rounded-xl shadow-sm border flex justify-between items-center group transition-colors ${editingTeamId === team.id ? 'border-blue-500 ring-1 ring-blue-500' : 'border-slate-200 dark:border-slate-800 hover:border-blue-400'}`}>
               <div>
                 <h4 className="font-bold text-lg text-slate-800 dark:text-slate-200 font-sans">{team.name}</h4>
                 <div className="flex flex-col gap-1 mt-2">

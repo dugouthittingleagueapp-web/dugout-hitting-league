@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { AgeGroup, AppState, Match, Team, Player, League, PlayerStats, Inning, TieBreakerRound } from './types';
@@ -652,15 +651,11 @@ const App: React.FC = () => {
              style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg width='40' height='40' viewBox='0 0 40 40' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M20 20l20 20M20 20L0 40M20 20L40 0M20 20L0 0' stroke='%23888888' stroke-width='1' fill='none'/%3E%3C/svg%3E")` }}>
         </div>
         
-        {/* Fixed Header / Navbar */}
-        {state.view !== 'league_select' && (
-            <div className="relative z-[100] shrink-0">
-                <Navbar {...navbarProps} />
-            </div>
-        )}
-
         {/* Scrollable Main Content Area */}
         <main className="relative flex-1 w-full overflow-y-auto overflow-x-hidden scroll-touch">
+            {/* Fixed Header / Navbar - moved inside scrollable area so it scrolls away */}
+            {state.view !== 'league_select' && <Navbar {...navbarProps} />}
+
             {/* LEAGUE SELECTION VIEW */}
             {state.view === 'league_select' && (
                 <>

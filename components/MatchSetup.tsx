@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { Team, Player } from '../types';
@@ -227,19 +228,19 @@ export const MatchSetup: React.FC<MatchSetupProps> = ({ homeTeam, awayTeam, onSt
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
             <div className="bg-white/60 dark:bg-slate-900/60 backdrop-blur-xl p-4 sm:p-6 rounded-2xl border border-slate-200 dark:border-slate-800 transition-all">
+                 <h3 className={`text-xl font-bold mb-4 flex justify-between items-center font-sans ${isSwapped ? 'text-red-600 dark:text-red-400' : 'text-blue-600 dark:text-blue-400'}`}>
+                    <span>Away: {rightSideTeam.name}</span>
+                    {isSwapped && <span className="text-xs bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 px-2 py-1 rounded font-sans">Swapped</span>}
+                </h3>
+                {renderLineupList('right', rightSideTeam, getRightSideLineup())}
+            </div>
+            <div className="bg-white/60 dark:bg-slate-900/60 backdrop-blur-xl p-4 sm:p-6 rounded-2xl border border-slate-200 dark:border-slate-800 transition-all">
                 {/* Home = Red, Away = Blue */}
                 <h3 className={`text-xl font-bold mb-4 flex justify-between items-center font-sans ${isSwapped ? 'text-blue-600 dark:text-blue-400' : 'text-red-600 dark:text-red-400'}`}>
                     <span>Home: {leftSideTeam.name}</span>
                     {isSwapped && <span className="text-xs bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 px-2 py-1 rounded font-sans">Swapped</span>}
                 </h3>
                 {renderLineupList('left', leftSideTeam, getLeftSideLineup())}
-            </div>
-            <div className="bg-white/60 dark:bg-slate-900/60 backdrop-blur-xl p-4 sm:p-6 rounded-2xl border border-slate-200 dark:border-slate-800 transition-all">
-                 <h3 className={`text-xl font-bold mb-4 flex justify-between items-center font-sans ${isSwapped ? 'text-red-600 dark:text-red-400' : 'text-blue-600 dark:text-blue-400'}`}>
-                    <span>Away: {rightSideTeam.name}</span>
-                    {isSwapped && <span className="text-xs bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 px-2 py-1 rounded font-sans">Swapped</span>}
-                </h3>
-                {renderLineupList('right', rightSideTeam, getRightSideLineup())}
             </div>
         </div>
       </div>

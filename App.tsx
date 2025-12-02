@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { AgeGroup, AppState, Match, Team, Player, League, PlayerStats } from './types';
@@ -116,6 +117,23 @@ const App: React.FC = () => {
   const [seasonSort, setSeasonSort] = useState<{ key: keyof PlayerStats; direction: 'asc' | 'desc' }>({ key: 'totalPoints', direction: 'desc' });
   const [matchSort, setMatchSort] = useState<{ key: keyof PlayerStats; direction: 'asc' | 'desc' }>({ key: 'totalPoints', direction: 'desc' });
 
+  // Navbar Scroll Logic
+  const [isNavbarVisible, setIsNavbarVisible] = useState(true);
+  const [lastScrollY, setLastScrollY] = useState(0);
+
+  const handleScroll = (e: React.UIEvent<HTMLElement>) => {
+      const currentScrollY = e.currentTarget.scrollTop;
+      // Simple threshold to prevent jitter
+      if (Math.abs(currentScrollY - lastScrollY) < 10) return;
+
+      if (currentScrollY > lastScrollY && currentScrollY > 50) {
+          setIsNavbarVisible(false);
+      } else {
+          setIsNavbarVisible(true);
+      }
+      setLastScrollY(currentScrollY);
+  };
+
   // Handle Theme Toggle & Persistence
   useEffect(() => {
     const html = document.documentElement;
@@ -227,6 +245,9 @@ const App: React.FC = () => {
     if (state.currentLeague && state.view === 'dashboard') {
         refreshDashboard(state.currentLeague, state.season);
     }
+    // Reset navbar visibility and scroll pos on view/league change
+    setIsNavbarVisible(true);
+    setLastScrollY(0);
   }, [state.currentLeague, state.view, state.season, refreshDashboard]);
 
   // Live Polling
@@ -516,13 +537,13 @@ const App: React.FC = () => {
         
         {/* Fixed Header / Navbar */}
         {state.view !== 'league_select' && (
-            <div className="relative z-[100] shrink-0">
+            <div className={`relative z-[100] shrink-0 transition-[margin] duration-300 ease-in-out ${isNavbarVisible ? 'mt-0' : '-mt-36'}`}>
                 <Navbar {...navbarProps} />
             </div>
         )}
 
         {/* Scrollable Main Content Area */}
-        <main className="relative flex-1 w-full overflow-y-auto overflow-x-hidden scroll-touch">
+        <main className="relative flex-1 w-full overflow-y-auto overflow-x-hidden scroll-touch" onScroll={handleScroll}>
             {/* LEAGUE SELECTION VIEW */}
             {state.view === 'league_select' && (
                 <>

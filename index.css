@@ -4,17 +4,14 @@
 @tailwind utilities;
 
 html, body {
-  height: 100%;
   width: 100%;
-  overflow: hidden; /* Prevents body scroll and bounce */
+  overflow-x: hidden; /* Prevents horizontal rubber banding */
   touch-action: pan-y; /* Allows vertical gestures */
   -webkit-font-smoothing: antialiased;
-  overscroll-behavior-y: none; /* Prevents bounce on the root */
-  overscroll-behavior-x: none; /* Prevents horizontal rubber banding */
 }
 
 #root {
-  height: 100%;
+  min-height: 100vh;
   width: 100%;
   isolation: isolate;
 }

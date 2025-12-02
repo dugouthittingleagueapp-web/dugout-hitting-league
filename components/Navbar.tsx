@@ -52,7 +52,7 @@ export const Navbar: React.FC<NavbarProps> = ({
 
   return (
     <>
-        <nav className={`bg-slate-100/90 dark:bg-slate-950/90 backdrop-blur-md text-slate-900 dark:text-white shadow-lg z-[999] border-b border-slate-200 dark:border-slate-800 ${isHomeScreen ? 'py-6 sm:py-10 border-b-0' : 'pt-2 pb-0'}`}>
+        <nav className={`bg-slate-100/90 dark:bg-slate-950/90 backdrop-blur-md text-slate-900 dark:text-white shadow-lg z-[999] border-b border-slate-200 dark:border-slate-800 ${isHomeScreen ? 'py-6 sm:py-10 border-b-0' : 'pt-1 pb-0 sm:pt-2'}`}>
         <div className="max-w-7xl mx-auto w-full px-4 sm:px-6 relative">
             
             {isHomeScreen ? (
@@ -81,13 +81,13 @@ export const Navbar: React.FC<NavbarProps> = ({
                 </div>
             ) : (
                 // --- DASHBOARD LAYOUT (Fixed Horizontal Bar) ---
-                // Increased min-height to ensure logo fits without cutting off
-                <div className="flex items-center justify-between relative min-h-[8rem] pb-2">
+                // Reduced min-height for mobile to save space
+                <div className="flex items-center justify-between relative min-h-[4rem] md:min-h-[8rem] pb-1 md:pb-2 transition-all">
                     
                     {/* Left: Hamburger */}
                     <div className="z-30 flex-shrink-0 self-center">
                         <button onClick={() => setMenuOpen(true)} className="p-2 rounded-lg hover:bg-black/5 dark:hover:bg-white/10 transition-colors">
-                            <svg className="w-8 h-8 text-slate-700 dark:text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <svg className="w-7 h-7 md:w-8 md:h-8 text-slate-700 dark:text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h16M4 18h16"></path>
                             </svg>
                         </button>
@@ -99,7 +99,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                             <img 
                                 src="https://imgur.com/SqDq8L3.png" 
                                 alt="Dugout Hitting League" 
-                                className="h-28 drop-shadow-[0_0_10px_rgba(59,130,246,0.3)] object-contain"
+                                className="h-14 md:h-28 drop-shadow-[0_0_10px_rgba(59,130,246,0.3)] object-contain transition-all"
                             />
                         </div>
                     </div>
@@ -129,18 +129,18 @@ export const Navbar: React.FC<NavbarProps> = ({
         
         {currentLeague && (
             <div className="w-full border-t border-slate-200 dark:border-slate-800/50">
-                <div className="max-w-7xl mx-auto flex items-center gap-3 px-4 sm:px-6 py-3 relative z-[900]">
+                <div className="max-w-7xl mx-auto flex items-center gap-3 px-4 sm:px-6 py-2 sm:py-3 relative z-[900]">
                     {/* League Indicator (Left) */}
-                    <div className="flex items-center gap-2 bg-white/50 dark:bg-slate-800/50 px-3 py-1.5 rounded-md border border-slate-200 dark:border-slate-700/50 shrink-0">
-                        <span className="w-2.5 h-2.5 rounded-full bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.6)]"></span>
-                        <span className="text-xs font-bold uppercase tracking-wider text-slate-600 dark:text-slate-300">{currentLeague} League</span>
+                    <div className="flex items-center gap-2 bg-white/50 dark:bg-slate-800/50 px-2 sm:px-3 py-1 sm:py-1.5 rounded-md border border-slate-200 dark:border-slate-700/50 shrink-0">
+                        <span className="w-2 h-2 sm:w-2.5 sm:h-2.5 rounded-full bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.6)]"></span>
+                        <span className="text-[10px] sm:text-xs font-bold uppercase tracking-wider text-slate-600 dark:text-slate-300">{currentLeague} League</span>
                     </div>
 
                     {/* Controls (Right) - Season & Switch League */}
-                    <div className="ml-auto flex items-center gap-6 relative z-[1000]">
+                    <div className="ml-auto flex items-center gap-3 sm:gap-6 relative z-[1000]">
                         {/* Season Selector */}
                         <div className="relative">
-                            <button onClick={() => setShowSeasonMenu(!showSeasonMenu)} className="text-xs font-bold uppercase tracking-wider text-slate-500 hover:text-slate-800 dark:hover:text-slate-300 transition-colors flex items-center gap-1">
+                            <button onClick={() => setShowSeasonMenu(!showSeasonMenu)} className="text-[10px] sm:text-xs font-bold uppercase tracking-wider text-slate-500 hover:text-slate-800 dark:hover:text-slate-300 transition-colors flex items-center gap-1">
                                 Season: <span className="text-slate-900 dark:text-white">{currentSeason}</span>
                                 <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path></svg>
                             </button>
@@ -157,8 +157,8 @@ export const Navbar: React.FC<NavbarProps> = ({
 
                         {/* Switch League */}
                         <div className="relative">
-                            <button onClick={() => setShowLeagueMenu(!showLeagueMenu)} className="text-xs font-bold uppercase tracking-wider text-slate-500 hover:text-slate-800 dark:hover:text-slate-300 transition-colors flex items-center gap-1">
-                            Switch League
+                            <button onClick={() => setShowLeagueMenu(!showLeagueMenu)} className="text-[10px] sm:text-xs font-bold uppercase tracking-wider text-slate-500 hover:text-slate-800 dark:hover:text-slate-300 transition-colors flex items-center gap-1">
+                            Switch
                             <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path></svg>
                             </button>
                             

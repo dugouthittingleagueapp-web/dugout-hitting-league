@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { AgeGroup, League } from '../types';
 
@@ -81,7 +82,7 @@ export const Navbar: React.FC<NavbarProps> = ({
             ) : (
                 // --- DASHBOARD LAYOUT (Fixed Horizontal Bar) ---
                 // Reduced min-height for mobile to save space
-                <div className="flex items-center justify-between relative min-h-[3.5rem] sm:min-h-[6rem] md:min-h-[8rem] pb-1 sm:pb-2">
+                <div className="flex items-center justify-between relative min-h-[3rem] sm:min-h-[6rem] md:min-h-[8rem] pb-1 sm:pb-2">
                     
                     {/* Left: Hamburger */}
                     <div className="z-30 flex-shrink-0 self-center">
@@ -98,7 +99,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                             <img 
                                 src="https://imgur.com/SqDq8L3.png" 
                                 alt="Dugout Hitting League" 
-                                className="h-10 sm:h-20 drop-shadow-[0_0_10px_rgba(59,130,246,0.3)] object-contain"
+                                className="h-8 sm:h-20 drop-shadow-[0_0_10px_rgba(59,130,246,0.3)] object-contain"
                             />
                         </div>
                     </div>
@@ -131,7 +132,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                 <div className="max-w-7xl mx-auto flex items-center gap-3 px-2 sm:px-6 py-2 sm:py-3 relative z-[900]">
                     {/* League Indicator (Left) */}
                     <div className="flex items-center gap-2 bg-white/50 dark:bg-slate-800/50 px-2 sm:px-3 py-1 sm:py-1.5 rounded-md border border-slate-200 dark:border-slate-700/50 shrink-0">
-                        <span className="w-2 h-2 sm:w-2.5 sm:h-2.5 rounded-full bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.6)]"></span>
+                        <span className="w-2 h-2 sm:w-2.5 sm:h-2.5 rounded-full bg-green-50 shadow-[0_0_8px_rgba(34,197,94,0.6)]"></span>
                         <span className="text-[10px] sm:text-xs font-bold uppercase tracking-wider text-slate-600 dark:text-slate-300">{currentLeague} League</span>
                     </div>
 

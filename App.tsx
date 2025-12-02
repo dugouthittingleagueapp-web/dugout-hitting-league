@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { AgeGroup, AppState, Match, Team, Player, League, PlayerStats, Inning, TieBreakerRound } from './types';
@@ -760,8 +759,8 @@ const App: React.FC = () => {
                             <div className="bg-gradient-to-br from-blue-600 to-blue-800 p-3 sm:p-8 rounded-xl shadow-xl text-white border border-blue-500/30">
                                 <h2 className="text-base sm:text-2xl font-bold mb-2 sm:mb-6 font-sans">Start New Match</h2>
                                 <div className="space-y-2 sm:space-y-4">
-                                    <select className="w-full p-2 sm:p-4 rounded-lg text-slate-900 bg-white/90 font-bold font-sans text-xs sm:text-base" value={selectedHomeId} onChange={(e) => setSelectedHomeId(e.target.value)}><option value="">Select Home Team...</option>{leagueTeams.map(t => <option key={t.id} value={t.id} disabled={t.id === selectedAwayId}>{t.name}</option>)}</select>
                                     <select className="w-full p-2 sm:p-4 rounded-lg text-slate-900 bg-white/90 font-bold font-sans text-xs sm:text-base" value={selectedAwayId} onChange={(e) => setSelectedAwayId(e.target.value)}><option value="">Select Away Team...</option>{leagueTeams.map(t => <option key={t.id} value={t.id} disabled={t.id === selectedHomeId}>{t.name}</option>)}</select>
+                                    <select className="w-full p-2 sm:p-4 rounded-lg text-slate-900 bg-white/90 font-bold font-sans text-xs sm:text-base" value={selectedHomeId} onChange={(e) => setSelectedHomeId(e.target.value)}><option value="">Select Home Team...</option>{leagueTeams.map(t => <option key={t.id} value={t.id} disabled={t.id === selectedAwayId}>{t.name}</option>)}</select>
                                     <button disabled={!selectedHomeId || !selectedAwayId} onClick={() => setState({ ...state, view: 'match_setup' })} className="w-full bg-white text-blue-700 font-bold py-2.5 sm:py-5 rounded-xl mt-2 sm:mt-6 hover:bg-blue-50 disabled:opacity-50 transition-all font-sans shadow-lg text-sm sm:text-xl transform active:scale-95">Next: Set Lineup</button>
                                 </div>
                             </div>

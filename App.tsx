@@ -418,7 +418,7 @@ const App: React.FC = () => {
 
   const renderSortHeader = (label: string, key: keyof PlayerStats, config: { key: keyof PlayerStats; direction: 'asc' | 'desc' }, setConfig: any, align: string = 'text-right', colorClass: string = '') => (
     <th 
-        className={`px-4 py-3 cursor-pointer hover:bg-black/10 dark:hover:bg-white/10 transition-colors select-none ${align} ${colorClass}`}
+        className={`px-1 sm:px-4 py-2 sm:py-3 cursor-pointer hover:bg-black/10 dark:hover:bg-white/10 transition-colors select-none ${align} ${colorClass} text-[10px] sm:text-xs`}
         onClick={() => setConfig({ key, direction: config.key === key && config.direction === 'desc' ? 'asc' : 'desc' })}
         title="Click to sort"
     >
@@ -868,29 +868,29 @@ const App: React.FC = () => {
                                       <table className="w-full text-left text-sm">
                                           <thead className="bg-slate-100 dark:bg-slate-950 text-slate-500 dark:text-slate-400 font-bold text-xs uppercase border-b border-slate-200 dark:border-slate-800">
                                               <tr>
-                                                  <th className="px-4 py-3 text-center w-12">#</th>
-                                                  <th className="px-4 py-3">Team</th>
-                                                  <th className="px-4 py-3 text-center">GP</th>
-                                                  <th className="px-4 py-3 text-center">W</th>
-                                                  <th className="px-4 py-3 text-center">L</th>
-                                                  <th className="px-4 py-3 text-center">T</th>
-                                                  <th className="px-4 py-3 text-center">PF</th>
-                                                  <th className="px-4 py-3 text-center">PA</th>
-                                                  <th className="px-4 py-3 text-center hidden sm:table-cell">Diff</th>
+                                                  <th className="px-1 sm:px-4 py-2 sm:py-3 text-center w-8 sm:w-12 text-[10px] sm:text-xs">#</th>
+                                                  <th className="px-1 sm:px-4 py-2 sm:py-3 text-[10px] sm:text-xs">Team</th>
+                                                  <th className="px-1 sm:px-4 py-2 sm:py-3 text-center text-[10px] sm:text-xs">GP</th>
+                                                  <th className="px-1 sm:px-4 py-2 sm:py-3 text-center text-[10px] sm:text-xs">W</th>
+                                                  <th className="px-1 sm:px-4 py-2 sm:py-3 text-center text-[10px] sm:text-xs">L</th>
+                                                  <th className="px-1 sm:px-4 py-2 sm:py-3 text-center text-[10px] sm:text-xs">T</th>
+                                                  <th className="px-1 sm:px-4 py-2 sm:py-3 text-center text-[10px] sm:text-xs">PF</th>
+                                                  <th className="px-1 sm:px-4 py-2 sm:py-3 text-center text-[10px] sm:text-xs">PA</th>
+                                                  <th className="px-1 sm:px-4 py-2 sm:py-3 text-center hidden sm:table-cell text-[10px] sm:text-xs">Diff</th>
                                               </tr>
                                           </thead>
                                           <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                                               {standings.map((t, i) => (
                                                   <tr key={t.id} className="hover:bg-white/50 dark:hover:bg-slate-800/50 transition-colors">
-                                                      <td className="px-4 py-3 text-center font-bold text-slate-400 dark:text-slate-500">{i + 1}</td>
-                                                      <td className="px-4 py-3 font-bold text-slate-900 dark:text-white text-base">{t.name}</td>
-                                                      <td className="px-4 py-3 text-center text-slate-600 dark:text-slate-300 font-bold">{t.gp}</td>
-                                                      <td className="px-4 py-3 text-center font-bold text-green-600 dark:text-green-500 bg-green-50 dark:bg-green-900/10">{t.w}</td>
-                                                      <td className="px-4 py-3 text-center text-slate-500 dark:text-slate-400">{t.l}</td>
-                                                      <td className="px-4 py-3 text-center text-slate-500 dark:text-slate-400">{t.t}</td>
-                                                      <td className="px-4 py-3 text-center font-bold text-blue-600 dark:text-blue-400 tabular-nums">{t.pf}</td>
-                                                      <td className="px-4 py-3 text-center text-slate-500 dark:text-slate-400 tabular-nums">{t.pa}</td>
-                                                      <td className="px-4 py-3 text-center hidden sm:table-cell font-bold tabular-nums text-slate-500">{t.pf - t.pa}</td>
+                                                      <td className="px-1 sm:px-4 py-2 sm:py-3 text-center font-bold text-slate-400 dark:text-slate-500 text-xs sm:text-sm">{i + 1}</td>
+                                                      <td className="px-1 sm:px-4 py-2 sm:py-3 font-bold text-slate-900 dark:text-white text-xs sm:text-base">{t.name}</td>
+                                                      <td className="px-1 sm:px-4 py-2 sm:py-3 text-center text-slate-600 dark:text-slate-300 font-bold text-xs sm:text-sm">{t.gp}</td>
+                                                      <td className="px-1 sm:px-4 py-2 sm:py-3 text-center font-bold text-green-600 dark:text-green-500 bg-green-50 dark:bg-green-900/10 text-xs sm:text-sm">{t.w}</td>
+                                                      <td className="px-1 sm:px-4 py-2 sm:py-3 text-center text-slate-500 dark:text-slate-400 text-xs sm:text-sm">{t.l}</td>
+                                                      <td className="px-1 sm:px-4 py-2 sm:py-3 text-center text-slate-500 dark:text-slate-400 text-xs sm:text-sm">{t.t}</td>
+                                                      <td className="px-1 sm:px-4 py-2 sm:py-3 text-center font-bold text-blue-600 dark:text-blue-400 tabular-nums text-xs sm:text-sm">{t.pf}</td>
+                                                      <td className="px-1 sm:px-4 py-2 sm:py-3 text-center text-slate-500 dark:text-slate-400 tabular-nums text-xs sm:text-sm">{t.pa}</td>
+                                                      <td className="px-1 sm:px-4 py-2 sm:py-3 text-center hidden sm:table-cell font-bold tabular-nums text-slate-500 text-xs sm:text-sm">{t.pf - t.pa}</td>
                                                   </tr>
                                               ))}
                                               {standings.length === 0 && (
@@ -908,25 +908,25 @@ const App: React.FC = () => {
                                         <table className="w-full text-left text-sm">
                                             <thead className="bg-slate-100 dark:bg-slate-950 text-slate-500 dark:text-slate-400 font-bold text-xs uppercase border-b border-slate-200 dark:border-slate-800 sticky top-0 z-10">
                                                 <tr>
-                                                    {renderSortHeader('Player', 'name', seasonSort, setSeasonSort, 'text-left', 'px-6')}
-                                                    {renderSortHeader('Total Pts', 'totalPoints', seasonSort, setSeasonSort)}
+                                                    {renderSortHeader('Player', 'name', seasonSort, setSeasonSort, 'text-left', 'px-2 sm:px-6')}
+                                                    {renderSortHeader('Pts', 'totalPoints', seasonSort, setSeasonSort)}
                                                     {renderSortHeader('4s', 'hits4', seasonSort, setSeasonSort, 'text-right', 'text-rose-600 dark:text-rose-500')}
                                                     {renderSortHeader('3s', 'hits3', seasonSort, setSeasonSort, 'text-right', 'text-amber-600 dark:text-amber-500')}
                                                     {renderSortHeader('2s', 'hits2', seasonSort, setSeasonSort, 'text-right', 'text-green-600 dark:text-green-500')}
                                                     {renderSortHeader('1s', 'hits1', seasonSort, setSeasonSort, 'text-right', 'text-cyan-600 dark:text-cyan-500')}
-                                                    {renderSortHeader('Pitches', 'pitchesSeen', seasonSort, setSeasonSort, 'text-right', 'text-slate-500')}
+                                                    {renderSortHeader('Pit', 'pitchesSeen', seasonSort, setSeasonSort, 'text-right', 'text-slate-500')}
                                                 </tr>
                                             </thead>
                                             <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-slate-600 dark:text-slate-300">
                                                 {performSort(seasonStats, seasonSort).map(stat => (
                                                     <tr key={stat.playerId} className="hover:bg-white/50 dark:hover:bg-slate-800/50 transition-colors">
-                                                        <td className="px-6 py-3 font-bold text-slate-900 dark:text-white font-sans">{stat.name}</td>
-                                                        <td className="px-4 py-3 text-right font-sans tabular-nums font-bold text-lg text-slate-900 dark:text-white">{stat.totalPoints}</td>
-                                                        <td className="px-4 py-3 text-right font-sans tabular-nums">{stat.hits4}</td>
-                                                        <td className="px-4 py-3 text-right font-sans tabular-nums">{stat.hits3}</td>
-                                                        <td className="px-4 py-3 text-right font-sans tabular-nums">{stat.hits2}</td>
-                                                        <td className="px-4 py-3 text-right font-sans tabular-nums">{stat.hits1}</td>
-                                                        <td className="px-4 py-3 text-right font-sans tabular-nums text-slate-500">{stat.pitchesSeen}</td>
+                                                        <td className="px-2 sm:px-6 py-2 sm:py-3 font-bold text-slate-900 dark:text-white font-sans text-xs sm:text-base">{stat.name}</td>
+                                                        <td className="px-1 sm:px-4 py-2 sm:py-3 text-right font-sans tabular-nums font-bold text-sm sm:text-lg text-slate-900 dark:text-white">{stat.totalPoints}</td>
+                                                        <td className="px-1 sm:px-4 py-2 sm:py-3 text-right font-sans tabular-nums text-[10px] sm:text-sm">{stat.hits4}</td>
+                                                        <td className="px-1 sm:px-4 py-2 sm:py-3 text-right font-sans tabular-nums text-[10px] sm:text-sm">{stat.hits3}</td>
+                                                        <td className="px-1 sm:px-4 py-2 sm:py-3 text-right font-sans tabular-nums text-[10px] sm:text-sm">{stat.hits2}</td>
+                                                        <td className="px-1 sm:px-4 py-2 sm:py-3 text-right font-sans tabular-nums text-[10px] sm:text-sm">{stat.hits1}</td>
+                                                        <td className="px-1 sm:px-4 py-2 sm:py-3 text-right font-sans tabular-nums text-slate-500 text-[10px] sm:text-sm">{stat.pitchesSeen}</td>
                                                     </tr>
                                                 ))}
                                                 {seasonStats.length === 0 && (
@@ -1004,25 +1004,25 @@ const App: React.FC = () => {
                         <table className="w-full text-left text-sm">
                             <thead className="bg-slate-100 dark:bg-slate-900 text-slate-500 dark:text-slate-400 uppercase font-bold text-xs sticky top-0 z-10 shadow-sm border-b border-slate-200 dark:border-slate-800">
                                 <tr>
-                                    {renderSortHeader('Player', 'name', matchSort, setMatchSort, 'text-left', 'px-6')}
-                                    {renderSortHeader('Total Pts', 'totalPoints', matchSort, setMatchSort)}
+                                    {renderSortHeader('Player', 'name', matchSort, setMatchSort, 'text-left', 'px-2 sm:px-6')}
+                                    {renderSortHeader('Pts', 'totalPoints', matchSort, setMatchSort)}
                                     {renderSortHeader('4s', 'hits4', matchSort, setMatchSort, 'text-right', 'text-rose-600 dark:text-rose-500')}
                                     {renderSortHeader('3s', 'hits3', matchSort, setMatchSort, 'text-right', 'text-amber-600 dark:text-amber-500')}
                                     {renderSortHeader('2s', 'hits2', matchSort, setMatchSort, 'text-right', 'text-green-600 dark:text-green-500')}
                                     {renderSortHeader('1s', 'hits1', matchSort, setMatchSort, 'text-right', 'text-cyan-600 dark:text-cyan-500')}
-                                    {renderSortHeader('Pitches', 'pitchesSeen', matchSort, setMatchSort, 'text-right', 'text-slate-500')}
+                                    {renderSortHeader('Pit', 'pitchesSeen', matchSort, setMatchSort, 'text-right', 'text-slate-500')}
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-slate-600 dark:text-slate-300">
                                 {performSort(statsModalData, matchSort).map(stat => (
                                     <tr key={stat.playerId} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
-                                        <td className="px-6 py-3 font-bold text-slate-900 dark:text-white font-sans">{stat.name}</td>
-                                        <td className="px-4 py-3 text-right font-sans tabular-nums font-bold text-lg text-slate-900 dark:text-white">{stat.totalPoints}</td>
-                                        <td className="px-4 py-3 text-right font-sans tabular-nums">{stat.hits4}</td>
-                                        <td className="px-4 py-3 text-right font-sans tabular-nums">{stat.hits3}</td>
-                                        <td className="px-4 py-3 text-right font-sans tabular-nums">{stat.hits2}</td>
-                                        <td className="px-4 py-3 text-right font-sans tabular-nums">{stat.hits1}</td>
-                                        <td className="px-4 py-3 text-right font-sans tabular-nums text-slate-500">{stat.pitchesSeen}</td>
+                                        <td className="px-2 sm:px-6 py-2 sm:py-3 font-bold text-slate-900 dark:text-white font-sans text-xs sm:text-base">{stat.name}</td>
+                                        <td className="px-1 sm:px-4 py-2 sm:py-3 text-right font-sans tabular-nums font-bold text-sm sm:text-lg text-slate-900 dark:text-white">{stat.totalPoints}</td>
+                                        <td className="px-1 sm:px-4 py-2 sm:py-3 text-right font-sans tabular-nums text-[10px] sm:text-sm">{stat.hits4}</td>
+                                        <td className="px-1 sm:px-4 py-2 sm:py-3 text-right font-sans tabular-nums text-[10px] sm:text-sm">{stat.hits3}</td>
+                                        <td className="px-1 sm:px-4 py-2 sm:py-3 text-right font-sans tabular-nums text-[10px] sm:text-sm">{stat.hits2}</td>
+                                        <td className="px-1 sm:px-4 py-2 sm:py-3 text-right font-sans tabular-nums text-[10px] sm:text-sm">{stat.hits1}</td>
+                                        <td className="px-1 sm:px-4 py-2 sm:py-3 text-right font-sans tabular-nums text-slate-500 text-[10px] sm:text-sm">{stat.pitchesSeen}</td>
                                     </tr>
                                 ))}
                             </tbody>

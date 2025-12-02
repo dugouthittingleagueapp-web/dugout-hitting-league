@@ -1,6 +1,6 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { createPortal } from 'react-dom';
-import { AgeGroup, AppState, Match, Team, Player, League, PlayerStats } from './types';
+import { AgeGroup, AppState, Match, Team, Player, League, PlayerStats, Inning, TieBreakerRound } from './types';
 import { Navbar } from './components/Navbar';
 import { TeamManagement } from './components/TeamManagement';
 import { Scoreboard } from './components/Scoreboard';
@@ -506,6 +506,90 @@ const App: React.FC = () => {
 
   const leagueTeams = teams.filter(t => t.league === state.currentLeague);
 
+  // --- NEW: Standings Calculation ---
+  const standings = useMemo(() => {
+    if (!state.currentLeague) return [];
+    
+    // Initialize stats for all teams in the current league
+    const stats = new Map<string, { id: string, name: string, gp: number, w: number, l: number, t: number, pf: number, pa: number }>();
+    leagueTeams.forEach(t => {
+      stats.set(t.id, { id: t.id, name: t.name, gp: 0, w: 0, l: 0, t: 0, pf: 0, pa: 0 });
+    });
+
+    matches.forEach(m => {
+      if (!m.isComplete) return;
+      
+      const getScore = (innings: Inning[], side: 'home' | 'away', tb?: TieBreakerRound[]) => {
+         let score = innings.reduce((acc, ing) => {
+             const team = side === 'home' ? ing.home : ing.away;
+             return acc + team.playerScores.reduce((pAcc, p) => pAcc + p.pitches.reduce((piAcc, pi) => piAcc + (pi.points || 0), 0), 0);
+         }, 0);
+         if(tb) {
+             tb.forEach(r => {
+                 const rScore = side === 'home' ? r.homeScores : r.awayScores;
+                 score += rScore.reduce((a,b) => a + (b||0), 0);
+             });
+         }
+         return score;
+      };
+
+      const hScore = getScore(m.innings, 'home', m.tieBreaker);
+      const aScore = getScore(m.innings, 'away', m.tieBreaker);
+
+      const update = (id: string, s: number, os: number) => {
+          if (!stats.has(id)) return;
+          const rec = stats.get(id)!;
+          rec.gp++;
+          rec.pf += s;
+          rec.pa += os;
+          if (s > os) rec.w++;
+          else if (s < os) rec.l++;
+          else rec.t++;
+      };
+      
+      update(m.homeTeamId, hScore, aScore);
+      update(m.awayTeamId, aScore, hScore);
+    });
+
+    return Array.from(stats.values()).sort((a, b) => {
+        if (a.w !== b.w) return b.w - a.w;
+        if (a.t !== b.t) return b.t - a.t;
+        if (a.pf !== b.pf) return b.pf - a.pf;
+        return a.pa - b.pa;
+    });
+  }, [matches, leagueTeams, state.currentLeague]);
+
+  // --- NEW: Season Stats Calculation ---
+  const seasonStats = useMemo(() => {
+      if (!state.currentLeague) return [];
+      const aggStats = new Map<string, PlayerStats>();
+      
+      matches.forEach(m => {
+          if (!m.isComplete) return;
+          const home = teams.find(t => t.id === m.homeTeamId);
+          const away = teams.find(t => t.id === m.awayTeamId);
+          if (!home || !away) return;
+          
+          const mStats = storage.calculateMatchStats(m, home, away);
+          mStats.forEach(s => {
+              if (s.playerId.startsWith('ghost-')) return;
+              if (!aggStats.has(s.playerId)) {
+                  aggStats.set(s.playerId, { ...s });
+              } else {
+                  const curr = aggStats.get(s.playerId)!;
+                  curr.totalPoints += s.totalPoints;
+                  curr.hits4 += s.hits4;
+                  curr.hits3 += s.hits3;
+                  curr.hits2 += s.hits2;
+                  curr.hits1 += s.hits1;
+                  curr.pitchesSeen += s.pitchesSeen;
+              }
+          });
+      });
+      return Array.from(aggStats.values());
+  }, [matches, teams, state.currentLeague]);
+
+
   const navbarProps = {
       currentLeague: state.currentLeague,
       currentSeason: state.season,
@@ -745,7 +829,82 @@ const App: React.FC = () => {
                                     {matches.length === 0 && <div className="text-center py-12 text-slate-500 bg-white/40 dark:bg-slate-900/30 rounded-xl border border-slate-300 dark:border-slate-800 border-dashed font-sans">No matches found for this season.</div>}
                                 </div>
                             )}
-                            {/* Other tabs logic remains same, omitted for brevity but functionality preserved */}
+
+                            {state.dashboardTab === 'standings' && (
+                                <div className="bg-white/60 dark:bg-slate-900/60 backdrop-blur-xl rounded-xl shadow-md border border-white/20 dark:border-slate-800 overflow-hidden">
+                                  <div className="overflow-x-auto">
+                                      <table className="w-full text-left text-sm">
+                                          <thead className="bg-slate-100 dark:bg-slate-950 text-slate-500 dark:text-slate-400 font-bold text-xs uppercase border-b border-slate-200 dark:border-slate-800">
+                                              <tr>
+                                                  <th className="px-4 py-3 text-center w-12">#</th>
+                                                  <th className="px-4 py-3">Team</th>
+                                                  <th className="px-4 py-3 text-center">GP</th>
+                                                  <th className="px-4 py-3 text-center">W</th>
+                                                  <th className="px-4 py-3 text-center">L</th>
+                                                  <th className="px-4 py-3 text-center">T</th>
+                                                  <th className="px-4 py-3 text-center">PF</th>
+                                                  <th className="px-4 py-3 text-center">PA</th>
+                                                  <th className="px-4 py-3 text-center hidden sm:table-cell">Diff</th>
+                                              </tr>
+                                          </thead>
+                                          <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                                              {standings.map((t, i) => (
+                                                  <tr key={t.id} className="hover:bg-white/50 dark:hover:bg-slate-800/50 transition-colors">
+                                                      <td className="px-4 py-3 text-center font-bold text-slate-400 dark:text-slate-500">{i + 1}</td>
+                                                      <td className="px-4 py-3 font-bold text-slate-900 dark:text-white text-base">{t.name}</td>
+                                                      <td className="px-4 py-3 text-center text-slate-600 dark:text-slate-300 font-bold">{t.gp}</td>
+                                                      <td className="px-4 py-3 text-center font-bold text-green-600 dark:text-green-500 bg-green-50 dark:bg-green-900/10">{t.w}</td>
+                                                      <td className="px-4 py-3 text-center text-slate-500 dark:text-slate-400">{t.l}</td>
+                                                      <td className="px-4 py-3 text-center text-slate-500 dark:text-slate-400">{t.t}</td>
+                                                      <td className="px-4 py-3 text-center font-bold text-blue-600 dark:text-blue-400 tabular-nums">{t.pf}</td>
+                                                      <td className="px-4 py-3 text-center text-slate-500 dark:text-slate-400 tabular-nums">{t.pa}</td>
+                                                      <td className="px-4 py-3 text-center hidden sm:table-cell font-bold tabular-nums text-slate-500">{t.pf - t.pa}</td>
+                                                  </tr>
+                                              ))}
+                                              {standings.length === 0 && (
+                                                  <tr><td colSpan={9} className="p-8 text-center text-slate-500 italic">No standings available yet.</td></tr>
+                                              )}
+                                          </tbody>
+                                      </table>
+                                  </div>
+                                </div>
+                            )}
+
+                            {state.dashboardTab === 'season_stats' && (
+                                <div className="bg-white/60 dark:bg-slate-900/60 backdrop-blur-xl rounded-xl shadow-md border border-white/20 dark:border-slate-800 overflow-hidden">
+                                    <div className="overflow-x-auto">
+                                        <table className="w-full text-left text-sm">
+                                            <thead className="bg-slate-100 dark:bg-slate-950 text-slate-500 dark:text-slate-400 font-bold text-xs uppercase border-b border-slate-200 dark:border-slate-800 sticky top-0 z-10">
+                                                <tr>
+                                                    {renderSortHeader('Player', 'name', seasonSort, setSeasonSort, 'text-left', 'px-6')}
+                                                    {renderSortHeader('Total Pts', 'totalPoints', seasonSort, setSeasonSort)}
+                                                    {renderSortHeader('4s', 'hits4', seasonSort, setSeasonSort, 'text-right', 'text-rose-600 dark:text-rose-500')}
+                                                    {renderSortHeader('3s', 'hits3', seasonSort, setSeasonSort, 'text-right', 'text-amber-600 dark:text-amber-500')}
+                                                    {renderSortHeader('2s', 'hits2', seasonSort, setSeasonSort, 'text-right', 'text-green-600 dark:text-green-500')}
+                                                    {renderSortHeader('1s', 'hits1', seasonSort, setSeasonSort, 'text-right', 'text-cyan-600 dark:text-cyan-500')}
+                                                    {renderSortHeader('Pitches', 'pitchesSeen', seasonSort, setSeasonSort, 'text-right', 'text-slate-500')}
+                                                </tr>
+                                            </thead>
+                                            <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-slate-600 dark:text-slate-300">
+                                                {performSort(seasonStats, seasonSort).map(stat => (
+                                                    <tr key={stat.playerId} className="hover:bg-white/50 dark:hover:bg-slate-800/50 transition-colors">
+                                                        <td className="px-6 py-3 font-bold text-slate-900 dark:text-white font-sans">{stat.name}</td>
+                                                        <td className="px-4 py-3 text-right font-sans tabular-nums font-bold text-lg text-slate-900 dark:text-white">{stat.totalPoints}</td>
+                                                        <td className="px-4 py-3 text-right font-sans tabular-nums">{stat.hits4}</td>
+                                                        <td className="px-4 py-3 text-right font-sans tabular-nums">{stat.hits3}</td>
+                                                        <td className="px-4 py-3 text-right font-sans tabular-nums">{stat.hits2}</td>
+                                                        <td className="px-4 py-3 text-right font-sans tabular-nums">{stat.hits1}</td>
+                                                        <td className="px-4 py-3 text-right font-sans tabular-nums text-slate-500">{stat.pitchesSeen}</td>
+                                                    </tr>
+                                                ))}
+                                                {seasonStats.length === 0 && (
+                                                  <tr><td colSpan={7} className="p-8 text-center text-slate-500 italic">No player stats recorded yet.</td></tr>
+                                                )}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            )}
                         </div>
                     </div>
                 </div>

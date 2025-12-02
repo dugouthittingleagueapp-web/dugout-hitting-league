@@ -373,7 +373,7 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
                     </div>
                 </td>
                 <td className="px-0.5 sm:px-2 py-1 sm:py-2 align-top">
-                    <div className="grid grid-cols-5 gap-1 sm:flex sm:gap-2 justify-start sm:overflow-x-auto sm:scrollbar-hide py-1 touch-auto">
+                    <div className="flex gap-1 sm:gap-2 justify-start overflow-x-auto scrollbar-hide py-1 touch-auto">
                         {visiblePitches.map((pitch: any, idx: number) => {
                             const realPitchIdx = pitchStartIndex + idx;
                             const displayNum = isGhostRow ? pitchStartIndex + idx + 1 : realPitchIdx + 1;
@@ -432,7 +432,7 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
                             </div>
                         </td>
                         <td className="px-0.5 sm:px-2 py-1 sm:py-2 align-top">
-                            <div className="grid grid-cols-5 gap-1 sm:flex sm:items-center sm:gap-2 justify-start sm:overflow-x-auto sm:scrollbar-hide py-1 touch-auto">
+                            <div className="flex items-center gap-1 sm:gap-2 justify-start overflow-x-auto scrollbar-hide py-1 touch-auto">
                                 {inningData.playerScores[0].pitches.slice(10, 15).map((pitch, idx) => {
                                     const taken = inningData.playerScores[0].pitches.filter((p:any) => p.points !== null).length;
                                     const left = 15 - taken;
@@ -450,7 +450,7 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
                                     />
                                     );
                                 })}
-                                <div className="hidden sm:block w-px h-10 sm:h-14 bg-slate-300 dark:bg-slate-700 mx-1"></div>
+                                <div className="block w-px h-8 sm:h-14 bg-slate-300 dark:bg-slate-700 mx-1 shrink-0"></div>
                                 {inningData.playerScores[1].pitches.slice(10, 15).map((pitch, idx) => {
                                     const taken = inningData.playerScores[1].pitches.filter((p:any) => p.points !== null).length;
                                     const left = 15 - taken;
@@ -530,7 +530,7 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
                                             </div>
                                         </td>
                                         <td className="px-2 py-3 align-top">
-                                            <div className="grid grid-cols-5 gap-2 sm:flex sm:overflow-x-auto sm:scrollbar-hide touch-auto">
+                                            <div className="flex gap-2 overflow-x-auto scrollbar-hide touch-auto">
                                                 {round.awayScores.map((score, pIdx) => {
                                                     const isEditing = activeCell?.side === 'away' && activeCell?.roundIdx === idx && activeCell?.pitchIdx === pIdx;
                                                     return (
@@ -558,7 +558,7 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
                                             </div>
                                         </td>
                                         <td className="px-2 py-3 align-top">
-                                            <div className="grid grid-cols-5 gap-2 sm:flex sm:overflow-x-auto sm:scrollbar-hide touch-auto">
+                                            <div className="flex gap-2 overflow-x-auto scrollbar-hide touch-auto">
                                                 {round.homeScores.map((score, pIdx) => {
                                                     const isEditing = activeCell?.side === 'home' && activeCell?.roundIdx === idx && activeCell?.pitchIdx === pIdx;
                                                     return (

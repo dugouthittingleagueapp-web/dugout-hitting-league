@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { AgeGroup, AppState, Match, Team, Player, League, PlayerStats, Inning, TieBreakerRound } from './types';
@@ -394,7 +395,7 @@ const App: React.FC = () => {
       safeStorage.setItem('userRole', result.role);
       safeStorage.setItem('lastActivity', Date.now().toString());
       setShowLoginModal(false);
-      if (result.role === 'admin') setState(prev => ({...prev, view: 'admin'})); 
+      // Removed automatic redirection to Admin Dashboard for Admins
     } else {
       setLoginError('Incorrect password.');
     }
@@ -848,7 +849,7 @@ const App: React.FC = () => {
                                                 </button>
                                                 
                                                 {userRole === 'admin' && (
-                                                    <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                    <div className="flex gap-2">
                                                         <button onClick={() => setMoveMatchModal({ matchId: match.id, currentLeague: match.league })} className="px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-transparent text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-900/20 font-bold text-xs sm:text-sm transition-all font-sans" title="Move to another league">Move</button>
                                                         <button onClick={() => handleDeleteMatch(match.id)} className="px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-transparent text-red-500 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 hover:border-red-400 dark:hover:border-red-500/50 font-bold text-xs sm:text-sm transition-all font-sans">Del</button>
                                                     </div>

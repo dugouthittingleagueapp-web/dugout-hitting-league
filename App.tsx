@@ -644,6 +644,29 @@ const App: React.FC = () => {
       isMenuOpen: isMenuOpen,
       setMenuOpen: setIsMenuOpen,
   };
+  
+  // Helper to get total scores for display
+  const getMatchScores = (m: Match) => {
+      const getSideScore = (side: 'home' | 'away') => {
+          let total = 0;
+          m.innings.forEach(ing => {
+              const teamData = side === 'home' ? ing.home : ing.away;
+              teamData.playerScores.forEach(p => {
+                  p.pitches.forEach(pt => {
+                      if (pt.points !== null) total += pt.points;
+                  });
+              });
+          });
+          if (m.tieBreaker) {
+              m.tieBreaker.forEach(tb => {
+                  const scores = side === 'home' ? tb.homeScores : tb.awayScores;
+                  scores.forEach(s => { if(s !== null) total += s; });
+              });
+          }
+          return total;
+      };
+      return { home: getSideScore('home'), away: getSideScore('away') };
+  };
 
   return (
     <div className="h-[100dvh] w-full overflow-hidden bg-slate-100 dark:bg-slate-950 text-slate-900 dark:text-slate-200 flex flex-col font-sans relative transition-colors duration-500">
@@ -831,14 +854,33 @@ const App: React.FC = () => {
                                         const home = teams.find(t => t.id === match.homeTeamId);
                                         const away = teams.find(t => t.id === match.awayTeamId);
                                         if (!home || !away) return null;
+                                        
+                                        const { home: homeScore, away: awayScore } = getMatchScores(match);
+
                                         return (
                                             <div key={match.id} className="bg-white/60 dark:bg-slate-900/60 backdrop-blur-xl p-2.5 sm:p-5 rounded-xl shadow-md dark:shadow-sm border border-white/20 dark:border-slate-800 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 sm:gap-4 hover:bg-white/80 dark:hover:bg-slate-800/50 transition-colors group">
                                                 <div className="flex items-center gap-2 sm:gap-4 w-full sm:w-auto min-w-0">
                                                     <div className="shrink-0"><div className={`text-[8px] sm:text-[10px] font-black uppercase tracking-wider px-2 py-1 rounded font-sans border ${match.isComplete ? 'bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border-slate-300 dark:border-slate-700' : 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 border-green-500/30 animate-pulse'}`}>{match.isComplete ? 'FINAL' : 'LIVE'}</div></div>
-                                                    <div className="flex flex-1 sm:flex-auto items-center sm:justify-start sm:gap-8 w-full sm:w-auto min-w-0">
-                                                        <div className="flex-1 sm:flex-none sm:w-32 text-[9px] sm:text-lg font-bold text-red-700 dark:text-red-400 text-center sm:text-right font-sans break-words whitespace-normal min-w-0 leading-tight">{home.name}</div>
-                                                        <div className="shrink-0 text-slate-400 dark:text-slate-600 text-[10px] sm:text-base px-1 sm:px-2 font-sans italic font-bold">VS</div>
-                                                        <div className="flex-1 sm:flex-none sm:w-32 text-[9px] sm:text-lg font-bold text-blue-700 dark:text-blue-400 text-center sm:text-left font-sans break-words whitespace-normal min-w-0 leading-tight">{away.name}</div>
+                                                    
+                                                    <div className="flex flex-1 sm:flex-auto items-center justify-between sm:justify-start sm:gap-6 w-full sm:w-auto min-w-0">
+                                                        {/* Away Team (Left) */}
+                                                        <div className="flex-1 sm:flex-none sm:w-32 text-right sm:text-left min-w-0">
+                                                            <div className="text-[9px] sm:text-lg font-bold text-blue-700 dark:text-blue-400 font-sans break-words whitespace-normal leading-tight">{away.name}</div>
+                                                            <div className="text-[8px] sm:text-[10px] font-bold uppercase text-slate-400">Away</div>
+                                                        </div>
+                                                        
+                                                        {/* Score Center */}
+                                                        <div className="shrink-0 flex items-center justify-center gap-2 px-2 min-w-[60px]">
+                                                            <span className="text-xl sm:text-3xl font-black text-slate-800 dark:text-white tabular-nums tracking-tight">{awayScore}</span>
+                                                            <span className="text-slate-300 dark:text-slate-600 text-lg font-light">-</span>
+                                                            <span className="text-xl sm:text-3xl font-black text-slate-800 dark:text-white tabular-nums tracking-tight">{homeScore}</span>
+                                                        </div>
+
+                                                        {/* Home Team (Right) */}
+                                                        <div className="flex-1 sm:flex-none sm:w-32 text-left sm:text-right min-w-0">
+                                                            <div className="text-[9px] sm:text-lg font-bold text-red-700 dark:text-red-400 font-sans break-words whitespace-normal leading-tight">{home.name}</div>
+                                                            <div className="text-[8px] sm:text-[10px] font-bold uppercase text-slate-400">Home</div>
+                                                        </div>
                                                     </div>
                                                 </div>
                                                 <div className="flex gap-2 w-full sm:w-auto justify-end shrink-0">

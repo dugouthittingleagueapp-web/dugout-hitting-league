@@ -130,13 +130,31 @@ export const Navbar: React.FC<NavbarProps> = ({
         {currentLeague && (
             <div className="w-full border-t border-slate-200 dark:border-slate-800/50">
                 <div className="max-w-7xl mx-auto flex items-center gap-3 px-2 sm:px-6 py-2 sm:py-3 relative z-[900]">
-                    {/* League Indicator (Left) */}
-                    <div className="flex items-center gap-2 bg-white/50 dark:bg-slate-800/50 px-2 sm:px-3 py-1 sm:py-1.5 rounded-md border border-slate-200 dark:border-slate-700/50 shrink-0">
-                        <span className="w-2 h-2 sm:w-2.5 sm:h-2.5 rounded-full bg-green-50 shadow-[0_0_8px_rgba(34,197,94,0.6)]"></span>
-                        <span className="text-[10px] sm:text-xs font-bold uppercase tracking-wider text-slate-600 dark:text-slate-300">{currentLeague} League</span>
+                    {/* League Indicator & Switcher (Left) */}
+                    <div className="relative">
+                        <button 
+                            onClick={() => setShowLeagueMenu(!showLeagueMenu)}
+                            className="flex items-center gap-2 bg-white/50 dark:bg-slate-800/50 hover:bg-white dark:hover:bg-slate-800 px-2 sm:px-3 py-1 sm:py-1.5 rounded-md border border-slate-200 dark:border-slate-700/50 shrink-0 transition-colors group cursor-pointer"
+                        >
+                            <span className="w-2 h-2 sm:w-2.5 sm:h-2.5 rounded-full bg-green-50 shadow-[0_0_8px_rgba(34,197,94,0.6)]"></span>
+                            <span className="text-[10px] sm:text-xs font-bold uppercase tracking-wider text-slate-600 dark:text-slate-300 group-hover:text-blue-600 dark:group-hover:text-blue-400">{currentLeague} League</span>
+                            <svg className="w-3 h-3 text-slate-400 group-hover:text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path></svg>
+                        </button>
+                        
+                        {showLeagueMenu && (
+                            <div className="absolute top-full left-0 mt-2 bg-white dark:bg-slate-900 text-slate-900 dark:text-white rounded-xl shadow-xl py-2 w-48 border border-slate-200 dark:border-slate-800 z-[1001] overflow-hidden animate-in slide-in-from-top-2 fade-in duration-200">
+                                <div className="px-4 py-2 text-[10px] uppercase font-black text-slate-400 dark:text-slate-500 border-b border-slate-200 dark:border-slate-800 mb-1 tracking-wider">Switch League</div>
+                                {sortedLeagues.map(l => (
+                                    <button key={l.id} onClick={() => { onSelectLeague(l.id); setShowLeagueMenu(false); }} className={`w-full text-left px-4 py-3 text-sm font-bold hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors font-sans flex justify-between items-center ${currentLeague === l.id ? 'text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20' : 'text-slate-700 dark:text-slate-300'}`}>
+                                        {l.id}
+                                        {currentLeague === l.id && <span className="text-blue-600 dark:text-blue-400">●</span>}
+                                    </button>
+                                ))}
+                            </div>
+                        )}
                     </div>
 
-                    {/* Controls (Right) - Season & Switch League */}
+                    {/* Controls (Right) - Season Only */}
                     <div className="ml-auto flex items-center gap-4 sm:gap-6 relative z-[1000]">
                         {/* Season Selector */}
                         <div className="relative">
@@ -149,26 +167,6 @@ export const Navbar: React.FC<NavbarProps> = ({
                                     {years.map(year => (
                                         <button key={year} onClick={() => { onSeasonChange(year); setShowSeasonMenu(false); }} className={`w-full text-left px-4 py-2 text-sm font-bold hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors font-sans ${currentSeason === year ? 'text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20' : 'text-slate-600 dark:text-slate-400'}`}>
                                             {year}
-                                        </button>
-                                    ))}
-                                </div>
-                            )}
-                        </div>
-
-                        {/* Switch League */}
-                        <div className="relative">
-                            <button onClick={() => setShowLeagueMenu(!showLeagueMenu)} className="text-[10px] sm:text-xs font-bold uppercase tracking-wider text-slate-500 hover:text-slate-800 dark:hover:text-slate-300 transition-colors flex items-center gap-1">
-                            Switch League
-                            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path></svg>
-                            </button>
-                            
-                            {showLeagueMenu && (
-                                <div className="absolute top-full right-0 mt-2 bg-white dark:bg-slate-900 text-slate-900 dark:text-white rounded-xl shadow-xl py-2 w-48 border border-slate-200 dark:border-slate-800 z-[1001] overflow-hidden animate-in slide-in-from-top-2 fade-in duration-200">
-                                    <div className="px-4 py-2 text-[10px] uppercase font-black text-slate-400 dark:text-slate-500 border-b border-slate-200 dark:border-slate-800 mb-1 tracking-wider">Select League</div>
-                                    {sortedLeagues.map(l => (
-                                        <button key={l.id} onClick={() => { onSelectLeague(l.id); setShowLeagueMenu(false); }} className={`w-full text-left px-4 py-3 text-sm font-bold hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors font-sans flex justify-between items-center ${currentLeague === l.id ? 'text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20' : 'text-slate-700 dark:text-slate-300'}`}>
-                                            {l.id}
-                                            {currentLeague === l.id && <span className="text-blue-600 dark:text-blue-400">●</span>}
                                         </button>
                                     ))}
                                 </div>

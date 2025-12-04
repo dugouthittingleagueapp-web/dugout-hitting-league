@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import * as storage from '../services/storageService';
 import { generateLeagueReport } from '../services/geminiService';
 import { Team, League } from '../types';
+import { UserGuide } from './UserGuide';
 
 export const AdminDashboard: React.FC<{ onBack: () => void }> = ({ onBack }) => {
   const [data, setData] = useState('');
@@ -24,6 +25,8 @@ export const AdminDashboard: React.FC<{ onBack: () => void }> = ({ onBack }) => 
   const [selectedTeamIds, setSelectedTeamIds] = useState<Set<string>>(new Set());
   const [targetLeagueForMove, setTargetLeagueForMove] = useState('');
   const [movingTeams, setMovingTeams] = useState(false);
+
+  const [showGuide, setShowGuide] = useState(false);
 
   useEffect(() => {
     const loadData = async () => { 
@@ -154,7 +157,13 @@ export const AdminDashboard: React.FC<{ onBack: () => void }> = ({ onBack }) => 
   
   return (
     <div className="max-w-5xl mx-auto p-6 pb-24">
-      <div className="flex justify-between items-center mb-8"><h2 className="text-3xl font-bold text-slate-800 dark:text-white font-sans">Admin Dashboard</h2><button onClick={onBack} className="px-4 py-2 bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 rounded text-slate-700 dark:text-slate-300 font-medium font-sans transition-colors">Exit Admin</button></div>
+      <div className="flex justify-between items-center mb-8">
+          <h2 className="text-3xl font-bold text-slate-800 dark:text-white font-sans">Admin Dashboard</h2>
+          <div className="flex gap-3">
+              <button onClick={() => setShowGuide(true)} className="px-4 py-2 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 hover:bg-blue-200 dark:hover:bg-blue-900/50 rounded font-medium font-sans transition-colors">User Guide</button>
+              <button onClick={onBack} className="px-4 py-2 bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 rounded text-slate-700 dark:text-slate-300 font-medium font-sans transition-colors">Exit Admin</button>
+          </div>
+      </div>
       <div className="grid gap-8">
         
         {/* Configuration */}
@@ -273,6 +282,8 @@ export const AdminDashboard: React.FC<{ onBack: () => void }> = ({ onBack }) => 
             <button onClick={handleExport} className="flex items-center gap-2 bg-blue-600 text-white px-5 py-3 rounded-lg hover:bg-blue-700 transition-colors font-sans">Export JSON Database</button>
         </section>
       </div>
+
+      {showGuide && <UserGuide onClose={() => setShowGuide(false)} />}
     </div>
   );
 };

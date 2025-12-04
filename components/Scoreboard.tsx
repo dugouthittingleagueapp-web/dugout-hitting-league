@@ -139,15 +139,6 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
       return () => clearInterval(interval);
   }, [matchId, isReadOnly]);
 
-  // Scroll Locking Effect for Modals
-  useEffect(() => {
-      if (showTieBreakerSetup || showFinishModal) {
-          // document.body.style.overflow = 'hidden'; // Removed, handled by layout or portals
-      } else {
-          // document.body.style.overflow = '';
-      }
-  }, [showTieBreakerSetup, showFinishModal]);
-
   if (loading) return <div className="flex items-center justify-center h-screen text-slate-400 font-bold font-sans">Loading Match Data...</div>;
   if (!match || !teams.home || !teams.away) return <div className="text-center p-8 font-sans">Error loading match</div>;
 

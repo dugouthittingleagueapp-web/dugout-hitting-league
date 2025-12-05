@@ -37,6 +37,18 @@ const safeStorage = {
     }
 };
 
+// Helper to get ISO Week Key (YYYY-Www) to group matches chronologically
+const getWeekKey = (dateStr: string) => {
+    const d = new Date(dateStr);
+    d.setHours(0, 0, 0, 0);
+    // Set to nearest Thursday: current date + 4 - current day number
+    // Make Sunday's day number 7
+    d.setDate(d.getDate() + 4 - (d.getDay() || 7));
+    const yearStart = new Date(d.getFullYear(), 0, 1);
+    const weekNo = Math.ceil(( ( (d.getTime() - yearStart.getTime()) / 86400000) + 1) / 7);
+    return `${d.getFullYear()}-W${weekNo}`;
+};
+
 const App: React.FC = () => {
   // Initialize state from localStorage if available to support "refresh current page"
   const [state, setState] = useState<AppState>(() => {
@@ -71,6 +83,10 @@ const App: React.FC = () => {
   const [selectedHomeId, setSelectedHomeId] = useState('');
   const [selectedAwayId, setSelectedAwayId] = useState('');
   
+  // Weekly State
+  const [matchListWeek, setMatchListWeek] = useState<string>('');
+  const [leaderboardWeek, setLeaderboardWeek] = useState<string>('');
+
   // Theme State - Persisted
   const [isDarkMode, setIsDarkMode] = useState(() => {
       const savedTheme = safeStorage.getItem('dugout_theme');
@@ -131,11 +147,7 @@ const App: React.FC = () => {
   // Scroll Locking for Modals and Menu
   useEffect(() => {
       if (isMenuOpen || showLoginModal || moveMatchModal || statsModalMatch) {
-          // For app-level Modals, we don't need to lock body on 'html' anymore since we have a fixed shell.
-          // But we might want to disable the main scroller.
-          // Since we use a fixed shell structure, basic pointer-events handling or simple overlay is usually enough.
-          // However, keeping previous logic is fine, but targeting the specific container would be better.
-          // Current body lock is redundant with fixed shell but harmless.
+          // No-op
       }
   }, [isMenuOpen, showLoginModal, moveMatchModal, statsModalMatch]);
 
@@ -238,6 +250,52 @@ const App: React.FC = () => {
     }, 5000);
     return () => clearInterval(interval);
   }, [state.view, state.currentLeague, state.season, refreshDashboard]);
+
+  // --- Week Calculation Logic ---
+  const activeWeeks = useMemo(() => {
+      if (!state.currentLeague) return [];
+      
+      const weeksMap = new Map<string, Match[]>();
+      matches.forEach(m => {
+          const key = getWeekKey(m.date);
+          if (!weeksMap.has(key)) weeksMap.set(key, []);
+          weeksMap.get(key)!.push(m);
+      });
+
+      // Sort weeks chronologically by ID (YYYY-Www sorts naturally)
+      const sortedKeys = Array.from(weeksMap.keys()).sort();
+      
+      return sortedKeys.map((key, index) => ({
+          id: key,
+          label: `Week ${index + 1}`,
+          matches: weeksMap.get(key)!
+      }));
+  }, [matches, state.currentLeague]);
+
+  // Determine current week on load/update
+  useEffect(() => {
+      if (activeWeeks.length > 0) {
+          const currentKey = getWeekKey(new Date().toISOString());
+          
+          // Helper to safely set state if not set or if invalid
+          const resolveWeek = (currentVal: string, setter: (v: string) => void) => {
+             // If currently selected week is valid, keep it.
+             if (currentVal && activeWeeks.find(w => w.id === currentVal)) return;
+
+             // Otherwise, try to select "Current Week" (Today)
+             const matchToday = activeWeeks.find(w => w.id === currentKey);
+             if (matchToday) {
+                 setter(currentKey);
+             } else {
+                 // Fallback to the latest week
+                 setter(activeWeeks[activeWeeks.length - 1].id);
+             }
+          };
+
+          resolveWeek(matchListWeek, setMatchListWeek);
+          resolveWeek(leaderboardWeek, setLeaderboardWeek);
+      }
+  }, [activeWeeks]); // Intentionally exclude matchListWeek/leaderboardWeek from deps to avoid reset loops
 
   const handleLogout = useCallback(() => {
       setUserRole('fan');
@@ -432,20 +490,17 @@ const App: React.FC = () => {
   );
 
   const calculateWeeklyLeaders = useCallback(() => {
-      const now = new Date();
-      const oneWeekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-
-      const recentMatches = matches.filter(m => {
-          if (!m.isComplete) return false;
-          const d = new Date(m.date);
-          return d >= oneWeekAgo;
-      });
+      // Find the selected week object, or default to nothing
+      const targetWeek = activeWeeks.find(w => w.id === leaderboardWeek);
+      const targetMatches = targetWeek ? targetWeek.matches : [];
+      
+      const relevantMatches = targetMatches.filter(m => m.isComplete);
 
       // Track unique players by ID to ensure they only appear once with their best score
       const uniqueTotals = new Map<string, { name: string, team: string, score: number }>();
       const uniqueInnings = new Map<string, { name: string, team: string, score: number }>();
 
-      recentMatches.forEach(m => {
+      relevantMatches.forEach(m => {
           const home = teams.find(t => t.id === m.homeTeamId);
           const away = teams.find(t => t.id === m.awayTeamId);
           if (!home || !away) return;
@@ -536,9 +591,13 @@ const App: React.FC = () => {
           topTotals: Array.from(uniqueTotals.values()).sort((a, b) => b.score - a.score).slice(0, 5),
           topInnings: Array.from(uniqueInnings.values()).sort((a, b) => b.score - a.score).slice(0, 5)
       };
-  }, [matches, teams]);
+  }, [matches, teams, leaderboardWeek, activeWeeks]);
 
   const weeklyStats = calculateWeeklyLeaders();
+  const visibleMatches = useMemo(() => {
+      const w = activeWeeks.find(w => w.id === matchListWeek);
+      return w ? w.matches : [];
+  }, [activeWeeks, matchListWeek]);
 
   const leagueTeams = teams.filter(t => t.league === state.currentLeague);
 
@@ -799,10 +858,19 @@ const App: React.FC = () => {
                             <div className="bg-gradient-to-r from-indigo-600 to-purple-700 rounded-xl shadow-xl p-3 sm:p-6 mb-6 sm:mb-8 text-white border border-indigo-500/30 relative overflow-hidden">
                                 <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/carbon-fibre.png')] opacity-10"></div>
                                 <div className="relative z-10">
-                                    <h3 className="font-bold text-white/90 uppercase tracking-wider text-xs sm:text-sm mb-3 sm:mb-4 border-b border-white/20 pb-2 font-sans flex items-center gap-2">
-                                        <svg className="w-4 h-4 text-yellow-400" fill="currentColor" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"></path></svg>
-                                        Weekly Leaders ({state.currentLeague})
-                                    </h3>
+                                    <div className="flex justify-between items-center mb-3 sm:mb-4 border-b border-white/20 pb-2">
+                                        <h3 className="font-bold text-white/90 uppercase tracking-wider text-xs sm:text-sm font-sans flex items-center gap-2">
+                                            <svg className="w-4 h-4 text-yellow-400" fill="currentColor" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"></path></svg>
+                                            Weekly Leaders ({state.currentLeague})
+                                        </h3>
+                                        <select 
+                                            value={leaderboardWeek} 
+                                            onChange={(e) => setLeaderboardWeek(e.target.value)}
+                                            className="bg-black/30 text-white text-[10px] sm:text-xs font-bold rounded px-2 py-1 border border-white/20 outline-none hover:bg-black/50 transition-colors"
+                                        >
+                                            {activeWeeks.length > 0 ? activeWeeks.map(w => <option key={w.id} value={w.id}>{w.label}</option>) : <option>No Data</option>}
+                                        </select>
+                                    </div>
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-8">
                                         <div>
                                             <h4 className="font-bold text-sm sm:text-lg mb-2 font-sans text-indigo-100">Best Total Score</h4>
@@ -819,7 +887,7 @@ const App: React.FC = () => {
                                                         </li>
                                                     ))}
                                                 </ul>
-                                            ) : <p className="text-white/40 italic text-sm font-sans">No matches yet this week.</p>}
+                                            ) : <p className="text-white/40 italic text-sm font-sans">No matches in selected week.</p>}
                                         </div>
                                         <div>
                                             <h4 className="font-bold text-sm sm:text-lg mb-2 font-sans text-purple-100">Best Single Inning</h4>
@@ -836,7 +904,7 @@ const App: React.FC = () => {
                                                         </li>
                                                     ))}
                                                 </ul>
-                                            ) : <p className="text-white/40 italic text-sm font-sans">No matches yet this week.</p>}
+                                            ) : <p className="text-white/40 italic text-sm font-sans">No matches in selected week.</p>}
                                         </div>
                                     </div>
                                 </div>
@@ -850,7 +918,22 @@ const App: React.FC = () => {
 
                             {state.dashboardTab === 'matches' && (
                                 <div className="space-y-3 sm:space-y-4">
-                                    {matches.map(match => {
+                                    {/* Weekly Tabs for Matches */}
+                                    {activeWeeks.length > 0 && (
+                                        <div className="flex gap-2 overflow-x-auto scrollbar-hide pb-2">
+                                            {activeWeeks.map(week => (
+                                                <button 
+                                                    key={week.id}
+                                                    onClick={() => setMatchListWeek(week.id)}
+                                                    className={`px-4 py-2 rounded-lg font-bold text-sm whitespace-nowrap transition-colors border ${matchListWeek === week.id ? 'bg-blue-600 text-white border-blue-600 shadow-lg shadow-blue-900/20' : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800'}`}
+                                                >
+                                                    {week.label}
+                                                </button>
+                                            ))}
+                                        </div>
+                                    )}
+
+                                    {visibleMatches.map(match => {
                                         const home = teams.find(t => t.id === match.homeTeamId);
                                         const away = teams.find(t => t.id === match.awayTeamId);
                                         if (!home || !away) return null;
@@ -900,7 +983,7 @@ const App: React.FC = () => {
                                             </div>
                                         );
                                     })}
-                                    {matches.length === 0 && <div className="text-center py-12 text-slate-500 bg-white/40 dark:bg-slate-900/30 rounded-xl border border-slate-300 dark:border-slate-800 border-dashed font-sans">No matches found for this season.</div>}
+                                    {visibleMatches.length === 0 && <div className="text-center py-12 text-slate-500 bg-white/40 dark:bg-slate-900/30 rounded-xl border border-slate-300 dark:border-slate-800 border-dashed font-sans">No matches found for this week.</div>}
                                 </div>
                             )}
 

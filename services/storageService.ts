@@ -1,3 +1,4 @@
+
 import { AgeGroup, Match, Team, Inning, PlayerInningScore, League, PlayerStats, Player } from '../types';
 
 const mapTeamFromDB = (dbTeam: any): Team => ({
@@ -18,18 +19,25 @@ const mapMatchFromDB = (dbMatch: any): Match => ({
   tieBreaker: dbMatch.tie_breaker ? (typeof dbMatch.tie_breaker === 'string' ? JSON.parse(dbMatch.tie_breaker) : dbMatch.tie_breaker) : undefined
 });
 
+// Helper to format name as First L.
 const formatName = (p: { name: string, lastName?: string }) => 
   `${p.name}${p.lastName ? ' ' + p.lastName.charAt(0) + '.' : ''}`;
 
+// Robust UUID Generator that works in insecure contexts
 export const generateUUID = (): string => {
+    // Try native crypto first if available and secure
     if (typeof crypto !== 'undefined' && crypto.randomUUID) {
         try {
             return crypto.randomUUID();
-        } catch (e) {}
+        } catch (e) {
+            // Fallback if crypto throws (e.g. insecure context)
+        }
     }
+    // Fallback timestamp + random string generator
     return Date.now().toString(36) + Math.random().toString(36).substring(2);
 };
 
+// League Methods
 export const getLeagues = async (): Promise<League[]> => {
   const res = await fetch('/api/leagues');
   if (!res.ok) return [];
@@ -54,6 +62,7 @@ export const deleteLeague = async (id: string) => {
   if (!res.ok) throw new Error('Failed to delete league');
 };
 
+// Team Methods
 export const getTeams = async (league: AgeGroup | null, season: string): Promise<Team[]> => {
   let url = `/api/teams?season=${season}`;
   if (league) url += `&league=${league}`;
@@ -114,6 +123,7 @@ export const deleteTeam = async (teamId: string) => {
   await fetch(`/api/teams?id=${teamId}`, { method: 'DELETE' });
 };
 
+// Match Methods
 export const getMatches = async (league: AgeGroup, season: string): Promise<Match[]> => {
   const res = await fetch(`/api/matches?league=${league}&season=${season}`);
   if (!res.ok) return [];
@@ -164,20 +174,32 @@ export const createMatch = async (league: AgeGroup, homeTeamId: string, awayTeam
 };
 
 const createEmptyInning = (number: number, homeIds: string[], awayIds: string[]): Inning => {
-    const createPlayerScore = (pid: string, limit: number = 10) => ({
-        playerId: pid,
-        pitches: Array(limit).fill(null).map(() => ({ points: null }))
-    });
+    // LOGIC:
+    // 3v3: 10 pitches each (30 vs 30)
+    // 2v2: 10 pitches each (20 vs 20) - Standard scoring per user request
+    // 3v2 / 2v3: The short team gets 15 pitches (Ghost Mode) to balance the 30-pitch team.
 
-    // Ghost Rule: If 3v2, short team gets 15 pitches. 
-    // We embedded "Ghost" logic into real players' turns rather than adding a dummy row.
-    const homeLimit = (homeIds.length === 2 && awayIds.length === 3) ? 15 : 10;
-    const awayLimit = (awayIds.length === 2 && homeIds.length === 3) ? 15 : 10;
+    let homePitches = 10;
+    let awayPitches = 10;
+
+    const homeCount = homeIds.length;
+    const awayCount = awayIds.length;
+
+    if (homeCount === 2 && awayCount === 3) {
+        homePitches = 15; // Ghost Mode for Home
+    } else if (awayCount === 2 && homeCount === 3) {
+        awayPitches = 15; // Ghost Mode for Away
+    }
+
+    const createPlayerScore = (pid: string, count: number) => ({
+        playerId: pid,
+        pitches: Array(count).fill(null).map(() => ({ points: null }))
+    });
 
     return {
         number,
-        home: { teamId: 'home', playerScores: homeIds.map(id => createPlayerScore(id, homeLimit)) },
-        away: { teamId: 'away', playerScores: awayIds.map(id => createPlayerScore(id, awayLimit)) }
+        home: { teamId: 'home', playerScores: homeIds.map(id => createPlayerScore(id, homePitches)) },
+        away: { teamId: 'away', playerScores: awayIds.map(id => createPlayerScore(id, awayPitches)) }
     };
 };
 
@@ -196,133 +218,64 @@ export const deleteMatch = async (matchId: string) => {
     await fetch(`/api/matches?id=${matchId}`, { method: 'DELETE' });
 };
 
-export const restoreTeamRoster = async (
-    matchId: string, 
-    teamId: string, 
-    currentInningIdx: number, 
-    playerToInsert: Player
-): Promise<Match> => {
+export const restoreTeamRoster = async (matchId: string, teamId: string, currentInningIdx: number): Promise<Match> => {
     const match = await getMatch(matchId);
     if (!match) throw new Error("Match not found");
     
+    // Fetch actual team to get full player list
     const allTeams = await getAllTeams();
     const team = allTeams.find(t => t.id === teamId);
     if (!team) throw new Error("Team not found");
 
-    const isMaster = team.players.some(p => p.id === playerToInsert.id);
-    const isExistingSub = team.subs?.some(s => s.id === playerToInsert.id);
-    if (!isMaster && !isExistingSub) {
-        team.subs = [...(team.subs || []), playerToInsert];
-        await updateTeam(team);
-    }
-
     const newInnings = [...match.innings];
-    const isHome = match.homeTeamId === teamId;
+    
+    // Reset future innings.
+    const startResetIdx = currentInningIdx + 1;
 
-    for(let i = currentInningIdx; i < 6; i++) {
-        const teamInningScore = isHome ? newInnings[i].home : newInnings[i].away;
-        const oppInningScore = isHome ? newInnings[i].away : newInnings[i].home;
+    for(let i = startResetIdx; i < 6; i++) {
+        const oldHomeIds = newInnings[i].home.playerScores.map(p => p.playerId);
+        const oldAwayIds = newInnings[i].away.playerScores.map(p => p.playerId);
         
-        const currentInningIds = teamInningScore.playerScores.map(p => p.playerId);
+        const isHome = match.homeTeamId === teamId;
         
-        // 1. Append player if missing
-        if (!currentInningIds.includes(playerToInsert.id)) {
-            teamInningScore.playerScores.push({
-                playerId: playerToInsert.id,
-                pitches: Array(10).fill(null).map(() => ({ points: null }))
-            });
-        }
-
-        const teamCount = teamInningScore.playerScores.length;
-        const oppCount = oppInningScore.playerScores.length;
-
-        // 2. Rescale logic for 3v2 ghost rules
-        if (teamCount === 3 && oppCount === 2) {
-            // Team A went to 3, Team B stays 2. Upgrade Team B to 15.
-            oppInningScore.playerScores.forEach(ps => {
-                if (ps.pitches.length === 10) {
-                    ps.pitches.push(...Array(5).fill(null).map(() => ({ points: null })));
-                }
-            });
-            // Downgrade Team A (if they were somehow at 15)
-            teamInningScore.playerScores.forEach(ps => {
-                if (ps.pitches.length === 15) ps.pitches = ps.pitches.slice(0, 10);
-            });
-        } else if (teamCount === 3 && oppCount === 3) {
-            // Full regulation match now. Downgrade any 15s to 10s.
-            teamInningScore.playerScores.forEach(ps => {
-                if (ps.pitches.length === 15) ps.pitches = ps.pitches.slice(0, 10);
-            });
-            oppInningScore.playerScores.forEach(ps => {
-                if (ps.pitches.length === 15) ps.pitches = ps.pitches.slice(0, 10);
-            });
-        }
+        const newHomeIds = isHome ? team.players.map(p=>p.id) : oldHomeIds;
+        const newAwayIds = !isHome ? team.players.map(p=>p.id) : oldAwayIds;
+        
+        newInnings[i] = createEmptyInning(i+1, newHomeIds, newAwayIds);
     }
     
     const updated = { ...match, innings: newInnings };
     return await updateMatch(updated);
 };
 
-export const updateMatchLineup = async (
-    matchId: string,
-    teamId: string,
-    inningIdx: number,
-    newLineupIds: string[]
-): Promise<Match> => {
-    const match = await getMatch(matchId);
-    if (!match) throw new Error("Match not found");
-
-    const isHome = match.homeTeamId === teamId;
-    const newInnings = [...match.innings];
-
-    // Determine regulation size based on current matchup counts
-    // (Note: this is simplified; in production we'd need to peek at opponent count)
-    const regulationCount = 10; 
-
-    for (let i = inningIdx; i < 6; i++) {
-        const currentTeamData = isHome ? newInnings[i].home : newInnings[i].away;
-        const oldScores = new Map<string, PlayerInningScore>();
-        currentTeamData.playerScores.forEach(ps => oldScores.set(ps.playerId, ps));
-
-        const updatedPlayerScores: PlayerInningScore[] = newLineupIds.map(pid => {
-            const existing = oldScores.get(pid);
-            if (existing) {
-                return { ...existing };
-            }
-            return {
-                playerId: pid,
-                pitches: Array(regulationCount).fill(null).map(() => ({ points: null }))
-            };
-        });
-
-        if (isHome) newInnings[i].home.playerScores = updatedPlayerScores;
-        else newInnings[i].away.playerScores = updatedPlayerScores;
-    }
-
-    return await updateMatch({ ...match, innings: newInnings });
-};
-
+// Stats Calculation Helper
 export const calculateMatchStats = (match: Match, homeTeam: Team, awayTeam: Team): PlayerStats[] => {
     const stats = new Map<string, PlayerStats>();
     
     const initStat = (id: string, name: string): PlayerStats => ({
-        playerId: id, name, totalPoints: 0, hits4: 0, hits3: 0, hits2: 0, hits1: 0, pitchesSeen: 0, gp: 1
+        playerId: id, name, totalPoints: 0, hits4: 0, hits3: 0, hits2: 0, hits1: 0, pitchesSeen: 0
     });
     
+    // Pre-fill players AND subs from the match data
+    // We must iterate the match innings to catch players who might be subs
     const allMatchPlayerIds = new Set<string>();
     match.innings.forEach(i => {
         i.home.playerScores.forEach(p => allMatchPlayerIds.add(p.playerId));
         i.away.playerScores.forEach(p => allMatchPlayerIds.add(p.playerId));
     });
 
-    homeTeam.players.forEach(p => { if(allMatchPlayerIds.has(p.id)) stats.set(p.id, initStat(p.id, formatName(p))); });
-    awayTeam.players.forEach(p => { if(allMatchPlayerIds.has(p.id)) stats.set(p.id, initStat(p.id, formatName(p))); });
+    // Add team players with FORMATTED names
+    homeTeam.players.forEach(p => stats.set(p.id, initStat(p.id, formatName(p))));
+    awayTeam.players.forEach(p => stats.set(p.id, initStat(p.id, formatName(p))));
     
+    // Add any subs that might be in the match but not main roster
+    // Check home subs
     if(homeTeam.subs) {
         homeTeam.subs.forEach(p => {
             if(allMatchPlayerIds.has(p.id)) stats.set(p.id, initStat(p.id, formatName(p)));
         });
     }
+    // Check away subs
     if(awayTeam.subs) {
         awayTeam.subs.forEach(p => {
             if(allMatchPlayerIds.has(p.id)) stats.set(p.id, initStat(p.id, formatName(p)));
@@ -331,36 +284,54 @@ export const calculateMatchStats = (match: Match, homeTeam: Team, awayTeam: Team
 
     match.innings.forEach(inning => {
         [inning.home, inning.away].forEach(teamData => {
-            teamData.playerScores.forEach((ps) => {
+            const isGhostMode = teamData.playerScores.length === 2 && teamData.playerScores[0].pitches.length >= 15;
+            const actualTeamId = teamData.teamId === 'home' ? match.homeTeamId : match.awayTeamId;
+            const ghostId = `ghost-${actualTeamId}`; // Unique ID for this team's ghost
+
+            teamData.playerScores.forEach((ps, idx) => {
                 let pStats = stats.get(ps.playerId);
                 if (!pStats) {
+                     // Handle unknown sub (shouldn't happen if subs array is sync'd, but safety fallback)
                      pStats = initStat(ps.playerId, 'Sub');
                      stats.set(ps.playerId, pStats);
                 }
 
-                ps.pitches.forEach((p, idx) => {
+                // In Ghost mode, only first 10 pitches count for player. 11-15 go to ghost.
+                const playerPitches = isGhostMode ? ps.pitches.slice(0, 10) : ps.pitches;
+                const ghostPitches = isGhostMode ? ps.pitches.slice(10, 15) : [];
+
+                const processPitch = (p: any, statObj: PlayerStats) => {
                     if (p.points !== null) {
-                        // 15-pitch ghost turn check
-                        const isGhostTurn = ps.pitches.length === 15 && idx >= 10;
-                        if (!isGhostTurn) {
-                            pStats!.totalPoints += p.points;
-                            pStats!.pitchesSeen += 1;
-                            if (p.points === 4) pStats!.hits4++;
-                            if (p.points === 3) pStats!.hits3++;
-                            if (p.points === 2) pStats!.hits2++;
-                            if (p.points === 1) pStats!.hits1++;
-                        }
+                        statObj.totalPoints += p.points;
+                        statObj.pitchesSeen += 1;
+                        if (p.points === 4) statObj.hits4++;
+                        if (p.points === 3) statObj.hits3++;
+                        if (p.points === 2) statObj.hits2++;
+                        if (p.points === 1) statObj.hits1++;
                     }
-                });
+                };
+
+                playerPitches.forEach(p => processPitch(p, pStats!));
+                
+                if (ghostPitches.length > 0) {
+                    let ghostStats = stats.get(ghostId);
+                    if (!ghostStats) {
+                        ghostStats = initStat(ghostId, 'Player 3 (Ghost)');
+                        stats.set(ghostId, ghostStats);
+                    }
+                    ghostPitches.forEach(p => processPitch(p, ghostStats!));
+                }
             });
         });
     });
     
+    // Process Tie Breaker
     if(match.tieBreaker) {
         match.tieBreaker.forEach(tb => {
             const addTb = (pid: string, scores: (number|null)[]) => {
                 let s = stats.get(pid);
                 if(!s) { 
+                     // Try to find name in teams/subs if not init
                      const allP = [...homeTeam.players, ...(homeTeam.subs||[]), ...awayTeam.players, ...(awayTeam.subs||[])];
                      const found = allP.find(p=>p.id===pid);
                      s = initStat(pid, found ? formatName(found) : 'Unknown'); 
@@ -399,15 +370,16 @@ export const getTeamStats = async (team: Team, league: AgeGroup, season: string)
         if(home && away) {
             const mStats = calculateMatchStats(m, home, away);
             mStats.forEach(stat => {
+                // Only aggregate for THIS team's players (including subs and ghost)
                 const isMainPlayer = team.players.some(p => p.id === stat.playerId);
                 const isSub = team.subs && team.subs.some(p => p.id === stat.playerId);
+                const isGhost = stat.playerId === `ghost-${team.id}`;
 
-                if(isMainPlayer || isSub) {
+                if(isMainPlayer || isSub || isGhost) {
                      if(!aggStats.has(stat.playerId)) {
                          aggStats.set(stat.playerId, { ...stat });
                      } else {
                          const ex = aggStats.get(stat.playerId)!;
-                         ex.gp += stat.gp;
                          ex.totalPoints += stat.totalPoints;
                          ex.hits4 += stat.hits4;
                          ex.hits3 += stat.hits3;
@@ -420,9 +392,10 @@ export const getTeamStats = async (team: Team, league: AgeGroup, season: string)
         }
     });
 
-    return Array.from(aggStats.values());
+    return Array.from(aggStats.values()).filter(s => !s.playerId.startsWith('ghost-'));
 };
 
+// Settings & Admin
 export const verifyPassword = async (password: string): Promise<{success: boolean, role?: 'admin'|'umpire'}> => {
     const res = await fetch('/api/settings', {
         method: 'POST',

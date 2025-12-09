@@ -71,8 +71,8 @@ export const ScoreInput: React.FC<ScoreInputProps> = ({ pitchNumber, value, pitc
 
   return (
     <>
-      <div className="flex flex-col items-center gap-0.5 min-w-[24px] portrait:min-w-[20px] sm:min-w-[40px]">
-        <div className="bg-slate-200 dark:bg-slate-800 text-slate-500 dark:text-slate-400 text-[8px] portrait:text-[7px] sm:text-[10px] font-bold px-1 rounded-full select-none font-sans">
+      <div className="flex flex-col items-center gap-0.5 min-w-[28px] sm:min-w-[40px]">
+        <div className="bg-slate-200 dark:bg-slate-800 text-slate-500 dark:text-slate-400 text-[8px] sm:text-[10px] font-bold px-1.5 rounded-full select-none font-sans">
             {pitchNumber}
         </div>
         
@@ -80,7 +80,7 @@ export const ScoreInput: React.FC<ScoreInputProps> = ({ pitchNumber, value, pitc
           disabled={readOnly}
           onClick={() => !readOnly && onOpen()}
           aria-label={`Pitch ${pitchNumber}, Score: ${value !== null ? value : 'None'}`}
-          className={`w-7 h-9 portrait:w-6 portrait:h-8 sm:w-14 sm:h-20 rounded sm:rounded-lg flex items-center justify-center text-sm portrait:text-xs sm:text-3xl font-bold shadow-sm border-2 transition-all duration-150 font-sans ${value !== null ? getValueColor(value) : 'border-dashed border-slate-300 dark:border-slate-700 hover:border-slate-400 dark:hover:border-slate-600 bg-slate-50 dark:bg-slate-900/50 text-slate-300 dark:text-slate-600'}`}
+          className={`w-7 h-9 sm:w-14 sm:h-20 rounded sm:rounded-lg flex items-center justify-center text-sm sm:text-3xl font-bold shadow-sm border-2 transition-all duration-150 font-sans ${value !== null ? getValueColor(value) : 'border-dashed border-slate-300 dark:border-slate-700 hover:border-slate-400 dark:hover:border-slate-600 bg-slate-50 dark:bg-slate-900/50 text-slate-300 dark:text-slate-600'}`}
         >
           {value !== null ? value : '-'}
         </button>

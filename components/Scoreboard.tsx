@@ -264,14 +264,17 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
   const saveRosterChange = async (side: 'home' | 'away', playerIds: string[]) => {
       if (isReadOnly || !match) return;
       setLoading(true);
-      const newMatch = { ...match };
+      const newMatch = JSON.parse(JSON.stringify(match)); // Deep clone for safe mutation
       
       const updateInningStructure = (ing: Inning, hIds: string[], aIds: string[]): Inning => {
           const hC = hIds.length;
           const aC = aIds.length;
           let hP = 10, aP = 10;
+          
+          // Apply format shifts: 3v2 or 2v3 = Ghost Mode (15 pitches for the short side)
           if (hC === 2 && aC === 3) hP = 15;
           else if (aC === 2 && hC === 3) aP = 15;
+          // 2v2 or 3v3 = Standard 10 pitches per player
 
           const syncScores = (existingScores: any, newIds: string[], pitchCount: number) => {
               return newIds.map(id => {
@@ -279,9 +282,14 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
                   if (found) {
                       const curLen = found.pitches.length;
                       if (curLen === pitchCount) return found;
-                      if (curLen < pitchCount) return { ...found, pitches: [...found.pitches, ...Array(pitchCount - curLen).fill({ points: null })] };
+                      if (curLen < pitchCount) {
+                          // Append null pitches to meet new ghost limit
+                          return { ...found, pitches: [...found.pitches, ...Array(pitchCount - curLen).fill(null).map(() => ({ points: null }))] };
+                      }
+                      // Slice if limit reduced (should be rare in current rules)
                       return { ...found, pitches: found.pitches.slice(0, pitchCount) };
                   }
+                  // New player added
                   return { playerId: id, pitches: Array(pitchCount).fill(null).map(() => ({ points: null })) };
               });
           };
@@ -293,10 +301,13 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
           };
       };
 
+      // Determine updated ID lists for the current/future sequence
+      // We update starting from the active tab forward
+      const currentHomeLineup = side === 'home' ? playerIds : newMatch.innings[activeInningIdx].home.playerScores.map((p:any) => p.playerId);
+      const currentAwayLineup = side === 'away' ? playerIds : newMatch.innings[activeInningIdx].away.playerScores.map((p:any) => p.playerId);
+
       for (let i = activeInningIdx; i < 6; i++) {
-          const curH = i === activeInningIdx && side === 'away' ? newMatch.innings[i].home.playerScores.map(p => p.playerId) : (side === 'home' ? playerIds : newMatch.innings[i].home.playerScores.map(p => p.playerId));
-          const curA = i === activeInningIdx && side === 'home' ? newMatch.innings[i].away.playerScores.map(p => p.playerId) : (side === 'away' ? playerIds : newMatch.innings[i].away.playerScores.map(p => p.playerId));
-          newMatch.innings[i] = updateInningStructure(newMatch.innings[i], curH, curA);
+          newMatch.innings[i] = updateInningStructure(newMatch.innings[i], currentHomeLineup, currentAwayLineup);
       }
 
       setMatch(newMatch);
@@ -442,7 +453,7 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
 
       {/* Roster Modal */}
       {rosterSide && createPortal(
-          <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/60 p-4">
+          <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/60 p-4" onClick={() => setRosterSide(null)}>
               <div className="bg-white dark:bg-slate-900 p-6 rounded-2xl shadow-2xl w-full max-w-sm" onClick={e => e.stopPropagation()}>
                   <h3 className="text-xl font-bold text-slate-800 dark:text-white mb-4">Edit Roster: {rosterSide === 'home' ? teams.home?.name : teams.away?.name}</h3>
                   <div className="space-y-3 mb-6">

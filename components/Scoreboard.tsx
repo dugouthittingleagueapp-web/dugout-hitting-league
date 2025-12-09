@@ -316,26 +316,20 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
     const team = side === 'home' ? teams.home : teams.away;
     if (!team) return;
     
-    const msg = `Late player arrival? Restore full roster for ${team.name}? 
+    const msg = `Late player arrival? Reset roster for ${team.name}? 
 
-WARNING: This will reset the scoring layout for the CURRENT and all future innings.
+WARNING: This resets the scoring layout for the CURRENT (Inning ${activeInningIdx + 1}) and future innings to match the full team record. 
 
-Any existing scores in the current inning (${activeInningIdx + 1}) will be lost.
-
-Continue?`;
+ALL scores in Inning ${activeInningIdx + 1} will be cleared. Continue?`;
 
     if (confirm(msg)) {
         setLoading(true);
-        setActiveCell(null); // Ensure no dangling input UI
+        setActiveCell(null); 
         try {
             const updatedMatch = await storage.restoreTeamRoster(match.id, team.id, activeInningIdx);
             setMatch(updatedMatch);
-            setActiveCell(null); // Cleanup twice to ensure UI shift is safe
-        } catch (e) { 
-            alert("Failed to reset roster: " + e.message); 
-        } finally {
-            setLoading(false);
-        }
+        } catch (e) { alert("Failed to reset roster."); }
+        setLoading(false);
     }
   };
 

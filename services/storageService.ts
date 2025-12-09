@@ -80,7 +80,6 @@ export const getAllTeams = async (): Promise<Team[]> => {
   return data.map(mapTeamFromDB);
 };
 
-// Fixed shorthand property 'id' error by referencing newTeam.id
 export const createTeam = async (name: string, league: AgeGroup, players: {name: string, lastName?: string}[], season: string, subs: {name: string, lastName?: string}[] = []): Promise<Team> => {
   const newTeam = {
     id: generateUUID(),
@@ -93,7 +92,7 @@ export const createTeam = async (name: string, league: AgeGroup, players: {name:
   const res = await fetch('/api/teams', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ id: newTeam.id, name, league, players: JSON.stringify(newTeam.players), subs: JSON.stringify(newTeam.subs), season })
+    body: JSON.stringify(newTeam)
   });
   if (!res.ok) throw new Error('Failed to save team');
   const data = await res.json();
@@ -218,30 +217,22 @@ export const restoreTeamRoster = async (matchId: string, teamId: string, current
     const match = await getMatch(matchId);
     if (!match) throw new Error("Match not found");
     
-    // Fetch fresh team data to ensure we have the correct player list if an admin updated it recently
-    const teamRes = await fetch(`/api/teams`);
-    const allTeamsData = await teamRes.json();
-    const allTeams = allTeamsData.map(mapTeamFromDB);
-    const team = allTeams.find((t: Team) => t.id === teamId);
-    if (!team) throw new Error("Team not found in database.");
+    const allTeams = await getAllTeams();
+    const team = allTeams.find(t => t.id === teamId);
+    if (!team) throw new Error("Team not found");
 
     const newInnings = [...match.innings];
     const isHome = match.homeTeamId === teamId;
     const fullRosterIds = team.players.map(p => p.id);
 
-    // Update current inning and all future innings
     for(let i = currentInningIdx; i < 6; i++) {
-        const currentInning = newInnings[i];
+        const oldHomeIds = newInnings[i].home.playerScores.map(p => p.playerId);
+        const oldAwayIds = newInnings[i].away.playerScores.map(p => p.playerId);
         
-        // Preserve original layout for the unaffected team
-        const oldHomeIds = currentInning.home.playerScores.map(p => p.playerId);
-        const oldAwayIds = currentInning.away.playerScores.map(p => p.playerId);
+        const currentHomeIds = isHome ? fullRosterIds : oldHomeIds;
+        const currentAwayIds = !isHome ? fullRosterIds : oldAwayIds;
         
-        const nextHomeIds = isHome ? fullRosterIds : oldHomeIds;
-        const nextAwayIds = !isHome ? fullRosterIds : oldAwayIds;
-        
-        // createEmptyInning re-calculates counts to determine if ghost mode is still needed
-        newInnings[i] = createEmptyInning(i+1, nextHomeIds, nextAwayIds);
+        newInnings[i] = createEmptyInning(i+1, currentHomeIds, currentAwayIds);
     }
     
     const updated = { ...match, innings: newInnings };

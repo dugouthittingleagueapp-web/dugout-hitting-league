@@ -21,10 +21,9 @@ A comprehensive management system for youth baseball hitting leagues, designed f
 - **Substitutes:** Ability to add one-time substitutes or "Restore Roster" mid-game if a late player arrives (resetting the scoring format for the remainder of the game).
 - **Live Scoreboard:** Color-coded pitch results (4s, 3s, 2s, 1s, 0s) with distinct visuals.
 
-### 📊 Statistics & AI
+### 📊 Statistics
 - **Automatic Standings:** Real-time calculation of Wins, Losses, Ties, Points For, and Points Against.
 - **Player Leaderboards:** Sortable season stats for Total Points, Hit Types (4/3/2/1), and Pitches Seen.
-- **AI Reports:** Integration with Google Gemini to generate executive summaries of league activity.
 
 ---
 
@@ -33,7 +32,6 @@ A comprehensive management system for youth baseball hitting leagues, designed f
 - **Frontend:** React 19, Vite, Tailwind CSS
 - **Backend:** Vercel Serverless Functions (Node.js)
 - **Database:** Neon (PostgreSQL)
-- **AI:** Google Gemini API
 
 ---
 
@@ -43,7 +41,6 @@ A comprehensive management system for youth baseball hitting leagues, designed f
 - Node.js installed
 - Vercel CLI installed globally: `npm i -g vercel`
 - A Neon PostgreSQL database
-- A Google Gemini API Key
 
 ### 2. Installation
 ```bash
@@ -56,7 +53,6 @@ npm install
 Create a `.env` file in the root directory:
 ```env
 DATABASE_URL="postgres://user:password@your-neon-db-url.neondatabase.app/neondatabase?sslmode=require"
-API_KEY="your_google_gemini_api_key"
 ```
 
 ### 4. Database Initialization
@@ -81,32 +77,4 @@ Access the app at `http://localhost:3000`.
 4. **Framework Preset:** Select **Vite**.
 5. **Environment Variables:** Add the following in the Vercel Project Settings:
    - `DATABASE_URL`: Your Neon connection string.
-   - `API_KEY`: Your Google Gemini API key.
 6. Click **Deploy**.
-
----
-
-## Usage Guide
-
-### Default Passwords
-When the database is first initialized, the default passwords are:
-- **Admin:** `admin`
-- **Umpire:** `umpire`
-*These can be changed in the Admin Dashboard.*
-
-### 2-Player Mode Scoring
-When scoring a game with only 2 players:
-1. The scoreboard will generate a 3rd row labeled "Player 3".
-2. Player 1 hits 15 times. 
-   - Inputs 1-10 appear on Player 1's row.
-   - Inputs 11-15 appear on the Ghost Row (Slots 1-5).
-3. Player 2 hits 15 times.
-   - Inputs 1-10 appear on Player 2's row.
-   - Inputs 11-15 appear on the Ghost Row (Slots 6-10).
-4. The system automatically attributes the ghost row points to "Player 3 (Team Stats)" for statistical purposes.
-
-### Late Player Arrival
-If a 3rd player arrives during a 2-player game:
-1. In the Scoreboard, click **"+ Player Arrived? (Reset)"** (Visible in Innings 2-6).
-2. This resets the scoring format to standard 3-player/10-pitch mode for the **remainder** of the game.
-3. Stats for the new innings will be attributed correctly to the individual players.

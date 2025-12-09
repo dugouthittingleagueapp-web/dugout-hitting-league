@@ -37,10 +37,10 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
 
   const [isEditingCompleted, setIsEditingCompleted] = useState(false);
 
-  // Add Player State
-  const [showAddPlayerModal, setShowAddPlayerModal] = useState(false);
-  const [sideToAdd, setSideToAdd] = useState<'home' | 'away' | null>(null);
-  const [newSubName, setNewSubName] = useState('');
+  // Lineup Edit State
+  const [showEditLineupModal, setShowEditLineupModal] = useState(false);
+  const [editSide, setEditSide] = useState<'home' | 'away' | null>(null);
+  const [tempLineup, setTempLineup] = useState<Player[]>([]);
 
   const activeInningRef = useRef(activeInningIdx);
   const lastLiveInningRef = useRef<number>(-1);
@@ -86,7 +86,6 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
 
   useEffect(() => {
       let wakeLock: any = null;
-
       const requestWakeLock = async () => {
           try {
               if ('wakeLock' in navigator) {
@@ -94,21 +93,9 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
               }
           } catch (err) {}
       };
-
       requestWakeLock();
-
-      const handleVisibilityChange = () => {
-          if (document.visibilityState === 'visible') {
-              requestWakeLock();
-          }
-      };
-
-      document.addEventListener('visibilitychange', handleVisibilityChange);
-
-      return () => {
-          document.removeEventListener('visibilitychange', handleVisibilityChange);
-          if (wakeLock) wakeLock.release().catch(() => {});
-      };
+      document.addEventListener('visibilitychange', () => document.visibilityState === 'visible' && requestWakeLock());
+      return () => wakeLock?.release().catch(() => {});
   }, []);
 
   useEffect(() => {
@@ -153,36 +140,44 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
   const homeTotal = calculateTeamGameTotal('home');
   const awayTotal = calculateTeamGameTotal('away');
 
+  const openEditModal = (side: 'home' | 'away') => {
+      setEditSide(side);
+      const team = side === 'home' ? teams.home! : teams.away!;
+      const inningData = side === 'home' ? currentInning.home : currentInning.away;
+      const lineupIds = inningData.playerScores.map(ps => ps.playerId);
+      const currentLineup = lineupIds.map(id => [...team.players, ...(team.subs || [])].find(p => p.id === id)).filter(Boolean) as Player[];
+      setTempLineup(currentLineup);
+      setShowEditLineupModal(true);
+  };
+
+  const saveNewLineup = async () => {
+      if (!match || !editSide) return;
+      setLoading(true);
+      try {
+          const updated = await storage.updateMatchLineup(match.id, editSide === 'home' ? match.homeTeamId : match.awayTeamId, activeInningIdx, tempLineup.map(p => p.id));
+          setMatch(updated);
+          setShowEditLineupModal(false);
+          setEditSide(null);
+      } catch (e) { alert("Failed to update lineup"); }
+      setLoading(false);
+  };
+
   const startTieBreakerRound = async () => {
       if (!teams.home || !teams.away || !tbHomePlayerId || !tbAwayPlayerId) return;
-
       let nextLimit = 5;
       let roundNum = 1;
-      
       if (match.tieBreaker && match.tieBreaker.length > 0) {
           const lastRound = match.tieBreaker[match.tieBreaker.length - 1];
           roundNum = lastRound.roundNumber + 1;
-          if (lastRound.pitchLimit === 5) nextLimit = 3;
-          else nextLimit = 1;
+          nextLimit = lastRound.pitchLimit === 5 ? 3 : 1;
       }
-
-      const newRound: TieBreakerRound = {
-          roundNumber: roundNum,
-          pitchLimit: nextLimit,
-          homePlayerId: tbHomePlayerId,
-          awayPlayerId: tbAwayPlayerId,
-          homeScores: Array(nextLimit).fill(null),
-          awayScores: Array(nextLimit).fill(null)
-      };
-
+      const newRound: TieBreakerRound = { roundNumber: roundNum, pitchLimit: nextLimit, homePlayerId: tbHomePlayerId, awayPlayerId: tbAwayPlayerId, homeScores: Array(nextLimit).fill(null), awayScores: Array(nextLimit).fill(null) };
       const updatedMatch = { ...match };
       if (!updatedMatch.tieBreaker) updatedMatch.tieBreaker = [];
       updatedMatch.tieBreaker.push(newRound);
       updatedMatch.isComplete = false;
-
       setMatch(updatedMatch);
       await storage.updateMatch(updatedMatch);
-      
       setShowTieBreakerSetup(false);
       setActiveInningIdx(6);
   };
@@ -190,9 +185,7 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
   const handleUndo = async (side: 'home' | 'away', lineupIdx: number, currentPitchIdx: number, roundIdx?: number) => {
       const prevPitchIdx = currentPitchIdx - 1;
       if (prevPitchIdx < 0) return;
-
       const newMatch = { ...match };
-      
       if (roundIdx !== undefined && newMatch.tieBreaker) {
           const round = newMatch.tieBreaker[roundIdx];
           if (side === 'home') round.homeScores[prevPitchIdx] = null;
@@ -204,84 +197,46 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
           teamData.playerScores[lineupIdx].pitches[prevPitchIdx].points = null;
           setActiveCell({ side, lineupIdx, pitchIdx: prevPitchIdx });
       }
-      
       setMatch(newMatch);
-      await storage.updateMatch(newMatch).catch(err => console.error("Undo failed", err));
+      await storage.updateMatch(newMatch).catch(err => console.error(err));
   };
 
   const handleScoreUpdate = async (side: 'home' | 'away', lineupIdx: number, pitchIdx: number, val: number) => {
     if (isReadOnly) return;
-    
     const existingValue = match.innings[activeInningIdx][side].playerScores[lineupIdx].pitches[pitchIdx].points;
     const isEdit = existingValue !== null;
-
     const newMatch = { ...match };
     const inning = newMatch.innings[activeInningIdx];
     const teamData = side === 'home' ? inning.home : inning.away;
-    
     teamData.playerScores[lineupIdx].pitches[pitchIdx].points = val;
     setMatch(newMatch); 
-    
     const isFinalInning = activeInningIdx === 5; 
     let shouldOpenTieBreaker = false;
-
     if (isFinalInning && side === 'home' && !match.isComplete) {
         const isLastPlayer = lineupIdx === teamData.playerScores.length - 1;
         const totalPitches = teamData.playerScores[lineupIdx].pitches.length;
-        const isLastPitch = pitchIdx === totalPitches - 1;
-
-        if (isLastPlayer && isLastPitch) {
-            const newHomeTotal = calculateTeamGameTotal('home', newMatch);
-            const newAwayTotal = calculateTeamGameTotal('away', newMatch);
-            if (newHomeTotal === newAwayTotal) {
-                shouldOpenTieBreaker = true;
-            }
+        if (isLastPlayer && pitchIdx === totalPitches - 1) {
+            if (calculateTeamGameTotal('home', newMatch) === calculateTeamGameTotal('away', newMatch)) shouldOpenTieBreaker = true;
         }
     }
-
     let nextCell = null;
-
     if (!isEdit && !shouldOpenTieBreaker) {
-        const totalPitches = teamData.playerScores[lineupIdx].pitches.length;
-        if (pitchIdx < totalPitches - 1) {
-            nextCell = { side, lineupIdx, pitchIdx: pitchIdx + 1 };
-        }
+        if (pitchIdx < teamData.playerScores[lineupIdx].pitches.length - 1) nextCell = { side, lineupIdx, pitchIdx: pitchIdx + 1 };
     }
-
     setActiveCell(nextCell);
-
-    if (shouldOpenTieBreaker) {
-         setTimeout(() => setShowTieBreakerSetup(true), 500);
-    } else if (!isEdit && activeInningIdx < 5 && !match.isComplete) {
+    if (shouldOpenTieBreaker) setTimeout(() => setShowTieBreakerSetup(true), 500);
+    else if (!isEdit && activeInningIdx < 5 && !match.isComplete) {
         const currentInningData = newMatch.innings[activeInningIdx];
-        const isHomeComplete = currentInningData.home.playerScores.every(p => p.pitches.every(pt => pt.points !== null));
-        const isAwayComplete = currentInningData.away.playerScores.every(p => p.pitches.every(pt => pt.points !== null));
-
-        if (isHomeComplete && isAwayComplete) {
-             setTimeout(() => {
-                 setActiveInningIdx(prev => {
-                    if (prev < 5) return prev + 1;
-                    return prev;
-                 });
-                 setActiveCell(null); 
-             }, 700);
+        if (currentInningData.home.playerScores.every(p => p.pitches.every(pt => pt.points !== null)) && currentInningData.away.playerScores.every(p => p.pitches.every(pt => pt.points !== null))) {
+             setTimeout(() => { setActiveInningIdx(prev => prev < 5 ? prev + 1 : prev); setActiveCell(null); }, 700);
         }
     }
-
-    await storage.updateMatch(newMatch).catch(err => {
-        console.error("Failed to save score", err);
-    });
+    await storage.updateMatch(newMatch).catch(err => console.error(err));
   };
 
   const confirmCompleteGame = async () => {
     if (isReadOnly) return;
-    
-    if (homeTotal === awayTotal) {
-        setShowFinishModal(false);
-        setShowTieBreakerSetup(true);
-        return;
-    }
-
+    if (homeTotal === awayTotal) { setShowFinishModal(false); setShowTieBreakerSetup(true); return; }
     const newMatch = { ...match, isComplete: true };
     setMatch(newMatch);
     await storage.updateMatch(newMatch);
@@ -289,199 +244,91 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
     onExit();
   };
 
-  const handleTieBreakerScore = async (roundIdx: number, side: 'home'|'away', pitchIdx: number, val: number) => {
-      if(!match.tieBreaker) return;
-      
-      const currentRound = match.tieBreaker[roundIdx];
-      const limit = currentRound.pitchLimit;
-      
-      const newMatch = { ...match };
-      const round = newMatch.tieBreaker![roundIdx];
-      
-      const existingVal = side === 'home' ? round.homeScores[pitchIdx] : round.awayScores[pitchIdx];
-      const isEdit = existingVal !== null;
-
-      if (side === 'home') round.homeScores[pitchIdx] = val;
-      else round.awayScores[pitchIdx] = val;
-      
-      setMatch(newMatch); 
-      
-      let nextCell = null;
-      if (!isEdit && pitchIdx < limit - 1) {
-           nextCell = { side, lineupIdx: 0, pitchIdx: pitchIdx + 1, roundIdx };
-      }
-      
-      setActiveCell(nextCell);
-
-      await storage.updateMatch(newMatch);
-  };
-
-  const handleRestoreRoster = async (player: Player) => {
-    if (isReadOnly || !sideToAdd) return;
-    const team = sideToAdd === 'home' ? teams.home : teams.away;
-    if (!team) return;
-    
-    setLoading(true);
-    setActiveCell(null); 
-    try {
-        const updatedMatch = await storage.restoreTeamRoster(match.id, team.id, activeInningIdx, player);
-        setMatch(updatedMatch);
-        setShowAddPlayerModal(false);
-        setSideToAdd(null);
-    } catch (e) { alert("Failed to add player."); }
-    setLoading(false);
-  };
-
   const renderTeamSection = (side: 'home' | 'away', team: Team) => {
     const inningData = side === 'home' ? currentInning.home : currentInning.away;
-    
-    const headerClass = side === 'home' 
-        ? 'bg-red-100 dark:bg-red-950 text-red-900 dark:text-red-100 border-red-200 dark:border-red-900' 
-        : 'bg-blue-100 dark:bg-blue-950 text-blue-900 dark:text-blue-100 border-blue-200 dark:border-blue-900';
-    
+    const headerClass = side === 'home' ? 'bg-red-100 dark:bg-red-950 text-red-900 dark:text-red-100 border-red-200 dark:border-red-900' : 'bg-blue-100 dark:bg-blue-950 text-blue-900 dark:text-blue-100 border-blue-200 dark:border-blue-900';
     const isTwoPlayerGhostMode = inningData.playerScores.length === 2 && inningData.playerScores[0].pitches.length >= 15;
-    const isShortHanded = inningData.playerScores.length < team.players.length;
-    const canRestore = !isReadOnly && isShortHanded && !match.isComplete;
+    const canEdit = !isReadOnly && !match.isComplete;
 
     const renderRow = (playerScore: any, lineupIdx: number, player: any, pitchStartIndex: number, pitchEndIndex: number, isGhostRow = false) => {
          const visiblePitches = playerScore.pitches.slice(pitchStartIndex, pitchEndIndex);
-         const rowTotal = visiblePitches.reduce((sum: number, p: any) => sum + (p.points || 0), 0);
-         
-         let pitchesLeft = 0;
-         if (isTwoPlayerGhostMode) {
-             const allPitches = playerScore.pitches; 
-             const taken = allPitches.filter((p:any) => p.points !== null).length;
-             pitchesLeft = 15 - taken;
-         } else {
-             const taken = playerScore.pitches.filter((p:any) => p.points !== null).length;
-             pitchesLeft = playerScore.pitches.length - taken;
-         }
+         const taken = playerScore.pitches.filter((p:any) => p.points !== null).length;
+         const limit = isGhostRow ? 15 : 10;
+         const pitchesLeft = limit - taken;
 
          return (
             <tr key={`${playerScore.playerId}-${isGhostRow ? 'ghost' : 'norm'}`} className="hover:bg-slate-50/50 dark:hover:bg-white/5 border-b border-slate-100 dark:border-slate-800">
-                <td className="px-0.5 sm:px-2 py-1 sm:py-2 font-medium text-slate-700 dark:text-slate-200 sticky left-0 bg-white dark:bg-slate-900 z-20 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)] border-r border-slate-200 dark:border-slate-700 w-[85px] sm:w-auto max-w-[120px]">
-                    <div className="flex flex-col sm:flex-row items-start sm:items-center gap-1 sm:gap-2">
-                        <div className="flex items-center gap-1.5 sm:gap-2 w-full">
-                            <span className={`text-[8px] sm:text-[10px] font-bold w-4 h-4 sm:w-5 sm:h-5 rounded-full flex items-center justify-center shrink-0 font-sans ${isGhostRow ? 'bg-slate-200 dark:bg-slate-800 text-slate-500 dark:text-slate-400' : 'bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-400'}`}>
-                                {isGhostRow ? '3' : lineupIdx + 1}
-                            </span>
-                            <span className="truncate text-[10px] sm:text-sm font-sans text-slate-900 dark:text-slate-100 font-bold block flex-1">
-                                {isGhostRow ? <span className="italic text-slate-400">Ghost</span> : formatName(player)}
-                            </span>
-                        </div>
+                <td className="px-2 py-2 font-medium sticky left-0 bg-white dark:bg-slate-900 z-20 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)] border-r border-slate-200 dark:border-slate-700 w-[100px] sm:w-auto">
+                    <div className="flex items-center gap-2">
+                        <span className={`text-[10px] font-bold w-5 h-5 rounded-full flex items-center justify-center shrink-0 ${isGhostRow ? 'bg-slate-200 dark:bg-slate-800 text-slate-500' : 'bg-slate-100 dark:bg-slate-800 text-slate-400'}`}>
+                            {isGhostRow ? '3' : lineupIdx + 1}
+                        </span>
+                        <span className="truncate text-sm font-bold text-slate-900 dark:text-white">
+                            {isGhostRow ? <span className="italic text-slate-400">Ghost</span> : formatName(player)}
+                        </span>
                     </div>
                 </td>
-                <td className="px-0.5 sm:px-2 py-1 sm:py-2">
-                    <div className="flex w-full landscape:justify-between gap-1 sm:gap-2 justify-start overflow-x-auto scrollbar-hide py-1 touch-auto">
+                <td className="px-2 py-2">
+                    <div className="flex gap-2 justify-start overflow-x-auto scrollbar-hide py-1">
                         {visiblePitches.map((pitch: any, idx: number) => {
                             const realPitchIdx = pitchStartIndex + idx;
-                            const displayNum = isGhostRow ? pitchStartIndex + idx + 1 : realPitchIdx + 1;
                             const isEditing = activeCell?.side === side && activeCell.lineupIdx === lineupIdx && activeCell.pitchIdx === realPitchIdx;
-                            
                             return (
-                                <ScoreInput 
-                                    key={realPitchIdx} 
-                                    pitchNumber={displayNum} 
-                                    value={pitch.points} 
-                                    pitchesRemaining={pitchesLeft}
-                                    readOnly={isReadOnly || (match.isComplete && !isEditingCompleted)} 
-                                    isEditing={isEditing} 
-                                    onOpen={() => setActiveCell({ side, lineupIdx, pitchIdx: realPitchIdx })} 
-                                    onClose={() => setActiveCell(null)} 
-                                    onChange={(val) => handleScoreUpdate(side, lineupIdx, realPitchIdx, val)} 
-                                    onUndo={realPitchIdx > 0 ? () => handleUndo(side, lineupIdx, realPitchIdx) : undefined}
-                                />
+                                <ScoreInput key={realPitchIdx} pitchNumber={realPitchIdx+1} value={pitch.points} pitchesRemaining={pitchesLeft} readOnly={isReadOnly || (match.isComplete && !isEditingCompleted)} isEditing={isEditing} onOpen={() => setActiveCell({ side, lineupIdx, pitchIdx: realPitchIdx })} onClose={() => setActiveCell(null)} onChange={(val) => handleScoreUpdate(side, lineupIdx, realPitchIdx, val)} onUndo={realPitchIdx > 0 ? () => handleUndo(side, lineupIdx, realPitchIdx) : undefined} />
                             );
                         })}
                     </div>
                 </td>
-                {!isGhostRow && (
-                    <td className="px-1 sm:px-3 py-1 sm:py-2 text-center align-middle border-l border-slate-200 dark:border-slate-700 bg-slate-50/30 dark:bg-slate-800/30">
-                        <div className="text-sm sm:text-base font-sans font-bold tabular-nums text-slate-800 dark:text-white w-5 sm:w-8">{rowTotal}</div>
-                    </td>
-                )}
+                {!isGhostRow && <td className="px-3 py-2 text-center font-bold tabular-nums text-slate-800 dark:text-white border-l border-slate-200 dark:border-slate-700">{visiblePitches.reduce((s:number,p:any)=>s+(p.points||0),0)}</td>}
             </tr>
          );
     };
 
     return (
       <div className="mb-4 sm:mb-8">
-        <div className={`p-1.5 sm:p-3 rounded-t-lg border-b flex justify-between items-end shadow-sm ${headerClass}`}>
-          <div className="flex items-center gap-2 sm:gap-3">
+        <div className={`p-3 rounded-t-lg border-b flex justify-between items-end shadow-sm ${headerClass}`}>
+          <div className="flex items-center gap-3">
              <div>
-                <span className="text-[9px] sm:text-xs font-bold uppercase opacity-80 tracking-wider font-sans">{side === 'home' ? 'Home' : 'Away'}</span>
-                <h3 className="text-[9px] sm:text-xl font-black leading-tight font-sans break-words whitespace-normal">{team.name}</h3>
+                <span className="text-xs font-bold uppercase opacity-80 tracking-wider">Lineup</span>
+                <h3 className="text-xl font-black leading-tight">{team.name}</h3>
              </div>
-             {canRestore && <button onClick={() => { setSideToAdd(side); setShowAddPlayerModal(true); }} className="bg-white/80 dark:bg-slate-800 hover:bg-white text-slate-600 dark:text-slate-300 px-2 py-1 rounded text-[10px] font-bold border border-slate-200 dark:border-slate-700 shadow-sm animate-pulse font-sans">+ Add Player</button>}
+             {canEdit && <button onClick={() => openEditModal(side)} className="bg-white/80 dark:bg-slate-800 text-slate-600 px-3 py-1.5 rounded-lg text-xs font-bold border border-slate-200 dark:border-slate-700 shadow-sm transition-colors hover:bg-white">Edit Lineup</button>}
           </div>
-          <div className="text-lg sm:text-2xl font-sans tabular-nums font-bold">{calculateTeamInningTotal(side, currentInning)} <span className="text-xs sm:text-sm font-normal opacity-60 font-sans">pts</span></div>
+          <div className="text-2xl font-bold">{calculateTeamInningTotal(side, currentInning)} <span className="text-sm font-normal opacity-60">pts</span></div>
         </div>
-        <div className="bg-white dark:bg-slate-900 rounded-b-lg shadow-md border border-slate-200 dark:border-slate-700 overflow-x-auto scrollbar-hide relative touch-auto">
-          <table className="w-full border-collapse">
+        <div className="bg-white dark:bg-slate-900 rounded-b-lg shadow-md border border-slate-200 dark:border-slate-700 overflow-x-auto relative">
+          <table className="w-full">
             <tbody>
               {isTwoPlayerGhostMode ? (
                   <>
-                    {renderRow(inningData.playerScores[0], 0, team.players.find(p=>p.id===inningData.playerScores[0].playerId), 0, 10, false)}
-                    {renderRow(inningData.playerScores[1], 1, team.players.find(p=>p.id===inningData.playerScores[1].playerId), 0, 10, false)}
-                    <tr className="hover:bg-slate-50/50 dark:hover:bg-slate-800/50 bg-slate-50/30 dark:bg-slate-900/30 border-t border-slate-200 dark:border-slate-700">
-                        <td className="px-0.5 sm:px-2 py-1 sm:py-2 font-medium text-slate-700 dark:text-slate-300 sticky left-0 bg-white dark:bg-slate-900 z-20 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)] border-r border-slate-200 dark:border-slate-700 w-[85px] sm:w-auto max-w-[120px]">
-                            <div className="flex items-center gap-1.5 sm:gap-2 w-full">
-                                <span className="text-[8px] sm:text-[10px] font-bold w-4 h-4 sm:w-5 sm:h-5 rounded-full flex items-center justify-center shrink-0 bg-slate-200 dark:bg-slate-800 text-slate-500 dark:text-slate-400 font-sans">3</span>
-                                <span className="truncate text-[10px] sm:text-sm italic text-slate-400 dark:text-slate-500 font-sans flex-1">Ghost</span>
+                    {renderRow(inningData.playerScores[0], 0, team.players.find(p=>p.id===inningData.playerScores[0].playerId), 0, 10)}
+                    {renderRow(inningData.playerScores[1], 1, team.players.find(p=>p.id===inningData.playerScores[1].playerId), 0, 10)}
+                    <tr className="bg-slate-50/30 dark:bg-slate-900/30 border-t border-slate-200 dark:border-slate-700">
+                        <td className="px-2 py-2 font-medium sticky left-0 bg-white dark:bg-slate-900 z-20 border-r border-slate-200 dark:border-slate-700">
+                            <div className="flex items-center gap-2">
+                                <span className="text-[10px] font-bold w-5 h-5 rounded-full flex items-center justify-center bg-slate-200 dark:bg-slate-800 text-slate-500">3</span>
+                                <span className="italic text-slate-400 text-sm">Ghost</span>
                             </div>
                         </td>
-                        <td className="px-0.5 sm:px-2 py-1 sm:py-2">
-                            <div className="flex w-full landscape:justify-between items-center gap-1 sm:gap-2 justify-start overflow-x-auto scrollbar-hide py-1 touch-auto">
-                                {inningData.playerScores[0].pitches.slice(10, 15).map((pitch, idx) => {
-                                    const taken = inningData.playerScores[0].pitches.filter((p:any) => p.points !== null).length;
-                                    const left = 15 - taken;
-                                    const realPitchIdx = 10 + idx;
-                                    const isEditing = activeCell?.side === side && activeCell.lineupIdx === 0 && activeCell.pitchIdx === realPitchIdx;
-                                    return (
-                                    <ScoreInput 
-                                        key={`p1-${realPitchIdx}`} pitchNumber={11+idx} value={pitch.points} 
-                                        pitchesRemaining={left}
-                                        readOnly={isReadOnly || (match.isComplete && !isEditingCompleted)} 
-                                        isEditing={isEditing} 
-                                        onOpen={() => setActiveCell({ side, lineupIdx: 0, pitchIdx: realPitchIdx })} onClose={() => setActiveCell(null)} 
-                                        onChange={(val) => handleScoreUpdate(side, 0, realPitchIdx, val)} 
-                                        onUndo={realPitchIdx > 0 ? () => handleUndo(side, 0, realPitchIdx) : undefined}
-                                    />
-                                    );
+                        <td className="px-2 py-2">
+                            <div className="flex items-center gap-2 justify-start overflow-x-auto py-1">
+                                {inningData.playerScores[0].pitches.slice(10, 15).map((p, idx) => {
+                                    const realIdx = 10+idx;
+                                    const isEditing = activeCell?.side === side && activeCell.lineupIdx === 0 && activeCell.pitchIdx === realIdx;
+                                    return <ScoreInput key={`p1-${realIdx}`} pitchNumber={realIdx+1} value={p.points} isEditing={isEditing} onOpen={() => setActiveCell({side,lineupIdx:0,pitchIdx:realIdx})} onClose={()=>setActiveCell(null)} onChange={(v)=>handleScoreUpdate(side,0,realIdx,v)} onUndo={()=>handleUndo(side,0,realIdx)} />;
                                 })}
-                                <div className="w-px h-10 sm:h-14 bg-slate-300 dark:bg-slate-700 mx-1"></div>
-                                {inningData.playerScores[1].pitches.slice(10, 15).map((pitch, idx) => {
-                                    const taken = inningData.playerScores[1].pitches.filter((p:any) => p.points !== null).length;
-                                    const left = 15 - taken;
-                                    const realPitchIdx = 10 + idx;
-                                    const isEditing = activeCell?.side === side && activeCell.lineupIdx === 1 && activeCell.pitchIdx === realPitchIdx;
-                                    return (
-                                    <ScoreInput 
-                                        key={`p2-${realPitchIdx}`} pitchNumber={11+idx} value={pitch.points} 
-                                        pitchesRemaining={left}
-                                        readOnly={isReadOnly || (match.isComplete && !isEditingCompleted)} 
-                                        isEditing={isEditing} 
-                                        onOpen={() => setActiveCell({ side, lineupIdx: 1, pitchIdx: realPitchIdx })} onClose={() => setActiveCell(null)} 
-                                        onChange={(val) => handleScoreUpdate(side, 1, realPitchIdx, val)} 
-                                        onUndo={realPitchIdx > 0 ? () => handleUndo(side, 1, realPitchIdx) : undefined}
-                                    />
-                                    );
+                                <div className="w-px h-10 bg-slate-300 mx-1"></div>
+                                {inningData.playerScores[1].pitches.slice(10, 15).map((p, idx) => {
+                                    const realIdx = 10+idx;
+                                    const isEditing = activeCell?.side === side && activeCell.lineupIdx === 1 && activeCell.pitchIdx === realIdx;
+                                    return <ScoreInput key={`p2-${realIdx}`} pitchNumber={realIdx+1} value={p.points} isEditing={isEditing} onOpen={() => setActiveCell({side,lineupIdx:1,pitchIdx:realIdx})} onClose={()=>setActiveCell(null)} onChange={(v)=>handleScoreUpdate(side,1,realIdx,v)} onUndo={()=>handleUndo(side,1,realIdx)} />;
                                 })}
                             </div>
                         </td>
-                        <td className="px-1 sm:px-3 py-1 sm:py-2 text-center align-middle border-l border-slate-200 dark:border-slate-700 bg-slate-50/30 dark:bg-slate-800/30">
-                             <div className="text-sm sm:text-base font-sans tabular-nums font-bold text-slate-800 dark:text-slate-200 w-5 sm:w-8">
-                                 {inningData.playerScores[0].pitches.slice(10, 15).reduce((s,p)=>s+(p.points||0),0) + inningData.playerScores[1].pitches.slice(10, 15).reduce((s,p)=>s+(p.points||0),0)}
-                             </div>
-                        </td>
+                        <td className="px-3 py-2 text-center font-bold tabular-nums text-slate-800 dark:text-slate-200 border-l border-slate-200 dark:border-slate-700">{inningData.playerScores[0].pitches.slice(10, 15).reduce((s,p)=>s+(p.points||0),0) + inningData.playerScores[1].pitches.slice(10, 15).reduce((s,p)=>s+(p.points||0),0)}</td>
                     </tr>
                   </>
-              ) : (
-                  inningData.playerScores.map((playerScore, lineupIdx) => {
-                     const player = team.players.find(p => p.id === playerScore.playerId) || team.subs?.find(p => p.id === playerScore.playerId);
-                     return renderRow(playerScore, lineupIdx, player, 0, playerScore.pitches.length, false);
-                  })
-              )}
+              ) : inningData.playerScores.map((ps, idx) => renderRow(ps, idx, [...team.players, ...(team.subs || [])].find(p=>p.id===ps.playerId), 0, 10))}
             </tbody>
           </table>
         </div>
@@ -489,263 +336,113 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
     );
   };
 
-  const renderTieBreakerTab = () => {
-      if (!match.tieBreaker || match.tieBreaker.length === 0) {
-          return <div className="p-8 text-center text-slate-400 font-sans">Extra Innings Data not available.</div>;
-      }
-      
-      return (
-          <div className="space-y-8">
-              {match.tieBreaker.map((round, idx) => {
-                  const isLastRound = idx === match.tieBreaker!.length - 1;
-                  const homePlayer = teams.home?.players.find(p => p.id === round.homePlayerId) || teams.home?.subs?.find(p => p.id === round.homePlayerId);
-                  const awayPlayer = teams.away?.players.find(p => p.id === round.awayPlayerId) || teams.away?.subs?.find(p => p.id === round.awayPlayerId);
-                  
-                  const homeSum = round.homeScores.reduce((a,b)=>(a||0)+(b||0),0);
-                  const awaySum = round.awayScores.reduce((a,b)=>(a||0)+(b||0),0);
-                  
-                  return (
-                    <div key={idx}>
-                         <div className="bg-amber-50 dark:bg-amber-950 p-3 rounded-t-xl border border-amber-200 dark:border-amber-900 flex justify-between items-center">
-                             <h3 className="font-bold text-amber-800 dark:text-amber-100 font-sans text-sm sm:text-base">Extra Innings: Round {round.roundNumber} ({round.pitchLimit} Pitches)</h3>
-                             {isLastRound && !match.isComplete && (
-                                 homeSum === awaySum ? (
-                                    <button onClick={() => startTieBreakerRound()} className="px-3 py-1.5 sm:px-4 sm:py-2 bg-amber-600 hover:bg-amber-700 text-white font-bold rounded-lg text-xs sm:text-sm shadow font-sans">Next Round</button>
-                                 ) : (
-                                    <button onClick={confirmCompleteGame} className="px-3 py-1.5 sm:px-4 sm:py-2 bg-green-600 hover:bg-green-700 text-white font-bold rounded-lg text-xs sm:text-sm shadow font-sans">Finalize Game</button>
-                                 )
-                             )}
-                         </div>
-                         <div className="bg-white dark:bg-slate-900 border-x border-b border-slate-200 dark:border-slate-700 rounded-b-xl overflow-hidden overflow-x-auto touch-auto">
-                             <table className="w-full min-w-[300px]">
-                                 <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                                     <tr className="bg-blue-50/10 dark:bg-blue-900/10">
-                                        <td className="px-4 py-3 font-medium text-slate-700 dark:text-slate-200 w-[120px] sm:w-[150px]">
-                                            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-1 sm:gap-2">
-                                                <span className="text-[10px] font-bold bg-blue-100 dark:bg-blue-900/50 text-blue-600 dark:text-blue-300 px-2 py-0.5 rounded font-sans">Away</span>
-                                                <span className="font-bold text-sm truncate font-sans text-slate-900 dark:text-slate-100 max-w-[80px] sm:max-w-none">{formatName(awayPlayer)}</span>
-                                            </div>
-                                        </td>
-                                        <td className="px-2 py-3">
-                                            <div className="flex gap-2 overflow-x-auto scrollbar-hide touch-auto">
-                                                {round.awayScores.map((score, pIdx) => {
-                                                    const isEditing = activeCell?.side === 'away' && activeCell?.roundIdx === idx && activeCell?.pitchIdx === pIdx;
-                                                    return (
-                                                    <ScoreInput 
-                                                        key={`ot-away-${idx}-${pIdx}`} pitchNumber={pIdx+1} value={score}
-                                                        readOnly={isReadOnly || (match.isComplete && !isEditingCompleted)}
-                                                        isEditing={isEditing}
-                                                        onOpen={() => setActiveCell({ side: 'away', lineupIdx: 0, pitchIdx: pIdx, roundIdx: idx })}
-                                                        onClose={() => setActiveCell(null)}
-                                                        onChange={(val) => handleTieBreakerScore(idx, 'away', pIdx, val)}
-                                                        onUndo={pIdx > 0 ? () => handleUndo('away', 0, pIdx, idx) : undefined}
-                                                    />
-                                                    );
-                                                })}
-                                            </div>
-                                        </td>
-                                        <td className="px-4 py-3 font-bold text-xl text-center font-sans tabular-nums bg-slate-50/50 dark:bg-slate-800/50 dark:text-white">{awaySum}</td>
-                                     </tr>
-                                     <tr className="bg-red-50/10 dark:bg-red-900/10">
-                                        <td className="px-4 py-3 font-medium text-slate-700 dark:text-slate-200 w-[120px] sm:w-[150px]">
-                                            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-1 sm:gap-2">
-                                                <span className="text-[10px] font-bold bg-red-100 dark:bg-red-900/50 text-red-600 dark:text-red-300 px-2 py-0.5 rounded font-sans">Home</span>
-                                                <span className="font-bold text-sm truncate font-sans text-slate-900 dark:text-slate-100 max-w-[80px] sm:max-w-none">{formatName(homePlayer)}</span>
-                                            </div>
-                                        </td>
-                                        <td className="px-2 py-3">
-                                            <div className="flex gap-2 overflow-x-auto scrollbar-hide touch-auto">
-                                                {round.homeScores.map((score, pIdx) => {
-                                                    const isEditing = activeCell?.side === 'home' && activeCell?.roundIdx === idx && activeCell?.pitchIdx === pIdx;
-                                                    return (
-                                                    <ScoreInput 
-                                                        key={`ot-home-${idx}-${pIdx}`} pitchNumber={pIdx+1} value={score}
-                                                        readOnly={isReadOnly || (match.isComplete && !isEditingCompleted)}
-                                                        isEditing={isEditing}
-                                                        onOpen={() => setActiveCell({ side: 'home', lineupIdx: 0, pitchIdx: pIdx, roundIdx: idx })}
-                                                        onClose={() => setActiveCell(null)}
-                                                        onChange={(val) => handleTieBreakerScore(idx, 'home', pIdx, val)}
-                                                        onUndo={pIdx > 0 ? () => handleUndo('home', 0, pIdx, idx) : undefined}
-                                                    />
-                                                    );
-                                                })}
-                                            </div>
-                                        </td>
-                                        <td className="px-4 py-3 font-bold text-xl text-center font-sans tabular-nums bg-slate-50/50 dark:bg-slate-800/50 dark:text-white">{homeSum}</td>
-                                     </tr>
-                                 </tbody>
-                             </table>
-                         </div>
-                    </div>
-                  );
-              })}
-          </div>
-      );
-  };
-
-  const shooterDropdown = (side: 'home' | 'away') => {
-      const team = side === 'home' ? teams.home : teams.away;
-      if (!team) return null;
-      
-      const appearedIds = new Set<string>();
-      match.innings.forEach(ing => {
-          (side === 'home' ? ing.home : ing.away).playerScores.forEach(ps => appearedIds.add(ps.playerId));
-      });
-      
-      const candidates = [...team.players, ...(team.subs || [])].filter(p => appearedIds.has(p.id));
-
-      return (
-          <select 
-            className="w-full p-3 border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 rounded-lg font-bold text-slate-800 dark:text-white font-sans"
-            value={side === 'home' ? tbHomePlayerId : tbAwayPlayerId}
-            onChange={e => side === 'home' ? setTbHomePlayerId(e.target.value) : setTbAwayPlayerId(e.target.value)}
-          >
-              {candidates.map(p => <option key={p.id} value={p.id}>{formatName(p)}</option>)}
-          </select>
-      );
-  };
+  const isFinalizingReady = activeInningIdx === 5 && match.innings[5].home.playerScores.every(p => p.pitches.every(pt => pt.points !== null));
 
   return (
-    <div className="min-h-full w-full overflow-x-hidden bg-transparent pb-20 font-sans">
+    <div className="min-h-full w-full bg-transparent pb-24 relative">
       <header className="bg-white/80 dark:bg-slate-950/90 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 sticky top-0 z-[50] shadow-sm">
-        <div className="max-w-7xl mx-auto px-2 sm:px-4 py-1.5 sm:py-3 flex justify-between items-center gap-2 sm:gap-4">
-          <div className="flex gap-2 sm:gap-8 items-center flex-1 min-w-0">
-            <div className="text-center flex-1 min-w-0">
-                <div className="text-[8px] sm:text-xs text-slate-500 dark:text-slate-400 uppercase font-bold font-sans">Away</div>
-                <div className="text-[9px] sm:text-xl font-bold text-blue-700 dark:text-blue-400 break-words whitespace-normal w-full font-sans px-1 leading-tight">{teams.away.name}</div>
-                <div className="text-lg sm:text-2xl font-sans tabular-nums leading-none dark:text-white">{awayTotal}</div>
+        <div className="max-w-7xl mx-auto px-4 py-3 flex justify-between items-center gap-4">
+          <div className="flex gap-8 items-center flex-1">
+            <div className="text-center flex-1">
+                <div className="text-xs text-slate-500 uppercase font-bold">Away</div>
+                <div className="text-xl font-bold text-blue-700 dark:text-blue-400">{teams.away.name}</div>
+                <div className="text-2xl font-black dark:text-white tabular-nums">{awayTotal}</div>
             </div>
-            <div className="text-slate-300 dark:text-slate-600 text-base sm:text-xl font-light font-sans">vs</div>
-            <div className="text-center flex-1 min-w-0">
-                <div className="text-[8px] sm:text-xs text-slate-500 dark:text-slate-400 uppercase font-bold font-sans">Home</div>
-                <div className="text-[9px] sm:text-xl font-bold text-red-700 dark:text-red-400 break-words whitespace-normal w-full font-sans px-1 leading-tight">{teams.home.name}</div>
-                <div className="text-lg sm:text-2xl font-sans tabular-nums leading-none dark:text-white">{homeTotal}</div>
+            <div className="text-slate-300 text-xl font-light">vs</div>
+            <div className="text-center flex-1">
+                <div className="text-xs text-slate-500 uppercase font-bold">Home</div>
+                <div className="text-xl font-bold text-red-700 dark:text-red-400">{teams.home.name}</div>
+                <div className="text-2xl font-black dark:text-white tabular-nums">{homeTotal}</div>
             </div>
           </div>
-          <div className="flex items-center gap-2 shrink-0">
-            {isReadOnly && <div className="flex items-center gap-1.5 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 px-3 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-wider animate-pulse font-sans"><span className="w-2 h-2 rounded-full bg-red-600"></span>LIVE</div>}
-            
-            {!isReadOnly && !match.isComplete && !isExtraInnings && <button onClick={() => setShowFinishModal(true)} className="bg-green-600 hover:bg-green-700 text-white text-xs sm:text-sm font-bold py-2 px-3 sm:px-4 rounded-lg shadow-sm transition-colors font-sans">Complete</button>}
-            
+          <div className="flex items-center gap-2">
             {!isReadOnly && match.isComplete && (
-                <button 
-                    onClick={() => setIsEditingCompleted(!isEditingCompleted)} 
-                    className={`text-xs sm:text-sm font-bold py-2 px-3 rounded-lg transition-colors font-sans border ${isEditingCompleted ? 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 border-amber-300 dark:border-amber-700' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-slate-300 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-700'}`}
-                >
+                <button onClick={() => setIsEditingCompleted(!isEditingCompleted)} className={`text-sm font-bold py-2 px-3 rounded-lg border transition-colors ${isEditingCompleted ? 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 border-amber-300' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 border-slate-300'}`}>
                     {isEditingCompleted ? 'Lock Score' : 'Edit Score'}
                 </button>
             )}
-
-            <button onClick={onExit} className="text-xs sm:text-sm font-bold text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-white bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 py-2 px-3 rounded-lg transition-colors font-sans">Exit</button>
+            <button onClick={onExit} className="text-sm font-bold text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 py-2 px-3 rounded-lg transition-colors">Exit</button>
           </div>
         </div>
-        <div className="flex overflow-x-auto scrollbar-hide border-t border-slate-100 dark:border-slate-800 touch-auto">
+        <div className="flex overflow-x-auto border-t border-slate-100 dark:border-slate-800">
             {match.innings.map((ing, idx) => (
-                <button key={ing.number} onClick={() => setActiveInningIdx(idx)} className={`flex-1 py-1.5 sm:py-3 text-[10px] sm:text-sm font-bold uppercase tracking-wider border-b-2 transition-colors min-w-[60px] sm:min-w-[80px] font-sans ${idx === activeInningIdx ? 'border-blue-600 text-blue-600 dark:text-blue-400 bg-blue-50/50 dark:bg-blue-900/20' : 'border-transparent text-slate-400 dark:text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800'}`}>Inning {ing.number}</button>
+                <button key={ing.number} onClick={() => setActiveInningIdx(idx)} className={`flex-1 py-3 text-xs font-bold uppercase tracking-wider border-b-2 transition-colors ${idx === activeInningIdx ? 'border-blue-600 text-blue-600 dark:text-blue-400 bg-blue-50/50 dark:bg-blue-900/20' : 'border-transparent text-slate-400 hover:bg-slate-50'}`}>Inning {ing.number}</button>
             ))}
-            {(match.tieBreaker && match.tieBreaker.length > 0) && (
-                <button onClick={() => setActiveInningIdx(6)} className={`flex-1 py-1.5 sm:py-3 text-[10px] sm:text-sm font-bold uppercase tracking-wider border-b-2 transition-colors min-w-[100px] sm:min-w-[120px] font-sans ${activeInningIdx === 6 ? 'border-amber-500 text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20' : 'border-transparent text-amber-500 hover:bg-amber-50 dark:hover:bg-amber-900/10'}`}>Extra Innings</button>
-            )}
+            {(match.tieBreaker?.length ?? 0) > 0 && <button onClick={() => setActiveInningIdx(6)} className={`flex-1 py-3 text-xs font-bold uppercase tracking-wider border-b-2 transition-colors ${activeInningIdx === 6 ? 'border-amber-500 text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20' : 'border-transparent text-amber-500'}`}>Extra</button>}
         </div>
       </header>
       
-      <main className="max-w-5xl mx-auto p-2 sm:p-4 mt-2 sm:mt-4">
-          {isExtraInnings ? renderTieBreakerTab() : (
-              <>
-                {renderTeamSection('away', teams.away)}
-                {renderTeamSection('home', teams.home)}
-              </>
+      <main className="max-w-5xl mx-auto p-4">
+          {isExtraInnings ? null : <>{renderTeamSection('away', teams.away)}{renderTeamSection('home', teams.home)}</>}
+          
+          {!isReadOnly && isFinalizingReady && !match.isComplete && (
+              <div className="mt-12 flex justify-center">
+                  <button onClick={() => setShowFinishModal(true)} className="px-12 py-5 bg-green-600 hover:bg-green-700 text-white font-black rounded-2xl shadow-xl shadow-green-900/30 transform hover:scale-105 active:scale-95 transition-all uppercase tracking-widest text-lg">Finalize Match</button>
+              </div>
           )}
       </main>
 
-      {showAddPlayerModal && sideToAdd && createPortal(
-          <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/80 backdrop-blur-sm animate-in fade-in duration-300" onClick={() => setShowAddPlayerModal(false)}>
-              <div className="bg-white dark:bg-slate-900 p-6 sm:p-8 rounded-2xl shadow-2xl w-[90%] max-w-md font-sans transform scale-100 animate-in zoom-in-95 border border-slate-200 dark:border-slate-700 overflow-hidden flex flex-col max-h-[90vh]" onClick={e => e.stopPropagation()}>
-                  <h2 className="text-xl font-bold text-slate-800 dark:text-white mb-4 text-center font-sans">Add Player to {sideToAdd === 'home' ? teams.home?.name : teams.away?.name}</h2>
-                  
-                  <div className="flex-1 overflow-y-auto pr-1">
-                      <div className="mb-6 space-y-3">
-                          <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase mb-1 font-sans">Master Roster Players</label>
-                          <div className="space-y-2">
-                            {(() => {
-                                const team = sideToAdd === 'home' ? teams.home : teams.away;
-                                const inningData = sideToAdd === 'home' ? currentInning.home : currentInning.away;
-                                const activeInMatchIds = inningData.playerScores.map(p => p.playerId);
-                                const missingPlayers = team?.players.filter(p => !activeInMatchIds.includes(p.id)) || [];
+      {/* Edit Lineup Modal */}
+      {showEditLineupModal && editSide && createPortal(
+          <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/80 backdrop-blur-sm p-4" onClick={() => setShowEditLineupModal(false)}>
+              <div className="bg-white dark:bg-slate-900 p-6 rounded-2xl shadow-2xl w-full max-w-lg border border-slate-200 dark:border-slate-800" onClick={e => e.stopPropagation()}>
+                  <h2 className="text-2xl font-bold mb-6 flex justify-between items-center">
+                      <span>Edit {editSide === 'home' ? teams.home!.name : teams.away!.name} Lineup</span>
+                      <span className="text-xs font-bold bg-slate-100 px-2 py-1 rounded text-slate-500">Inning {activeInningIdx + 1}</span>
+                  </h2>
 
-                                if (missingPlayers.length === 0) return <p className="text-sm italic text-slate-500">No missing roster players.</p>;
-                                
-                                return missingPlayers.map(p => (
-                                    <button key={p.id} onClick={() => handleRestoreRoster(p)} className="w-full flex items-center justify-between p-3 rounded-lg bg-slate-50 dark:bg-slate-800 hover:bg-blue-50 dark:hover:bg-blue-900/20 border border-slate-200 dark:border-slate-700 transition-all font-sans group">
-                                        <span className="font-bold text-slate-700 dark:text-slate-200 group-hover:text-blue-600 dark:group-hover:text-blue-400">{formatName(p)}</span>
-                                        <span className="text-xs bg-slate-200 dark:bg-slate-700 group-hover:bg-blue-500 group-hover:text-white px-2 py-1 rounded font-bold">Add</span>
-                                    </button>
-                                ));
-                            })()}
+                  <div className="space-y-3 mb-8">
+                      {tempLineup.map((p, idx) => (
+                          <div key={p.id} className="flex items-center gap-4 p-4 bg-slate-50 dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700">
+                              <span className="w-8 h-8 rounded-full bg-slate-200 dark:bg-slate-950 flex items-center justify-center font-bold text-slate-500">{idx+1}</span>
+                              <span className="flex-1 font-bold text-slate-800 dark:text-white">{formatName(p)}</span>
+                              <div className="flex gap-1">
+                                  <button onClick={() => {
+                                      const next = [...tempLineup];
+                                      if(idx > 0) { [next[idx], next[idx-1]] = [next[idx-1], next[idx]]; setTempLineup(next); }
+                                  }} className="p-2 hover:bg-slate-200 rounded">▲</button>
+                                  <button onClick={() => {
+                                      const next = [...tempLineup];
+                                      if(idx < next.length-1) { [next[idx], next[idx+1]] = [next[idx+1], next[idx]]; setTempLineup(next); }
+                                  }} className="p-2 hover:bg-slate-200 rounded">▼</button>
+                              </div>
+                              <button onClick={() => setTempLineup(tempLineup.filter(x => x.id !== p.id))} className="text-red-500 p-2 hover:bg-red-50 rounded">Remove</button>
                           </div>
-                      </div>
-
-                      <div className="border-t border-slate-200 dark:border-slate-800 pt-6">
-                          <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase mb-2 font-sans">New Substitute/Guest</label>
-                          <div className="flex gap-2">
-                              <input 
-                                type="text" 
-                                className="flex-1 p-3 border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 rounded-lg font-sans text-slate-900 dark:text-white outline-none focus:ring-2 focus:ring-blue-500" 
-                                placeholder="Player Name"
-                                value={newSubName}
-                                onChange={e => setNewSubName(e.target.value)}
-                              />
-                              <button 
-                                disabled={!newSubName.trim()}
-                                onClick={() => handleRestoreRoster({ id: storage.generateUUID(), name: newSubName.trim() })}
-                                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white font-bold rounded-lg font-sans"
-                              >
-                                Add
-                              </button>
+                      ))}
+                      {tempLineup.length < 3 && (
+                          <div className="pt-4 border-t border-dashed">
+                              <p className="text-xs text-slate-400 font-bold uppercase mb-2">Available to Add</p>
+                              <div className="flex flex-wrap gap-2">
+                                  {[...(editSide === 'home' ? teams.home!.players : teams.away!.players), ...(editSide === 'home' ? teams.home!.subs ?? [] : teams.away!.subs ?? [])]
+                                    .filter(x => !tempLineup.find(l => l.id === x.id))
+                                    .map(p => (
+                                        <button key={p.id} onClick={() => setTempLineup([...tempLineup, p])} className="px-3 py-1.5 bg-blue-50 text-blue-600 rounded-lg text-xs font-bold border border-blue-200 hover:bg-blue-100 transition-colors">
+                                            + {formatName(p)}
+                                        </button>
+                                    ))
+                                  }
+                              </div>
                           </div>
-                      </div>
+                      )}
                   </div>
 
-                  <button onClick={() => setShowAddPlayerModal(false)} className="w-full mt-6 py-3 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 font-bold rounded-xl font-sans">Cancel</button>
-              </div>
-          </div>,
-          document.body
-      )}
-
-      {showTieBreakerSetup && createPortal(
-          <div className="fixed inset-0 z-[70] flex items-center justify-center bg-slate-900/80 backdrop-blur-sm animate-in fade-in duration-300">
-              <div className="bg-white dark:bg-slate-900 p-6 sm:p-8 rounded-2xl shadow-2xl w-[90%] max-w-md font-sans transform scale-100 animate-in zoom-in-95 border border-slate-200 dark:border-slate-700">
-                  <h2 className="text-xl font-bold text-slate-800 dark:text-white mb-4 text-center font-sans">Tie Breaker Setup</h2>
-                  <p className="text-slate-500 dark:text-slate-400 mb-6 text-center font-sans text-sm">Regulation ended in a tie! Select one shooter from each team for overtime.</p>
-                  
-                  <div className="space-y-4 mb-6">
-                      <div>
-                          <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase mb-1 font-sans">Home Shooter</label>
-                          {shooterDropdown('home')}
-                      </div>
-                      <div>
-                          <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase mb-1 font-sans">Away Shooter</label>
-                          {shooterDropdown('away')}
-                      </div>
+                  <div className="flex gap-4">
+                      <button onClick={() => setShowEditLineupModal(false)} className="flex-1 py-4 bg-slate-100 rounded-xl font-bold text-slate-600">Cancel</button>
+                      <button onClick={saveNewLineup} className="flex-1 py-4 bg-blue-600 rounded-xl font-bold text-white shadow-lg">Confirm Lineup</button>
                   </div>
-                  
-                  <button onClick={startTieBreakerRound} className="w-full py-3 bg-amber-600 hover:bg-amber-700 text-white font-bold rounded-xl shadow-lg shadow-amber-900/20 transition-all font-sans">Start Overtime</button>
               </div>
           </div>,
           document.body
       )}
 
       {showFinishModal && createPortal(
-          <div className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-900/80 backdrop-blur-sm animate-in fade-in duration-300">
-              <div className="bg-white dark:bg-slate-900 p-6 sm:p-8 rounded-2xl shadow-2xl w-[90%] max-w-sm text-center font-sans transform scale-100 animate-in zoom-in-95 border border-slate-200 dark:border-slate-700">
-                  <div className="w-16 h-16 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center mx-auto mb-4">
-                      <svg className="w-8 h-8 text-green-600 dark:text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path></svg>
-                  </div>
-                  <h2 className="text-2xl font-bold text-slate-800 dark:text-white mb-2 font-sans">Finish Match?</h2>
-                  <p className="text-slate-500 dark:text-slate-400 mb-6 font-sans">This will finalize the score and update league standings. This cannot be undone.</p>
-                  <div className="flex gap-3">
-                      <button onClick={() => setShowFinishModal(false)} className="flex-1 py-3 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 font-bold rounded-xl hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors font-sans">Cancel</button>
-                      <button onClick={confirmCompleteGame} className="flex-1 py-3 bg-green-600 text-white font-bold rounded-xl hover:bg-green-700 shadow-lg shadow-green-900/20 transition-colors font-sans">Confirm</button>
+          <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/80 backdrop-blur-sm p-4">
+              <div className="bg-white dark:bg-slate-900 p-8 rounded-3xl shadow-2xl w-full max-w-sm text-center">
+                  <h2 className="text-2xl font-bold mb-4">Finalize Game?</h2>
+                  <p className="text-slate-500 mb-8">Scoreboard will be locked and league standings updated.</p>
+                  <div className="flex gap-4">
+                      <button onClick={() => setShowFinishModal(false)} className="flex-1 py-4 bg-slate-100 rounded-xl font-bold text-slate-600">Back</button>
+                      <button onClick={confirmCompleteGame} className="flex-1 py-4 bg-green-600 rounded-xl font-bold text-white shadow-lg shadow-green-900/30">Finish</button>
                   </div>
               </div>
           </div>,

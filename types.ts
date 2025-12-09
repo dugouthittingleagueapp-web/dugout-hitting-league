@@ -71,6 +71,7 @@ export interface PlayerStats {
   hits2: number;
   hits1: number;
   pitchesSeen: number;
+  gp: number;
 }
 
 export interface AppState {

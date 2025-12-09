@@ -271,7 +271,7 @@ export const calculateMatchStats = (match: Match, homeTeam: Team, awayTeam: Team
     const stats = new Map<string, PlayerStats>();
     
     const initStat = (id: string, name: string): PlayerStats => ({
-        playerId: id, name, totalPoints: 0, hits4: 0, hits3: 0, hits2: 0, hits1: 0, pitchesSeen: 0
+        playerId: id, name, totalPoints: 0, hits4: 0, hits3: 0, hits2: 0, hits1: 0, pitchesSeen: 0, gp: 1
     });
     
     const allMatchPlayerIds = new Set<string>();
@@ -280,8 +280,8 @@ export const calculateMatchStats = (match: Match, homeTeam: Team, awayTeam: Team
         i.away.playerScores.forEach(p => allMatchPlayerIds.add(p.playerId));
     });
 
-    homeTeam.players.forEach(p => stats.set(p.id, initStat(p.id, formatName(p))));
-    awayTeam.players.forEach(p => stats.set(p.id, initStat(p.id, formatName(p))));
+    homeTeam.players.forEach(p => { if(allMatchPlayerIds.has(p.id)) stats.set(p.id, initStat(p.id, formatName(p))); });
+    awayTeam.players.forEach(p => { if(allMatchPlayerIds.has(p.id)) stats.set(p.id, initStat(p.id, formatName(p))); });
     
     if(homeTeam.subs) {
         homeTeam.subs.forEach(p => {
@@ -387,6 +387,7 @@ export const getTeamStats = async (team: Team, league: AgeGroup, season: string)
                          aggStats.set(stat.playerId, { ...stat });
                      } else {
                          const ex = aggStats.get(stat.playerId)!;
+                         ex.gp += stat.gp;
                          ex.totalPoints += stat.totalPoints;
                          ex.hits4 += stat.hits4;
                          ex.hits3 += stat.hits3;

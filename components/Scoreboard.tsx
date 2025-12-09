@@ -144,7 +144,7 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
       setEditSide(side);
       const team = side === 'home' ? teams.home! : teams.away!;
       const inningData = side === 'home' ? currentInning.home : currentInning.away;
-      const lineupIds = inningData.playerScores.map(ps => ps.playerId);
+      const lineupIds = inningData.playerScores.map(ps => ps.playerId).filter(id => !id.startsWith('ghost-'));
       const currentLineup = lineupIds.map(id => [...team.players, ...(team.subs || [])].find(p => p.id === id)).filter(Boolean) as Player[];
       setTempLineup(currentLineup);
       setShowEditLineupModal(true);
@@ -253,39 +253,38 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
   const renderTeamSection = (side: 'home' | 'away', team: Team) => {
     const inningData = side === 'home' ? currentInning.home : currentInning.away;
     const headerClass = side === 'home' ? 'bg-red-100 dark:bg-red-950 text-red-900 dark:text-red-100 border-red-200 dark:border-red-900' : 'bg-blue-100 dark:bg-blue-950 text-blue-900 dark:text-blue-100 border-blue-200 dark:border-blue-900';
-    const isTwoPlayerGhostMode = inningData.playerScores.length === 2 && inningData.playerScores[0].pitches.length >= 15;
     const canEdit = !isReadOnly && !match.isComplete;
 
-    const renderRow = (playerScore: any, lineupIdx: number, player: any, pitchStartIndex: number, pitchEndIndex: number, isGhostRow = false) => {
-         const visiblePitches = playerScore.pitches.slice(pitchStartIndex, pitchEndIndex);
-         const taken = playerScore.pitches.filter((p:any) => p.points !== null).length;
-         const limit = isGhostRow ? 15 : 10;
+    const renderRow = (playerScore: any, lineupIdx: number, player: any) => {
+         const isGhostRow = playerScore.playerId.startsWith('ghost-');
+         const pitches = playerScore.pitches;
+         const taken = pitches.filter((p:any) => p.points !== null).length;
+         const limit = 10;
          const pitchesLeft = limit - taken;
 
          return (
-            <tr key={`${playerScore.playerId}-${isGhostRow ? 'ghost' : 'norm'}`} className="hover:bg-slate-50/50 dark:hover:bg-white/5 border-b border-slate-100 dark:border-slate-800">
+            <tr key={playerScore.playerId} className={`hover:bg-slate-50/50 dark:hover:bg-white/5 border-b border-slate-100 dark:border-slate-800 ${isGhostRow ? 'bg-slate-50/30 dark:bg-slate-950/30' : ''}`}>
                 <td className="px-2 py-2 portrait:px-1 portrait:py-1 font-medium sticky left-0 bg-white dark:bg-slate-900 z-20 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)] border-r border-slate-200 dark:border-slate-700 w-[100px] portrait:max-w-[80px] sm:w-auto">
                     <div className="flex items-center gap-2 portrait:gap-1">
-                        <span className={`text-[10px] portrait:text-[8px] font-bold w-5 h-5 portrait:w-4 portrait:h-4 rounded-full flex items-center justify-center shrink-0 ${isGhostRow ? 'bg-slate-200 dark:bg-slate-800 text-slate-500' : 'bg-slate-100 dark:bg-slate-800 text-slate-400'}`}>
-                            {isGhostRow ? '3' : lineupIdx + 1}
+                        <span className={`text-[10px] portrait:text-[8px] font-bold w-5 h-5 portrait:w-4 portrait:h-4 rounded-full flex items-center justify-center shrink-0 ${isGhostRow ? 'bg-slate-300 dark:bg-slate-800 text-slate-500' : 'bg-slate-100 dark:bg-slate-800 text-slate-400'}`}>
+                            {lineupIdx + 1}
                         </span>
                         <span className="truncate text-sm portrait:text-xs font-bold text-slate-900 dark:text-white">
-                            {isGhostRow ? <span className="italic text-slate-400">Ghost</span> : formatName(player)}
+                            {isGhostRow ? <span className="italic text-slate-400">Ghost Player</span> : formatName(player)}
                         </span>
                     </div>
                 </td>
                 <td className="px-2 py-2 portrait:px-1 portrait:py-1">
                     <div className="flex gap-2 portrait:gap-1 justify-start overflow-x-auto scrollbar-hide py-1">
-                        {visiblePitches.map((pitch: any, idx: number) => {
-                            const realPitchIdx = pitchStartIndex + idx;
-                            const isEditing = activeCell?.side === side && activeCell.lineupIdx === lineupIdx && activeCell.pitchIdx === realPitchIdx;
+                        {pitches.map((pitch: any, idx: number) => {
+                            const isEditing = activeCell?.side === side && activeCell.lineupIdx === lineupIdx && activeCell.pitchIdx === idx;
                             return (
-                                <ScoreInput key={realPitchIdx} pitchNumber={realPitchIdx+1} value={pitch.points} pitchesRemaining={pitchesLeft} readOnly={isReadOnly || (match.isComplete && !isEditingCompleted)} isEditing={isEditing} onOpen={() => setActiveCell({ side, lineupIdx, pitchIdx: realPitchIdx })} onClose={() => setActiveCell(null)} onChange={(val) => handleScoreUpdate(side, lineupIdx, realPitchIdx, val)} onUndo={realPitchIdx > 0 ? () => handleUndo(side, lineupIdx, realPitchIdx) : undefined} />
+                                <ScoreInput key={idx} pitchNumber={idx+1} value={pitch.points} pitchesRemaining={pitchesLeft} readOnly={isReadOnly || (match.isComplete && !isEditingCompleted)} isEditing={isEditing} onOpen={() => setActiveCell({ side, lineupIdx, pitchIdx: idx })} onClose={() => setActiveCell(null)} onChange={(val) => handleScoreUpdate(side, lineupIdx, idx, val)} onUndo={idx > 0 ? () => handleUndo(side, lineupIdx, idx) : undefined} />
                             );
                         })}
                     </div>
                 </td>
-                {!isGhostRow && <td className="px-3 py-2 portrait:px-1 portrait:py-1 text-center font-bold tabular-nums text-slate-800 dark:text-white border-l border-slate-200 dark:border-slate-700 text-sm portrait:text-xs">{visiblePitches.reduce((s:number,p:any)=>s+(p.points||0),0)}</td>}
+                <td className="px-3 py-2 portrait:px-1 portrait:py-1 text-center font-bold tabular-nums text-slate-800 dark:text-white border-l border-slate-200 dark:border-slate-700 text-sm portrait:text-xs">{pitches.reduce((s:number,p:any)=>s+(p.points||0),0)}</td>
             </tr>
          );
     };
@@ -305,36 +304,11 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
         <div className="bg-white dark:bg-slate-900 rounded-b-lg shadow-md border border-slate-200 dark:border-slate-700 overflow-x-auto relative">
           <table className="w-full">
             <tbody>
-              {isTwoPlayerGhostMode ? (
-                  <>
-                    {renderRow(inningData.playerScores[0], 0, team.players.find(p=>p.id===inningData.playerScores[0].playerId), 0, 10)}
-                    {renderRow(inningData.playerScores[1], 1, team.players.find(p=>p.id===inningData.playerScores[1].playerId), 0, 10)}
-                    <tr className="bg-slate-50/30 dark:bg-slate-900/30 border-t border-slate-200 dark:border-slate-700">
-                        <td className="px-2 py-2 portrait:px-1 portrait:py-1 font-medium sticky left-0 bg-white dark:bg-slate-900 z-20 border-r border-slate-200 dark:border-slate-700 portrait:max-w-[80px]">
-                            <div className="flex items-center gap-2 portrait:gap-1">
-                                <span className="text-[10px] portrait:text-[8px] font-bold w-5 h-5 portrait:w-4 portrait:h-4 rounded-full flex items-center justify-center bg-slate-200 dark:bg-slate-800 text-slate-500">3</span>
-                                <span className="italic text-slate-400 text-sm portrait:text-xs">Ghost</span>
-                            </div>
-                        </td>
-                        <td className="px-2 py-2 portrait:px-1 portrait:py-1">
-                            <div className="flex items-center gap-2 portrait:gap-1 justify-start overflow-x-auto py-1">
-                                {inningData.playerScores[0].pitches.slice(10, 15).map((p, idx) => {
-                                    const realIdx = 10+idx;
-                                    const isEditing = activeCell?.side === side && activeCell.lineupIdx === 0 && activeCell.pitchIdx === realIdx;
-                                    return <ScoreInput key={`p1-${realIdx}`} pitchNumber={realIdx+1} value={p.points} isEditing={isEditing} onOpen={() => setActiveCell({side,lineupIdx:0,pitchIdx:realIdx})} onClose={()=>setActiveCell(null)} onChange={(v)=>handleScoreUpdate(side,0,realIdx,v)} onUndo={()=>handleUndo(side,0,realIdx)} />;
-                                })}
-                                <div className="w-px h-10 bg-slate-300 mx-1"></div>
-                                {inningData.playerScores[1].pitches.slice(10, 15).map((p, idx) => {
-                                    const realIdx = 10+idx;
-                                    const isEditing = activeCell?.side === side && activeCell.lineupIdx === 1 && activeCell.pitchIdx === realIdx;
-                                    return <ScoreInput key={`p2-${realIdx}`} pitchNumber={realIdx+1} value={p.points} isEditing={isEditing} onOpen={() => setActiveCell({side,lineupIdx:1,pitchIdx:realIdx})} onClose={()=>setActiveCell(null)} onChange={(v)=>handleScoreUpdate(side,1,realIdx,v)} onUndo={()=>handleUndo(side,1,realIdx)} />;
-                                })}
-                            </div>
-                        </td>
-                        <td className="px-3 py-2 portrait:px-1 portrait:py-1 text-center font-bold tabular-nums text-slate-800 dark:text-slate-200 border-l border-slate-200 dark:border-slate-700 text-sm portrait:text-xs">{inningData.playerScores[0].pitches.slice(10, 15).reduce((s,p)=>s+(p.points||0),0) + inningData.playerScores[1].pitches.slice(10, 15).reduce((s,p)=>s+(p.points||0),0)}</td>
-                    </tr>
-                  </>
-              ) : inningData.playerScores.map((ps, idx) => renderRow(ps, idx, [...team.players, ...(team.subs || [])].find(p=>p.id===ps.playerId), 0, 10))}
+                {inningData.playerScores.map((ps, idx) => {
+                    const isGhost = ps.playerId.startsWith('ghost-');
+                    const player = isGhost ? undefined : [...team.players, ...(team.subs || [])].find(p=>p.id===ps.playerId);
+                    return renderRow(ps, idx, player);
+                })}
             </tbody>
           </table>
         </div>

@@ -165,24 +165,25 @@ export const createMatch = async (league: AgeGroup, homeTeamId: string, awayTeam
 };
 
 const createEmptyInning = (number: number, homeIds: string[], awayIds: string[]): Inning => {
-    let homePitches = 10;
-    let awayPitches = 10;
-
-    const homeCount = homeIds.length;
-    const awayCount = awayIds.length;
-
-    if (homeCount === 2 && awayCount === 3) homePitches = 15;
-    else if (awayCount === 2 && homeCount === 3) awayPitches = 15;
-
-    const createPlayerScore = (pid: string, count: number) => ({
+    const createPlayerScore = (pid: string) => ({
         playerId: pid,
-        pitches: Array(count).fill(null).map(() => ({ points: null }))
+        pitches: Array(10).fill(null).map(() => ({ points: null }))
     });
+
+    const homeScores = homeIds.map(id => createPlayerScore(id));
+    const awayScores = awayIds.map(id => createPlayerScore(id));
+
+    // Inject ghost if facing 3 players with only 2
+    if (homeIds.length === 2 && awayIds.length === 3) {
+        homeScores.push(createPlayerScore('ghost-home'));
+    } else if (awayIds.length === 2 && homeIds.length === 3) {
+        awayScores.push(createPlayerScore('ghost-away'));
+    }
 
     return {
         number,
-        home: { teamId: 'home', playerScores: homeIds.map(id => createPlayerScore(id, homePitches)) },
-        away: { teamId: 'away', playerScores: awayIds.map(id => createPlayerScore(id, awayPitches)) }
+        home: { teamId: 'home', playerScores: homeScores },
+        away: { teamId: 'away', playerScores: awayScores }
     };
 };
 
@@ -226,21 +227,34 @@ export const restoreTeamRoster = async (
 
     for(let i = currentInningIdx; i < 6; i++) {
         const teamInningScore = isHome ? newInnings[i].home : newInnings[i].away;
-        const currentInningIds = teamInningScore.playerScores.map(p => p.playerId);
+        const oppInningScore = isHome ? newInnings[i].away : newInnings[i].home;
         
-        if (!currentInningIds.includes(playerToInsert.id)) {
-            const newPlayerScores = teamInningScore.playerScores.map(ps => ({
-                ...ps,
-                pitches: ps.pitches.length > 10 ? ps.pitches.slice(0, 10) : ps.pitches
-            }));
-
-            newPlayerScores.push({
+        const currentInningIds = teamInningScore.playerScores.map(p => p.playerId);
+        const ghostId = `ghost-${isHome ? 'home' : 'away'}`;
+        
+        // 1. Swap ghost row for real player if available
+        const ghostIdx = teamInningScore.playerScores.findIndex(ps => ps.playerId === ghostId);
+        if (ghostIdx !== -1) {
+            teamInningScore.playerScores[ghostIdx].playerId = playerToInsert.id;
+        } 
+        // 2. Or append if player is missing
+        else if (!currentInningIds.includes(playerToInsert.id)) {
+            teamInningScore.playerScores.push({
                 playerId: playerToInsert.id,
                 pitches: Array(10).fill(null).map(() => ({ points: null }))
             });
+        }
 
-            if (isHome) newInnings[i].home.playerScores = newPlayerScores;
-            else newInnings[i].away.playerScores = newPlayerScores;
+        // 3. Balance check: Does the opponent need a ghost now?
+        const oppTeamCount = oppInningScore.playerScores.length;
+        const currentTeamCount = teamInningScore.playerScores.length;
+        const oppGhostId = `ghost-${isHome ? 'away' : 'home'}`;
+
+        if (currentTeamCount === 3 && oppTeamCount === 2) {
+            oppInningScore.playerScores.push({
+                playerId: oppGhostId,
+                pitches: Array(10).fill(null).map(() => ({ points: null }))
+            });
         }
     }
     
@@ -258,13 +272,7 @@ export const updateMatchLineup = async (
     if (!match) throw new Error("Match not found");
 
     const isHome = match.homeTeamId === teamId;
-    const oppTeamId = isHome ? match.awayTeamId : match.homeTeamId;
     const newInnings = [...match.innings];
-
-    // Determine opposite team count to check for ghost mode
-    const oppTeamCount = newInnings[inningIdx][isHome ? 'away' : 'home'].playerScores.length;
-    const isDownsized = newLineupIds.length === 2 && oppTeamCount === 3;
-    const pitchCount = isDownsized ? 15 : 10;
 
     for (let i = inningIdx; i < 6; i++) {
         const currentTeamData = isHome ? newInnings[i].home : newInnings[i].away;
@@ -274,20 +282,11 @@ export const updateMatchLineup = async (
         const updatedPlayerScores: PlayerInningScore[] = newLineupIds.map(pid => {
             const existing = oldScores.get(pid);
             if (existing) {
-                // Resize if switching to/from ghost mode
-                let updatedPitches = [...existing.pitches];
-                if (updatedPitches.length < pitchCount) {
-                    const extra = Array(pitchCount - updatedPitches.length).fill(null).map(() => ({ points: null }));
-                    updatedPitches = [...updatedPitches, ...extra];
-                } else if (updatedPitches.length > pitchCount) {
-                    updatedPitches = updatedPitches.slice(0, pitchCount);
-                }
-                return { ...existing, pitches: updatedPitches };
+                return { ...existing };
             }
-            // New player in lineup
             return {
                 playerId: pid,
-                pitches: Array(pitchCount).fill(null).map(() => ({ points: null }))
+                pitches: Array(10).fill(null).map(() => ({ points: null }))
             };
         });
 
@@ -327,41 +326,25 @@ export const calculateMatchStats = (match: Match, homeTeam: Team, awayTeam: Team
 
     match.innings.forEach(inning => {
         [inning.home, inning.away].forEach(teamData => {
-            const isGhostMode = teamData.playerScores.length === 2 && teamData.playerScores[0].pitches.length >= 15;
-            const actualTeamId = teamData.teamId === 'home' ? match.homeTeamId : match.awayTeamId;
-            const ghostId = `ghost-${actualTeamId}`;
-
-            teamData.playerScores.forEach((ps, idx) => {
+            teamData.playerScores.forEach((ps) => {
+                if (ps.playerId.startsWith('ghost-')) return;
+                
                 let pStats = stats.get(ps.playerId);
                 if (!pStats) {
-                     pStats = initStat(ps.playerId, ps.playerId.startsWith('ghost') ? 'Ghost' : 'Sub');
+                     pStats = initStat(ps.playerId, 'Sub');
                      stats.set(ps.playerId, pStats);
                 }
 
-                const playerPitches = isGhostMode ? ps.pitches.slice(0, 10) : ps.pitches;
-                const ghostPitches = isGhostMode ? ps.pitches.slice(10, 15) : [];
-
-                const processPitch = (p: any, statObj: PlayerStats) => {
+                ps.pitches.forEach(p => {
                     if (p.points !== null) {
-                        statObj.totalPoints += p.points;
-                        statObj.pitchesSeen += 1;
-                        if (p.points === 4) statObj.hits4++;
-                        if (p.points === 3) statObj.hits3++;
-                        if (p.points === 2) statObj.hits2++;
-                        if (p.points === 1) statObj.hits1++;
+                        pStats!.totalPoints += p.points;
+                        pStats!.pitchesSeen += 1;
+                        if (p.points === 4) pStats!.hits4++;
+                        if (p.points === 3) pStats!.hits3++;
+                        if (p.points === 2) pStats!.hits2++;
+                        if (p.points === 1) pStats!.hits1++;
                     }
-                };
-
-                playerPitches.forEach(p => processPitch(p, pStats!));
-                
-                if (ghostPitches.length > 0) {
-                    let ghostStats = stats.get(ghostId);
-                    if (!ghostStats) {
-                        ghostStats = initStat(ghostId, 'Player 3 (Ghost)');
-                        stats.set(ghostId, ghostStats);
-                    }
-                    ghostPitches.forEach(p => processPitch(p, ghostStats!));
-                }
+                });
             });
         });
     });
@@ -411,9 +394,8 @@ export const getTeamStats = async (team: Team, league: AgeGroup, season: string)
             mStats.forEach(stat => {
                 const isMainPlayer = team.players.some(p => p.id === stat.playerId);
                 const isSub = team.subs && team.subs.some(p => p.id === stat.playerId);
-                const isGhost = stat.playerId === `ghost-${team.id}`;
 
-                if(isMainPlayer || isSub || isGhost) {
+                if(isMainPlayer || isSub) {
                      if(!aggStats.has(stat.playerId)) {
                          aggStats.set(stat.playerId, { ...stat });
                      } else {
@@ -431,7 +413,7 @@ export const getTeamStats = async (team: Team, league: AgeGroup, season: string)
         }
     });
 
-    return Array.from(aggStats.values()).filter(s => !s.playerId.startsWith('ghost-'));
+    return Array.from(aggStats.values());
 };
 
 export const verifyPassword = async (password: string): Promise<{success: boolean, role?: 'admin'|'umpire'}> => {

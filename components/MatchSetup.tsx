@@ -193,7 +193,7 @@ export const MatchSetup: React.FC<MatchSetupProps> = ({ homeTeam, awayTeam, onSt
         })}
         
         <div className="flex gap-2 mt-3">
-             {players.length < 3 && (
+             {players.length !== 2 && players.length < 3 && (
                 <button onClick={() => restoreRoster(side)} className="flex-1 py-2 text-xs font-bold text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded border border-dashed border-blue-300 dark:border-blue-800 hover:border-blue-500 dark:hover:border-blue-600 transition-colors font-sans">
                     + Reset Roster
                 </button>

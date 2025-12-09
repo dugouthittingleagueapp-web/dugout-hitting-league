@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { Match, Inning, Team, TieBreakerRound, Player } from '../types';
@@ -489,6 +488,11 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
           </div>
           <div className="flex items-center gap-2 shrink-0">
             {isReadOnly && <div className="text-red-600 px-3 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-wider animate-pulse">LIVE</div>}
+            {match.isComplete && !isReadOnly && (
+                <button onClick={() => setIsEditingCompleted(!isEditingCompleted)} className={`px-3 py-1.5 rounded-lg text-xs font-bold font-sans transition-colors ${isEditingCompleted ? 'bg-red-100 text-red-700' : 'bg-slate-100 text-slate-600'}`}>
+                    {isEditingCompleted ? 'Lock History' : 'Unlock History'}
+                </button>
+            )}
             <button onClick={onExit} className="text-sm font-bold text-slate-500 bg-slate-100 py-2 px-3 rounded-lg">Exit</button>
           </div>
         </div>

@@ -212,19 +212,25 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
     setMatch(newMatch); 
     const isFinalInning = activeInningIdx === 5; 
     let shouldOpenTieBreaker = false;
+    let shouldOpenFinishModal = false;
+
     if (isFinalInning && side === 'home' && !match.isComplete) {
         const isLastPlayer = lineupIdx === teamData.playerScores.length - 1;
         const totalPitches = teamData.playerScores[lineupIdx].pitches.length;
         if (isLastPlayer && pitchIdx === totalPitches - 1) {
-            if (calculateTeamGameTotal('home', newMatch) === calculateTeamGameTotal('away', newMatch)) shouldOpenTieBreaker = true;
+            const gameHomeTotal = calculateTeamGameTotal('home', newMatch);
+            const gameAwayTotal = calculateTeamGameTotal('away', newMatch);
+            if (gameHomeTotal === gameAwayTotal) shouldOpenTieBreaker = true;
+            else shouldOpenFinishModal = true;
         }
     }
     let nextCell = null;
-    if (!isEdit && !shouldOpenTieBreaker) {
+    if (!isEdit && !shouldOpenTieBreaker && !shouldOpenFinishModal) {
         if (pitchIdx < teamData.playerScores[lineupIdx].pitches.length - 1) nextCell = { side, lineupIdx, pitchIdx: pitchIdx + 1 };
     }
     setActiveCell(nextCell);
     if (shouldOpenTieBreaker) setTimeout(() => setShowTieBreakerSetup(true), 500);
+    else if (shouldOpenFinishModal) setTimeout(() => setShowFinishModal(true), 500);
     else if (!isEdit && activeInningIdx < 5 && !match.isComplete) {
         const currentInningData = newMatch.innings[activeInningIdx];
         if (currentInningData.home.playerScores.every(p => p.pitches.every(pt => pt.points !== null)) && currentInningData.away.playerScores.every(p => p.pitches.every(pt => pt.points !== null))) {
@@ -290,7 +296,7 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
           <div className="flex items-center gap-3 portrait:gap-2">
              <div>
                 <span className="text-xs portrait:text-[10px] font-bold uppercase opacity-80 tracking-wider">Lineup</span>
-                <h3 className="text-xl portrait:text-lg font-black leading-tight">{team.name}</h3>
+                <h3 className="text-xl portrait:text-sm font-black leading-tight">{team.name}</h3>
              </div>
              {canEdit && <button onClick={() => openEditModal(side)} className="bg-white/80 dark:bg-slate-800 text-slate-600 px-3 py-1.5 portrait:px-2 portrait:py-1 rounded-lg text-xs font-bold border border-slate-200 dark:border-slate-700 shadow-sm transition-colors hover:bg-white">Edit</button>}
           </div>
@@ -341,27 +347,27 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
   return (
     <div className="min-h-full w-full bg-transparent pb-24 relative">
       <header className="bg-white/80 dark:bg-slate-950/90 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 sticky top-0 z-[50] shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 py-3 portrait:py-2 flex justify-between items-center gap-4">
-          <div className="flex gap-8 portrait:gap-4 items-center flex-1">
-            <div className="text-center flex-1">
+        <div className="max-w-7xl mx-auto px-4 py-3 portrait:py-2 portrait:px-1 flex justify-between items-center gap-4 portrait:gap-2">
+          <div className="flex gap-8 portrait:gap-2 items-center flex-1">
+            <div className="text-center flex-1 min-w-0">
                 <div className="text-xs portrait:text-[10px] text-slate-500 uppercase font-bold">Away</div>
-                <div className="text-xl portrait:text-lg font-bold text-blue-700 dark:text-blue-400 truncate">{teams.away.name}</div>
-                <div className="text-2xl portrait:text-xl font-black dark:text-white tabular-nums">{awayTotal}</div>
+                <div className="text-xl portrait:text-xs font-bold text-blue-700 dark:text-blue-400 truncate">{teams.away.name}</div>
+                <div className="text-2xl portrait:text-base font-black dark:text-white tabular-nums">{awayTotal}</div>
             </div>
-            <div className="text-slate-300 text-xl font-light">vs</div>
-            <div className="text-center flex-1">
+            <div className="text-slate-300 text-xl portrait:text-base font-light">vs</div>
+            <div className="text-center flex-1 min-w-0">
                 <div className="text-xs portrait:text-[10px] text-slate-500 uppercase font-bold">Home</div>
-                <div className="text-xl portrait:text-lg font-bold text-red-700 dark:text-red-400 truncate">{teams.home.name}</div>
-                <div className="text-2xl portrait:text-xl font-black dark:text-white tabular-nums">{homeTotal}</div>
+                <div className="text-xl portrait:text-xs font-bold text-red-700 dark:text-red-400 truncate">{teams.home.name}</div>
+                <div className="text-2xl portrait:text-base font-black dark:text-white tabular-nums">{homeTotal}</div>
             </div>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 portrait:gap-1 shrink-0">
             {!isReadOnly && match.isComplete && (
-                <button onClick={() => setIsEditingCompleted(!isEditingCompleted)} className={`text-sm portrait:text-xs font-bold py-2 px-3 rounded-lg border transition-colors ${isEditingCompleted ? 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 border-amber-300' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 border-slate-300'}`}>
+                <button onClick={() => setIsEditingCompleted(!isEditingCompleted)} className={`text-sm portrait:text-[10px] font-bold py-2 px-3 portrait:px-1.5 portrait:py-1 rounded-lg border transition-colors ${isEditingCompleted ? 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 border-amber-300' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 border-slate-300'}`}>
                     {isEditingCompleted ? 'Lock' : 'Edit'}
                 </button>
             )}
-            <button onClick={onExit} className="text-sm portrait:text-xs font-bold text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 py-2 px-3 rounded-lg transition-colors">Exit</button>
+            <button onClick={onExit} className="text-sm portrait:text-[10px] font-bold text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 py-2 px-3 portrait:px-1.5 portrait:py-1 rounded-lg transition-colors">Exit</button>
           </div>
         </div>
         <div className="flex overflow-x-auto border-t border-slate-100 dark:border-slate-800">

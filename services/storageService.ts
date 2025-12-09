@@ -1,3 +1,4 @@
+
 import { AgeGroup, Match, Team, Inning, PlayerInningScore, League, PlayerStats, Player } from '../types';
 
 const mapTeamFromDB = (dbTeam: any): Team => ({
@@ -245,8 +246,9 @@ export const restoreTeamRoster = async (
         }
 
         // 3. Balance check: Does the opponent need a ghost now?
-        const oppTeamCount = oppInningScore.playerScores.length;
+        // RECALCULATE counts to ensure freshness after potential insertion
         const currentTeamCount = teamInningScore.playerScores.length;
+        const oppTeamCount = oppInningScore.playerScores.length;
         const oppGhostId = `ghost-${isHome ? 'away' : 'home'}`;
 
         if (currentTeamCount === 3 && oppTeamCount === 2) {

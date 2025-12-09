@@ -25,37 +25,30 @@ const getLiveInningIndex = (m: Match): number => {
 export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadOnly = false }) => {
   const [match, setMatch] = useState<Match | null>(null);
   const [teams, setTeams] = useState<{ home?: Team, away?: Team }>({});
-  const [activeInningIdx, setActiveInningIdx] = useState(0); // 0-5 = Innings 1-6, 6 = Extra Innings
+  const [activeInningIdx, setActiveInningIdx] = useState(0);
   const [showFinishModal, setShowFinishModal] = useState(false);
   const [loading, setLoading] = useState(true);
   
-  // Track active cell for scoring modal. 
   const [activeCell, setActiveCell] = useState<{ side: 'home' | 'away'; lineupIdx: number; pitchIdx: number; roundIdx?: number } | null>(null);
 
-  // Tie Breaker Setup State
   const [showTieBreakerSetup, setShowTieBreakerSetup] = useState(false);
   const [tbHomePlayerId, setTbHomePlayerId] = useState('');
   const [tbAwayPlayerId, setTbAwayPlayerId] = useState('');
 
-  // Edit Completed Game State
   const [isEditingCompleted, setIsEditingCompleted] = useState(false);
 
-  // Refs for Smart Auto-Advance Logic
   const activeInningRef = useRef(activeInningIdx);
   const lastLiveInningRef = useRef<number>(-1);
 
-  // Sync activeInningIdx to ref to avoid stale closures in polling interval
   useEffect(() => {
       activeInningRef.current = activeInningIdx;
   }, [activeInningIdx]);
 
-  // Helper to format name as First L.
   const formatName = (p: { name: string, lastName?: string } | undefined) => {
       if (!p) return 'Unknown';
       return `${p.name}${p.lastName ? ' ' + p.lastName.charAt(0) + '.' : ''}`;
   };
 
-  // Loading
   const loadMatchData = async () => {
       const m = await storage.getMatch(matchId);
       if (m) {
@@ -65,24 +58,18 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
         setMatch(m);
         setTeams({ home, away });
         
-        // Default selection for Tie Breaker dropdowns
         if (home && !tbHomePlayerId && home.players.length > 0) setTbHomePlayerId(home.players[0].id);
         if (away && !tbAwayPlayerId && away.players.length > 0) setTbAwayPlayerId(away.players[0].id);
 
-        // Smart Auto-Advance for Fan Mode
         if (isReadOnly) {
             const liveIdx = getLiveInningIndex(m);
             const currentTab = activeInningRef.current;
             const lastLive = lastLiveInningRef.current;
             
             if (lastLive === -1) {
-                // Initial Load: Jump straight to the live action
                 lastLiveInningRef.current = liveIdx;
                 setActiveInningIdx(liveIdx);
             } else if (liveIdx > lastLive) {
-                // The game has advanced to a new inning since last poll.
-                // Only pull the user forward if they were watching the *previous* live inning.
-                // If they were looking back at history (e.g. Inning 1 while game is in Inning 3), leave them alone.
                 if (currentTab === lastLive) {
                      setActiveInningIdx(liveIdx);
                 }
@@ -92,7 +79,6 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
       }
   };
 
-  // Wake Lock for Mobile/Tablet viewing
   useEffect(() => {
       let wakeLock: any = null;
 
@@ -101,15 +87,12 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
               if ('wakeLock' in navigator) {
                   wakeLock = await (navigator as any).wakeLock.request('screen');
               }
-          } catch (err) {
-              // Silently fail if wake lock is not allowed or supported
-          }
+          } catch (err) {}
       };
 
       requestWakeLock();
 
       const handleVisibilityChange = () => {
-          // The lock is released when visibility changes, so we must re-acquire it
           if (document.visibilityState === 'visible') {
               requestWakeLock();
           }
@@ -126,7 +109,7 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
   useEffect(() => {
     const init = async () => {
         setLoading(true);
-        lastLiveInningRef.current = -1; // Reset tracking on new match load
+        lastLiveInningRef.current = -1;
         await loadMatchData();
         setLoading(false);
     };
@@ -142,11 +125,8 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
   if (loading) return <div className="flex items-center justify-center h-screen text-slate-400 font-bold font-sans">Loading Match Data...</div>;
   if (!match || !teams.home || !teams.away) return <div className="text-center p-8 font-sans">Error loading match</div>;
 
-  // SAFEGUARD: Ensure we don't crash if activeInningIdx is out of bounds (Extra Innings)
   const currentInning = match.innings[activeInningIdx] || match.innings[0];
   const isExtraInnings = activeInningIdx === 6;
-
-  // --- Calculations ---
 
   const calculateTeamInningTotal = (side: 'home' | 'away', inning: Inning) => {
     const teamData = side === 'home' ? inning.home : inning.away;
@@ -167,8 +147,6 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
 
   const homeTotal = calculateTeamGameTotal('home');
   const awayTotal = calculateTeamGameTotal('away');
-
-  // --- Actions ---
 
   const startTieBreakerRound = async () => {
       if (!teams.home || !teams.away || !tbHomePlayerId || !tbAwayPlayerId) return;
@@ -201,7 +179,7 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
       await storage.updateMatch(updatedMatch);
       
       setShowTieBreakerSetup(false);
-      setActiveInningIdx(6); // Go to Extra Innings tab
+      setActiveInningIdx(6);
   };
 
   const handleUndo = async (side: 'home' | 'away', lineupIdx: number, currentPitchIdx: number, roundIdx?: number) => {
@@ -211,13 +189,11 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
       const newMatch = { ...match };
       
       if (roundIdx !== undefined && newMatch.tieBreaker) {
-          // Tie Breaker
           const round = newMatch.tieBreaker[roundIdx];
           if (side === 'home') round.homeScores[prevPitchIdx] = null;
           else round.awayScores[prevPitchIdx] = null;
           setActiveCell({ side, lineupIdx: 0, pitchIdx: prevPitchIdx, roundIdx });
       } else {
-          // Regular Inning
           const inning = newMatch.innings[activeInningIdx];
           const teamData = side === 'home' ? inning.home : inning.away;
           teamData.playerScores[lineupIdx].pitches[prevPitchIdx].points = null;
@@ -231,7 +207,6 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
   const handleScoreUpdate = async (side: 'home' | 'away', lineupIdx: number, pitchIdx: number, val: number) => {
     if (isReadOnly) return;
     
-    // Optimistic Update for UI Snappiness
     const existingValue = match.innings[activeInningIdx][side].playerScores[lineupIdx].pitches[pitchIdx].points;
     const isEdit = existingValue !== null;
 
@@ -242,7 +217,6 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
     teamData.playerScores[lineupIdx].pitches[pitchIdx].points = val;
     setMatch(newMatch); 
     
-    // --- Auto-detect End of Regulation ---
     const isFinalInning = activeInningIdx === 5; 
     let shouldOpenTieBreaker = false;
 
@@ -260,27 +234,20 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
         }
     }
 
-    // --- Auto-advance logic (Cell) ---
     let nextCell = null;
 
     if (!isEdit && !shouldOpenTieBreaker) {
         const totalPitches = teamData.playerScores[lineupIdx].pitches.length;
-        // If there are pitches left for THIS player, advance.
         if (pitchIdx < totalPitches - 1) {
             nextCell = { side, lineupIdx, pitchIdx: pitchIdx + 1 };
-        } else {
-            // We have reached the end of pitches for this player.
-            nextCell = null;
         }
     }
 
-    // Apply next cell immediately
     setActiveCell(nextCell);
 
     if (shouldOpenTieBreaker) {
          setTimeout(() => setShowTieBreakerSetup(true), 500);
     } else if (!isEdit && activeInningIdx < 5 && !match.isComplete) {
-        // Check for Full Inning Completion to auto-advance
         const currentInningData = newMatch.innings[activeInningIdx];
         const isHomeComplete = currentInningData.home.playerScores.every(p => p.pitches.every(pt => pt.points !== null));
         const isAwayComplete = currentInningData.away.playerScores.every(p => p.pitches.every(pt => pt.points !== null));
@@ -288,7 +255,6 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
         if (isHomeComplete && isAwayComplete) {
              setTimeout(() => {
                  setActiveInningIdx(prev => {
-                    // Double check index hasn't changed (rare race condition, but safe)
                     if (prev < 5) return prev + 1;
                     return prev;
                  });
@@ -318,8 +284,6 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
     onExit();
   };
 
-  // --- Tie Breaker Logic ---
-
   const handleTieBreakerScore = async (roundIdx: number, side: 'home'|'away', pitchIdx: number, val: number) => {
       if(!match.tieBreaker) return;
       
@@ -335,7 +299,7 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
       if (side === 'home') round.homeScores[pitchIdx] = val;
       else round.awayScores[pitchIdx] = val;
       
-      setMatch(newMatch); // Optimistic UI update
+      setMatch(newMatch); 
       
       let nextCell = null;
       if (!isEdit && pitchIdx < limit - 1) {
@@ -351,30 +315,33 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
     if (isReadOnly) return;
     const team = side === 'home' ? teams.home : teams.away;
     if (!team) return;
-    if (confirm(`Player arrived? Reset roster for ${team.name}? This resets scoring format for the current and future innings.`)) {
+    
+    const msg = `Late player arrival? Reset roster for ${team.name}? 
+
+WARNING: This resets the scoring layout for the CURRENT (Inning ${activeInningIdx + 1}) and future innings to match the full team record. 
+
+ALL scores in Inning ${activeInningIdx + 1} will be cleared. Continue?`;
+
+    if (confirm(msg)) {
         setLoading(true);
+        setActiveCell(null); 
         try {
             const updatedMatch = await storage.restoreTeamRoster(match.id, team.id, activeInningIdx);
             setMatch(updatedMatch);
-        } catch (e) { alert("Failed."); }
+        } catch (e) { alert("Failed to reset roster."); }
         setLoading(false);
     }
   };
 
-  // --- Rendering ---
-
   const renderTeamSection = (side: 'home' | 'away', team: Team) => {
-    // Only called when !isExtraInnings, so currentInning is valid.
     const inningData = side === 'home' ? currentInning.home : currentInning.away;
     
-    // Colors: Home = Red, Away = Blue
     const headerClass = side === 'home' 
         ? 'bg-red-100 dark:bg-red-950 text-red-900 dark:text-red-100 border-red-200 dark:border-red-900' 
         : 'bg-blue-100 dark:bg-blue-950 text-blue-900 dark:text-blue-100 border-blue-200 dark:border-blue-900';
     
     const isTwoPlayerGhostMode = inningData.playerScores.length === 2 && inningData.playerScores[0].pitches.length >= 15;
     const isShortHanded = inningData.playerScores.length < team.players.length;
-    // Removed specific activeInningIdx >= 1 check to allow resetting from start of game.
     const canRestore = !isReadOnly && isShortHanded && !match.isComplete;
 
     const renderRow = (playerScore: any, lineupIdx: number, player: any, pitchStartIndex: number, pitchEndIndex: number, isGhostRow = false) => {
@@ -523,7 +490,6 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
     );
   };
 
-  // --- Tie Breaker Render ---
   const renderTieBreakerTab = () => {
       if (!match.tieBreaker || match.tieBreaker.length === 0) {
           return <div className="p-8 text-center text-slate-400 font-sans">Extra Innings Data not available.</div>;
@@ -554,7 +520,6 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
                          <div className="bg-white dark:bg-slate-900 border-x border-b border-slate-200 dark:border-slate-700 rounded-b-xl overflow-hidden overflow-x-auto touch-auto">
                              <table className="w-full min-w-[300px]">
                                  <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                                     {/* Away Player Row (Blue) */}
                                      <tr className="bg-blue-50/10 dark:bg-blue-900/10">
                                         <td className="px-4 py-3 font-medium text-slate-700 dark:text-slate-200 w-[120px] sm:w-[150px]">
                                             <div className="flex flex-col sm:flex-row items-start sm:items-center gap-1 sm:gap-2">
@@ -582,7 +547,6 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
                                         </td>
                                         <td className="px-4 py-3 font-bold text-xl text-center font-sans tabular-nums bg-slate-50/50 dark:bg-slate-800/50 dark:text-white">{awaySum}</td>
                                      </tr>
-                                     {/* Home Player Row (Red) */}
                                      <tr className="bg-red-50/10 dark:bg-red-900/10">
                                         <td className="px-4 py-3 font-medium text-slate-700 dark:text-slate-200 w-[120px] sm:w-[150px]">
                                             <div className="flex flex-col sm:flex-row items-start sm:items-center gap-1 sm:gap-2">
@@ -640,10 +604,8 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
           <div className="flex items-center gap-2 shrink-0">
             {isReadOnly && <div className="flex items-center gap-1.5 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 px-3 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-wider animate-pulse font-sans"><span className="w-2 h-2 rounded-full bg-red-600"></span>LIVE</div>}
             
-            {/* Complete Button (Only if NOT Complete and NOT ReadOnly) */}
             {!isReadOnly && !match.isComplete && !isExtraInnings && <button onClick={() => setShowFinishModal(true)} className="bg-green-600 hover:bg-green-700 text-white text-xs sm:text-sm font-bold py-2 px-3 sm:px-4 rounded-lg shadow-sm transition-colors font-sans">Complete</button>}
             
-            {/* Edit/Lock Toggle (Only if Complete and NOT ReadOnly) */}
             {!isReadOnly && match.isComplete && (
                 <button 
                     onClick={() => setIsEditingCompleted(!isEditingCompleted)} 
@@ -675,7 +637,6 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
           )}
       </main>
 
-      {/* Tie Breaker Setup Modal */}
       {showTieBreakerSetup && createPortal(
           <div className="fixed inset-0 z-[70] flex items-center justify-center bg-slate-900/80 backdrop-blur-sm animate-in fade-in duration-300">
               <div className="bg-white dark:bg-slate-900 p-6 sm:p-8 rounded-2xl shadow-2xl w-[90%] max-w-md font-sans transform scale-100 animate-in zoom-in-95 border border-slate-200 dark:border-slate-700">
@@ -711,7 +672,6 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
           document.body
       )}
 
-      {/* Finish Game Modal */}
       {showFinishModal && createPortal(
           <div className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-900/80 backdrop-blur-sm animate-in fade-in duration-300">
               <div className="bg-white dark:bg-slate-900 p-6 sm:p-8 rounded-2xl shadow-2xl w-[90%] max-w-sm text-center font-sans transform scale-100 animate-in zoom-in-95 border border-slate-200 dark:border-slate-700">

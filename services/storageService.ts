@@ -174,11 +174,6 @@ export const createMatch = async (league: AgeGroup, homeTeamId: string, awayTeam
 };
 
 const createEmptyInning = (number: number, homeIds: string[], awayIds: string[]): Inning => {
-    // LOGIC:
-    // 3v3: 10 pitches each (30 vs 30)
-    // 2v2: 10 pitches each (20 vs 20) - Standard scoring per user request
-    // 3v2 / 2v3: The short team gets 15 pitches (Ghost Mode) to balance the 30-pitch team.
-
     let homePitches = 10;
     let awayPitches = 10;
 
@@ -186,9 +181,9 @@ const createEmptyInning = (number: number, homeIds: string[], awayIds: string[])
     const awayCount = awayIds.length;
 
     if (homeCount === 2 && awayCount === 3) {
-        homePitches = 15; // Ghost Mode for Home
+        homePitches = 15;
     } else if (awayCount === 2 && homeCount === 3) {
-        awayPitches = 15; // Ghost Mode for Away
+        awayPitches = 15;
     }
 
     const createPlayerScore = (pid: string, count: number) => ({
@@ -222,26 +217,22 @@ export const restoreTeamRoster = async (matchId: string, teamId: string, current
     const match = await getMatch(matchId);
     if (!match) throw new Error("Match not found");
     
-    // Fetch actual team to get full player list
     const allTeams = await getAllTeams();
     const team = allTeams.find(t => t.id === teamId);
     if (!team) throw new Error("Team not found");
 
     const newInnings = [...match.innings];
-    
-    // Reset from current inning onwards.
-    const startResetIdx = currentInningIdx;
+    const isHome = match.homeTeamId === teamId;
+    const fullRosterIds = team.players.map(p => p.id);
 
-    for(let i = startResetIdx; i < 6; i++) {
+    for(let i = currentInningIdx; i < 6; i++) {
         const oldHomeIds = newInnings[i].home.playerScores.map(p => p.playerId);
         const oldAwayIds = newInnings[i].away.playerScores.map(p => p.playerId);
         
-        const isHome = match.homeTeamId === teamId;
+        const currentHomeIds = isHome ? fullRosterIds : oldHomeIds;
+        const currentAwayIds = !isHome ? fullRosterIds : oldAwayIds;
         
-        const newHomeIds = isHome ? team.players.map(p=>p.id) : oldHomeIds;
-        const newAwayIds = !isHome ? team.players.map(p=>p.id) : oldAwayIds;
-        
-        newInnings[i] = createEmptyInning(i+1, newHomeIds, newAwayIds);
+        newInnings[i] = createEmptyInning(i+1, currentHomeIds, currentAwayIds);
     }
     
     const updated = { ...match, innings: newInnings };
@@ -256,26 +247,20 @@ export const calculateMatchStats = (match: Match, homeTeam: Team, awayTeam: Team
         playerId: id, name, totalPoints: 0, hits4: 0, hits3: 0, hits2: 0, hits1: 0, pitchesSeen: 0
     });
     
-    // Pre-fill players AND subs from the match data
-    // We must iterate the match innings to catch players who might be subs
     const allMatchPlayerIds = new Set<string>();
     match.innings.forEach(i => {
         i.home.playerScores.forEach(p => allMatchPlayerIds.add(p.playerId));
         i.away.playerScores.forEach(p => allMatchPlayerIds.add(p.playerId));
     });
 
-    // Add team players with FORMATTED names
     homeTeam.players.forEach(p => stats.set(p.id, initStat(p.id, formatName(p))));
     awayTeam.players.forEach(p => stats.set(p.id, initStat(p.id, formatName(p))));
     
-    // Add any subs that might be in the match but not main roster
-    // Check home subs
     if(homeTeam.subs) {
         homeTeam.subs.forEach(p => {
             if(allMatchPlayerIds.has(p.id)) stats.set(p.id, initStat(p.id, formatName(p)));
         });
     }
-    // Check away subs
     if(awayTeam.subs) {
         awayTeam.subs.forEach(p => {
             if(allMatchPlayerIds.has(p.id)) stats.set(p.id, initStat(p.id, formatName(p)));
@@ -286,17 +271,15 @@ export const calculateMatchStats = (match: Match, homeTeam: Team, awayTeam: Team
         [inning.home, inning.away].forEach(teamData => {
             const isGhostMode = teamData.playerScores.length === 2 && teamData.playerScores[0].pitches.length >= 15;
             const actualTeamId = teamData.teamId === 'home' ? match.homeTeamId : match.awayTeamId;
-            const ghostId = `ghost-${actualTeamId}`; // Unique ID for this team's ghost
+            const ghostId = `ghost-${actualTeamId}`;
 
             teamData.playerScores.forEach((ps, idx) => {
                 let pStats = stats.get(ps.playerId);
                 if (!pStats) {
-                     // Handle unknown sub (shouldn't happen if subs array is sync'd, but safety fallback)
                      pStats = initStat(ps.playerId, 'Sub');
                      stats.set(ps.playerId, pStats);
                 }
 
-                // In Ghost mode, only first 10 pitches count for player. 11-15 go to ghost.
                 const playerPitches = isGhostMode ? ps.pitches.slice(0, 10) : ps.pitches;
                 const ghostPitches = isGhostMode ? ps.pitches.slice(10, 15) : [];
 
@@ -325,13 +308,11 @@ export const calculateMatchStats = (match: Match, homeTeam: Team, awayTeam: Team
         });
     });
     
-    // Process Tie Breaker
     if(match.tieBreaker) {
         match.tieBreaker.forEach(tb => {
             const addTb = (pid: string, scores: (number|null)[]) => {
                 let s = stats.get(pid);
                 if(!s) { 
-                     // Try to find name in teams/subs if not init
                      const allP = [...homeTeam.players, ...(homeTeam.subs||[]), ...awayTeam.players, ...(awayTeam.subs||[])];
                      const found = allP.find(p=>p.id===pid);
                      s = initStat(pid, found ? formatName(found) : 'Unknown'); 
@@ -370,7 +351,6 @@ export const getTeamStats = async (team: Team, league: AgeGroup, season: string)
         if(home && away) {
             const mStats = calculateMatchStats(m, home, away);
             mStats.forEach(stat => {
-                // Only aggregate for THIS team's players (including subs and ghost)
                 const isMainPlayer = team.players.some(p => p.id === stat.playerId);
                 const isSub = team.subs && team.subs.some(p => p.id === stat.playerId);
                 const isGhost = stat.playerId === `ghost-${team.id}`;

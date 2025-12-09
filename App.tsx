@@ -813,7 +813,7 @@ const App: React.FC = () => {
             {/* SCORING VIEW */}
             {state.view === 'scoring' && state.currentMatchId && (
                 <div className="flex-1 bg-slate-100 dark:bg-slate-950 text-slate-800 dark:text-slate-200 w-full overflow-hidden">
-                    <Scoreboard matchId={state.currentMatchId} onExit={() => setState({ ...state, view: 'dashboard', currentMatchId: null })} isReadOnly={userRole === 'fan'} />
+                    <Scoreboard matchId={state.currentMatchId} onExit={() => setState({ ...state, view: 'dashboard', currentMatchId: null })} isReadOnly={userRole === 'fan'} userRole={userRole} />
                 </div>
             )}
 

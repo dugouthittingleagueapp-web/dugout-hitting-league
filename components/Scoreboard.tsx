@@ -8,6 +8,7 @@ interface ScoreboardProps {
   matchId: string;
   onExit: () => void;
   isReadOnly?: boolean;
+  userRole?: 'fan' | 'umpire' | 'admin';
 }
 
 const getLiveInningIndex = (m: Match): number => {
@@ -21,7 +22,7 @@ const getLiveInningIndex = (m: Match): number => {
     return 5;
 };
 
-export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadOnly = false }) => {
+export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadOnly = false, userRole = 'fan' }) => {
   const [match, setMatch] = useState<Match | null>(null);
   const [teams, setTeams] = useState<{ home?: Team, away?: Team }>({});
   const [activeInningIdx, setActiveInningIdx] = useState(0); 
@@ -38,9 +39,6 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
   // Roster Editing State
   const [rosterSide, setRosterSide] = useState<'home' | 'away' | null>(null);
   const [newSubNameInput, setNewSubNameInput] = useState('');
-
-  // Edit Completed Game State
-  const [isEditingCompleted, setIsEditingCompleted] = useState(false);
 
   const activeInningRef = useRef(activeInningIdx);
   const lastLiveInningRef = useRef<number>(-1);
@@ -291,7 +289,6 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
           // Apply format shifts: 3v2 or 2v3 = Ghost Mode (15 pitches for the short side)
           if (hC === 2 && aC === 3) hP = 15;
           else if (aC === 2 && hC === 3) aP = 15;
-          // 2v2 or 3v3 = Standard 10 pitches per player
 
           const syncScores = (existingScores: any, newIds: string[], pitchCount: number) => {
               return newIds.map(id => {
@@ -300,13 +297,10 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
                       const curLen = found.pitches.length;
                       if (curLen === pitchCount) return found;
                       if (curLen < pitchCount) {
-                          // Append null pitches to meet new ghost limit
                           return { ...found, pitches: [...found.pitches, ...Array(pitchCount - curLen).fill(null).map(() => ({ points: null }))] };
                       }
-                      // Slice if limit reduced (should be rare in current rules)
                       return { ...found, pitches: found.pitches.slice(0, pitchCount) };
                   }
-                  // New player added
                   return { playerId: id, pitches: Array(pitchCount).fill(null).map(() => ({ points: null })) };
               });
           };
@@ -318,8 +312,6 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
           };
       };
 
-      // Determine updated ID lists for the current/future sequence
-      // We update starting from the active tab forward
       const currentHomeLineup = side === 'home' ? playerIds : newMatch.innings[activeInningIdx].home.playerScores.map((p:any) => p.playerId);
       const currentAwayLineup = side === 'away' ? playerIds : newMatch.innings[activeInningIdx].away.playerScores.map((p:any) => p.playerId);
 
@@ -347,13 +339,8 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
 
     try {
         await storage.updateTeam(updatedTeam);
-        // Update local team state
-        setTeams(prev => ({
-            ...prev,
-            [rosterSide]: updatedTeam
-        }));
+        setTeams(prev => ({ ...prev, [rosterSide]: updatedTeam }));
         
-        // Add new sub to current lineup and save
         const lineup = currentInning[rosterSide].playerScores.map(x => x.playerId);
         const newList = [...lineup, newPlayer.id];
         
@@ -400,7 +387,7 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
                         {visiblePitches.map((pitch: any, idx: number) => {
                             const realIdx = pitchStartIndex + idx;
                             return (
-                                <ScoreInput key={realIdx} pitchNumber={isGhostRow ? pitchStartIndex+idx+1 : realIdx+1} value={pitch.points} pitchesRemaining={pitchesLeft} readOnly={isReadOnly || (match.isComplete && !isEditingCompleted)} isEditing={activeCell?.side === side && activeCell.lineupIdx === lineupIdx && activeCell.pitchIdx === realIdx} onOpen={() => setActiveCell({ side, lineupIdx, pitchIdx: realIdx })} onClose={() => setActiveCell(null)} onChange={(val) => handleScoreUpdate(side, lineupIdx, realIdx, val)} onUndo={realIdx > 0 ? () => handleUndo(side, lineupIdx, realIdx) : undefined} />
+                                <ScoreInput key={realIdx} pitchNumber={isGhostRow ? pitchStartIndex+idx+1 : realIdx+1} value={pitch.points} pitchesRemaining={pitchesLeft} readOnly={isReadOnly || (match.isComplete && userRole !== 'admin')} isEditing={activeCell?.side === side && activeCell.lineupIdx === lineupIdx && activeCell.pitchIdx === realIdx} onOpen={() => setActiveCell({ side, lineupIdx, pitchIdx: realIdx })} onClose={() => setActiveCell(null)} onChange={(val) => handleScoreUpdate(side, lineupIdx, realIdx, val)} onUndo={realIdx > 0 ? () => handleUndo(side, lineupIdx, realIdx) : undefined} />
                             );
                         })}
                     </div>
@@ -430,10 +417,10 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
                         </td>
                         <td className="px-0.5 sm:px-2 py-1 sm:py-2"><div className="flex w-full landscape:justify-between items-center gap-1 sm:gap-2 justify-start overflow-x-auto scrollbar-hide py-1 touch-auto">
                                 {inningData.playerScores[0].pitches.slice(10, 15).map((pitch, idx) => (
-                                    <ScoreInput key={`p1-${10+idx}`} pitchNumber={11+idx} value={pitch.points} readOnly={isReadOnly || (match.isComplete && !isEditingCompleted)} isEditing={activeCell?.side === side && activeCell.lineupIdx === 0 && activeCell.pitchIdx === 10+idx} onOpen={() => setActiveCell({ side, lineupIdx: 0, pitchIdx: 10+idx })} onClose={() => setActiveCell(null)} onChange={(val) => handleScoreUpdate(side, 0, 10+idx, val)} onUndo={() => handleUndo(side, 0, 10+idx)} />
+                                    <ScoreInput key={`p1-${10+idx}`} pitchNumber={11+idx} value={pitch.points} readOnly={isReadOnly || (match.isComplete && userRole !== 'admin')} isEditing={activeCell?.side === side && activeCell.lineupIdx === 0 && activeCell.pitchIdx === 10+idx} onOpen={() => setActiveCell({ side, lineupIdx: 0, pitchIdx: 10+idx })} onClose={() => setActiveCell(null)} onChange={(val) => handleScoreUpdate(side, 0, 10+idx, val)} onUndo={() => handleUndo(side, 0, 10+idx)} />
                                 ))}<div className="w-px h-10 sm:h-14 bg-slate-300 dark:bg-slate-700 mx-1"></div>
                                 {inningData.playerScores[1].pitches.slice(10, 15).map((pitch, idx) => (
-                                    <ScoreInput key={`p2-${10+idx}`} pitchNumber={11+idx} value={pitch.points} readOnly={isReadOnly || (match.isComplete && !isEditingCompleted)} isEditing={activeCell?.side === side && activeCell.lineupIdx === 1 && activeCell.pitchIdx === 10+idx} onOpen={() => setActiveCell({ side, lineupIdx: 1, pitchIdx: 10+idx })} onClose={() => setActiveCell(null)} onChange={(val) => handleScoreUpdate(side, 1, 10+idx, val)} onUndo={() => handleUndo(side, 1, 10+idx)} />
+                                    <ScoreInput key={`p2-${10+idx}`} pitchNumber={11+idx} value={pitch.points} readOnly={isReadOnly || (match.isComplete && userRole !== 'admin')} isEditing={activeCell?.side === side && activeCell.lineupIdx === 1 && activeCell.pitchIdx === 10+idx} onOpen={() => setActiveCell({ side, lineupIdx: 1, pitchIdx: 10+idx })} onClose={() => setActiveCell(null)} onChange={(val) => handleScoreUpdate(side, 1, 10+idx, val)} onUndo={() => handleUndo(side, 1, 10+idx)} />
                                 ))}</div></td>
                         <td className="px-1 sm:px-3 py-1 sm:py-2 text-center align-middle border-l border-slate-200 dark:border-slate-700 bg-slate-50/30 dark:bg-slate-900/30">
                              <div className="text-sm sm:text-base font-sans tabular-nums font-bold text-slate-800 dark:text-slate-200 w-5 sm:w-8">{inningData.playerScores[0].pitches.slice(10, 15).reduce((s,p)=>s+(p.points||0),0) + inningData.playerScores[1].pitches.slice(10, 15).reduce((s,p)=>s+(p.points||0),0)}</div>
@@ -461,12 +448,12 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
                          <div className="bg-white dark:bg-slate-900 border-x border-b border-slate-200 rounded-b-xl overflow-x-auto"><table className="w-full"><tbody>
                             <tr className="bg-blue-50/10">
                                 <td className="px-4 py-3 font-medium w-[150px]"><span className="font-bold">{formatName([...(teams.away?.players || []), ...(teams.away?.subs || [])].find(p => p.id === round.awayPlayerId))}</span></td>
-                                <td className="px-2 py-3"><div className="flex gap-2">{round.awayScores.map((s, pI) => (<ScoreInput key={pI} pitchNumber={pI+1} value={s} readOnly={isReadOnly || (match.isComplete && !isEditingCompleted)} isEditing={activeCell?.side === 'away' && activeCell?.roundIdx === idx && activeCell?.pitchIdx === pI} onOpen={() => setActiveCell({ side: 'away', lineupIdx: 0, pitchIdx: pI, roundIdx: idx })} onClose={() => setActiveCell(null)} onChange={v => handleTieBreakerScore(idx, 'away', pI, v)} onUndo={() => handleUndo('away', 0, pI, idx)} />))}</div></td>
+                                <td className="px-2 py-3"><div className="flex gap-2">{round.awayScores.map((s, pI) => (<ScoreInput key={pI} pitchNumber={pI+1} value={s} readOnly={isReadOnly || (match.isComplete && userRole !== 'admin')} isEditing={activeCell?.side === 'away' && activeCell?.roundIdx === idx && activeCell?.pitchIdx === pI} onOpen={() => setActiveCell({ side: 'away', lineupIdx: 0, pitchIdx: pI, roundIdx: idx })} onClose={() => setActiveCell(null)} onChange={v => handleTieBreakerScore(idx, 'away', pI, v)} onUndo={() => handleUndo('away', 0, pI, idx)} />))}</div></td>
                                 <td className="px-4 py-3 font-bold text-xl text-center tabular-nums">{aS}</td>
                             </tr>
                             <tr className="bg-red-50/10">
                                 <td className="px-4 py-3 font-medium w-[150px]"><span className="font-bold">{formatName([...(teams.home?.players || []), ...(teams.home?.subs || [])].find(p => p.id === round.homePlayerId))}</span></td>
-                                <td className="px-2 py-3"><div className="flex gap-2">{round.homeScores.map((s, pI) => (<ScoreInput key={pI} pitchNumber={pI+1} value={s} readOnly={isReadOnly || (match.isComplete && !isEditingCompleted)} isEditing={activeCell?.side === 'home' && activeCell?.roundIdx === idx && activeCell?.pitchIdx === pI} onOpen={() => setActiveCell({ side: 'home', lineupIdx: 0, pitchIdx: pI, roundIdx: idx })} onClose={() => setActiveCell(null)} onChange={v => handleTieBreakerScore(idx, 'home', pI, v)} onUndo={() => handleUndo('home', 0, pI, idx)} />))}</div></td>
+                                <td className="px-2 py-3"><div className="flex gap-2">{round.homeScores.map((s, pI) => (<ScoreInput key={pI} pitchNumber={pI+1} value={s} readOnly={isReadOnly || (match.isComplete && userRole !== 'admin')} isEditing={activeCell?.side === 'home' && activeCell?.roundIdx === idx && activeCell?.pitchIdx === pI} onOpen={() => setActiveCell({ side: 'home', lineupIdx: 0, pitchIdx: pI, roundIdx: idx })} onClose={() => setActiveCell(null)} onChange={v => handleTieBreakerScore(idx, 'home', pI, v)} onUndo={() => handleUndo('home', 0, pI, idx)} />))}</div></td>
                                 <td className="px-4 py-3 font-bold text-xl text-center tabular-nums">{hS}</td>
                             </tr>
                          </tbody></table></div>
@@ -488,11 +475,6 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
           </div>
           <div className="flex items-center gap-2 shrink-0">
             {isReadOnly && <div className="text-red-600 px-3 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-wider animate-pulse">LIVE</div>}
-            {match.isComplete && !isReadOnly && (
-                <button onClick={() => setIsEditingCompleted(!isEditingCompleted)} className={`px-3 py-1.5 rounded-lg text-xs font-bold font-sans transition-colors ${isEditingCompleted ? 'bg-red-100 text-red-700' : 'bg-slate-100 text-slate-600'}`}>
-                    {isEditingCompleted ? 'Lock History' : 'Unlock History'}
-                </button>
-            )}
             <button onClick={onExit} className="text-sm font-bold text-slate-500 bg-slate-100 py-2 px-3 rounded-lg">Exit</button>
           </div>
         </div>
@@ -518,7 +500,6 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
               <div className="bg-white dark:bg-slate-900 p-6 rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden flex flex-col max-h-[90vh]" onClick={e => e.stopPropagation()}>
                   <h3 className="text-xl font-bold text-slate-800 dark:text-white mb-4">Edit Roster: {rosterSide === 'home' ? teams.home?.name : teams.away?.name}</h3>
                   <div className="flex-1 overflow-y-auto space-y-3 mb-4 pr-1">
-                      {/* Main Roster & Subs Toggles */}
                       {(() => {
                           const team = rosterSide === 'home' ? teams.home : teams.away;
                           const allPotential = [...(team?.players || []), ...(team?.subs || [])];
@@ -539,28 +520,13 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
                           });
                       })()}
                   </div>
-
-                  {/* Add NEW Player section */}
                   <div className="border-t border-slate-200 dark:border-slate-800 pt-4 mb-4">
                       <label className="block text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">Register New Sub</label>
                       <div className="flex gap-2">
-                          <input 
-                            type="text" 
-                            value={newSubNameInput} 
-                            onChange={e => setNewSubNameInput(e.target.value)}
-                            placeholder="Full Name" 
-                            className="flex-1 bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none text-slate-900 dark:text-white font-sans"
-                          />
-                          <button 
-                            onClick={handleAddManualSub} 
-                            disabled={!newSubNameInput.trim()}
-                            className="bg-blue-600 text-white font-bold px-3 py-2 rounded-lg text-xs font-sans disabled:opacity-50 transition-all hover:bg-blue-700"
-                          >
-                              Add
-                          </button>
+                          <input type="text" value={newSubNameInput} onChange={e => setNewSubNameInput(e.target.value)} placeholder="Full Name" className="flex-1 bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none text-slate-900 dark:text-white font-sans" />
+                          <button onClick={handleAddManualSub} disabled={!newSubNameInput.trim()} className="bg-blue-600 text-white font-bold px-3 py-2 rounded-lg text-xs font-sans disabled:opacity-50 transition-all hover:bg-blue-700">Add</button>
                       </div>
                   </div>
-
                   <button onClick={() => setRosterSide(null)} className="w-full py-3 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 font-bold rounded-xl transition-colors hover:bg-slate-200 dark:hover:bg-slate-700 font-sans">Cancel</button>
               </div>
           </div>,

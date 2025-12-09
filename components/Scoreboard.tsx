@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { Match, Inning, Team, TieBreakerRound } from '../types';
+import { Match, Inning, Team, TieBreakerRound, Player } from '../types';
 import * as storage from '../services/storageService';
 import { ScoreInput } from './ScoreInput';
 
@@ -36,6 +36,11 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
   const [tbAwayPlayerId, setTbAwayPlayerId] = useState('');
 
   const [isEditingCompleted, setIsEditingCompleted] = useState(false);
+
+  // Add Player State
+  const [showAddPlayerModal, setShowAddPlayerModal] = useState(false);
+  const [sideToAdd, setSideToAdd] = useState<'home' | 'away' | null>(null);
+  const [newSubName, setNewSubName] = useState('');
 
   const activeInningRef = useRef(activeInningIdx);
   const lastLiveInningRef = useRef<number>(-1);
@@ -311,24 +316,20 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
       await storage.updateMatch(newMatch);
   };
 
-  const handleRestoreRoster = async (side: 'home' | 'away') => {
-    if (isReadOnly) return;
-    const team = side === 'home' ? teams.home : teams.away;
+  const handleRestoreRoster = async (player: Player) => {
+    if (isReadOnly || !sideToAdd) return;
+    const team = sideToAdd === 'home' ? teams.home : teams.away;
     if (!team) return;
     
-    const msg = `Late player arrival? Add player to roster for ${team.name}? 
-
-This will update the lineup for the current and future innings. ALL existing scores for currently established players will be preserved. Continue?`;
-
-    if (confirm(msg)) {
-        setLoading(true);
-        setActiveCell(null); 
-        try {
-            const updatedMatch = await storage.restoreTeamRoster(match.id, team.id, activeInningIdx);
-            setMatch(updatedMatch);
-        } catch (e) { alert("Failed to add player."); }
-        setLoading(false);
-    }
+    setLoading(true);
+    setActiveCell(null); 
+    try {
+        const updatedMatch = await storage.restoreTeamRoster(match.id, team.id, activeInningIdx, player);
+        setMatch(updatedMatch);
+        setShowAddPlayerModal(false);
+        setSideToAdd(null);
+    } catch (e) { alert("Failed to add player."); }
+    setLoading(false);
   };
 
   const renderTeamSection = (side: 'home' | 'away', team: Team) => {
@@ -411,7 +412,7 @@ This will update the lineup for the current and future innings. ALL existing sco
                 <span className="text-[9px] sm:text-xs font-bold uppercase opacity-80 tracking-wider font-sans">{side === 'home' ? 'Home' : 'Away'}</span>
                 <h3 className="text-[9px] sm:text-xl font-black leading-tight font-sans break-words whitespace-normal">{team.name}</h3>
              </div>
-             {canRestore && <button onClick={() => handleRestoreRoster(side)} className="bg-white/80 dark:bg-slate-800 hover:bg-white text-slate-600 dark:text-slate-300 px-2 py-1 rounded text-[10px] font-bold border border-slate-200 dark:border-slate-700 shadow-sm animate-pulse font-sans">+ Add Player</button>}
+             {canRestore && <button onClick={() => { setSideToAdd(side); setShowAddPlayerModal(true); }} className="bg-white/80 dark:bg-slate-800 hover:bg-white text-slate-600 dark:text-slate-300 px-2 py-1 rounded text-[10px] font-bold border border-slate-200 dark:border-slate-700 shadow-sm animate-pulse font-sans">+ Add Player</button>}
           </div>
           <div className="text-lg sm:text-2xl font-sans tabular-nums font-bold">{calculateTeamInningTotal(side, currentInning)} <span className="text-xs sm:text-sm font-normal opacity-60 font-sans">pts</span></div>
         </div>
@@ -634,6 +635,58 @@ This will update the lineup for the current and future innings. ALL existing sco
               </>
           )}
       </main>
+
+      {showAddPlayerModal && sideToAdd && createPortal(
+          <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/80 backdrop-blur-sm animate-in fade-in duration-300" onClick={() => setShowAddPlayerModal(false)}>
+              <div className="bg-white dark:bg-slate-900 p-6 sm:p-8 rounded-2xl shadow-2xl w-[90%] max-w-md font-sans transform scale-100 animate-in zoom-in-95 border border-slate-200 dark:border-slate-700" onClick={e => e.stopPropagation()}>
+                  <h2 className="text-xl font-bold text-slate-800 dark:text-white mb-4 text-center font-sans">Add Player to {sideToAdd === 'home' ? teams.home?.name : teams.away?.name}</h2>
+                  
+                  <div className="mb-6 space-y-3">
+                      <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase mb-1 font-sans">Master Roster Players</label>
+                      <div className="space-y-2">
+                        {(() => {
+                            const team = sideToAdd === 'home' ? teams.home : teams.away;
+                            const inningData = sideToAdd === 'home' ? currentInning.home : currentInning.away;
+                            const activeInMatchIds = inningData.playerScores.map(p => p.playerId);
+                            const missingPlayers = team?.players.filter(p => !activeInMatchIds.includes(p.id)) || [];
+
+                            if (missingPlayers.length === 0) return <p className="text-sm italic text-slate-500">No missing roster players.</p>;
+                            
+                            return missingPlayers.map(p => (
+                                <button key={p.id} onClick={() => handleRestoreRoster(p)} className="w-full flex items-center justify-between p-3 rounded-lg bg-slate-50 dark:bg-slate-800 hover:bg-blue-50 dark:hover:bg-blue-900/20 border border-slate-200 dark:border-slate-700 transition-all font-sans group">
+                                    <span className="font-bold text-slate-700 dark:text-slate-200 group-hover:text-blue-600 dark:group-hover:text-blue-400">{formatName(p)}</span>
+                                    <span className="text-xs bg-slate-200 dark:bg-slate-700 group-hover:bg-blue-500 group-hover:text-white px-2 py-1 rounded font-bold">Add</span>
+                                </button>
+                            ));
+                        })()}
+                      </div>
+                  </div>
+
+                  <div className="border-t border-slate-200 dark:border-slate-800 pt-6">
+                      <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase mb-2 font-sans">New Substitute/Guest</label>
+                      <div className="flex gap-2">
+                          <input 
+                            type="text" 
+                            className="flex-1 p-3 border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 rounded-lg font-sans text-slate-900 dark:text-white outline-none focus:ring-2 focus:ring-blue-500" 
+                            placeholder="Player Name"
+                            value={newSubName}
+                            onChange={e => setNewSubName(e.target.value)}
+                          />
+                          <button 
+                            disabled={!newSubName.trim()}
+                            onClick={() => handleRestoreRoster({ id: storage.generateUUID(), name: newSubName.trim() })}
+                            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white font-bold rounded-lg font-sans"
+                          >
+                            Add
+                          </button>
+                      </div>
+                  </div>
+
+                  <button onClick={() => setShowAddPlayerModal(false)} className="w-full mt-6 py-3 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 font-bold rounded-xl font-sans">Cancel</button>
+              </div>
+          </div>,
+          document.body
+      )}
 
       {showTieBreakerSetup && createPortal(
           <div className="fixed inset-0 z-[70] flex items-center justify-center bg-slate-900/80 backdrop-blur-sm animate-in fade-in duration-300">

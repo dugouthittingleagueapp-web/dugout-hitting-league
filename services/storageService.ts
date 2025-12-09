@@ -213,7 +213,12 @@ export const deleteMatch = async (matchId: string) => {
     await fetch(`/api/matches?id=${matchId}`, { method: 'DELETE' });
 };
 
-export const restoreTeamRoster = async (matchId: string, teamId: string, currentInningIdx: number): Promise<Match> => {
+export const restoreTeamRoster = async (
+    matchId: string, 
+    teamId: string, 
+    currentInningIdx: number, 
+    playerToInsert: Player
+): Promise<Match> => {
     const match = await getMatch(matchId);
     if (!match) throw new Error("Match not found");
     
@@ -221,32 +226,35 @@ export const restoreTeamRoster = async (matchId: string, teamId: string, current
     const team = allTeams.find(t => t.id === teamId);
     if (!team) throw new Error("Team not found");
 
+    // Sync sub to team if needed
+    const isMaster = team.players.some(p => p.id === playerToInsert.id);
+    const isExistingSub = team.subs?.some(s => s.id === playerToInsert.id);
+    if (!isMaster && !isExistingSub) {
+        team.subs = [...(team.subs || []), playerToInsert];
+        await updateTeam(team);
+    }
+
     const newInnings = [...match.innings];
     const isHome = match.homeTeamId === teamId;
-    const masterPlayerIds = team.players.map(p => p.id);
 
     // Update from current inning forward
     for(let i = currentInningIdx; i < 6; i++) {
         const teamInningScore = isHome ? newInnings[i].home : newInnings[i].away;
         const currentInningIds = teamInningScore.playerScores.map(p => p.playerId);
         
-        // Find players in master roster missing from current inning
-        const missingIds = masterPlayerIds.filter(id => !currentInningIds.includes(id));
-        
-        if (missingIds.length > 0) {
+        // Ensure player isn't already there (sanity check)
+        if (!currentInningIds.includes(playerToInsert.id)) {
             // Preserving existing scores logic:
-            // 1. If ghost mode (15 pitches), resize to 10
-            // 2. Add empty score for new player
+            // 1. If ghost mode (15 pitches), resize arrays back to regulation 10
             const newPlayerScores = teamInningScore.playerScores.map(ps => ({
                 ...ps,
                 pitches: ps.pitches.length > 10 ? ps.pitches.slice(0, 10) : ps.pitches
             }));
 
-            missingIds.forEach(id => {
-                newPlayerScores.push({
-                    playerId: id,
-                    pitches: Array(10).fill(null).map(() => ({ points: null }))
-                });
+            // 2. Add empty score for new player (Regulation 10)
+            newPlayerScores.push({
+                playerId: playerToInsert.id,
+                pitches: Array(10).fill(null).map(() => ({ points: null }))
             });
 
             if (isHome) newInnings[i].home.playerScores = newPlayerScores;

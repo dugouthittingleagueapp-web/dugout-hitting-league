@@ -223,16 +223,35 @@ export const restoreTeamRoster = async (matchId: string, teamId: string, current
 
     const newInnings = [...match.innings];
     const isHome = match.homeTeamId === teamId;
-    const fullRosterIds = team.players.map(p => p.id);
+    const masterPlayerIds = team.players.map(p => p.id);
 
+    // Update from current inning forward
     for(let i = currentInningIdx; i < 6; i++) {
-        const oldHomeIds = newInnings[i].home.playerScores.map(p => p.playerId);
-        const oldAwayIds = newInnings[i].away.playerScores.map(p => p.playerId);
+        const teamInningScore = isHome ? newInnings[i].home : newInnings[i].away;
+        const currentInningIds = teamInningScore.playerScores.map(p => p.playerId);
         
-        const currentHomeIds = isHome ? fullRosterIds : oldHomeIds;
-        const currentAwayIds = !isHome ? fullRosterIds : oldAwayIds;
+        // Find players in master roster missing from current inning
+        const missingIds = masterPlayerIds.filter(id => !currentInningIds.includes(id));
         
-        newInnings[i] = createEmptyInning(i+1, currentHomeIds, currentAwayIds);
+        if (missingIds.length > 0) {
+            // Preserving existing scores logic:
+            // 1. If ghost mode (15 pitches), resize to 10
+            // 2. Add empty score for new player
+            const newPlayerScores = teamInningScore.playerScores.map(ps => ({
+                ...ps,
+                pitches: ps.pitches.length > 10 ? ps.pitches.slice(0, 10) : ps.pitches
+            }));
+
+            missingIds.forEach(id => {
+                newPlayerScores.push({
+                    playerId: id,
+                    pitches: Array(10).fill(null).map(() => ({ points: null }))
+                });
+            });
+
+            if (isHome) newInnings[i].home.playerScores = newPlayerScores;
+            else newInnings[i].away.playerScores = newPlayerScores;
+        }
     }
     
     const updated = { ...match, innings: newInnings };

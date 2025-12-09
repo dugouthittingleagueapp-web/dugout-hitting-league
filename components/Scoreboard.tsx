@@ -316,11 +316,9 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
     const team = side === 'home' ? teams.home : teams.away;
     if (!team) return;
     
-    const msg = `Late player arrival? Reset roster for ${team.name}? 
+    const msg = `Late player arrival? Add player to roster for ${team.name}? 
 
-WARNING: This resets the scoring layout for the CURRENT (Inning ${activeInningIdx + 1}) and future innings to match the full team record. 
-
-ALL scores in Inning ${activeInningIdx + 1} will be cleared. Continue?`;
+This will update the lineup for the current and future innings. ALL existing scores for currently established players will be preserved. Continue?`;
 
     if (confirm(msg)) {
         setLoading(true);
@@ -328,7 +326,7 @@ ALL scores in Inning ${activeInningIdx + 1} will be cleared. Continue?`;
         try {
             const updatedMatch = await storage.restoreTeamRoster(match.id, team.id, activeInningIdx);
             setMatch(updatedMatch);
-        } catch (e) { alert("Failed to reset roster."); }
+        } catch (e) { alert("Failed to add player."); }
         setLoading(false);
     }
   };
@@ -413,7 +411,7 @@ ALL scores in Inning ${activeInningIdx + 1} will be cleared. Continue?`;
                 <span className="text-[9px] sm:text-xs font-bold uppercase opacity-80 tracking-wider font-sans">{side === 'home' ? 'Home' : 'Away'}</span>
                 <h3 className="text-[9px] sm:text-xl font-black leading-tight font-sans break-words whitespace-normal">{team.name}</h3>
              </div>
-             {canRestore && <button onClick={() => handleRestoreRoster(side)} className="bg-white/80 dark:bg-slate-800 hover:bg-white text-slate-600 dark:text-slate-300 px-2 py-1 rounded text-[10px] font-bold border border-slate-200 dark:border-slate-700 shadow-sm animate-pulse font-sans">+ Reset Roster</button>}
+             {canRestore && <button onClick={() => handleRestoreRoster(side)} className="bg-white/80 dark:bg-slate-800 hover:bg-white text-slate-600 dark:text-slate-300 px-2 py-1 rounded text-[10px] font-bold border border-slate-200 dark:border-slate-700 shadow-sm animate-pulse font-sans">+ Add Player</button>}
           </div>
           <div className="text-lg sm:text-2xl font-sans tabular-nums font-bold">{calculateTeamInningTotal(side, currentInning)} <span className="text-xs sm:text-sm font-normal opacity-60 font-sans">pts</span></div>
         </div>

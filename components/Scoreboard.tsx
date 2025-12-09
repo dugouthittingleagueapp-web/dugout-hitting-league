@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { Match, Inning, Team, TieBreakerRound, Player } from '../types';
@@ -38,6 +37,7 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
 
   // Roster Editing State
   const [rosterSide, setRosterSide] = useState<'home' | 'away' | null>(null);
+  const [newSubNameInput, setNewSubNameInput] = useState('');
 
   // Edit Completed Game State
   const [isEditingCompleted, setIsEditingCompleted] = useState(false);
@@ -317,6 +317,44 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
       setLoading(false);
   };
 
+  const handleAddManualSub = async () => {
+    if (!newSubNameInput.trim() || !rosterSide) return;
+    const currentTeam = rosterSide === 'home' ? teams.home : teams.away;
+    if (!currentTeam) return;
+
+    setLoading(true);
+    const newPlayer: Player = { id: storage.generateUUID(), name: newSubNameInput.trim() };
+    const updatedTeam: Team = { 
+        ...currentTeam, 
+        subs: [...(currentTeam.subs || []), newPlayer] 
+    };
+
+    try {
+        await storage.updateTeam(updatedTeam);
+        // Update local team state
+        setTeams(prev => ({
+            ...prev,
+            [rosterSide]: updatedTeam
+        }));
+        
+        // Add new sub to current lineup and save
+        const lineup = currentInning[rosterSide].playerScores.map(x => x.playerId);
+        const newList = [...lineup, newPlayer.id];
+        
+        if (newList.length >= 2 && newList.length <= 3) {
+            setNewSubNameInput('');
+            await saveRosterChange(rosterSide, newList);
+        } else {
+            alert("Roster limit reached (3 max). Player saved as sub.");
+            setNewSubNameInput('');
+            setLoading(false);
+        }
+    } catch (e) {
+        alert("Failed to save sub");
+        setLoading(false);
+    }
+  };
+
   const renderTeamSection = (side: 'home' | 'away', team: Team) => {
     const inningData = side === 'home' ? currentInning.home : currentInning.away;
     const headerClass = side === 'home' 
@@ -455,24 +493,52 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
       {/* Roster Modal */}
       {rosterSide && createPortal(
           <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/60 p-4" onClick={() => setRosterSide(null)}>
-              <div className="bg-white dark:bg-slate-900 p-6 rounded-2xl shadow-2xl w-full max-w-sm" onClick={e => e.stopPropagation()}>
+              <div className="bg-white dark:bg-slate-900 p-6 rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden flex flex-col max-h-[90vh]" onClick={e => e.stopPropagation()}>
                   <h3 className="text-xl font-bold text-slate-800 dark:text-white mb-4">Edit Roster: {rosterSide === 'home' ? teams.home?.name : teams.away?.name}</h3>
-                  <div className="space-y-3 mb-6">
-                      {(rosterSide === 'home' ? teams.home?.players : teams.away?.players)?.map(p => {
+                  <div className="flex-1 overflow-y-auto space-y-3 mb-4 pr-1">
+                      {/* Main Roster & Subs Toggles */}
+                      {(() => {
+                          const team = rosterSide === 'home' ? teams.home : teams.away;
+                          const allPotential = [...(team?.players || []), ...(team?.subs || [])];
                           const lineup = currentInning[rosterSide!].playerScores.map(x => x.playerId);
-                          const isIn = lineup.includes(p.id);
-                          return (
-                              <button key={p.id} onClick={() => {
-                                  const newList = isIn ? lineup.filter(id => id !== p.id) : [...lineup, p.id];
-                                  if (newList.length >= 2 && newList.length <= 3) saveRosterChange(rosterSide!, newList);
-                                  else alert("Must have 2 or 3 players.");
-                              }} className={`w-full flex justify-between items-center p-3 rounded-xl border-2 transition-all group ${isIn ? 'border-blue-500 bg-blue-50 hover:bg-blue-100' : 'border-slate-100 hover:border-slate-300'}`}>
-                                  <span className={`font-bold transition-colors ${isIn ? 'text-blue-900' : 'text-slate-600 group-hover:text-slate-900'}`}>{formatName(p)}</span>
-                                  <span className={`text-xs font-bold font-sans tracking-wide transition-colors ${isIn ? 'text-red-600' : 'text-blue-600'}`}>{isIn ? 'Remove' : 'Add'}</span>
-                              </button>
-                          );
-                      })}
+
+                          return allPotential.map(p => {
+                            const isIn = lineup.includes(p.id);
+                            return (
+                                <button key={p.id} onClick={() => {
+                                    const newList = isIn ? lineup.filter(id => id !== p.id) : [...lineup, p.id];
+                                    if (newList.length >= 2 && newList.length <= 3) saveRosterChange(rosterSide!, newList);
+                                    else alert("Must have 2 or 3 players.");
+                                }} className={`w-full flex justify-between items-center p-3 rounded-xl border-2 transition-all group ${isIn ? 'border-blue-500 bg-blue-50 hover:bg-blue-100 dark:bg-blue-900/20 dark:hover:bg-blue-900/40' : 'border-slate-100 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700'}`}>
+                                    <span className={`font-bold transition-colors text-sm ${isIn ? 'text-blue-900 dark:text-blue-100' : 'text-slate-600 dark:text-slate-400 group-hover:text-slate-900 dark:group-hover:text-slate-100'}`}>{formatName(p)}</span>
+                                    <span className={`text-[10px] font-bold font-sans tracking-wide transition-colors ${isIn ? 'text-red-600' : 'text-blue-600'}`}>{isIn ? 'Remove' : 'Add'}</span>
+                                </button>
+                            );
+                          });
+                      })()}
                   </div>
+
+                  {/* Add NEW Player section */}
+                  <div className="border-t border-slate-200 dark:border-slate-800 pt-4 mb-4">
+                      <label className="block text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">Register New Sub</label>
+                      <div className="flex gap-2">
+                          <input 
+                            type="text" 
+                            value={newSubNameInput} 
+                            onChange={e => setNewSubNameInput(e.target.value)}
+                            placeholder="Full Name" 
+                            className="flex-1 bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none text-slate-900 dark:text-white font-sans"
+                          />
+                          <button 
+                            onClick={handleAddManualSub} 
+                            disabled={!newSubNameInput.trim()}
+                            className="bg-blue-600 text-white font-bold px-3 py-2 rounded-lg text-xs font-sans disabled:opacity-50 transition-all hover:bg-blue-700"
+                          >
+                              Add
+                          </button>
+                      </div>
+                  </div>
+
                   <button onClick={() => setRosterSide(null)} className="w-full py-3 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 font-bold rounded-xl transition-colors hover:bg-slate-200 dark:hover:bg-slate-700 font-sans">Cancel</button>
               </div>
           </div>,

@@ -1,3 +1,4 @@
+
 import { Fragment } from 'react';
 import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
@@ -142,7 +143,7 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
 
   const openEditModal = (side: 'home' | 'away') => {
       setEditSide(side);
-      const team = side === 'home' ? teams.home! : teams.away!;
+      const team = side === 'home' ? teams.home! : teams.away! ;
       const inningData = side === 'home' ? currentInning.home : currentInning.away;
       const lineupIds = inningData.playerScores.map(ps => ps.playerId).filter(id => !id.startsWith('ghost-'));
       const currentLineup = lineupIds.map(id => [...team.players, ...(team.subs || [])].find(p => p.id === id)).filter(Boolean) as Player[];
@@ -280,8 +281,13 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
                             return (
                                 <Fragment key={idx}>
                                     <ScoreInput pitchNumber={idx+1} value={pitch.points} pitchesRemaining={pitchesLeft} readOnly={isReadOnly || (match.isComplete && !isEditingCompleted)} isEditing={isEditing} onOpen={() => setActiveCell({ side, lineupIdx, pitchIdx: idx })} onClose={() => setActiveCell(null)} onChange={(val) => handleScoreUpdate(side, lineupIdx, idx, val)} onUndo={idx > 0 ? () => handleUndo(side, lineupIdx, idx) : undefined} />
-                                    {(idx === 4 || idx === 9) && limit > idx + 1 && (
+                                    {/* 5|6 break specifically for 15-pitch ghost rows */}
+                                    {idx === 4 && limit === 15 && (
                                         <div className="w-1 portrait:w-0.5 h-full self-stretch bg-slate-200 dark:bg-slate-800 mx-1" />
+                                    )}
+                                    {/* 10|11 break to separate regulation from ghost pitches */}
+                                    {idx === 9 && limit === 15 && (
+                                        <div className="w-1 portrait:w-0.5 h-full self-stretch bg-slate-400 dark:bg-slate-600 mx-1 shadow-sm" />
                                     )}
                                 </Fragment>
                             );
@@ -365,7 +371,7 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
           )}
       </main>
 
-      {/* Edit Lineup Modal - Standard implementation preserved for reference or reuse */}
+      {/* Edit Lineup Modal */}
       {showEditLineupModal && editSide && createPortal(
           <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/80 backdrop-blur-sm p-4" onClick={() => setShowEditLineupModal(false)}>
               <div className="bg-white dark:bg-slate-900 p-6 rounded-2xl shadow-2xl w-full max-w-lg border border-slate-200 dark:border-slate-800 max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>

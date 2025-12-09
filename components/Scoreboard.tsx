@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { Match, Inning, Team, TieBreakerRound, Player } from '../types';
@@ -295,11 +294,11 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
           <div className="flex items-center gap-3 portrait:gap-2">
              <div>
                 <span className="text-xs portrait:text-[10px] font-bold uppercase opacity-80 tracking-wider">Lineup</span>
-                <h3 className="text-xl portrait:text-sm font-black leading-tight">{team.name}</h3>
+                <h3 className="text-xl portrait:text-sm font-black leading-tight truncate max-w-[120px] portrait:max-w-[80px] sm:max-w-none">{team.name}</h3>
              </div>
              {canEdit && <button onClick={() => openEditModal(side)} className="bg-white/80 dark:bg-slate-800 text-slate-600 px-3 py-1.5 portrait:px-2 portrait:py-1 rounded-lg text-xs font-bold border border-slate-200 dark:border-slate-700 shadow-sm transition-colors hover:bg-white">Edit</button>}
           </div>
-          <div className="text-2xl portrait:text-xl font-bold">{calculateTeamInningTotal(side, currentInning)} <span className="text-sm portrait:text-xs font-normal opacity-60">pts</span></div>
+          <div className="text-2xl portrait:text-lg font-bold">{calculateTeamInningTotal(side, currentInning)} <span className="text-sm portrait:text-[10px] font-normal opacity-60">pts</span></div>
         </div>
         <div className="bg-white dark:bg-slate-900 rounded-b-lg shadow-md border border-slate-200 dark:border-slate-700 overflow-x-auto relative">
           <table className="w-full">
@@ -325,14 +324,14 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
           <div className="flex gap-8 portrait:gap-2 items-center flex-1">
             <div className="text-center flex-1 min-w-0">
                 <div className="text-xs portrait:text-[10px] text-slate-500 uppercase font-bold">Away</div>
-                <div className="text-xl portrait:text-xs font-bold text-blue-700 dark:text-blue-400 truncate">{teams.away.name}</div>
-                <div className="text-2xl portrait:text-base font-black dark:text-white tabular-nums">{awayTotal}</div>
+                <div className="text-xl portrait:text-[10px] font-bold text-blue-700 dark:text-blue-400 truncate">{teams.away.name}</div>
+                <div className="text-2xl portrait:text-xl font-black dark:text-white tabular-nums">{awayTotal}</div>
             </div>
             <div className="text-slate-300 text-xl portrait:text-base font-light">vs</div>
             <div className="text-center flex-1 min-w-0">
                 <div className="text-xs portrait:text-[10px] text-slate-500 uppercase font-bold">Home</div>
-                <div className="text-xl portrait:text-xs font-bold text-red-700 dark:text-red-400 truncate">{teams.home.name}</div>
-                <div className="text-2xl portrait:text-base font-black dark:text-white tabular-nums">{homeTotal}</div>
+                <div className="text-xl portrait:text-[10px] font-bold text-red-700 dark:text-red-400 truncate">{teams.home.name}</div>
+                <div className="text-2xl portrait:text-xl font-black dark:text-white tabular-nums">{homeTotal}</div>
             </div>
           </div>
           <div className="flex items-center gap-2 portrait:gap-1 shrink-0">
@@ -393,7 +392,7 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
                           <div className="pt-4 border-t border-dashed">
                               <p className="text-xs text-slate-400 font-bold uppercase mb-2">Available to Add</p>
                               <div className="flex flex-wrap gap-2">
-                                  {[...(editSide === 'home' ? teams.home!.players : teams.away!.players), ...(editSide === 'home' ? teams.home!.subs ?? [] : teams.away!.subs ?? [])]
+                                  {[...(editSide === 'home' ? teams.home!.players : teams.away!.players), ...(editSide === 'home' ? teams.home!.subs ?? [] : teams.away!.subs ?? []).filter(x => x.id !== undefined)]
                                     .filter(x => !tempLineup.find(l => l.id === x.id))
                                     .map(p => (
                                         <button key={p.id} onClick={() => setTempLineup([...tempLineup, p])} className="px-3 py-1.5 bg-blue-50 text-blue-600 rounded-lg text-xs font-bold border border-blue-200 hover:bg-blue-100 transition-colors">

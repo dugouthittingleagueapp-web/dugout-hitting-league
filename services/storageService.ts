@@ -1,4 +1,3 @@
-
 import { AgeGroup, Match, Team, Inning, PlayerInningScore, League, PlayerStats, Player } from '../types';
 
 const mapTeamFromDB = (dbTeam: any): Team => ({
@@ -251,10 +250,13 @@ export const restoreTeamRoster = async (
         const oppGhostId = `ghost-${isHome ? 'away' : 'home'}`;
 
         if (currentTeamCount === 3 && oppTeamCount === 2) {
-            oppInningScore.playerScores.push({
-                playerId: oppGhostId,
-                pitches: Array(10).fill(null).map(() => ({ points: null }))
-            });
+            const hasOppGhost = oppInningScore.playerScores.some(ps => ps.playerId === oppGhostId);
+            if (!hasOppGhost) {
+                oppInningScore.playerScores.push({
+                    playerId: oppGhostId,
+                    pitches: Array(10).fill(null).map(() => ({ points: null }))
+                });
+            }
         }
     }
     

@@ -364,6 +364,8 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
     const isTwoPlayerGhostMode = inningData.playerScores.length === 2 && inningData.playerScores[0].pitches.length >= 15;
     const canEdit = !isReadOnly && !match.isComplete;
 
+    const findPlayer = (id: string) => [...team.players, ...(team.subs || [])].find(p => p.id === id);
+
     const renderRow = (playerScore: any, lineupIdx: number, player: any, pitchStartIndex: number, pitchEndIndex: number, isGhostRow = false) => {
          const visiblePitches = playerScore.pitches.slice(pitchStartIndex, pitchEndIndex);
          const rowTotal = visiblePitches.reduce((sum: number, p: any) => sum + (p.points || 0), 0);
@@ -405,7 +407,7 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
           <table className="w-full border-collapse">
             <tbody>
               {isTwoPlayerGhostMode ? (
-                  <>{renderRow(inningData.playerScores[0], 0, team.players.find(p=>p.id===inningData.playerScores[0].playerId), 0, 10, false)}{renderRow(inningData.playerScores[1], 1, team.players.find(p=>p.id===inningData.playerScores[1].playerId), 0, 10, false)}
+                  <>{renderRow(inningData.playerScores[0], 0, findPlayer(inningData.playerScores[0].playerId), 0, 10, false)}{renderRow(inningData.playerScores[1], 1, findPlayer(inningData.playerScores[1].playerId), 0, 10, false)}
                     <tr className="hover:bg-slate-50/50 dark:hover:bg-slate-800/50 bg-slate-50/30 dark:bg-slate-900/30 border-t border-slate-200 dark:border-slate-700">
                         <td className="px-0.5 sm:px-2 py-1 sm:py-2 sticky left-0 bg-white dark:bg-slate-900 z-20 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)] border-r border-slate-200 dark:border-slate-700 w-[85px] sm:w-auto">
                             <div className="flex items-center gap-1.5 sm:gap-2 w-full"><span className="text-[8px] sm:text-[10px] font-bold w-4 h-4 sm:w-5 sm:h-5 rounded-full flex items-center justify-center shrink-0 bg-slate-200 dark:bg-slate-800 text-slate-500 dark:text-slate-400 font-sans">3</span><span className="truncate text-[10px] sm:text-sm italic text-slate-400 dark:text-slate-500 font-sans flex-1">Ghost</span></div>
@@ -422,7 +424,7 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
                         </td>
                     </tr>
                   </>
-              ) : (inningData.playerScores.map((playerScore, idx) => renderRow(playerScore, idx, team.players.find(p => p.id === playerScore.playerId), 0, playerScore.pitches.length, false)))}
+              ) : (inningData.playerScores.map((playerScore, idx) => renderRow(playerScore, idx, findPlayer(playerScore.playerId), 0, playerScore.pitches.length, false)))}
             </tbody>
           </table>
         </div>
@@ -442,12 +444,12 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
                          <div className="bg-amber-50 dark:bg-amber-950 p-3 rounded-t-xl border border-amber-200 flex justify-between items-center"><h3 className="font-bold text-amber-800 font-sans">Extra Round {round.roundNumber}</h3>{idx === match.tieBreaker!.length - 1 && !match.isComplete && (hS === aS ? <button onClick={() => startTieBreakerRound()} className="bg-amber-600 text-white font-bold px-4 py-2 rounded-lg">Next Round</button> : <button onClick={confirmCompleteGame} className="bg-green-600 text-white font-bold px-4 py-2 rounded-lg">Finalize</button>)}</div>
                          <div className="bg-white dark:bg-slate-900 border-x border-b border-slate-200 rounded-b-xl overflow-x-auto"><table className="w-full"><tbody>
                             <tr className="bg-blue-50/10">
-                                <td className="px-4 py-3 font-medium w-[150px]"><span className="font-bold">{formatName(teams.away?.players.find(p => p.id === round.awayPlayerId))}</span></td>
+                                <td className="px-4 py-3 font-medium w-[150px]"><span className="font-bold">{formatName([...(teams.away?.players || []), ...(teams.away?.subs || [])].find(p => p.id === round.awayPlayerId))}</span></td>
                                 <td className="px-2 py-3"><div className="flex gap-2">{round.awayScores.map((s, pI) => (<ScoreInput key={pI} pitchNumber={pI+1} value={s} readOnly={isReadOnly || (match.isComplete && !isEditingCompleted)} isEditing={activeCell?.side === 'away' && activeCell?.roundIdx === idx && activeCell?.pitchIdx === pI} onOpen={() => setActiveCell({ side: 'away', lineupIdx: 0, pitchIdx: pI, roundIdx: idx })} onClose={() => setActiveCell(null)} onChange={v => handleTieBreakerScore(idx, 'away', pI, v)} onUndo={() => handleUndo('away', 0, pI, idx)} />))}</div></td>
                                 <td className="px-4 py-3 font-bold text-xl text-center tabular-nums">{aS}</td>
                             </tr>
                             <tr className="bg-red-50/10">
-                                <td className="px-4 py-3 font-medium w-[150px]"><span className="font-bold">{formatName(teams.home?.players.find(p => p.id === round.homePlayerId))}</span></td>
+                                <td className="px-4 py-3 font-medium w-[150px]"><span className="font-bold">{formatName([...(teams.home?.players || []), ...(teams.home?.subs || [])].find(p => p.id === round.homePlayerId))}</span></td>
                                 <td className="px-2 py-3"><div className="flex gap-2">{round.homeScores.map((s, pI) => (<ScoreInput key={pI} pitchNumber={pI+1} value={s} readOnly={isReadOnly || (match.isComplete && !isEditingCompleted)} isEditing={activeCell?.side === 'home' && activeCell?.roundIdx === idx && activeCell?.pitchIdx === pI} onOpen={() => setActiveCell({ side: 'home', lineupIdx: 0, pitchIdx: pI, roundIdx: idx })} onClose={() => setActiveCell(null)} onChange={v => handleTieBreakerScore(idx, 'home', pI, v)} onUndo={() => handleUndo('home', 0, pI, idx)} />))}</div></td>
                                 <td className="px-4 py-3 font-bold text-xl text-center tabular-nums">{hS}</td>
                             </tr>

@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { Match, Inning, Team, TieBreakerRound, Player } from '../types';
@@ -465,14 +466,14 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
                                   const newList = isIn ? lineup.filter(id => id !== p.id) : [...lineup, p.id];
                                   if (newList.length >= 2 && newList.length <= 3) saveRosterChange(rosterSide!, newList);
                                   else alert("Must have 2 or 3 players.");
-                              }} className={`w-full flex justify-between items-center p-3 rounded-xl border-2 transition-all ${isIn ? 'border-blue-500 bg-blue-50 text-blue-700' : 'border-slate-100 hover:border-slate-300'}`}>
-                                  <span className="font-bold">{formatName(p)}</span>
-                                  <span className="text-xs font-bold">{isIn ? 'Active' : 'Add'}</span>
+                              }} className={`w-full flex justify-between items-center p-3 rounded-xl border-2 transition-all group ${isIn ? 'border-blue-500 bg-blue-50 hover:bg-blue-100' : 'border-slate-100 hover:border-slate-300'}`}>
+                                  <span className={`font-bold transition-colors ${isIn ? 'text-blue-900' : 'text-slate-600 group-hover:text-slate-900'}`}>{formatName(p)}</span>
+                                  <span className={`text-xs font-bold font-sans tracking-wide transition-colors ${isIn ? 'text-red-600' : 'text-blue-600'}`}>{isIn ? 'Remove' : 'Add'}</span>
                               </button>
                           );
                       })}
                   </div>
-                  <button onClick={() => setRosterSide(null)} className="w-full py-3 bg-slate-100 text-slate-600 font-bold rounded-xl">Cancel</button>
+                  <button onClick={() => setRosterSide(null)} className="w-full py-3 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 font-bold rounded-xl transition-colors hover:bg-slate-200 dark:hover:bg-slate-700 font-sans">Cancel</button>
               </div>
           </div>,
           document.body

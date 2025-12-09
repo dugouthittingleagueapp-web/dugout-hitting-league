@@ -229,8 +229,8 @@ export const restoreTeamRoster = async (matchId: string, teamId: string, current
 
     const newInnings = [...match.innings];
     
-    // Reset future innings.
-    const startResetIdx = currentInningIdx + 1;
+    // Reset from current inning onwards.
+    const startResetIdx = currentInningIdx;
 
     for(let i = startResetIdx; i < 6; i++) {
         const oldHomeIds = newInnings[i].home.playerScores.map(p => p.playerId);

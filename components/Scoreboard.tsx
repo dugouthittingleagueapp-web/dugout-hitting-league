@@ -351,7 +351,7 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
     if (isReadOnly) return;
     const team = side === 'home' ? teams.home : teams.away;
     if (!team) return;
-    if (confirm(`Player arrived? Reset roster for ${team.name}?`)) {
+    if (confirm(`Player arrived? Reset roster for ${team.name}? This resets scoring format for the current and future innings.`)) {
         setLoading(true);
         try {
             const updatedMatch = await storage.restoreTeamRoster(match.id, team.id, activeInningIdx);
@@ -374,8 +374,8 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
     
     const isTwoPlayerGhostMode = inningData.playerScores.length === 2 && inningData.playerScores[0].pitches.length >= 15;
     const isShortHanded = inningData.playerScores.length < team.players.length;
-    // Do not allow resetting roster if match is complete, even in edit mode, to preserve structure.
-    const canRestore = !isReadOnly && isShortHanded && activeInningIdx >= 1 && !match.isComplete;
+    // Removed specific activeInningIdx >= 1 check to allow resetting from start of game.
+    const canRestore = !isReadOnly && isShortHanded && !match.isComplete;
 
     const renderRow = (playerScore: any, lineupIdx: number, player: any, pitchStartIndex: number, pitchEndIndex: number, isGhostRow = false) => {
          const visiblePitches = playerScore.pitches.slice(pitchStartIndex, pitchEndIndex);

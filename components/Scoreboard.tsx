@@ -258,18 +258,18 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
 
          return (
             <tr key={`${playerScore.playerId}-${isGhostRow ? 'ghost' : 'norm'}`} className="hover:bg-slate-50/50 dark:hover:bg-white/5 border-b border-slate-100 dark:border-slate-800">
-                <td className="px-2 py-2 font-medium sticky left-0 bg-white dark:bg-slate-900 z-20 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)] border-r border-slate-200 dark:border-slate-700 w-[100px] sm:w-auto">
-                    <div className="flex items-center gap-2">
-                        <span className={`text-[10px] font-bold w-5 h-5 rounded-full flex items-center justify-center shrink-0 ${isGhostRow ? 'bg-slate-200 dark:bg-slate-800 text-slate-500' : 'bg-slate-100 dark:bg-slate-800 text-slate-400'}`}>
+                <td className="px-2 py-2 portrait:px-1 portrait:py-1 font-medium sticky left-0 bg-white dark:bg-slate-900 z-20 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)] border-r border-slate-200 dark:border-slate-700 w-[100px] portrait:max-w-[80px] sm:w-auto">
+                    <div className="flex items-center gap-2 portrait:gap-1">
+                        <span className={`text-[10px] portrait:text-[8px] font-bold w-5 h-5 portrait:w-4 portrait:h-4 rounded-full flex items-center justify-center shrink-0 ${isGhostRow ? 'bg-slate-200 dark:bg-slate-800 text-slate-500' : 'bg-slate-100 dark:bg-slate-800 text-slate-400'}`}>
                             {isGhostRow ? '3' : lineupIdx + 1}
                         </span>
-                        <span className="truncate text-sm font-bold text-slate-900 dark:text-white">
+                        <span className="truncate text-sm portrait:text-xs font-bold text-slate-900 dark:text-white">
                             {isGhostRow ? <span className="italic text-slate-400">Ghost</span> : formatName(player)}
                         </span>
                     </div>
                 </td>
-                <td className="px-2 py-2">
-                    <div className="flex gap-2 justify-start overflow-x-auto scrollbar-hide py-1">
+                <td className="px-2 py-2 portrait:px-1 portrait:py-1">
+                    <div className="flex gap-2 portrait:gap-1 justify-start overflow-x-auto scrollbar-hide py-1">
                         {visiblePitches.map((pitch: any, idx: number) => {
                             const realPitchIdx = pitchStartIndex + idx;
                             const isEditing = activeCell?.side === side && activeCell.lineupIdx === lineupIdx && activeCell.pitchIdx === realPitchIdx;
@@ -279,7 +279,7 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
                         })}
                     </div>
                 </td>
-                {!isGhostRow && <td className="px-3 py-2 text-center font-bold tabular-nums text-slate-800 dark:text-white border-l border-slate-200 dark:border-slate-700">{visiblePitches.reduce((s:number,p:any)=>s+(p.points||0),0)}</td>}
+                {!isGhostRow && <td className="px-3 py-2 portrait:px-1 portrait:py-1 text-center font-bold tabular-nums text-slate-800 dark:text-white border-l border-slate-200 dark:border-slate-700 text-sm portrait:text-xs">{visiblePitches.reduce((s:number,p:any)=>s+(p.points||0),0)}</td>}
             </tr>
          );
     };
@@ -287,14 +287,14 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
     return (
       <div className="mb-4 sm:mb-8">
         <div className={`p-3 rounded-t-lg border-b flex justify-between items-end shadow-sm ${headerClass}`}>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 portrait:gap-2">
              <div>
-                <span className="text-xs font-bold uppercase opacity-80 tracking-wider">Lineup</span>
-                <h3 className="text-xl font-black leading-tight">{team.name}</h3>
+                <span className="text-xs portrait:text-[10px] font-bold uppercase opacity-80 tracking-wider">Lineup</span>
+                <h3 className="text-xl portrait:text-lg font-black leading-tight">{team.name}</h3>
              </div>
-             {canEdit && <button onClick={() => openEditModal(side)} className="bg-white/80 dark:bg-slate-800 text-slate-600 px-3 py-1.5 rounded-lg text-xs font-bold border border-slate-200 dark:border-slate-700 shadow-sm transition-colors hover:bg-white">Edit Lineup</button>}
+             {canEdit && <button onClick={() => openEditModal(side)} className="bg-white/80 dark:bg-slate-800 text-slate-600 px-3 py-1.5 portrait:px-2 portrait:py-1 rounded-lg text-xs font-bold border border-slate-200 dark:border-slate-700 shadow-sm transition-colors hover:bg-white">Edit</button>}
           </div>
-          <div className="text-2xl font-bold">{calculateTeamInningTotal(side, currentInning)} <span className="text-sm font-normal opacity-60">pts</span></div>
+          <div className="text-2xl portrait:text-xl font-bold">{calculateTeamInningTotal(side, currentInning)} <span className="text-sm portrait:text-xs font-normal opacity-60">pts</span></div>
         </div>
         <div className="bg-white dark:bg-slate-900 rounded-b-lg shadow-md border border-slate-200 dark:border-slate-700 overflow-x-auto relative">
           <table className="w-full">
@@ -304,14 +304,14 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
                     {renderRow(inningData.playerScores[0], 0, team.players.find(p=>p.id===inningData.playerScores[0].playerId), 0, 10)}
                     {renderRow(inningData.playerScores[1], 1, team.players.find(p=>p.id===inningData.playerScores[1].playerId), 0, 10)}
                     <tr className="bg-slate-50/30 dark:bg-slate-900/30 border-t border-slate-200 dark:border-slate-700">
-                        <td className="px-2 py-2 font-medium sticky left-0 bg-white dark:bg-slate-900 z-20 border-r border-slate-200 dark:border-slate-700">
-                            <div className="flex items-center gap-2">
-                                <span className="text-[10px] font-bold w-5 h-5 rounded-full flex items-center justify-center bg-slate-200 dark:bg-slate-800 text-slate-500">3</span>
-                                <span className="italic text-slate-400 text-sm">Ghost</span>
+                        <td className="px-2 py-2 portrait:px-1 portrait:py-1 font-medium sticky left-0 bg-white dark:bg-slate-900 z-20 border-r border-slate-200 dark:border-slate-700 portrait:max-w-[80px]">
+                            <div className="flex items-center gap-2 portrait:gap-1">
+                                <span className="text-[10px] portrait:text-[8px] font-bold w-5 h-5 portrait:w-4 portrait:h-4 rounded-full flex items-center justify-center bg-slate-200 dark:bg-slate-800 text-slate-500">3</span>
+                                <span className="italic text-slate-400 text-sm portrait:text-xs">Ghost</span>
                             </div>
                         </td>
-                        <td className="px-2 py-2">
-                            <div className="flex items-center gap-2 justify-start overflow-x-auto py-1">
+                        <td className="px-2 py-2 portrait:px-1 portrait:py-1">
+                            <div className="flex items-center gap-2 portrait:gap-1 justify-start overflow-x-auto py-1">
                                 {inningData.playerScores[0].pitches.slice(10, 15).map((p, idx) => {
                                     const realIdx = 10+idx;
                                     const isEditing = activeCell?.side === side && activeCell.lineupIdx === 0 && activeCell.pitchIdx === realIdx;
@@ -325,7 +325,7 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
                                 })}
                             </div>
                         </td>
-                        <td className="px-3 py-2 text-center font-bold tabular-nums text-slate-800 dark:text-slate-200 border-l border-slate-200 dark:border-slate-700">{inningData.playerScores[0].pitches.slice(10, 15).reduce((s,p)=>s+(p.points||0),0) + inningData.playerScores[1].pitches.slice(10, 15).reduce((s,p)=>s+(p.points||0),0)}</td>
+                        <td className="px-3 py-2 portrait:px-1 portrait:py-1 text-center font-bold tabular-nums text-slate-800 dark:text-slate-200 border-l border-slate-200 dark:border-slate-700 text-sm portrait:text-xs">{inningData.playerScores[0].pitches.slice(10, 15).reduce((s,p)=>s+(p.points||0),0) + inningData.playerScores[1].pitches.slice(10, 15).reduce((s,p)=>s+(p.points||0),0)}</td>
                     </tr>
                   </>
               ) : inningData.playerScores.map((ps, idx) => renderRow(ps, idx, [...team.players, ...(team.subs || [])].find(p=>p.id===ps.playerId), 0, 10))}
@@ -341,38 +341,38 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
   return (
     <div className="min-h-full w-full bg-transparent pb-24 relative">
       <header className="bg-white/80 dark:bg-slate-950/90 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 sticky top-0 z-[50] shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 py-3 flex justify-between items-center gap-4">
-          <div className="flex gap-8 items-center flex-1">
+        <div className="max-w-7xl mx-auto px-4 py-3 portrait:py-2 flex justify-between items-center gap-4">
+          <div className="flex gap-8 portrait:gap-4 items-center flex-1">
             <div className="text-center flex-1">
-                <div className="text-xs text-slate-500 uppercase font-bold">Away</div>
-                <div className="text-xl font-bold text-blue-700 dark:text-blue-400">{teams.away.name}</div>
-                <div className="text-2xl font-black dark:text-white tabular-nums">{awayTotal}</div>
+                <div className="text-xs portrait:text-[10px] text-slate-500 uppercase font-bold">Away</div>
+                <div className="text-xl portrait:text-lg font-bold text-blue-700 dark:text-blue-400 truncate">{teams.away.name}</div>
+                <div className="text-2xl portrait:text-xl font-black dark:text-white tabular-nums">{awayTotal}</div>
             </div>
             <div className="text-slate-300 text-xl font-light">vs</div>
             <div className="text-center flex-1">
-                <div className="text-xs text-slate-500 uppercase font-bold">Home</div>
-                <div className="text-xl font-bold text-red-700 dark:text-red-400">{teams.home.name}</div>
-                <div className="text-2xl font-black dark:text-white tabular-nums">{homeTotal}</div>
+                <div className="text-xs portrait:text-[10px] text-slate-500 uppercase font-bold">Home</div>
+                <div className="text-xl portrait:text-lg font-bold text-red-700 dark:text-red-400 truncate">{teams.home.name}</div>
+                <div className="text-2xl portrait:text-xl font-black dark:text-white tabular-nums">{homeTotal}</div>
             </div>
           </div>
           <div className="flex items-center gap-2">
             {!isReadOnly && match.isComplete && (
-                <button onClick={() => setIsEditingCompleted(!isEditingCompleted)} className={`text-sm font-bold py-2 px-3 rounded-lg border transition-colors ${isEditingCompleted ? 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 border-amber-300' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 border-slate-300'}`}>
-                    {isEditingCompleted ? 'Lock Score' : 'Edit Score'}
+                <button onClick={() => setIsEditingCompleted(!isEditingCompleted)} className={`text-sm portrait:text-xs font-bold py-2 px-3 rounded-lg border transition-colors ${isEditingCompleted ? 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 border-amber-300' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 border-slate-300'}`}>
+                    {isEditingCompleted ? 'Lock' : 'Edit'}
                 </button>
             )}
-            <button onClick={onExit} className="text-sm font-bold text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 py-2 px-3 rounded-lg transition-colors">Exit</button>
+            <button onClick={onExit} className="text-sm portrait:text-xs font-bold text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 py-2 px-3 rounded-lg transition-colors">Exit</button>
           </div>
         </div>
         <div className="flex overflow-x-auto border-t border-slate-100 dark:border-slate-800">
             {match.innings.map((ing, idx) => (
-                <button key={ing.number} onClick={() => setActiveInningIdx(idx)} className={`flex-1 py-3 text-xs font-bold uppercase tracking-wider border-b-2 transition-colors ${idx === activeInningIdx ? 'border-blue-600 text-blue-600 dark:text-blue-400 bg-blue-50/50 dark:bg-blue-900/20' : 'border-transparent text-slate-400 hover:bg-slate-50'}`}>Inning {ing.number}</button>
+                <button key={ing.number} onClick={() => setActiveInningIdx(idx)} className={`flex-1 py-3 portrait:py-2 text-xs font-bold uppercase tracking-wider border-b-2 transition-colors ${idx === activeInningIdx ? 'border-blue-600 text-blue-600 dark:text-blue-400 bg-blue-50/50 dark:bg-blue-900/20' : 'border-transparent text-slate-400 hover:bg-slate-50'}`}>Inn {ing.number}</button>
             ))}
             {(match.tieBreaker?.length ?? 0) > 0 && <button onClick={() => setActiveInningIdx(6)} className={`flex-1 py-3 text-xs font-bold uppercase tracking-wider border-b-2 transition-colors ${activeInningIdx === 6 ? 'border-amber-500 text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20' : 'border-transparent text-amber-500'}`}>Extra</button>}
         </div>
       </header>
       
-      <main className="max-w-5xl mx-auto p-4">
+      <main className="max-w-5xl mx-auto p-4 portrait:p-2">
           {isExtraInnings ? null : <>{renderTeamSection('away', teams.away)}{renderTeamSection('home', teams.home)}</>}
           
           {!isReadOnly && isFinalizingReady && !match.isComplete && (
@@ -385,7 +385,7 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
       {/* Edit Lineup Modal */}
       {showEditLineupModal && editSide && createPortal(
           <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/80 backdrop-blur-sm p-4" onClick={() => setShowEditLineupModal(false)}>
-              <div className="bg-white dark:bg-slate-900 p-6 rounded-2xl shadow-2xl w-full max-w-lg border border-slate-200 dark:border-slate-800" onClick={e => e.stopPropagation()}>
+              <div className="bg-white dark:bg-slate-900 p-6 rounded-2xl shadow-2xl w-full max-w-lg border border-slate-200 dark:border-slate-800 max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
                   <h2 className="text-2xl font-bold mb-6 flex justify-between items-center">
                       <span>Edit {editSide === 'home' ? teams.home!.name : teams.away!.name} Lineup</span>
                       <span className="text-xs font-bold bg-slate-100 px-2 py-1 rounded text-slate-500">Inning {activeInningIdx + 1}</span>

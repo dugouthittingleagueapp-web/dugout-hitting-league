@@ -246,6 +246,7 @@ export const restoreTeamRoster = async (
         }
 
         // 3. Balance check: Does the opponent need a ghost now?
+        // Check roster size AFTER the insertion logic above has processed the requesting team
         const currentTeamCount = teamInningScore.playerScores.length;
         const oppTeamCount = oppInningScore.playerScores.length;
         const oppGhostId = `ghost-${isHome ? 'away' : 'home'}`;
@@ -279,13 +280,10 @@ export const updateMatchLineup = async (
 
     for (let i = inningIdx; i < 6; i++) {
         const currentTeamData = isHome ? newInnings[i].home : newInnings[i].away;
-        const oppTeamData = isHome ? newInnings[i].away : newInnings[i].home;
-
         const oldScores = new Map<string, PlayerInningScore>();
         currentTeamData.playerScores.forEach(ps => oldScores.set(ps.playerId, ps));
 
-        // 1. Map existing human players or create new blank ones
-        let updatedPlayerScores: PlayerInningScore[] = newLineupIds.map(pid => {
+        const updatedPlayerScores: PlayerInningScore[] = newLineupIds.map(pid => {
             const existing = oldScores.get(pid);
             if (existing) {
                 return { ...existing };
@@ -295,37 +293,6 @@ export const updateMatchLineup = async (
                 pitches: Array(10).fill(null).map(() => ({ points: null }))
             };
         });
-
-        // 2. Ghost injection/removal logic based on balance
-        const oppCount = oppTeamData.playerScores.filter(ps => !ps.playerId.startsWith('ghost-')).length;
-        const currentCount = updatedPlayerScores.length;
-        
-        const currentGhostId = `ghost-${isHome ? 'home' : 'away'}`;
-        const oppGhostId = `ghost-${isHome ? 'away' : 'home'}`;
-
-        // Team being edited is at 2, opponent is at 3 -> needs ghost
-        if (currentCount === 2 && oppCount === 3) {
-            updatedPlayerScores.push({
-                playerId: currentGhostId,
-                pitches: Array(10).fill(null).map(() => ({ points: null }))
-            });
-        }
-
-        // If team being edited is now 3, check if opponent (which is at 2) now needs a ghost
-        if (currentCount === 3 && oppCount === 2) {
-            const hasOppGhost = oppTeamData.playerScores.some(ps => ps.playerId === oppGhostId);
-            if (!hasOppGhost) {
-                oppTeamData.playerScores.push({
-                    playerId: oppGhostId,
-                    pitches: Array(10).fill(null).map(() => ({ points: null }))
-                });
-            }
-        }
-
-        // If team being edited is now 3, remove its own ghost if it had one
-        if (currentCount >= 3) {
-            updatedPlayerScores = updatedPlayerScores.filter(ps => ps.playerId !== currentGhostId);
-        }
 
         if (isHome) newInnings[i].home.playerScores = updatedPlayerScores;
         else newInnings[i].away.playerScores = updatedPlayerScores;

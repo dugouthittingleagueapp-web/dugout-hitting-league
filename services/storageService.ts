@@ -1,4 +1,3 @@
-
 import { AgeGroup, Match, Team, Inning, PlayerInningScore, League, PlayerStats, Player } from '../types';
 
 const mapTeamFromDB = (dbTeam: any): Team => ({
@@ -165,25 +164,20 @@ export const createMatch = async (league: AgeGroup, homeTeamId: string, awayTeam
 };
 
 const createEmptyInning = (number: number, homeIds: string[], awayIds: string[]): Inning => {
-    const createPlayerScore = (pid: string) => ({
+    const createPlayerScore = (pid: string, limit: number = 10) => ({
         playerId: pid,
-        pitches: Array(10).fill(null).map(() => ({ points: null }))
+        pitches: Array(limit).fill(null).map(() => ({ points: null }))
     });
 
-    const homeScores = homeIds.map(id => createPlayerScore(id));
-    const awayScores = awayIds.map(id => createPlayerScore(id));
-
-    // Inject ghost if facing 3 players with only 2
-    if (homeIds.length === 2 && awayIds.length === 3) {
-        homeScores.push(createPlayerScore('ghost-home'));
-    } else if (awayIds.length === 2 && homeIds.length === 3) {
-        awayScores.push(createPlayerScore('ghost-away'));
-    }
+    // Ghost Rule: If 3v2, short team gets 15 pitches. 
+    // We embedded "Ghost" logic into real players' turns rather than adding a dummy row.
+    const homeLimit = (homeIds.length === 2 && awayIds.length === 3) ? 15 : 10;
+    const awayLimit = (awayIds.length === 2 && homeIds.length === 3) ? 15 : 10;
 
     return {
         number,
-        home: { teamId: 'home', playerScores: homeScores },
-        away: { teamId: 'away', playerScores: awayScores }
+        home: { teamId: 'home', playerScores: homeIds.map(id => createPlayerScore(id, homeLimit)) },
+        away: { teamId: 'away', playerScores: awayIds.map(id => createPlayerScore(id, awayLimit)) }
     };
 };
 
@@ -230,35 +224,38 @@ export const restoreTeamRoster = async (
         const oppInningScore = isHome ? newInnings[i].away : newInnings[i].home;
         
         const currentInningIds = teamInningScore.playerScores.map(p => p.playerId);
-        const ghostId = `ghost-${isHome ? 'home' : 'away'}`;
         
-        // 1. Swap ghost row for real player if available
-        const ghostIdx = teamInningScore.playerScores.findIndex(ps => ps.playerId === ghostId);
-        if (ghostIdx !== -1) {
-            teamInningScore.playerScores[ghostIdx].playerId = playerToInsert.id;
-        } 
-        // 2. Or append if player is missing
-        else if (!currentInningIds.includes(playerToInsert.id)) {
+        // 1. Append player if missing
+        if (!currentInningIds.includes(playerToInsert.id)) {
             teamInningScore.playerScores.push({
                 playerId: playerToInsert.id,
                 pitches: Array(10).fill(null).map(() => ({ points: null }))
             });
         }
 
-        // 3. Balance check: Does the opponent need a ghost now?
-        // Check roster size AFTER the insertion logic above has processed the requesting team
-        const currentTeamCount = teamInningScore.playerScores.length;
-        const oppTeamCount = oppInningScore.playerScores.length;
-        const oppGhostId = `ghost-${isHome ? 'away' : 'home'}`;
+        const teamCount = teamInningScore.playerScores.length;
+        const oppCount = oppInningScore.playerScores.length;
 
-        if (currentTeamCount === 3 && oppTeamCount === 2) {
-            const hasOppGhost = oppInningScore.playerScores.some(ps => ps.playerId === oppGhostId);
-            if (!hasOppGhost) {
-                oppInningScore.playerScores.push({
-                    playerId: oppGhostId,
-                    pitches: Array(10).fill(null).map(() => ({ points: null }))
-                });
-            }
+        // 2. Rescale logic for 3v2 ghost rules
+        if (teamCount === 3 && oppCount === 2) {
+            // Team A went to 3, Team B stays 2. Upgrade Team B to 15.
+            oppInningScore.playerScores.forEach(ps => {
+                if (ps.pitches.length === 10) {
+                    ps.pitches.push(...Array(5).fill(null).map(() => ({ points: null })));
+                }
+            });
+            // Downgrade Team A (if they were somehow at 15)
+            teamInningScore.playerScores.forEach(ps => {
+                if (ps.pitches.length === 15) ps.pitches = ps.pitches.slice(0, 10);
+            });
+        } else if (teamCount === 3 && oppCount === 3) {
+            // Full regulation match now. Downgrade any 15s to 10s.
+            teamInningScore.playerScores.forEach(ps => {
+                if (ps.pitches.length === 15) ps.pitches = ps.pitches.slice(0, 10);
+            });
+            oppInningScore.playerScores.forEach(ps => {
+                if (ps.pitches.length === 15) ps.pitches = ps.pitches.slice(0, 10);
+            });
         }
     }
     
@@ -278,6 +275,10 @@ export const updateMatchLineup = async (
     const isHome = match.homeTeamId === teamId;
     const newInnings = [...match.innings];
 
+    // Determine regulation size based on current matchup counts
+    // (Note: this is simplified; in production we'd need to peek at opponent count)
+    const regulationCount = 10; 
+
     for (let i = inningIdx; i < 6; i++) {
         const currentTeamData = isHome ? newInnings[i].home : newInnings[i].away;
         const oldScores = new Map<string, PlayerInningScore>();
@@ -290,7 +291,7 @@ export const updateMatchLineup = async (
             }
             return {
                 playerId: pid,
-                pitches: Array(10).fill(null).map(() => ({ points: null }))
+                pitches: Array(regulationCount).fill(null).map(() => ({ points: null }))
             };
         });
 
@@ -331,22 +332,24 @@ export const calculateMatchStats = (match: Match, homeTeam: Team, awayTeam: Team
     match.innings.forEach(inning => {
         [inning.home, inning.away].forEach(teamData => {
             teamData.playerScores.forEach((ps) => {
-                if (ps.playerId.startsWith('ghost-')) return;
-                
                 let pStats = stats.get(ps.playerId);
                 if (!pStats) {
                      pStats = initStat(ps.playerId, 'Sub');
                      stats.set(ps.playerId, pStats);
                 }
 
-                ps.pitches.forEach(p => {
+                ps.pitches.forEach((p, idx) => {
                     if (p.points !== null) {
-                        pStats!.totalPoints += p.points;
-                        pStats!.pitchesSeen += 1;
-                        if (p.points === 4) pStats!.hits4++;
-                        if (p.points === 3) pStats!.hits3++;
-                        if (p.points === 2) pStats!.hits2++;
-                        if (p.points === 1) pStats!.hits1++;
+                        // 15-pitch ghost turn check
+                        const isGhostTurn = ps.pitches.length === 15 && idx >= 10;
+                        if (!isGhostTurn) {
+                            pStats!.totalPoints += p.points;
+                            pStats!.pitchesSeen += 1;
+                            if (p.points === 4) pStats!.hits4++;
+                            if (p.points === 3) pStats!.hits3++;
+                            if (p.points === 2) pStats!.hits2++;
+                            if (p.points === 1) pStats!.hits1++;
+                        }
                     }
                 });
             });

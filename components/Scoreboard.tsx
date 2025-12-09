@@ -1,3 +1,4 @@
+import { Fragment } from 'react';
 import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { Match, Inning, Team, TieBreakerRound, Player } from '../types';
@@ -255,30 +256,34 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
     const canEdit = !isReadOnly && !match.isComplete;
 
     const renderRow = (playerScore: any, lineupIdx: number, player: any) => {
-         const isGhostRow = playerScore.playerId.startsWith('ghost-');
          const pitches = playerScore.pitches;
          const taken = pitches.filter((p:any) => p.points !== null).length;
-         const limit = 10;
+         const limit = pitches.length;
          const pitchesLeft = limit - taken;
 
          return (
-            <tr key={playerScore.playerId} className={`hover:bg-slate-50/50 dark:hover:bg-white/5 border-b border-slate-100 dark:border-slate-800 ${isGhostRow ? 'bg-slate-50/30 dark:bg-slate-950/30' : ''}`}>
+            <tr key={playerScore.playerId} className={`hover:bg-slate-50/50 dark:hover:bg-white/5 border-b border-slate-100 dark:border-slate-800`}>
                 <td className="px-2 py-2 portrait:px-1 portrait:py-1 font-medium sticky left-0 bg-white dark:bg-slate-900 z-20 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)] border-r border-slate-200 dark:border-slate-700 w-[100px] portrait:max-w-[80px] sm:w-auto">
                     <div className="flex items-center gap-2 portrait:gap-1">
-                        <span className={`text-[10px] portrait:text-[8px] font-bold w-5 h-5 portrait:w-4 portrait:h-4 rounded-full flex items-center justify-center shrink-0 ${isGhostRow ? 'bg-slate-300 dark:bg-slate-800 text-slate-500' : 'bg-slate-100 dark:bg-slate-800 text-slate-400'}`}>
+                        <span className={`text-[10px] portrait:text-[8px] font-bold w-5 h-5 portrait:w-4 portrait:h-4 rounded-full flex items-center justify-center shrink-0 bg-slate-100 dark:bg-slate-800 text-slate-400`}>
                             {lineupIdx + 1}
                         </span>
                         <span className="truncate text-sm portrait:text-xs font-bold text-slate-900 dark:text-white">
-                            {isGhostRow ? <span className="italic text-slate-400">Ghost Player</span> : formatName(player)}
+                            {formatName(player)}
                         </span>
                     </div>
                 </td>
                 <td className="px-2 py-2 portrait:px-1 portrait:py-1">
-                    <div className="flex gap-2 portrait:gap-1 justify-start overflow-x-auto scrollbar-hide py-1">
+                    <div className="flex gap-2 portrait:gap-1 justify-start overflow-x-auto scrollbar-hide py-1 items-center">
                         {pitches.map((pitch: any, idx: number) => {
                             const isEditing = activeCell?.side === side && activeCell.lineupIdx === lineupIdx && activeCell.pitchIdx === idx;
                             return (
-                                <ScoreInput key={idx} pitchNumber={idx+1} value={pitch.points} pitchesRemaining={pitchesLeft} readOnly={isReadOnly || (match.isComplete && !isEditingCompleted)} isEditing={isEditing} onOpen={() => setActiveCell({ side, lineupIdx, pitchIdx: idx })} onClose={() => setActiveCell(null)} onChange={(val) => handleScoreUpdate(side, lineupIdx, idx, val)} onUndo={idx > 0 ? () => handleUndo(side, lineupIdx, idx) : undefined} />
+                                <Fragment key={idx}>
+                                    <ScoreInput pitchNumber={idx+1} value={pitch.points} pitchesRemaining={pitchesLeft} readOnly={isReadOnly || (match.isComplete && !isEditingCompleted)} isEditing={isEditing} onOpen={() => setActiveCell({ side, lineupIdx, pitchIdx: idx })} onClose={() => setActiveCell(null)} onChange={(val) => handleScoreUpdate(side, lineupIdx, idx, val)} onUndo={idx > 0 ? () => handleUndo(side, lineupIdx, idx) : undefined} />
+                                    {(idx === 4 || idx === 9) && limit > idx + 1 && (
+                                        <div className="w-1 portrait:w-0.5 h-full self-stretch bg-slate-200 dark:bg-slate-800 mx-1" />
+                                    )}
+                                </Fragment>
                             );
                         })}
                     </div>
@@ -304,8 +309,7 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
           <table className="w-full">
             <tbody>
                 {inningData.playerScores.map((ps, idx) => {
-                    const isGhost = ps.playerId.startsWith('ghost-');
-                    const player = isGhost ? undefined : [...team.players, ...(team.subs || [])].find(p=>p.id===ps.playerId);
+                    const player = [...team.players, ...(team.subs || [])].find(p=>p.id===ps.playerId);
                     return renderRow(ps, idx, player);
                 })}
             </tbody>
@@ -361,7 +365,7 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
           )}
       </main>
 
-      {/* Edit Lineup Modal */}
+      {/* Edit Lineup Modal - Standard implementation preserved for reference or reuse */}
       {showEditLineupModal && editSide && createPortal(
           <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/80 backdrop-blur-sm p-4" onClick={() => setShowEditLineupModal(false)}>
               <div className="bg-white dark:bg-slate-900 p-6 rounded-2xl shadow-2xl w-full max-w-lg border border-slate-200 dark:border-slate-800 max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>

@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { Match, Inning, Team, TieBreakerRound, Player } from '../types';
@@ -195,38 +196,42 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
 
   const handleScoreUpdate = async (side: 'home' | 'away', lineupIdx: number, pitchIdx: number, val: number) => {
     if (isReadOnly) return;
-    const existingValue = match.innings[activeInningIdx][side].playerScores[lineupIdx].pitches[pitchIdx].points;
+    const inning = match.innings[activeInningIdx];
+    const teamData = side === 'home' ? inning.home : inning.away;
+    const existingValue = teamData.playerScores[lineupIdx].pitches[pitchIdx].points;
     const isEdit = existingValue !== null;
     const newMatch = { ...match };
-    const inning = newMatch.innings[activeInningIdx];
-    const teamData = side === 'home' ? inning.home : inning.away;
-    teamData.playerScores[lineupIdx].pitches[pitchIdx].points = val;
+    const curInning = newMatch.innings[activeInningIdx];
+    const curTeamData = side === 'home' ? curInning.home : curInning.away;
+    curTeamData.playerScores[lineupIdx].pitches[pitchIdx].points = val;
     setMatch(newMatch); 
     
-    let shouldOpenTieBreaker = false;
-    if (activeInningIdx === 5 && side === 'home' && !match.isComplete) {
-        const isLastPlayer = lineupIdx === teamData.playerScores.length - 1;
-        const totalPitches = teamData.playerScores[lineupIdx].pitches.length;
-        if (isLastPlayer && pitchIdx === totalPitches - 1) {
-            const hT = calculateTeamGameTotal('home', newMatch);
-            const aT = calculateTeamGameTotal('away', newMatch);
-            if (hT === aT) shouldOpenTieBreaker = true;
+    // Automated Completion Flow Check
+    const totalPitches = teamData.playerScores[lineupIdx].pitches.length;
+    const isLastPitchOfRegulation = activeInningIdx === 5 && side === 'home' && lineupIdx === teamData.playerScores.length - 1 && pitchIdx === totalPitches - 1;
+
+    if (isLastPitchOfRegulation && !isEdit) {
+        const hT = calculateTeamGameTotal('home', newMatch);
+        const aT = calculateTeamGameTotal('away', newMatch);
+        if (hT === aT) {
+            setTimeout(() => setShowTieBreakerSetup(true), 500);
+        } else {
+            setTimeout(() => setShowFinishModal(true), 500);
         }
-    }
+        setActiveCell(null);
+    } else {
+        let nextCell = null;
+        if (!isEdit) {
+            if (pitchIdx < totalPitches - 1) nextCell = { side, lineupIdx, pitchIdx: pitchIdx + 1 };
+        }
+        setActiveCell(nextCell);
 
-    let nextCell = null;
-    if (!isEdit && !shouldOpenTieBreaker) {
-        const totalPitches = teamData.playerScores[lineupIdx].pitches.length;
-        if (pitchIdx < totalPitches - 1) nextCell = { side, lineupIdx, pitchIdx: pitchIdx + 1 };
-    }
-    setActiveCell(nextCell);
-
-    if (shouldOpenTieBreaker) setTimeout(() => setShowTieBreakerSetup(true), 500);
-    else if (!isEdit && activeInningIdx < 5 && !match.isComplete) {
-        const cur = newMatch.innings[activeInningIdx];
-        if (cur.home.playerScores.every(p => p.pitches.every(pt => pt.points !== null)) && 
-            cur.away.playerScores.every(p => p.pitches.every(pt => pt.points !== null))) {
-             setTimeout(() => { setActiveInningIdx(p => (p < 5 ? p + 1 : p)); setActiveCell(null); }, 700);
+        if (!isEdit && activeInningIdx < 5 && !match.isComplete) {
+            const curIng = newMatch.innings[activeInningIdx];
+            if (curIng.home.playerScores.every(p => p.pitches.every(pt => pt.points !== null)) && 
+                curIng.away.playerScores.every(p => p.pitches.every(pt => pt.points !== null))) {
+                 setTimeout(() => { setActiveInningIdx(p => (p < 5 ? p + 1 : p)); setActiveCell(null); }, 700);
+            }
         }
     }
     await storage.updateMatch(newMatch).catch(err => console.error(err));
@@ -256,9 +261,21 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
       const isEdit = existing !== null;
       if (side === 'home') cur.homeScores[pitchIdx] = val; else cur.awayScores[pitchIdx] = val;
       setMatch(newMatch);
-      let next = null;
-      if (!isEdit && pitchIdx < limit - 1) next = { side, lineupIdx: 0, pitchIdx: pitchIdx + 1, roundIdx };
-      setActiveCell(next);
+      
+      // Auto-Completion for tie breakers
+      const isFinalPitchOfRound = side === 'home' && pitchIdx === limit - 1;
+      if (isFinalPitchOfRound && !isEdit) {
+          const hT = calculateTeamGameTotal('home', newMatch);
+          const aT = calculateTeamGameTotal('away', newMatch);
+          if (hT !== aT) {
+              setTimeout(() => setShowFinishModal(true), 500);
+          }
+          setActiveCell(null);
+      } else {
+          let next = null;
+          if (!isEdit && pitchIdx < limit - 1) next = { side, lineupIdx: 0, pitchIdx: pitchIdx + 1, roundIdx };
+          setActiveCell(next);
+      }
       await storage.updateMatch(newMatch);
   };
 
@@ -441,7 +458,7 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
                   const aS = round.awayScores.reduce((a,b)=>(a||0)+(b||0),0);
                   return (
                     <div key={idx}>
-                         <div className="bg-amber-50 dark:bg-amber-950 p-3 rounded-t-xl border border-amber-200 flex justify-between items-center"><h3 className="font-bold text-amber-800 font-sans">Extra Round {round.roundNumber}</h3>{idx === match.tieBreaker!.length - 1 && !match.isComplete && (hS === aS ? <button onClick={() => startTieBreakerRound()} className="bg-amber-600 text-white font-bold px-4 py-2 rounded-lg">Next Round</button> : <button onClick={confirmCompleteGame} className="bg-green-600 text-white font-bold px-4 py-2 rounded-lg">Finalize</button>)}</div>
+                         <div className="bg-amber-50 dark:bg-amber-950 p-3 rounded-t-xl border border-amber-200 flex justify-between items-center"><h3 className="font-bold text-amber-800 font-sans">Extra Round {round.roundNumber}</h3>{idx === match.tieBreaker!.length - 1 && !match.isComplete && hS === aS && <button onClick={() => startTieBreakerRound()} className="bg-amber-600 text-white font-bold px-4 py-2 rounded-lg">Next Round</button>}</div>
                          <div className="bg-white dark:bg-slate-900 border-x border-b border-slate-200 rounded-b-xl overflow-x-auto"><table className="w-full"><tbody>
                             <tr className="bg-blue-50/10">
                                 <td className="px-4 py-3 font-medium w-[150px]"><span className="font-bold">{formatName([...(teams.away?.players || []), ...(teams.away?.subs || [])].find(p => p.id === round.awayPlayerId))}</span></td>
@@ -472,7 +489,6 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
           </div>
           <div className="flex items-center gap-2 shrink-0">
             {isReadOnly && <div className="text-red-600 px-3 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-wider animate-pulse">LIVE</div>}
-            {!isReadOnly && !match.isComplete && !isExtraInnings && <button onClick={() => setShowFinishModal(true)} className="bg-green-600 text-white font-bold py-2 px-4 rounded-lg">Complete</button>}
             <button onClick={onExit} className="text-sm font-bold text-slate-500 bg-slate-100 py-2 px-3 rounded-lg">Exit</button>
           </div>
         </div>
@@ -564,8 +580,9 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
       {showFinishModal && createPortal(
           <div className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-900/80 p-4">
               <div className="bg-white dark:bg-slate-900 p-8 rounded-2xl max-w-sm text-center">
-                  <h2 className="text-2xl font-bold mb-4">Finish Match?</h2>
-                  <div className="flex gap-3"><button onClick={() => setShowFinishModal(false)} className="flex-1 py-3 bg-slate-100 rounded-xl">Cancel</button><button onClick={confirmCompleteGame} className="flex-1 py-3 bg-green-600 text-white font-bold rounded-xl">Confirm</button></div>
+                  <h2 className="text-2xl font-bold mb-2">Game Over</h2>
+                  <p className="text-slate-500 mb-6 font-sans">All pitches have been recorded. Finalize and confirm match results?</p>
+                  <div className="flex gap-3"><button onClick={() => setShowFinishModal(false)} className="flex-1 py-3 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 rounded-xl font-bold font-sans">Cancel</button><button onClick={confirmCompleteGame} className="flex-1 py-3 bg-green-600 text-white font-bold rounded-xl font-sans shadow-lg shadow-green-900/20">Confirm & Finalize</button></div>
               </div>
           </div>,
           document.body

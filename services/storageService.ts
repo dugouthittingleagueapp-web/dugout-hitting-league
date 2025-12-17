@@ -353,7 +353,8 @@ export const calculateMatchStats = (match: Match, homeTeam: Team, awayTeam: Team
         });
     }
 
-    return Array.from(stats.values());
+    // Filter out ghost players before returning for UI display
+    return Array.from(stats.values()).filter(s => !s.playerId.startsWith('ghost-'));
 };
 
 export const getTeamStats = async (team: Team, league: AgeGroup, season: string): Promise<PlayerStats[]> => {

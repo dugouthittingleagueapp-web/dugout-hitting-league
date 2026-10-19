@@ -154,24 +154,33 @@ export const Navbar: React.FC<NavbarProps> = ({
                         )}
                     </div>
 
-                    {/* Controls (Right) - Season Only */}
+                    {/* Controls (Right) - Season Only (Admin can switch between active and archive) */}
                     <div className="ml-auto flex items-center gap-4 sm:gap-6 relative z-[1000]">
-                        {/* Season Selector */}
-                        <div className="relative">
-                            <button onClick={() => setShowSeasonMenu(!showSeasonMenu)} className="text-[10px] sm:text-xs font-bold uppercase tracking-wider text-slate-500 hover:text-slate-800 dark:hover:text-slate-300 transition-colors flex items-center gap-1">
-                                Season: <span className="text-slate-900 dark:text-white">{currentSeason}</span>
-                                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path></svg>
-                            </button>
-                            {showSeasonMenu && (
-                                <div className="absolute top-full right-0 mt-2 bg-white dark:bg-slate-900 text-slate-900 dark:text-white rounded-xl shadow-xl py-2 w-32 border border-slate-200 dark:border-slate-800 z-[1001] overflow-hidden animate-in slide-in-from-top-2 fade-in duration-200">
-                                    {years.map(year => (
-                                        <button key={year} onClick={() => { onSeasonChange(year); setShowSeasonMenu(false); }} className={`w-full text-left px-4 py-2 text-sm font-bold hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors font-sans ${currentSeason === year ? 'text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20' : 'text-slate-600 dark:text-slate-400'}`}>
-                                            {year}
+                        {userRole === 'admin' ? (
+                            <div className="relative">
+                                <button onClick={() => setShowSeasonMenu(!showSeasonMenu)} className="text-[10px] sm:text-xs font-bold uppercase tracking-wider text-slate-500 hover:text-slate-800 dark:hover:text-slate-300 transition-colors flex items-center gap-1.5">
+                                    Season: <span className="text-slate-900 dark:text-white font-extrabold">{currentSeason}</span>
+                                    {currentSeason === '2025' && <span className="bg-amber-100 dark:bg-amber-900/50 text-amber-700 dark:text-amber-300 text-[9px] px-1.5 py-0.2 rounded font-bold">Archive</span>}
+                                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path></svg>
+                                </button>
+                                {showSeasonMenu && (
+                                    <div className="absolute top-full right-0 mt-2 bg-white dark:bg-slate-900 text-slate-900 dark:text-white rounded-xl shadow-xl py-2 w-36 border border-slate-200 dark:border-slate-800 z-[1001] overflow-hidden animate-in slide-in-from-top-2 fade-in duration-200">
+                                        <button onClick={() => { onSeasonChange('2026'); setShowSeasonMenu(false); }} className={`w-full text-left px-3 py-2 text-xs font-bold hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors font-sans flex items-center justify-between ${currentSeason === '2026' ? 'text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20' : 'text-slate-700 dark:text-slate-300'}`}>
+                                            <span>2026</span>
+                                            <span className="text-[9px] text-green-600 dark:text-green-400 font-bold uppercase">Active</span>
                                         </button>
-                                    ))}
-                                </div>
-                            )}
-                        </div>
+                                        <button onClick={() => { onSeasonChange('2025'); setShowSeasonMenu(false); }} className={`w-full text-left px-3 py-2 text-xs font-bold hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors font-sans flex items-center justify-between ${currentSeason === '2025' ? 'text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20' : 'text-slate-700 dark:text-slate-300'}`}>
+                                            <span>2025</span>
+                                            <span className="text-[9px] text-amber-600 dark:text-amber-400 font-bold uppercase">Archive</span>
+                                        </button>
+                                    </div>
+                                )}
+                            </div>
+                        ) : (
+                            <div className="text-[10px] sm:text-xs font-bold uppercase tracking-wider text-slate-500">
+                                Season: <span className="text-slate-900 dark:text-white font-extrabold">{currentSeason}</span>
+                            </div>
+                        )}
                     </div>
                 </div>
             </div>
@@ -211,17 +220,29 @@ export const Navbar: React.FC<NavbarProps> = ({
                         {/* Season Selector in Drawer */}
                         <div>
                             <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">Season</h3>
-                            <div className="grid grid-cols-3 gap-2">
-                                {years.map(year => (
+                            {userRole === 'admin' ? (
+                                <div className="grid grid-cols-2 gap-2">
                                     <button 
-                                        key={year} 
-                                        onClick={() => { onSeasonChange(year); setMenuOpen(false); }} 
-                                        className={`py-2 rounded-lg text-sm font-bold transition-colors ${currentSeason === year ? 'bg-blue-600 text-white' : 'bg-slate-100 dark:bg-slate-900 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800'}`}
+                                        onClick={() => { onSeasonChange('2026'); setMenuOpen(false); }} 
+                                        className={`py-2 px-3 rounded-lg text-xs font-bold flex flex-col items-center gap-0.5 transition-colors ${currentSeason === '2026' ? 'bg-blue-600 text-white shadow-md shadow-blue-900/30' : 'bg-slate-100 dark:bg-slate-900 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-800'}`}
                                     >
-                                        {year}
+                                        <span>2026</span>
+                                        <span className="text-[9px] uppercase font-bold opacity-80">Active</span>
                                     </button>
-                                ))}
-                            </div>
+                                    <button 
+                                        onClick={() => { onSeasonChange('2025'); setMenuOpen(false); }} 
+                                        className={`py-2 px-3 rounded-lg text-xs font-bold flex flex-col items-center gap-0.5 transition-colors ${currentSeason === '2025' ? 'bg-amber-600 text-white shadow-md shadow-amber-900/30' : 'bg-slate-100 dark:bg-slate-900 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-800'}`}
+                                    >
+                                        <span>2025</span>
+                                        <span className="text-[9px] uppercase font-bold opacity-80">Archive</span>
+                                    </button>
+                                </div>
+                            ) : (
+                                <div className="p-3 bg-slate-100 dark:bg-slate-900 rounded-xl flex items-center justify-between">
+                                    <span className="font-bold text-sm text-slate-800 dark:text-white">2026</span>
+                                    <span className="text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-300">Active</span>
+                                </div>
+                            )}
                         </div>
 
                         {/* Leagues */}

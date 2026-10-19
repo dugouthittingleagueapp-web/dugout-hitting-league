@@ -27,6 +27,7 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
   const [teams, setTeams] = useState<{ home?: Team, away?: Team }>({});
   const [activeInningIdx, setActiveInningIdx] = useState(0); 
   const [showFinishModal, setShowFinishModal] = useState(false);
+  const [showExitConfirmModal, setShowExitConfirmModal] = useState(false);
   const [loading, setLoading] = useState(true);
   
   const [activeCell, setActiveCell] = useState<{ side: 'home' | 'away'; lineupIdx: number; pitchIdx: number; roundIdx?: number } | null>(null);
@@ -46,6 +47,27 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
   useEffect(() => {
       activeInningRef.current = activeInningIdx;
   }, [activeInningIdx]);
+
+  // Guard against accidental exits via browser back button/gestures during live scoring
+  useEffect(() => {
+      const handleBackAttempt = () => {
+          if (!isReadOnly && userRole !== 'fan' && match && !match.isComplete) {
+              setShowExitConfirmModal(true);
+          }
+      };
+      window.addEventListener('dugout:umpire-back-attempt', handleBackAttempt);
+      return () => {
+          window.removeEventListener('dugout:umpire-back-attempt', handleBackAttempt);
+      };
+  }, [isReadOnly, userRole, match]);
+
+  const handleExitRequest = () => {
+      if (!isReadOnly && userRole !== 'fan' && match && !match.isComplete) {
+          setShowExitConfirmModal(true);
+      } else {
+          onExit();
+      }
+  };
 
   const formatName = (p: { name: string, lastName?: string } | undefined) => {
       if (!p) return 'Unknown';
@@ -475,7 +497,7 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
           </div>
           <div className="flex items-center gap-2 shrink-0">
             {isReadOnly && <div className="text-red-600 px-3 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-wider animate-pulse">LIVE</div>}
-            <button onClick={onExit} className="text-sm font-bold text-slate-500 bg-slate-100 py-2 px-3 rounded-lg">Exit</button>
+            <button onClick={handleExitRequest} className="text-sm font-bold text-slate-500 bg-slate-100 dark:bg-slate-800 dark:text-slate-300 py-2 px-3 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors">Exit</button>
           </div>
         </div>
         <div className="flex overflow-x-auto scrollbar-hide border-t touch-auto">
@@ -553,6 +575,23 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
                   <h2 className="text-2xl font-bold mb-2">Game Over</h2>
                   <p className="text-slate-500 mb-6 font-sans">All pitches have been recorded. Finalize and confirm match results?</p>
                   <div className="flex gap-3"><button onClick={() => setShowFinishModal(false)} className="flex-1 py-3 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 rounded-xl font-bold font-sans">Cancel</button><button onClick={confirmCompleteGame} className="flex-1 py-3 bg-green-600 text-white font-bold rounded-xl font-sans shadow-lg shadow-green-900/20">Confirm & Finalize</button></div>
+              </div>
+          </div>,
+          document.body
+      )}
+
+      {showExitConfirmModal && createPortal(
+          <div className="fixed inset-0 z-[120] flex items-center justify-center bg-slate-900/80 backdrop-blur-sm p-4 animate-in fade-in duration-150" onClick={() => setShowExitConfirmModal(false)}>
+              <div className="bg-white dark:bg-slate-900 p-6 sm:p-8 rounded-2xl shadow-2xl max-w-sm w-full text-center border border-slate-200 dark:border-slate-800" onClick={e => e.stopPropagation()}>
+                  <div className="w-12 h-12 rounded-full bg-amber-100 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400 flex items-center justify-center mx-auto mb-3">
+                      <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
+                  </div>
+                  <h2 className="text-xl font-bold text-slate-900 dark:text-white mb-2 font-sans">Match Still in Progress</h2>
+                  <p className="text-sm text-slate-500 dark:text-slate-400 mb-6 font-sans">Are you sure you want to leave? Your recorded pitches are saved and you can return anytime.</p>
+                  <div className="flex gap-3">
+                      <button onClick={() => setShowExitConfirmModal(false)} className="flex-1 py-3 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 rounded-xl font-bold font-sans hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors">Stay in Match</button>
+                      <button onClick={() => { setShowExitConfirmModal(false); onExit(); }} className="flex-1 py-3 bg-red-600 hover:bg-red-700 text-white rounded-xl font-bold font-sans shadow-lg shadow-red-900/20 transition-colors">Exit</button>
+                  </div>
               </div>
           </div>,
           document.body

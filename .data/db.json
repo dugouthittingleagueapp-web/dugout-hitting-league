@@ -1,0 +1,41 @@
+{
+  "settings": {
+    "admin_password": "admin",
+    "umpire_password": "umpire",
+    "current_season": "2026"
+  },
+  "leagues": [
+    {
+      "id": "10u",
+      "season": "2025",
+      "created_at": "2025-01-01T00:00:00.000Z"
+    },
+    {
+      "id": "12u",
+      "season": "2025",
+      "created_at": "2025-01-01T00:00:00.000Z"
+    },
+    {
+      "id": "Varsity",
+      "season": "2025",
+      "created_at": "2025-01-01T00:00:00.000Z"
+    },
+    {
+      "id": "10u",
+      "season": "2026",
+      "created_at": "2026-10-19T16:19:00.000Z"
+    },
+    {
+      "id": "12u",
+      "season": "2026",
+      "created_at": "2026-10-19T16:19:00.000Z"
+    },
+    {
+      "id": "Varsity",
+      "season": "2026",
+      "created_at": "2026-10-19T16:19:00.000Z"
+    }
+  ],
+  "teams": [],
+  "matches": []
+}

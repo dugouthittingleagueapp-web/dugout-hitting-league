@@ -144,48 +144,50 @@ export const MatchSetup: React.FC<MatchSetupProps> = ({ homeTeam, awayTeam, onSt
 
   const renderLineupList = (side: 'left' | 'right', teamData: Team, players: Player[]) => {
     return (
-      <div className="space-y-2">
+      <div className="space-y-2.5">
         {players.map((player, index) => {
             const isSelected = selectedId === player.id;
             return (
                 <div key={player.id} 
                      onClick={() => handleItemClick(side, index, player)} 
-                     draggable 
-                     onDragStart={(e) => { e.dataTransfer.setData('text/plain', JSON.stringify({ side, index })); setSelectedId(player.id); }} 
-                     onDragOver={(e) => e.preventDefault()} 
-                     onDrop={(e) => { e.preventDefault(); const data = JSON.parse(e.dataTransfer.getData('text/plain')); if (data.side === side) { swapPlayers(side, data.index, index); } }} 
-                     className={`relative p-3 rounded-xl border-2 transition-all cursor-pointer select-none flex items-center gap-3 group ${isSelected ? 'border-blue-500 bg-blue-100 dark:bg-blue-900/20 shadow-md scale-[1.01]' : 'border-slate-200 dark:border-slate-700 bg-white/50 dark:bg-slate-800/50 hover:border-slate-400 dark:hover:border-slate-600 shadow-sm active:scale-[0.99]'}`}>
+                     className={`relative p-3 rounded-xl border-2 transition-all cursor-pointer select-none flex items-center gap-3 ${isSelected ? 'border-blue-500 bg-blue-100 dark:bg-blue-900/30 shadow-md ring-2 ring-blue-400/50' : 'border-slate-200 dark:border-slate-700 bg-white/70 dark:bg-slate-800/70 hover:border-slate-300 dark:hover:border-slate-600 shadow-sm active:scale-[0.99]'}`}>
                     
-                    <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm shrink-0 font-sans tabular-nums ${isSelected ? 'bg-blue-500 text-white' : 'bg-slate-200 dark:bg-slate-900 text-slate-600 dark:text-slate-500'}`}>{index + 1}</div>
+                    <div className={`w-8 h-8 rounded-full flex items-center justify-center font-black text-sm shrink-0 font-sans tabular-nums ${isSelected ? 'bg-blue-600 text-white' : 'bg-slate-200 dark:bg-slate-900 text-slate-700 dark:text-slate-300'}`}>{index + 1}</div>
                     
                     <div className="flex-1 min-w-0">
-                        <div className={`font-bold truncate font-sans ${isSelected ? 'text-blue-600 dark:text-blue-400' : 'text-slate-800 dark:text-slate-200'}`}>{formatName(player)}</div>
-                        {isSelected && <div className="text-[10px] text-blue-600 dark:text-blue-400 font-medium animate-pulse font-sans">Tap another to swap</div>}
+                        <div className={`font-bold truncate text-sm sm:text-base font-sans ${isSelected ? 'text-blue-700 dark:text-blue-300 font-extrabold' : 'text-slate-900 dark:text-slate-100'}`}>{formatName(player)}</div>
+                        <div className="text-[10px] text-slate-500 dark:text-slate-400 font-medium font-sans">
+                            {isSelected ? <span className="text-blue-600 dark:text-blue-400 font-bold animate-pulse">Tap another player to swap</span> : `Batter #${index + 1}`}
+                        </div>
                     </div>
 
-                    <div className="flex items-center gap-1">
-                        <div className="flex flex-col gap-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
-                            <button 
-                                onClick={(e) => { e.stopPropagation(); movePlayer(side, index, 'up'); }} 
-                                disabled={index === 0}
-                                className="p-1 rounded hover:bg-slate-200 dark:hover:bg-slate-700 disabled:opacity-20 text-slate-500"
-                            >
-                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="m18 15-6-6-6 6"/></svg>
-                            </button>
-                            <button 
-                                onClick={(e) => { e.stopPropagation(); movePlayer(side, index, 'down'); }} 
-                                disabled={index === players.length - 1}
-                                className="p-1 rounded hover:bg-slate-200 dark:hover:bg-slate-700 disabled:opacity-20 text-slate-500"
-                            >
-                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6"/></svg>
-                            </button>
-                        </div>
+                    <div className="flex items-center gap-1.5 shrink-0">
                         <button 
-                            onClick={(e) => { e.stopPropagation(); removePlayer(side, index); }}
-                            className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-full transition-colors"
-                            title="Remove Player"
+                            type="button"
+                            onClick={(e) => { e.stopPropagation(); movePlayer(side, index, 'up'); }} 
+                            disabled={index === 0}
+                            aria-label="Move up in lineup"
+                            className="w-9 h-9 sm:w-10 sm:h-10 rounded-lg flex items-center justify-center bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 disabled:opacity-20 text-slate-700 dark:text-slate-300 transition-colors border border-slate-200 dark:border-slate-700"
                         >
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m18 15-6-6-6 6"/></svg>
+                        </button>
+                        <button 
+                            type="button"
+                            onClick={(e) => { e.stopPropagation(); movePlayer(side, index, 'down'); }} 
+                            disabled={index === players.length - 1}
+                            aria-label="Move down in lineup"
+                            className="w-9 h-9 sm:w-10 sm:h-10 rounded-lg flex items-center justify-center bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 disabled:opacity-20 text-slate-700 dark:text-slate-300 transition-colors border border-slate-200 dark:border-slate-700"
+                        >
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+                        </button>
+                        <button 
+                            type="button"
+                            onClick={(e) => { e.stopPropagation(); removePlayer(side, index); }}
+                            className="w-9 h-9 sm:w-10 sm:h-10 flex items-center justify-center text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors border border-transparent hover:border-red-200 dark:hover:border-red-900/40"
+                            title="Remove player for 2-person team"
+                            aria-label="Remove player"
+                        >
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
                         </button>
                     </div>
                 </div>
@@ -194,12 +196,12 @@ export const MatchSetup: React.FC<MatchSetupProps> = ({ homeTeam, awayTeam, onSt
         
         <div className="flex gap-2 mt-3">
              {players.length !== 2 && players.length < 3 && (
-                <button onClick={() => restoreRoster(side)} className="flex-1 py-2 text-xs font-bold text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded border border-dashed border-blue-300 dark:border-blue-800 hover:border-blue-500 dark:hover:border-blue-600 transition-colors font-sans">
+                <button onClick={() => restoreRoster(side)} className="flex-1 py-2.5 text-xs font-bold text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-xl border border-dashed border-blue-300 dark:border-blue-800 hover:border-blue-500 dark:hover:border-blue-600 transition-colors font-sans">
                     + Reset Roster
                 </button>
             )}
             {players.length < 3 && (
-                <button onClick={() => openSubModal(side)} className="flex-1 py-2 text-xs font-bold text-green-600 dark:text-green-500 hover:bg-green-50 dark:hover:bg-green-900/20 rounded border border-dashed border-green-300 dark:border-green-800 hover:border-green-500 dark:hover:border-green-600 transition-colors font-sans">
+                <button onClick={() => openSubModal(side)} className="flex-1 py-2.5 text-xs font-bold text-green-600 dark:text-green-500 hover:bg-green-50 dark:hover:bg-green-900/20 rounded-xl border border-dashed border-green-300 dark:border-green-800 hover:border-green-500 dark:hover:border-green-600 transition-colors font-sans">
                     + Add Sub
                 </button>
             )}
@@ -209,20 +211,22 @@ export const MatchSetup: React.FC<MatchSetupProps> = ({ homeTeam, awayTeam, onSt
   };
 
   return (
-    <div className="min-h-screen bg-transparent p-4 sm:p-8 font-sans text-slate-800 dark:text-slate-200">
+    <div className="min-h-screen bg-transparent p-3 sm:p-8 font-sans text-slate-800 dark:text-slate-200">
       <div className="max-w-5xl mx-auto">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-8 gap-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-6 sm:mb-8 gap-4">
             <div>
-                <h2 className="text-3xl font-bold text-slate-800 dark:text-white font-sans">Set Lineup</h2>
-                <p className="text-slate-500 dark:text-slate-400 text-sm sm:text-base font-sans">Drag/Tap to reorder. Remove players for 2-person teams.</p>
+                <h2 className="text-2xl sm:text-3xl font-bold text-slate-800 dark:text-white font-sans">Set Batting Lineup</h2>
+                <p className="text-slate-500 dark:text-slate-400 text-xs sm:text-sm font-sans mt-0.5">Use the Up/Down buttons or tap any two players to swap order.</p>
             </div>
-            <div className="flex flex-wrap gap-3">
-                <button onClick={() => setIsSwapped(!isSwapped)} className="flex items-center gap-2 px-4 py-3 rounded-xl font-bold text-slate-700 dark:text-slate-300 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors font-sans">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m16 3 5 5-5 5"/><path d="M4 20h17"/><path d="m8 21-5-5 5-5"/></svg>
-                    Swap Sides
+            <div className="flex flex-col sm:flex-row gap-2.5 sm:gap-3 w-full sm:w-auto">
+                <button onClick={() => setIsSwapped(!isSwapped)} className="flex items-center justify-center gap-2 px-4 py-3 rounded-xl font-bold text-slate-700 dark:text-slate-300 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors font-sans w-full sm:w-auto text-sm">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m16 3 5 5-5 5"/><path d="M4 20h17"/><path d="m8 21-5-5 5-5"/></svg>
+                    Swap Home / Away
                 </button>
-                <button onClick={onCancel} className="px-6 py-3 rounded-xl font-bold text-slate-600 dark:text-slate-400 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors font-sans">Cancel</button>
-                <button onClick={handleStartMatch} className="flex-1 sm:flex-none px-8 py-3 rounded-xl font-bold text-white bg-blue-600 shadow-lg shadow-blue-900/50 hover:bg-blue-500 hover:scale-105 transition-all font-sans">Start Match</button>
+                <div className="flex gap-2.5 w-full sm:w-auto">
+                    <button onClick={onCancel} className="flex-1 sm:flex-none px-5 py-3 rounded-xl font-bold text-slate-600 dark:text-slate-400 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors font-sans text-sm">Cancel</button>
+                    <button onClick={handleStartMatch} className="flex-1 sm:flex-none px-6 py-3 rounded-xl font-bold text-white bg-blue-600 shadow-lg shadow-blue-900/40 hover:bg-blue-500 transition-all font-sans text-sm">Start Match</button>
+                </div>
             </div>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">

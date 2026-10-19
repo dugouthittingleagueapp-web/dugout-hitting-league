@@ -4,14 +4,14 @@ import * as storage from '../services/storageService';
 import { Team, League } from '../types';
 import { UserGuide } from './UserGuide';
 
-export const AdminDashboard: React.FC<{ onBack: () => void }> = ({ onBack }) => {
+export const AdminDashboard: React.FC<{ onBack: () => void; onBrowseArchive?: (season: string) => void }> = ({ onBack, onBrowseArchive }) => {
   const [data, setData] = useState('');
   const [loading, setLoading] = useState(false);
   const [newLeagueName, setNewLeagueName] = useState('');
   const [creatingLeague, setCreatingLeague] = useState(false);
   
   // Settings State
-  const [currentSeason, setCurrentSeason] = useState('2025');
+  const [currentSeason, setCurrentSeason] = useState('2026');
   const [newSeasonInput, setNewSeasonInput] = useState('');
   
   // Password State
@@ -30,15 +30,15 @@ export const AdminDashboard: React.FC<{ onBack: () => void }> = ({ onBack }) => 
   useEffect(() => {
     const loadData = async () => { 
         setLoading(true);
-        const [d, season, ls, ts] = await Promise.all([
+        const season = await storage.getCurrentSeason();
+        setCurrentSeason(season);
+        const [d, ls, ts] = await Promise.all([
             storage.exportData(),
-            storage.getCurrentSeason(),
-            storage.getLeagues(),
+            storage.getLeagues(season),
             storage.getAllTeams()
         ]);
         
         setData(d); 
-        setCurrentSeason(season);
         setLeagues(ls);
         setAllTeams(ts);
         setLoading(false);
@@ -59,8 +59,8 @@ export const AdminDashboard: React.FC<{ onBack: () => void }> = ({ onBack }) => 
     if (!newLeagueName.trim()) return;
     setCreatingLeague(true);
     try {
-      await storage.createLeague(newLeagueName.trim());
-      const newLeagues = await storage.getLeagues();
+      await storage.createLeague(newLeagueName.trim(), currentSeason);
+      const newLeagues = await storage.getLeagues(currentSeason);
       setLeagues(newLeagues);
       alert('League created!');
       setNewLeagueName('');
@@ -75,9 +75,9 @@ export const AdminDashboard: React.FC<{ onBack: () => void }> = ({ onBack }) => 
     if (confirm(`Are you sure you want to delete the "${leagueId}" league? WARNING: All teams and matches associated with this league will be permanently deleted.`)) {
         setLoading(true);
         try {
-            await storage.deleteLeague(leagueId);
+            await storage.deleteLeague(leagueId, currentSeason);
             // Refresh
-            const newLeagues = await storage.getLeagues();
+            const newLeagues = await storage.getLeagues(currentSeason);
             setLeagues(newLeagues);
             alert('League deleted.');
         } catch (e) {
@@ -90,11 +90,14 @@ export const AdminDashboard: React.FC<{ onBack: () => void }> = ({ onBack }) => 
 
   const handleUpdateSeason = async () => {
       if(!newSeasonInput.trim()) return;
-      if(confirm(`Are you sure? Changing the active season to ${newSeasonInput} will hide current teams/matches from the default view (data is NOT deleted).`)) {
-          await storage.updateCurrentSeason(newSeasonInput.trim());
-          setCurrentSeason(newSeasonInput.trim());
+      const targetSeason = newSeasonInput.trim();
+      if(confirm(`Set active season to ${targetSeason}? Previous season data will be preserved in the archive, and league divisions will carry over as clean blank brackets.`)) {
+          await storage.updateCurrentSeason(targetSeason);
+          setCurrentSeason(targetSeason);
+          const newLeagues = await storage.getLeagues(targetSeason);
+          setLeagues(newLeagues);
           setNewSeasonInput('');
-          alert("Season updated.");
+          alert(`Season ${targetSeason} is now active with clean league divisions ready for teams.`);
       }
   };
 
@@ -196,12 +199,40 @@ export const AdminDashboard: React.FC<{ onBack: () => void }> = ({ onBack }) => 
                 </div>
             </div>
 
-            <div className="pt-6 border-t border-slate-100 dark:border-slate-800 mt-6">
-                <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase mb-1 font-sans">Active Season (Current: <span className="text-blue-600 dark:text-blue-400">{currentSeason}</span>)</label>
-                <p className="text-sm text-slate-500 dark:text-slate-400 mb-2 font-sans">Change this to "Reset" the league for a new year. Old data is preserved.</p>
-                <div className="flex gap-3">
-                    <input type="text" value={newSeasonInput} onChange={e => setNewSeasonInput(e.target.value)} placeholder="e.g. 2026" className="w-40 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 text-slate-900 dark:text-white rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 outline-none font-sans" />
-                    <button onClick={handleUpdateSeason} className="bg-slate-700 dark:bg-slate-600 text-white px-6 py-2 rounded-lg hover:bg-slate-800 dark:hover:bg-slate-500 font-bold font-sans">Update Season</button>
+            <div className="pt-6 border-t border-slate-100 dark:border-slate-800 mt-6 space-y-6">
+                <div>
+                    <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase mb-1 font-sans">Active Season</label>
+                    <div className="flex items-center gap-2">
+                        <span className="text-2xl font-black text-blue-600 dark:text-blue-400 font-sans">{currentSeason}</span>
+                        <span className="text-[10px] uppercase font-bold px-2 py-0.5 rounded bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-300">Live Active</span>
+                    </div>
+                </div>
+
+                {/* Season Archive Card */}
+                <div className="bg-slate-50 dark:bg-slate-950 p-4 rounded-xl border border-slate-200 dark:border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <div>
+                        <div className="flex items-center gap-2 mb-0.5">
+                            <h4 className="text-sm font-bold text-slate-800 dark:text-white font-sans">2025 Season Archive</h4>
+                            <span className="text-[9px] uppercase font-bold px-1.5 py-0.5 rounded bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300">Preserved</span>
+                        </div>
+                        <p className="text-xs text-slate-500 dark:text-slate-400 font-sans">Contains historical 2025 leagues, rosters, and match scoreboards.</p>
+                    </div>
+                    {onBrowseArchive && (
+                        <button 
+                            onClick={() => onBrowseArchive('2025')} 
+                            className="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-xs font-bold font-sans transition-colors shrink-0 shadow-md shadow-amber-900/20"
+                        >
+                            Browse 2025 Archive
+                        </button>
+                    )}
+                </div>
+
+                <div className="border-t border-slate-100 dark:border-slate-800 pt-4">
+                    <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase mb-1 font-sans">Switch Active Season</label>
+                    <div className="flex gap-3">
+                        <input type="text" value={newSeasonInput} onChange={e => setNewSeasonInput(e.target.value)} placeholder="e.g. 2027" className="w-40 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 text-slate-900 dark:text-white rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 outline-none font-sans" />
+                        <button onClick={handleUpdateSeason} className="bg-slate-700 dark:bg-slate-600 text-white px-6 py-2 rounded-lg hover:bg-slate-800 dark:hover:bg-slate-500 font-bold font-sans">Update Season</button>
+                    </div>
                 </div>
             </div>
         </section>

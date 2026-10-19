@@ -92,7 +92,7 @@ export const TeamManagement: React.FC<TeamManagementProps> = ({ league, season, 
         lastName: p.lastName || ''
     }));
     
-    // Ensure at least 3
+    // Ensure 3 slots available in UI for easy 3rd player addition
     while(currentPlayers.length < 3) currentPlayers.push({ name: '', lastName: '' });
     
     setPlayers(currentPlayers.slice(0, 3));
@@ -110,8 +110,15 @@ export const TeamManagement: React.FC<TeamManagementProps> = ({ league, season, 
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
-    // Validate: Team Name and First Names are required
-    if (!newTeamName.trim() || players.some(p => !p.name.trim())) return;
+    if (!newTeamName.trim()) {
+      alert("Please enter a team name.");
+      return;
+    }
+    const validPlayers = players.filter(p => p.name.trim());
+    if (validPlayers.length < 2) {
+      alert("A team must have at least 2 players.");
+      return;
+    }
     setLoading(true);
 
     try {
@@ -119,27 +126,37 @@ export const TeamManagement: React.FC<TeamManagementProps> = ({ league, season, 
              // Update existing
              const teamToUpdate = teams.find(t => t.id === editingTeamId);
              if (teamToUpdate) {
-                 const finalPlayers = players.map((p) => ({
+                 const finalPlayers = validPlayers.map((p) => ({
                      id: p.id || storage.generateUUID(), // Use preserved ID if available
-                     name: p.name,
-                     lastName: p.lastName
+                     name: p.name.trim(),
+                     lastName: (p.lastName || '').trim()
                  }));
                  
                  // Clean empty subs before saving
-                 const finalSubs = subs.filter(s => s.name.trim());
+                 const finalSubs = subs.filter(s => s.name.trim()).map(s => ({
+                     id: s.id || storage.generateUUID(),
+                     name: s.name.trim(),
+                     lastName: (s.lastName || '').trim()
+                 }));
 
                  await storage.updateTeam({
                      ...teamToUpdate,
-                     name: newTeamName,
+                     name: newTeamName.trim(),
                      players: finalPlayers,
                      subs: finalSubs
                  });
              }
         } else {
             // Create New
-            const cleanSubs = subs.filter(s => s.name.trim());
-            // Map players from EditablePlayer to API expected format
-            await storage.createTeam(newTeamName, league, players, season, cleanSubs);
+            const cleanSubs = subs.filter(s => s.name.trim()).map(s => ({
+                name: s.name.trim(),
+                lastName: (s.lastName || '').trim()
+            }));
+            const formattedPlayers = validPlayers.map(p => ({
+                name: p.name.trim(),
+                lastName: (p.lastName || '').trim()
+            }));
+            await storage.createTeam(newTeamName.trim(), league, formattedPlayers, season, cleanSubs);
         }
         
         await loadTeams();
@@ -275,7 +292,7 @@ export const TeamManagement: React.FC<TeamManagementProps> = ({ league, season, 
             </div>
             
             <div className="space-y-3">
-              <label className="block text-xs font-bold text-slate-500 uppercase font-sans">Main Roster (3 Players)</label>
+              <label className="block text-xs font-bold text-slate-500 uppercase font-sans">Main Roster (2–3 Players)</label>
               <div className="grid grid-cols-2 gap-2 mb-1">
                   <span className="text-[10px] uppercase text-slate-400 font-bold font-sans">First Name (Display)</span>
                   <span className="text-[10px] uppercase text-slate-400 font-bold font-sans">Last Name (Admin)</span>
@@ -286,10 +303,10 @@ export const TeamManagement: React.FC<TeamManagementProps> = ({ league, season, 
                     <input 
                         type="text" 
                         className="w-1/2 bg-slate-100 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none font-sans text-slate-900 dark:text-white placeholder-slate-500 dark:placeholder-slate-600" 
-                        placeholder="First Name" 
+                        placeholder={idx < 2 ? "First Name" : "First Name (Optional)"} 
                         value={player.name} 
                         onChange={e => handlePlayerChange(idx, 'name', e.target.value)} 
-                        required 
+                        required={idx < 2} 
                     />
                     <input 
                         type="text" 

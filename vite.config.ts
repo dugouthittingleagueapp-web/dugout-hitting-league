@@ -1,19 +1,313 @@
-
-import { defineConfig } from 'vite';
+import { defineConfig, Plugin } from 'vite';
 import react from '@vitejs/plugin-react';
+import fs from 'node:fs';
+import path from 'node:path';
+
+function devApiPlugin(): Plugin {
+  const dbFile = path.resolve(process.cwd(), '.data', 'db.json');
+
+  const defaultData = {
+    settings: {
+      admin_password: 'admin',
+      umpire_password: 'umpire',
+      current_season: '2026',
+    },
+    leagues: [
+      { id: '10u', season: '2025', created_at: '2025-01-01T00:00:00.000Z' },
+      { id: '12u', season: '2025', created_at: '2025-01-01T00:00:00.000Z' },
+      { id: 'Varsity', season: '2025', created_at: '2025-01-01T00:00:00.000Z' },
+    ],
+    teams: [] as any[],
+    matches: [] as any[],
+  };
+
+  const getDb = () => {
+    try {
+      if (!fs.existsSync(dbFile)) {
+        fs.mkdirSync(path.dirname(dbFile), { recursive: true });
+        fs.writeFileSync(dbFile, JSON.stringify(defaultData, null, 2), 'utf-8');
+        return defaultData;
+      }
+      const raw = fs.readFileSync(dbFile, 'utf-8');
+      return JSON.parse(raw);
+    } catch (e) {
+      return defaultData;
+    }
+  };
+
+  const saveDb = (data: any) => {
+    try {
+      fs.mkdirSync(path.dirname(dbFile), { recursive: true });
+      fs.writeFileSync(dbFile, JSON.stringify(data, null, 2), 'utf-8');
+    } catch (e) {
+      console.error('[Dev API] Failed to write db.json:', e);
+    }
+  };
+
+  const readBody = (req: any): Promise<any> => {
+    return new Promise((resolve) => {
+      let body = '';
+      req.on('data', (chunk: any) => {
+        body += chunk;
+      });
+      req.on('end', () => {
+        try {
+          resolve(body ? JSON.parse(body) : {});
+        } catch {
+          resolve({});
+        }
+      });
+    });
+  };
+
+  const sendJson = (res: any, status: number, payload: any) => {
+    res.statusCode = status;
+    res.setHeader('Content-Type', 'application/json');
+    res.end(JSON.stringify(payload));
+  };
+
+  return {
+    name: 'dev-api-plugin',
+    configureServer(server) {
+      server.middlewares.use(async (req, res, next) => {
+        if (!req.url || !req.url.startsWith('/api')) {
+          return next();
+        }
+
+        const parsedUrl = new URL(req.url, 'http://localhost:3000');
+        const pathname = parsedUrl.pathname;
+        const query = Object.fromEntries(parsedUrl.searchParams.entries());
+        const method = (req.method || 'GET').toUpperCase();
+        const db = getDb();
+
+        try {
+          // 1. Settings Endpoint
+          if (pathname === '/api/settings') {
+            if (method === 'GET') {
+              return sendJson(res, 200, { currentSeason: db.settings.current_season || '2025' });
+            }
+            if (method === 'POST') {
+              const body = await readBody(req);
+              if (body.action === 'verify') {
+                if (body.password === db.settings.admin_password) {
+                  return sendJson(res, 200, { success: true, role: 'admin' });
+                }
+                if (body.password === db.settings.umpire_password) {
+                  return sendJson(res, 200, { success: true, role: 'umpire' });
+                }
+                return sendJson(res, 401, { success: false, error: 'Incorrect password' });
+              }
+              if (body.action === 'update_password') {
+                db.settings.admin_password = body.password.trim();
+                saveDb(db);
+                return sendJson(res, 200, { success: true });
+              }
+              if (body.action === 'update_umpire_password') {
+                db.settings.umpire_password = body.password.trim();
+                saveDb(db);
+                return sendJson(res, 200, { success: true });
+              }
+              if (body.action === 'update_season') {
+                const prevSeason = db.settings.current_season || '2025';
+                const newSeason = body.season.trim();
+                db.settings.current_season = newSeason;
+
+                // Automatically rollover previous season's league divisions if new season is empty
+                const existingInNewSeason = db.leagues.filter((l: any) => (l.season || '2025') === newSeason);
+                if (existingInNewSeason.length === 0) {
+                  const prevLeagues = db.leagues.filter((l: any) => (l.season || '2025') === prevSeason);
+                  prevLeagues.forEach((pl: any) => {
+                    db.leagues.push({
+                      id: pl.id,
+                      season: newSeason,
+                      created_at: new Date().toISOString(),
+                    });
+                  });
+                }
+
+                saveDb(db);
+                return sendJson(res, 200, { success: true });
+              }
+              return sendJson(res, 400, { error: 'Invalid action' });
+            }
+          }
+
+          // 2. Leagues Endpoint
+          if (pathname === '/api/leagues') {
+            if (method === 'GET') {
+              const season = query.season;
+              if (season) {
+                const filtered = db.leagues.filter((l: any) => (l.season || '2025') === season);
+                return sendJson(res, 200, filtered);
+              }
+              return sendJson(res, 200, db.leagues);
+            }
+            if (method === 'POST') {
+              const body = await readBody(req);
+              const cleanId = (body.id || '').trim();
+              if (!cleanId) return sendJson(res, 400, { error: 'League ID is required' });
+              const season = body.season || query.season || db.settings.current_season || '2026';
+              const existing = db.leagues.find((l: any) => l.id.toLowerCase() === cleanId.toLowerCase() && (l.season || '2025') === season);
+              if (existing) {
+                return sendJson(res, 200, existing);
+              }
+              const newLeague = { id: cleanId, season, created_at: new Date().toISOString() };
+              db.leagues.push(newLeague);
+              saveDb(db);
+              return sendJson(res, 201, newLeague);
+            }
+            if (method === 'DELETE') {
+              const id = query.id;
+              const season = query.season;
+              db.leagues = db.leagues.filter((l: any) => {
+                if (season) return !(l.id === id && (l.season || '2025') === season);
+                return l.id !== id;
+              });
+              db.teams = db.teams.filter((t: any) => {
+                if (season) return !(t.league === id && (t.season || '2025') === season);
+                return t.league !== id;
+              });
+              db.matches = db.matches.filter((m: any) => {
+                if (season) return !(m.league === id && (m.season || '2025') === season);
+                return m.league !== id;
+              });
+              saveDb(db);
+              return sendJson(res, 200, { success: true });
+            }
+          }
+
+          // 3. Teams Endpoint
+          if (pathname === '/api/teams') {
+            if (method === 'GET') {
+              let teams = db.teams;
+              if (query.league) {
+                teams = teams.filter((t: any) => t.league === query.league);
+              }
+              if (query.season) {
+                teams = teams.filter((t: any) => (t.season || '2025') === query.season);
+              }
+              return sendJson(res, 200, teams);
+            }
+            if (method === 'POST') {
+              const team = await readBody(req);
+              const newTeam = {
+                id: team.id || `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+                name: team.name,
+                league: team.league,
+                season: team.season || '2025',
+                players: team.players || [],
+                subs: team.subs || [],
+                created_at: new Date().toISOString(),
+              };
+              db.teams.push(newTeam);
+              saveDb(db);
+              return sendJson(res, 201, newTeam);
+            }
+            if (method === 'PUT') {
+              const team = await readBody(req);
+              const idx = db.teams.findIndex((t: any) => t.id === team.id);
+              if (idx !== -1) {
+                db.teams[idx] = { ...db.teams[idx], ...team };
+                saveDb(db);
+                return sendJson(res, 200, db.teams[idx]);
+              }
+              return sendJson(res, 404, { error: 'Team not found' });
+            }
+            if (method === 'PATCH') {
+              const body = await readBody(req);
+              if (body.action === 'move_teams' && Array.isArray(body.teamIds)) {
+                db.teams = db.teams.map((t: any) => {
+                  if (body.teamIds.includes(t.id)) {
+                    return { ...t, league: body.targetLeague };
+                  }
+                  return t;
+                });
+                saveDb(db);
+                return sendJson(res, 200, { success: true });
+              }
+              return sendJson(res, 400, { error: 'Invalid action' });
+            }
+            if (method === 'DELETE') {
+              const id = query.id;
+              db.teams = db.teams.filter((t: any) => t.id !== id);
+              saveDb(db);
+              return sendJson(res, 200, { success: true });
+            }
+          }
+
+          // 4. Matches Endpoint
+          if (pathname === '/api/matches') {
+            if (method === 'GET') {
+              if (query.id) {
+                const match = db.matches.find((m: any) => m.id === query.id);
+                if (!match) return sendJson(res, 404, { error: 'Match not found' });
+                return sendJson(res, 200, match);
+              }
+              let matches = db.matches;
+              if (query.league) {
+                matches = matches.filter((m: any) => m.league === query.league);
+              }
+              if (query.season) {
+                matches = matches.filter((m: any) => (m.season || '2025') === query.season);
+              }
+              return sendJson(res, 200, matches);
+            }
+            if (method === 'POST') {
+              const match = await readBody(req);
+              const newMatch = {
+                id: match.id || `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+                league: match.league,
+                home_team_id: match.homeTeamId || match.home_team_id,
+                away_team_id: match.awayTeamId || match.away_team_id,
+                date: match.date || new Date().toISOString(),
+                is_complete: match.isComplete ?? match.is_complete ?? false,
+                innings: match.innings || [],
+                season: match.season || '2025',
+                tie_breaker: match.tieBreaker || match.tie_breaker,
+                created_at: new Date().toISOString(),
+              };
+              db.matches.unshift(newMatch);
+              saveDb(db);
+              return sendJson(res, 201, newMatch);
+            }
+            if (method === 'PUT') {
+              const match = await readBody(req);
+              const idx = db.matches.findIndex((m: any) => m.id === match.id);
+              if (idx !== -1) {
+                db.matches[idx] = {
+                  ...db.matches[idx],
+                  ...match,
+                  home_team_id: match.homeTeamId || match.home_team_id || db.matches[idx].home_team_id,
+                  away_team_id: match.awayTeamId || match.away_team_id || db.matches[idx].away_team_id,
+                  is_complete: match.isComplete !== undefined ? match.isComplete : db.matches[idx].is_complete,
+                  tie_breaker: match.tieBreaker !== undefined ? match.tieBreaker : db.matches[idx].tie_breaker,
+                };
+                saveDb(db);
+                return sendJson(res, 200, db.matches[idx]);
+              }
+              return sendJson(res, 404, { error: 'Match not found' });
+            }
+            if (method === 'DELETE') {
+              const id = query.id;
+              db.matches = db.matches.filter((m: any) => m.id !== id);
+              saveDb(db);
+              return sendJson(res, 200, { success: true });
+            }
+          }
+
+          return sendJson(res, 404, { error: 'API route not found' });
+        } catch (err: any) {
+          console.error('[Dev API] Server error:', err);
+          return sendJson(res, 500, { error: err.message });
+        }
+      });
+    },
+  };
+}
 
 export default defineConfig({
-  plugins: [react()],
+  plugins: [react(), devApiPlugin()],
   define: {
     'process.env.API_KEY': JSON.stringify(process.env.API_KEY),
   },
-  server: {
-    proxy: {
-      '/api': {
-        target: 'http://localhost:3000',
-        changeOrigin: true,
-        secure: false,
-      }
-    }
-  }
 });

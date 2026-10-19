@@ -38,17 +38,19 @@ export const generateUUID = (): string => {
 };
 
 // League Methods
-export const getLeagues = async (): Promise<League[]> => {
-  const res = await fetch('/api/leagues');
+export const getLeagues = async (season?: string): Promise<League[]> => {
+  let url = '/api/leagues';
+  if (season) url += `?season=${encodeURIComponent(season)}`;
+  const res = await fetch(url);
   if (!res.ok) return [];
   return await res.json();
 };
 
-export const createLeague = async (id: string): Promise<League> => {
+export const createLeague = async (id: string, season?: string): Promise<League> => {
   const res = await fetch('/api/leagues', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ id })
+    body: JSON.stringify({ id, season })
   });
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
@@ -57,8 +59,10 @@ export const createLeague = async (id: string): Promise<League> => {
   return await res.json();
 };
 
-export const deleteLeague = async (id: string) => {
-  const res = await fetch(`/api/leagues?id=${encodeURIComponent(id)}`, { method: 'DELETE' });
+export const deleteLeague = async (id: string, season?: string) => {
+  let url = `/api/leagues?id=${encodeURIComponent(id)}`;
+  if (season) url += `&season=${encodeURIComponent(season)}`;
+  const res = await fetch(url, { method: 'DELETE' });
   if (!res.ok) throw new Error('Failed to delete league');
 };
 

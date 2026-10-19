@@ -67,7 +67,7 @@ const App: React.FC = () => {
             console.error("Error parsing app state", e);
         }
     }
-    return { view: 'league_select', currentLeague: null, currentMatchId: null, season: '2025', dashboardTab: 'matches' };
+    return { view: 'league_select', currentLeague: null, currentMatchId: null, season: '2026', dashboardTab: 'matches' };
   });
 
   // Persist App State
@@ -150,76 +150,61 @@ const App: React.FC = () => {
       }
   }, [isMenuOpen, showLoginModal, moveMatchModal, statsModalMatch]);
 
-  // Prevent Back Button
+  // Browser History & Role-Guarded Back Navigation
   useEffect(() => {
     try {
-        window.history.pushState(null, document.title, window.location.href);
-        const handlePopState = (event: PopStateEvent) => {
+        window.history.pushState({ view: state.view, matchId: state.currentMatchId, league: state.currentLeague }, document.title, window.location.href);
+    } catch (e) {}
+
+    const handlePopState = (event: PopStateEvent) => {
+        // Guard umpires/admins from accidentally exiting during active scoring
+        if (state.view === 'scoring' && userRole !== 'fan') {
             try {
-                window.history.pushState(null, document.title, window.location.href);
-            } catch(e) {}
-        };
-        window.addEventListener('popstate', handlePopState);
-        return () => {
-            window.removeEventListener('popstate', handlePopState);
-        };
-    } catch (e) {
-        // Ignore security errors
-    }
-  }, []);
+                window.history.pushState({ view: state.view, matchId: state.currentMatchId, league: state.currentLeague }, document.title, window.location.href);
+            } catch (e) {}
+            window.dispatchEvent(new CustomEvent('dugout:umpire-back-attempt'));
+            return;
+        }
 
-  // Strict Zoom Prevention for iOS/Tablets
-  useEffect(() => {
-    // Prevent pinch zoom events (iOS)
-    const preventGesture = (e: Event) => {
-        e.preventDefault();
-    };
-    
-    // Prevent double-tap zoom or multi-touch zoom
-    const preventTouchZoom = (e: TouchEvent) => {
-        if (e.touches.length > 1) {
-            e.preventDefault();
+        // Allow parents, fans, and non-scoring views to navigate backward naturally
+        if (state.view === 'scoring') {
+            setState(s => ({ ...s, view: 'dashboard', currentMatchId: null }));
+        } else if (state.view === 'match_setup' || state.view === 'team_management') {
+            setState(s => ({ ...s, view: 'dashboard' }));
+        } else if (state.view === 'dashboard' || state.view === 'admin') {
+            setState(s => ({ ...s, view: 'league_select', currentLeague: null }));
         }
     };
 
-    // Prevent Wheel zoom (trackpads)
-    const preventWheelZoom = (e: WheelEvent) => {
-        if (e.ctrlKey) {
-            e.preventDefault();
-        }
-    };
-
-    // Add non-passive listeners
-    document.addEventListener('gesturestart', preventGesture);
-    document.addEventListener('gesturechange', preventGesture);
-    document.addEventListener('gestureend', preventGesture);
-    document.addEventListener('touchmove', preventTouchZoom, { passive: false });
-    document.addEventListener('wheel', preventWheelZoom, { passive: false });
-
+    window.addEventListener('popstate', handlePopState);
     return () => {
-        document.removeEventListener('gesturestart', preventGesture);
-        document.removeEventListener('gesturechange', preventGesture);
-        document.removeEventListener('gestureend', preventGesture);
-        document.removeEventListener('touchmove', preventTouchZoom);
-        document.removeEventListener('wheel', preventWheelZoom);
+        window.removeEventListener('popstate', handlePopState);
     };
-  }, []);
+  }, [state.view, state.currentMatchId, state.currentLeague, userRole]);
 
   useEffect(() => {
     const init = async () => {
-        const [ls, currentSeason] = await Promise.all([storage.getLeagues(), storage.getCurrentSeason()]);
+        const currentSeason = await storage.getCurrentSeason();
+        const activeSeason = currentSeason || '2026';
+        const ls = await storage.getLeagues(activeSeason);
         setLeagues(ls);
         
-        // Only override season if we are on the landing page (view='league_select') and have no league selected.
         setState(s => {
             if (s.view === 'league_select' && !s.currentLeague) {
-                 return { ...s, season: currentSeason };
+                 return { ...s, season: activeSeason };
             }
             return s;
         });
     };
     init();
   }, []);
+
+  // Sync leagues whenever the active season changes (e.g. browsing 2025 archive)
+  useEffect(() => {
+    if (state.season) {
+      storage.getLeagues(state.season).then(setLeagues).catch(console.error);
+    }
+  }, [state.season]);
 
   const refreshDashboard = useCallback(async (league: AgeGroup, season: string, silent = false) => {
     if (!silent) setLoading(true);
@@ -732,6 +717,22 @@ const App: React.FC = () => {
         <div className="absolute inset-0 opacity-[0.4] dark:opacity-[0.03] pointer-events-none z-0 mix-blend-overlay dark:mix-blend-normal h-full w-full" 
              style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg width='40' height='40' viewBox='0 0 40 40' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M20 20l20 20M20 20L0 40M20 20L40 0M20 20L0 0' stroke='%23888888' stroke-width='1' fill='none'/%3E%3C/svg%3E")` }}>
         </div>
+
+        {/* Archive Banner (Shown when viewing 2025 Historical Records) */}
+        {state.season !== '2026' && (
+            <div className="bg-amber-500/15 border-b border-amber-500/30 text-amber-900 dark:text-amber-200 px-4 py-2.5 flex items-center justify-between text-xs font-bold font-sans z-[1100] relative">
+                <div className="flex items-center gap-2">
+                    <span className="w-2.5 h-2.5 rounded-full bg-amber-500 animate-pulse"></span>
+                    <span>ARCHIVE MODE: Viewing {state.season} Season History (Historical Data)</span>
+                </div>
+                <button 
+                    onClick={() => setState(s => ({ ...s, season: '2026', currentLeague: null, view: 'league_select' }))} 
+                    className="px-3 py-1 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-xs font-bold transition-colors shadow-sm"
+                >
+                    Return to 2026 Season
+                </button>
+            </div>
+        )}
         
         {/* Scrollable Main Content Area */}
         <main className="relative flex-1 w-full overflow-y-auto overflow-x-hidden scroll-touch">
@@ -758,9 +759,13 @@ const App: React.FC = () => {
                                 <div className="w-16 h-16 bg-slate-100 dark:bg-slate-800 rounded-full flex items-center justify-center mx-auto mb-4">
                                     <svg className="w-8 h-8 text-slate-400 dark:text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
                                 </div>
-                                <h3 className="text-xl font-bold text-slate-800 dark:text-white mb-2">No Leagues Found</h3>
-                                <p className="text-slate-500 dark:text-slate-400 mb-6 text-sm">Get started by logging in to create your first league category.</p>
-                                <button onClick={openLoginModal} className="w-full px-4 py-3 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-500 transition-all shadow-lg shadow-blue-900/20">Log In to Admin</button>
+                                <h3 className="text-xl font-bold text-slate-800 dark:text-white mb-2">No 2026 Leagues Found</h3>
+                                <p className="text-slate-500 dark:text-slate-400 mb-6 text-sm">The 2026 season is ready. Create your first league category to begin.</p>
+                                {userRole === 'admin' ? (
+                                    <button onClick={() => setState(s => ({ ...s, view: 'admin' }))} className="w-full px-4 py-3 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-500 transition-all shadow-lg shadow-blue-900/20">Go to Admin to Create Leagues</button>
+                                ) : (
+                                    <button onClick={openLoginModal} className="w-full px-4 py-3 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-500 transition-all shadow-lg shadow-blue-900/20">Log In to Admin</button>
+                                )}
                             </div>
                         ) : (
                             <div className="flex flex-wrap justify-center gap-4 w-full max-w-5xl px-4 pb-8">
@@ -799,7 +804,10 @@ const App: React.FC = () => {
             {/* ADMIN VIEW */}
             {state.view === 'admin' && (
                 <div className="flex-1 bg-slate-50 dark:bg-slate-950 text-slate-800 dark:text-slate-200 w-full">
-                    <AdminDashboard onBack={() => setState({ ...state, view: 'league_select' })} />
+                    <AdminDashboard 
+                        onBack={() => setState({ ...state, view: 'league_select' })} 
+                        onBrowseArchive={(archiveSeason) => setState(s => ({ ...s, season: archiveSeason, view: 'league_select', currentLeague: null }))} 
+                    />
                 </div>
             )}
 
@@ -817,10 +825,18 @@ const App: React.FC = () => {
                 </div>
             )}
 
-            {/* TEAM MANAGEMENT VIEW */}
+            {/* TEAM MANAGEMENT VIEW - Admin Only */}
             {state.view === 'team_management' && state.currentLeague && (
                 <div className="flex-1 bg-slate-50 dark:bg-slate-950 text-slate-800 dark:text-slate-200 w-full">
-                    <TeamManagement league={state.currentLeague} season={state.season} onBack={() => setState({ ...state, view: 'dashboard' })} />
+                    {userRole === 'admin' ? (
+                        <TeamManagement league={state.currentLeague} season={state.season} onBack={() => setState({ ...state, view: 'dashboard' })} />
+                    ) : (
+                        <div className="p-8 text-center font-sans max-w-md mx-auto my-12 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-lg">
+                            <h3 className="text-lg font-bold text-slate-800 dark:text-white mb-2">Admin Only Access</h3>
+                            <p className="text-sm text-slate-500 dark:text-slate-400 mb-6">Team management and rosters are restricted to league administrators.</p>
+                            <button onClick={() => setState({ ...state, view: 'dashboard' })} className="px-6 py-2.5 bg-blue-600 hover:bg-blue-500 text-white rounded-xl font-bold transition-all shadow-md shadow-blue-900/20 text-sm">Return to Dashboard</button>
+                        </div>
+                    )}
                 </div>
             )}
 
@@ -831,21 +847,53 @@ const App: React.FC = () => {
                         
                         {userRole !== 'fan' && (
                         <div className="space-y-4 sm:space-y-6">
-                            {/* Manage Teams Box - Smaller */}
-                            <div className="bg-white/60 dark:bg-slate-900/60 backdrop-blur-xl p-2 sm:p-4 rounded-xl shadow-lg border border-white/20 dark:border-slate-800">
-                                <h2 className="text-sm sm:text-base font-bold text-slate-600 dark:text-slate-300 mb-2 font-sans">League Status ({state.season})</h2>
-                                <div className="flex justify-between text-center"><div><div className="text-2xl sm:text-3xl font-black text-slate-800 dark:text-white font-sans tabular-nums">{leagueTeams.length}</div><div className="text-[10px] sm:text-xs text-slate-500 uppercase font-bold font-sans">Teams</div></div></div>
-                                <button onClick={() => setState({ ...state, view: 'team_management' })} className="w-full mt-3 py-1.5 sm:py-2 px-3 bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white font-bold rounded-lg transition-colors font-sans border border-slate-300 dark:border-slate-700 text-xs sm:text-sm">Manage Teams & Stats</button>
-                            </div>
-                            {/* Start New Match Box - Larger on Tablets */}
-                            <div className="bg-gradient-to-br from-blue-600 to-blue-800 p-3 sm:p-8 rounded-xl shadow-xl text-white border border-blue-500/30">
-                                <h2 className="text-base sm:text-2xl font-bold mb-2 sm:mb-6 font-sans">Start New Match</h2>
-                                <div className="space-y-2 sm:space-y-4">
-                                    <select className="w-full p-2 sm:p-4 rounded-lg text-slate-900 bg-white/90 font-bold font-sans text-xs sm:text-base" value={selectedAwayId} onChange={(e) => setSelectedAwayId(e.target.value)}><option value="">Select Away Team...</option>{leagueTeams.map(t => <option key={t.id} value={t.id} disabled={t.id === selectedHomeId}>{t.name}</option>)}</select>
-                                    <select className="w-full p-2 sm:p-4 rounded-lg text-slate-900 bg-white/90 font-bold font-sans text-xs sm:text-base" value={selectedHomeId} onChange={(e) => setSelectedHomeId(e.target.value)}><option value="">Select Home Team...</option>{leagueTeams.map(t => <option key={t.id} value={t.id} disabled={t.id === selectedAwayId}>{t.name}</option>)}</select>
-                                    <button disabled={!selectedHomeId || !selectedAwayId} onClick={() => setState({ ...state, view: 'match_setup' })} className="w-full bg-white text-blue-700 font-bold py-2.5 sm:py-5 rounded-xl mt-2 sm:mt-6 hover:bg-blue-50 disabled:opacity-50 transition-all font-sans shadow-lg text-sm sm:text-xl transform active:scale-95">Next: Set Lineup</button>
+                            {/* Manage Teams Box - Admin Only */}
+                            {userRole === 'admin' && (
+                                <div className="bg-white/60 dark:bg-slate-900/60 backdrop-blur-xl p-2 sm:p-4 rounded-xl shadow-lg border border-white/20 dark:border-slate-800">
+                                    <h2 className="text-sm sm:text-base font-bold text-slate-600 dark:text-slate-300 mb-2 font-sans">League Status ({state.season})</h2>
+                                    <div className="flex justify-between text-center"><div><div className="text-2xl sm:text-3xl font-black text-slate-800 dark:text-white font-sans tabular-nums">{leagueTeams.length}</div><div className="text-[10px] sm:text-xs text-slate-500 uppercase font-bold font-sans">Teams</div></div></div>
+                                    <button onClick={() => setState({ ...state, view: 'team_management' })} className="w-full mt-3 py-1.5 sm:py-2 px-3 bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white font-bold rounded-lg transition-colors font-sans border border-slate-300 dark:border-slate-700 text-xs sm:text-sm">Manage Teams & Rosters</button>
                                 </div>
-                            </div>
+                            )}
+
+                            {/* Start New Match Box - Shows action card if < 2 teams */}
+                            {leagueTeams.length >= 2 ? (
+                                <div className="bg-gradient-to-br from-blue-600 to-blue-800 p-4 sm:p-8 rounded-xl shadow-xl text-white border border-blue-500/30">
+                                    <h2 className="text-base sm:text-2xl font-bold mb-2 sm:mb-6 font-sans">Start New Match</h2>
+                                    <div className="space-y-2 sm:space-y-4">
+                                        <select className="w-full p-2.5 sm:p-4 rounded-lg text-slate-900 bg-white font-bold font-sans text-xs sm:text-base border border-slate-200" value={selectedAwayId} onChange={(e) => setSelectedAwayId(e.target.value)}>
+                                            <option value="">Select Away Team...</option>
+                                            {leagueTeams.map(t => <option key={t.id} value={t.id} disabled={t.id === selectedHomeId}>{t.name}</option>)}
+                                        </select>
+                                        <select className="w-full p-2.5 sm:p-4 rounded-lg text-slate-900 bg-white font-bold font-sans text-xs sm:text-base border border-slate-200" value={selectedHomeId} onChange={(e) => setSelectedHomeId(e.target.value)}>
+                                            <option value="">Select Home Team...</option>
+                                            {leagueTeams.map(t => <option key={t.id} value={t.id} disabled={t.id === selectedAwayId}>{t.name}</option>)}
+                                        </select>
+                                        <button disabled={!selectedHomeId || !selectedAwayId} onClick={() => setState({ ...state, view: 'match_setup' })} className="w-full bg-white text-blue-700 font-bold py-2.5 sm:py-5 rounded-xl mt-2 sm:mt-6 hover:bg-blue-50 disabled:opacity-50 transition-all font-sans shadow-lg text-sm sm:text-xl transform active:scale-95">Next: Set Lineup</button>
+                                    </div>
+                                </div>
+                            ) : (
+                                <div className="bg-white/60 dark:bg-slate-900/60 backdrop-blur-xl p-5 sm:p-6 rounded-xl shadow-lg border border-white/20 dark:border-slate-800 text-center">
+                                    <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400 rounded-full flex items-center justify-center mx-auto mb-3">
+                                        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4"></path></svg>
+                                    </div>
+                                    <h3 className="text-base font-bold text-slate-800 dark:text-white mb-1 font-sans">{userRole === 'admin' ? 'Ready for Teams' : 'Awaiting Teams'}</h3>
+                                    <p className="text-xs text-slate-500 dark:text-slate-400 mb-4 font-sans">
+                                        {userRole === 'admin' 
+                                            ? `You need at least 2 teams in ${state.currentLeague} to start matches.` 
+                                            : `The league administrator must register teams in ${state.currentLeague} before matches can begin.`}
+                                    </p>
+                                    {userRole === 'admin' ? (
+                                        <button onClick={() => setState({ ...state, view: 'team_management' })} className="w-full py-3 px-4 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-xl transition-all shadow-md shadow-blue-900/20 text-xs sm:text-sm font-sans">
+                                            + Add Teams & Rosters
+                                        </button>
+                                    ) : (
+                                        <div className="text-[11px] text-slate-400 dark:text-slate-500 italic font-sans py-2 px-3 bg-slate-50 dark:bg-slate-950 rounded-lg border border-slate-200 dark:border-slate-800">
+                                            Teams will appear here once configured by the admin.
+                                        </div>
+                                    )}
+                                </div>
+                            )}
                             <div className="text-center">
                                 <span className="bg-white/50 dark:bg-slate-800 text-slate-600 dark:text-slate-400 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider font-sans border border-slate-200 dark:border-slate-700">Role: {userRole}</span>
                                 <button onClick={handleLogout} className="text-xs text-red-500 hover:text-red-400 ml-2 underline font-sans">Log Out</button>

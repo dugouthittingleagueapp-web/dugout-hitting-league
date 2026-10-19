@@ -69,7 +69,25 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (!season || !season.trim()) {
             return res.status(400).json({ error: 'Season cannot be empty' });
         }
-        await pool.query("UPDATE app_settings SET value = $1 WHERE key = 'current_season'", [season.trim()]);
+        const newSeason = season.trim();
+        const curRes = await pool.query("SELECT value FROM app_settings WHERE key = 'current_season'");
+        const prevSeason = curRes.rows[0]?.value || '2025';
+
+        await pool.query("UPDATE app_settings SET value = $1 WHERE key = 'current_season'", [newSeason]);
+
+        // Rollover leagues from previous season to new season if new season has no leagues
+        try {
+          const newLeagues = await pool.query("SELECT id FROM leagues WHERE season = $1", [newSeason]);
+          if (newLeagues.rows.length === 0) {
+            const prevLeagues = await pool.query("SELECT id FROM leagues WHERE season = $1", [prevSeason]);
+            for (const row of prevLeagues.rows) {
+              await pool.query("INSERT INTO leagues (id, season) VALUES ($1, $2) ON CONFLICT DO NOTHING", [row.id, newSeason]);
+            }
+          }
+        } catch (e) {
+          // Season column might not exist if legacy table, ignore gracefully
+        }
+
         return res.status(200).json({ success: true });
       }
       

@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { AgeGroup, Team, PlayerStats } from '../types';
 import * as storage from '../services/storageService';
+import { RosterImportModal } from './RosterImportModal';
 
 interface TeamManagementProps {
   league: AgeGroup;
@@ -19,6 +20,8 @@ export const TeamManagement: React.FC<TeamManagementProps> = ({ league, season, 
   const [teams, setTeams] = useState<Team[]>([]);
   const [selectedTeam, setSelectedTeam] = useState<Team | null>(null);
   const [teamStats, setTeamStats] = useState<PlayerStats[]>([]);
+  const [showImportModal, setShowImportModal] = useState(false);
+  const [availableLeagues, setAvailableLeagues] = useState<string[]>([league]);
   
   // Sort State
   const [sortConfig, setSortConfig] = useState<{ key: keyof PlayerStats; direction: 'asc' | 'desc' }>({ key: 'totalPoints', direction: 'desc' });
@@ -39,7 +42,12 @@ export const TeamManagement: React.FC<TeamManagementProps> = ({ league, season, 
   
   const [loading, setLoading] = useState(false);
 
-  useEffect(() => { loadTeams(); }, [league, season]);
+  useEffect(() => { 
+    loadTeams(); 
+    storage.getLeagues(season).then(lgs => {
+      if (lgs.length > 0) setAvailableLeagues(lgs.map(l => l.id));
+    }).catch(() => {});
+  }, [league, season]);
 
   const loadTeams = async () => {
     setLoading(true);
@@ -276,7 +284,16 @@ export const TeamManagement: React.FC<TeamManagementProps> = ({ league, season, 
             <h2 className="text-2xl font-bold text-slate-800 dark:text-white font-sans">Manage Teams</h2>
             <p className="text-slate-500 text-sm font-bold uppercase tracking-wider font-sans">{league} League <span className="text-slate-400 mx-1">•</span> {season}</p>
         </div>
-        <button onClick={onBack} className="px-4 py-2 rounded-lg bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 font-medium transition-colors font-sans border border-slate-300 dark:border-slate-700">Back to Dashboard</button>
+        <div className="flex gap-2 items-center">
+            <button
+                type="button"
+                onClick={() => setShowImportModal(true)}
+                className="px-3.5 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white font-bold transition-all font-sans text-xs sm:text-sm shadow-sm flex items-center gap-1.5"
+            >
+                <span>⚡ Import Rosters</span>
+            </button>
+            <button onClick={onBack} className="px-3.5 py-2 rounded-lg bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 font-bold transition-colors font-sans border border-slate-300 dark:border-slate-700 text-xs sm:text-sm">Back to Dashboard</button>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
@@ -389,6 +406,15 @@ export const TeamManagement: React.FC<TeamManagementProps> = ({ league, season, 
           {teams.length === 0 && <div className="text-slate-500 italic text-sm font-sans">No teams found for {season}.</div>}
         </div>
       </div>
+
+      <RosterImportModal
+        isOpen={showImportModal}
+        onClose={() => setShowImportModal(false)}
+        onSuccess={() => loadTeams()}
+        currentLeague={league}
+        currentSeason={season}
+        availableLeagues={availableLeagues}
+      />
     </div>
   );
 };

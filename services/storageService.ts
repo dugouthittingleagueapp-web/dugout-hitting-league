@@ -67,21 +67,172 @@ export const deleteLeague = async (id: string, season?: string) => {
 };
 
 // Team Methods
+// Offline Sync Queue Keys
+const PENDING_MATCHES_KEY = 'dugout_pending_sync_matches';
+const PENDING_TEAMS_KEY = 'dugout_pending_sync_teams';
+
+export const enqueuePendingMatchSync = (match: Match) => {
+  if (typeof window === 'undefined') return;
+  try {
+    const raw = localStorage.getItem(PENDING_MATCHES_KEY);
+    const map: Record<string, Match> = raw ? JSON.parse(raw) : {};
+    map[match.id] = match;
+    localStorage.setItem(PENDING_MATCHES_KEY, JSON.stringify(map));
+  } catch (e) {}
+};
+
+export const dequeuePendingMatchSync = (matchId: string) => {
+  if (typeof window === 'undefined') return;
+  try {
+    const raw = localStorage.getItem(PENDING_MATCHES_KEY);
+    if (!raw) return;
+    const map: Record<string, Match> = JSON.parse(raw);
+    delete map[matchId];
+    if (Object.keys(map).length === 0) {
+      localStorage.removeItem(PENDING_MATCHES_KEY);
+    } else {
+      localStorage.setItem(PENDING_MATCHES_KEY, JSON.stringify(map));
+    }
+  } catch (e) {}
+};
+
+export const enqueuePendingTeamSync = (team: Team) => {
+  if (typeof window === 'undefined') return;
+  try {
+    const raw = localStorage.getItem(PENDING_TEAMS_KEY);
+    const map: Record<string, Team> = raw ? JSON.parse(raw) : {};
+    map[team.id] = team;
+    localStorage.setItem(PENDING_TEAMS_KEY, JSON.stringify(map));
+  } catch (e) {}
+};
+
+export const syncOfflineData = async () => {
+  if (typeof window === 'undefined') return;
+  if (typeof navigator !== 'undefined' && !navigator.onLine) return;
+
+  // 1. Sync pending teams
+  try {
+    const rawTeams = localStorage.getItem(PENDING_TEAMS_KEY);
+    if (rawTeams) {
+      const teamMap: Record<string, Team> = JSON.parse(rawTeams);
+      const teamIds = Object.keys(teamMap);
+      for (const teamId of teamIds) {
+        const team = teamMap[teamId];
+        try {
+          const res = await fetch('/api/teams', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(team)
+          });
+          if (res.ok) {
+            delete teamMap[teamId];
+          }
+        } catch (err) {}
+      }
+      if (Object.keys(teamMap).length === 0) {
+        localStorage.removeItem(PENDING_TEAMS_KEY);
+      } else {
+        localStorage.setItem(PENDING_TEAMS_KEY, JSON.stringify(teamMap));
+      }
+    }
+  } catch (e) {}
+
+  // 2. Sync pending matches
+  try {
+    const rawMatches = localStorage.getItem(PENDING_MATCHES_KEY);
+    if (rawMatches) {
+      const matchMap: Record<string, Match> = JSON.parse(rawMatches);
+      const matchIds = Object.keys(matchMap);
+      for (const matchId of matchIds) {
+        const match = matchMap[matchId];
+        try {
+          const res = await fetch('/api/matches', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(match)
+          });
+          if (res.ok) {
+            delete matchMap[matchId];
+          }
+        } catch (err) {}
+      }
+      if (Object.keys(matchMap).length === 0) {
+        localStorage.removeItem(PENDING_MATCHES_KEY);
+      } else {
+        localStorage.setItem(PENDING_MATCHES_KEY, JSON.stringify(matchMap));
+      }
+    }
+  } catch (e) {}
+};
+
+// Automatic listener to sync queued items once internet reconnects
+if (typeof window !== 'undefined') {
+  window.addEventListener('online', () => {
+    syncOfflineData();
+  });
+}
+
+// Team Methods
 export const getTeams = async (league: AgeGroup | null, season: string): Promise<Team[]> => {
   let url = `/api/teams?season=${season}`;
   if (league) url += `&league=${league}`;
   
-  const res = await fetch(url);
-  if (!res.ok) return [];
-  const data = await res.json();
-  return data.map(mapTeamFromDB);
+  try {
+    const res = await fetch(url);
+    if (res.ok) {
+      const data = await res.json();
+      const mapped = data.map(mapTeamFromDB);
+      if (typeof window !== 'undefined') {
+        try {
+          localStorage.setItem(`dugout_teams_${season}_${league || 'all'}`, JSON.stringify(mapped));
+        } catch (e) {}
+      }
+      return mapped;
+    }
+  } catch (err) {
+    console.warn('Network fetch failed for getTeams, falling back to cache', err);
+  }
+
+  // Offline fallback
+  if (typeof window !== 'undefined') {
+    try {
+      const cached = localStorage.getItem(`dugout_teams_${season}_${league || 'all'}`);
+      if (cached) return JSON.parse(cached);
+      const allCached = localStorage.getItem('dugout_all_teams_cache');
+      if (allCached) {
+        const parsed: Team[] = JSON.parse(allCached);
+        return parsed.filter(t => (!league || t.league === league) && (!season || t.season === season));
+      }
+    } catch (e) {}
+  }
+  return [];
 };
 
 export const getAllTeams = async (): Promise<Team[]> => {
-  const res = await fetch(`/api/teams`);
-  if (!res.ok) return [];
-  const data = await res.json();
-  return data.map(mapTeamFromDB);
+  try {
+    const res = await fetch(`/api/teams`);
+    if (res.ok) {
+      const data = await res.json();
+      const mapped = data.map(mapTeamFromDB);
+      if (typeof window !== 'undefined') {
+        try {
+          localStorage.setItem('dugout_all_teams_cache', JSON.stringify(mapped));
+        } catch (e) {}
+      }
+      return mapped;
+    }
+  } catch (err) {
+    console.warn('Network fetch failed for getAllTeams, falling back to cache', err);
+  }
+
+  // Offline fallback
+  if (typeof window !== 'undefined') {
+    try {
+      const cached = localStorage.getItem('dugout_all_teams_cache');
+      if (cached) return JSON.parse(cached);
+    } catch (e) {}
+  }
+  return [];
 };
 
 export const createTeam = async (name: string, league: AgeGroup, players: {name: string, lastName?: string}[], season: string, subs: {name: string, lastName?: string}[] = []): Promise<Team> => {
@@ -93,6 +244,20 @@ export const createTeam = async (name: string, league: AgeGroup, players: {name:
     players: players.map(p => ({ id: generateUUID(), name: p.name, lastName: p.lastName })),
     subs: subs.map(s => ({ id: generateUUID(), name: s.name, lastName: s.lastName }))
   };
+
+  // Cache locally
+  if (typeof window !== 'undefined') {
+    try {
+      localStorage.setItem(`dugout_team_${newTeam.id}`, JSON.stringify(newTeam));
+      const cached = localStorage.getItem('dugout_all_teams_cache');
+      if (cached) {
+        const list: Team[] = JSON.parse(cached);
+        list.push(newTeam);
+        localStorage.setItem('dugout_all_teams_cache', JSON.stringify(list));
+      }
+    } catch (e) {}
+  }
+
   const res = await fetch('/api/teams', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -104,14 +269,36 @@ export const createTeam = async (name: string, league: AgeGroup, players: {name:
 };
 
 export const updateTeam = async (team: Team): Promise<Team> => {
-  const res = await fetch('/api/teams', {
-    method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(team)
-  });
-  if (!res.ok) throw new Error('Failed to update team');
-  const data = await res.json();
-  return mapTeamFromDB(data);
+  // Update local cache immediately so offline roster substitutions persist
+  if (typeof window !== 'undefined') {
+    try {
+      localStorage.setItem(`dugout_team_${team.id}`, JSON.stringify(team));
+      const cached = localStorage.getItem('dugout_all_teams_cache');
+      if (cached) {
+        const list: Team[] = JSON.parse(cached);
+        const idx = list.findIndex(t => t.id === team.id);
+        if (idx !== -1) list[idx] = team;
+        else list.push(team);
+        localStorage.setItem('dugout_all_teams_cache', JSON.stringify(list));
+      }
+    } catch (e) {}
+  }
+
+  try {
+    const res = await fetch('/api/teams', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(team)
+    });
+    if (res.ok) {
+      const data = await res.json();
+      return mapTeamFromDB(data);
+    }
+  } catch (err) {
+    console.warn('Network updateTeam failed (offline), queued for sync', err);
+    enqueuePendingTeamSync(team);
+  }
+  return team;
 };
 
 export const moveTeams = async (teamIds: string[], targetLeague: string): Promise<void> => {
@@ -143,10 +330,32 @@ export const getAllMatches = async (): Promise<Match[]> => {
 };
 
 export const getMatch = async (id: string): Promise<Match | undefined> => {
-  const res = await fetch(`/api/matches?id=${id}`);
-  if (!res.ok) return undefined;
-  const data = await res.json();
-  return mapMatchFromDB(data);
+  try {
+    const res = await fetch(`/api/matches?id=${id}`);
+    if (res.ok) {
+      const data = await res.json();
+      const mapped = mapMatchFromDB(data);
+      if (typeof window !== 'undefined') {
+        try {
+          localStorage.setItem(`dugout_match_${id}`, JSON.stringify(mapped));
+        } catch (e) {}
+      }
+      return mapped;
+    }
+  } catch (err) {
+    console.warn('Network fetch failed for match, attempting offline cache recovery', err);
+  }
+
+  // Offline / Disconnect fallback from localStorage
+  if (typeof window !== 'undefined') {
+    try {
+      const local = localStorage.getItem(`dugout_match_${id}`);
+      if (local) {
+        return JSON.parse(local);
+      }
+    } catch (e) {}
+  }
+  return undefined;
 };
 
 export const createMatch = async (league: AgeGroup, homeTeamId: string, awayTeamId: string, homePlayerIds: string[], awayPlayerIds: string[], season: string): Promise<Match> => {
@@ -165,6 +374,14 @@ export const createMatch = async (league: AgeGroup, homeTeamId: string, awayTeam
         innings,
         season
     };
+
+    // Immediate local persistence before network request
+    if (typeof window !== 'undefined') {
+        try {
+            localStorage.setItem(`dugout_match_${match.id}`, JSON.stringify(match));
+            localStorage.setItem('dugout_active_match_id', match.id);
+        } catch (e) {}
+    }
     
     const res = await fetch('/api/matches', {
         method: 'POST',
@@ -208,14 +425,36 @@ const createEmptyInning = (number: number, homeIds: string[], awayIds: string[])
 };
 
 export const updateMatch = async (match: Match): Promise<Match> => {
-    const res = await fetch('/api/matches', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(match)
-    });
-    if (!res.ok) throw new Error('Failed to update match');
-    const data = await res.json();
-    return mapMatchFromDB(data);
+    // Immediate local persistence on every input/score/substitution
+    if (typeof window !== 'undefined') {
+        try {
+            localStorage.setItem(`dugout_match_${match.id}`, JSON.stringify(match));
+            if (!match.isComplete) {
+                localStorage.setItem('dugout_active_match_id', match.id);
+            } else {
+                localStorage.removeItem('dugout_active_match_id');
+            }
+        } catch (e) {}
+    }
+
+    try {
+        const res = await fetch('/api/matches', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(match)
+        });
+        if (res.ok) {
+            dequeuePendingMatchSync(match.id);
+            const data = await res.json();
+            return mapMatchFromDB(data);
+        } else {
+            enqueuePendingMatchSync(match);
+        }
+    } catch (err) {
+        console.warn('Network sync failed (phone offline/disconnected), match saved in local storage and queued for background sync', err);
+        enqueuePendingMatchSync(match);
+    }
+    return match;
 };
 
 export const deleteMatch = async (matchId: string) => {
@@ -432,4 +671,41 @@ export const updateCurrentSeason = async (season: string) => {
 export const exportData = async (): Promise<string> => {
     const [teams, matches, leagues] = await Promise.all([getAllTeams(), getAllMatches(), getLeagues()]);
     return JSON.stringify({ teams, matches, leagues }, null, 2);
+};
+
+export interface ParsedTeamInput {
+  name: string;
+  league: AgeGroup;
+  players: { name: string; lastName?: string }[];
+  subs?: { name: string; lastName?: string }[];
+}
+
+export const parseRosterInput = async (payload: { text?: string; imageBase64?: string; mimeType?: string; defaultLeague?: string }): Promise<ParsedTeamInput[]> => {
+  const res = await fetch('/api/parse-roster', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload)
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || 'Failed to parse roster');
+  }
+  const data = await res.json();
+  return data.teams || [];
+};
+
+export const createTeamsBatch = async (teamsToCreate: ParsedTeamInput[], season: string): Promise<Team[]> => {
+  const created: Team[] = [];
+  for (const item of teamsToCreate) {
+    if (!item.name.trim()) continue;
+    const team = await createTeam(
+      item.name.trim(),
+      item.league,
+      item.players || [],
+      season,
+      item.subs || []
+    );
+    created.push(team);
+  }
+  return created;
 };

@@ -76,6 +76,7 @@ export const MatchSetup: React.FC<MatchSetupProps> = ({ homeTeam, awayTeam, onSt
 
   const removePlayer = (side: 'left' | 'right', index: number) => {
       const list = side === 'left' ? getLeftSideLineup() : getRightSideLineup();
+      if (list.length <= 2) return; // League minimum: 2 active players
       const setter = side === 'left' ? setLeftSideLineup : setRightSideLineup;
       const newList = [...list];
       newList.splice(index, 1);
@@ -111,8 +112,14 @@ export const MatchSetup: React.FC<MatchSetupProps> = ({ homeTeam, awayTeam, onSt
   };
 
   const handleCreateNewSub = () => {
-      if (!newSubName.trim()) return;
-      const newPlayer: Player = { id: storage.generateUUID(), name: newSubName.trim() };
+      const trimmed = newSubName.trim();
+      if (!trimmed) return;
+      const list = subSide === 'left' ? getLeftSideLineup() : getRightSideLineup();
+      if (list.some(p => p.name.toLowerCase() === trimmed.toLowerCase())) {
+          alert("A player with this name is already in the lineup");
+          return;
+      }
+      const newPlayer: Player = { id: storage.generateUUID(), name: trimmed };
       handleAddSub(newPlayer);
   };
 
@@ -183,8 +190,9 @@ export const MatchSetup: React.FC<MatchSetupProps> = ({ homeTeam, awayTeam, onSt
                         <button 
                             type="button"
                             onClick={(e) => { e.stopPropagation(); removePlayer(side, index); }}
-                            className="w-9 h-9 sm:w-10 sm:h-10 flex items-center justify-center text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors border border-transparent hover:border-red-200 dark:hover:border-red-900/40"
-                            title="Remove player for 2-person team"
+                            disabled={players.length <= 2}
+                            className="w-9 h-9 sm:w-10 sm:h-10 flex items-center justify-center text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 disabled:opacity-20 disabled:pointer-events-none rounded-lg transition-colors border border-transparent hover:border-red-200 dark:hover:border-red-900/40"
+                            title={players.length <= 2 ? "Minimum 2 players required" : "Remove player for 2-person team"}
                             aria-label="Remove player"
                         >
                             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>

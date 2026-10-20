@@ -295,6 +295,22 @@ function devApiPlugin(): Plugin {
             }
           }
 
+          // 5. Parse Roster Endpoint (Gemini Multimodal / Text)
+          if (pathname === '/api/parse-roster') {
+            if (method === 'POST') {
+              const body = await readBody(req);
+              const parseHandler = (await import('./api/parse-roster.ts')).default;
+              return parseHandler(
+                { method: 'POST', body, query } as any,
+                {
+                  status: (code: number) => ({
+                    json: (data: any) => sendJson(res, code, data),
+                  }),
+                } as any
+              );
+            }
+          }
+
           return sendJson(res, 404, { error: 'API route not found' });
         } catch (err: any) {
           console.error('[Dev API] Server error:', err);

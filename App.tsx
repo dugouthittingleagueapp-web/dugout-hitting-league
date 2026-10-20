@@ -6,6 +6,7 @@ import { TeamManagement } from './components/TeamManagement';
 import { Scoreboard } from './components/Scoreboard';
 import { AdminDashboard } from './components/AdminDashboard';
 import { MatchSetup } from './components/MatchSetup';
+import { RosterImportModal } from './components/RosterImportModal';
 import * as storage from './services/storageService';
 
 const INACTIVITY_LIMIT = 3 * 60 * 60 * 1000; // 3 hours
@@ -59,6 +60,12 @@ const App: React.FC = () => {
             if (parsed.view === 'match_setup') {
                 parsed.view = 'dashboard';
             }
+            // If in scoring and currentMatchId is missing, check activeMatchId
+            if (parsed.view === 'scoring' && !parsed.currentMatchId) {
+                const activeId = safeStorage.getItem('dugout_active_match_id');
+                if (activeId) parsed.currentMatchId = activeId;
+                else parsed.view = 'dashboard';
+            }
             // Ensure dashboardTab exists
             if (!parsed.dashboardTab) parsed.dashboardTab = 'matches';
             
@@ -81,7 +88,12 @@ const App: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [selectedHomeId, setSelectedHomeId] = useState('');
   const [selectedAwayId, setSelectedAwayId] = useState('');
+  const [showDashboardImport, setShowDashboardImport] = useState(false);
   
+  // In-Progress Match Recovery State
+  const [resumeMatch, setResumeMatch] = useState<{ id: string; league: string; season: string; homeTeamName: string; awayTeamName: string; inningNumber: number } | null>(null);
+  const [dismissedResumeId, setDismissedResumeId] = useState<string | null>(null);
+
   // Weekly State
   const [matchListWeek, setMatchListWeek] = useState<string>('');
   const [leaderboardWeek, setLeaderboardWeek] = useState<string>('');
@@ -221,6 +233,13 @@ const App: React.FC = () => {
 
   // Initial Load & View Change
   useEffect(() => {
+    storage.syncOfflineData();
+    const handleOnline = () => storage.syncOfflineData();
+    window.addEventListener('online', handleOnline);
+    return () => window.removeEventListener('online', handleOnline);
+  }, []);
+
+  useEffect(() => {
     if (state.currentLeague && state.view === 'dashboard') {
         refreshDashboard(state.currentLeague, state.season);
     }
@@ -234,6 +253,89 @@ const App: React.FC = () => {
     }, 5000);
     return () => clearInterval(interval);
   }, [state.view, state.currentLeague, state.season, refreshDashboard]);
+
+  // Active Match Recovery Detection (Prompt to resume if device refreshed or returned)
+  useEffect(() => {
+      if (state.view === 'scoring') {
+          return;
+      }
+      const storedActiveId = safeStorage.getItem('dugout_active_match_id');
+      if (!storedActiveId || storedActiveId === dismissedResumeId) {
+          setResumeMatch(null);
+          return;
+      }
+
+      // Check loaded matches first
+      const existing = matches.find(m => m.id === storedActiveId);
+      if (existing) {
+          if (existing.isComplete) {
+              safeStorage.removeItem('dugout_active_match_id');
+              setResumeMatch(null);
+          } else {
+              const home = teams.find(t => t.id === existing.homeTeamId);
+              const away = teams.find(t => t.id === existing.awayTeamId);
+              let activeInning = 1;
+              for (let i = 0; i < existing.innings.length; i++) {
+                  const ing = existing.innings[i];
+                  const homeDone = ing.home.playerScores.every(p => p.pitches.every(pt => pt.points !== null));
+                  const awayDone = ing.away.playerScores.every(p => p.pitches.every(pt => pt.points !== null));
+                  if (!homeDone || !awayDone) { activeInning = ing.number; break; }
+              }
+              setResumeMatch({
+                  id: existing.id,
+                  league: existing.league,
+                  season: existing.season,
+                  homeTeamName: home ? home.name : 'Home Team',
+                  awayTeamName: away ? away.name : 'Away Team',
+                  inningNumber: activeInning
+              });
+          }
+      } else {
+          storage.getMatch(storedActiveId).then(m => {
+              if (m && !m.isComplete) {
+                  storage.getAllTeams().then(allTeams => {
+                      const home = allTeams.find(t => t.id === m.homeTeamId);
+                      const away = allTeams.find(t => t.id === m.awayTeamId);
+                      let activeInning = 1;
+                      for (let i = 0; i < m.innings.length; i++) {
+                          const ing = m.innings[i];
+                          const homeDone = ing.home.playerScores.every(p => p.pitches.every(pt => pt.points !== null));
+                          const awayDone = ing.away.playerScores.every(p => p.pitches.every(pt => pt.points !== null));
+                          if (!homeDone || !awayDone) { activeInning = ing.number; break; }
+                      }
+                      setResumeMatch({
+                          id: m.id,
+                          league: m.league,
+                          season: m.season,
+                          homeTeamName: home ? home.name : 'Home Team',
+                          awayTeamName: away ? away.name : 'Away Team',
+                          inningNumber: activeInning
+                      });
+                  });
+              } else if (m && m.isComplete) {
+                  safeStorage.removeItem('dugout_active_match_id');
+                  setResumeMatch(null);
+              }
+          }).catch(() => {});
+      }
+  }, [matches, teams, dismissedResumeId, state.view]);
+
+  const handleResumeActiveMatch = () => {
+      if (!resumeMatch) return;
+      setState(s => ({
+          ...s,
+          view: 'scoring',
+          currentLeague: resumeMatch.league,
+          currentMatchId: resumeMatch.id,
+          season: resumeMatch.season
+      }));
+  };
+
+  const handleDismissResumeMatch = () => {
+      if (resumeMatch) {
+          setDismissedResumeId(resumeMatch.id);
+      }
+  };
 
   // --- Week Calculation Logic ---
   const activeWeeks = useMemo(() => {
@@ -354,6 +456,7 @@ const App: React.FC = () => {
         const awayIds = awayLineup.map(p => p.id);
         
         const newMatch = await storage.createMatch(state.currentLeague, finalHomeId, finalAwayId, homeIds, awayIds, state.season);
+        safeStorage.setItem('dugout_active_match_id', newMatch.id);
         
         setSelectedHomeId(''); setSelectedAwayId(''); setLoading(false);
         setState({ ...state, view: 'scoring', currentMatchId: newMatch.id });
@@ -364,6 +467,9 @@ const App: React.FC = () => {
     if (!confirm("Are you sure you want to delete this match? This cannot be undone.")) return;
     try {
         setLoading(true);
+        if (safeStorage.getItem('dugout_active_match_id') === matchId) {
+            safeStorage.removeItem('dugout_active_match_id');
+        }
         await storage.deleteMatch(matchId);
         if (state.currentLeague) await refreshDashboard(state.currentLeague, state.season);
         else setLoading(false);
@@ -718,6 +824,32 @@ const App: React.FC = () => {
              style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg width='40' height='40' viewBox='0 0 40 40' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M20 20l20 20M20 20L0 40M20 20L40 0M20 20L0 0' stroke='%23888888' stroke-width='1' fill='none'/%3E%3C/svg%3E")` }}>
         </div>
 
+        {/* Active Match In-Progress Resume Prompt Banner */}
+        {resumeMatch && state.view !== 'scoring' && (
+            <div className="bg-blue-600 text-white px-4 py-2.5 flex items-center justify-between text-xs font-bold font-sans z-[1100] relative shadow-md">
+                <div className="flex items-center gap-2 truncate pr-2">
+                    <span className="w-2.5 h-2.5 rounded-full bg-amber-400 animate-pulse shrink-0"></span>
+                    <span className="truncate">Active Match in Progress: {resumeMatch.awayTeamName} vs {resumeMatch.homeTeamName} (Inning {resumeMatch.inningNumber})</span>
+                </div>
+                <div className="flex items-center gap-2 shrink-0">
+                    <button 
+                        onClick={handleResumeActiveMatch} 
+                        className="px-3 py-1 bg-white hover:bg-blue-50 text-blue-700 rounded-lg text-xs font-bold transition-all shadow-sm active:scale-95"
+                    >
+                        Resume Match
+                    </button>
+                    <button 
+                        onClick={handleDismissResumeMatch} 
+                        className="px-2 py-1 bg-blue-700/60 hover:bg-blue-700 text-white rounded-lg text-xs font-bold transition-colors"
+                        title="Dismiss banner"
+                        aria-label="Dismiss banner"
+                    >
+                        ✕
+                    </button>
+                </div>
+            </div>
+        )}
+
         {/* Archive Banner (Shown when viewing 2025 Historical Records) */}
         {state.season !== '2026' && (
             <div className="bg-amber-500/15 border-b border-amber-500/30 text-amber-900 dark:text-amber-200 px-4 py-2.5 flex items-center justify-between text-xs font-bold font-sans z-[1100] relative">
@@ -852,7 +984,10 @@ const App: React.FC = () => {
                                 <div className="bg-white/60 dark:bg-slate-900/60 backdrop-blur-xl p-2 sm:p-4 rounded-xl shadow-lg border border-white/20 dark:border-slate-800">
                                     <h2 className="text-sm sm:text-base font-bold text-slate-600 dark:text-slate-300 mb-2 font-sans">League Status ({state.season})</h2>
                                     <div className="flex justify-between text-center"><div><div className="text-2xl sm:text-3xl font-black text-slate-800 dark:text-white font-sans tabular-nums">{leagueTeams.length}</div><div className="text-[10px] sm:text-xs text-slate-500 uppercase font-bold font-sans">Teams</div></div></div>
-                                    <button onClick={() => setState({ ...state, view: 'team_management' })} className="w-full mt-3 py-1.5 sm:py-2 px-3 bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white font-bold rounded-lg transition-colors font-sans border border-slate-300 dark:border-slate-700 text-xs sm:text-sm">Manage Teams & Rosters</button>
+                                    <div className="flex gap-2 mt-3">
+                                        <button onClick={() => setState({ ...state, view: 'team_management' })} className="flex-1 py-1.5 sm:py-2 px-3 bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white font-bold rounded-lg transition-colors font-sans border border-slate-300 dark:border-slate-700 text-xs sm:text-sm">Manage Rosters</button>
+                                        <button onClick={() => setShowDashboardImport(true)} className="py-1.5 sm:py-2 px-3 bg-blue-50 dark:bg-blue-900/30 hover:bg-blue-100 dark:hover:bg-blue-900/50 text-blue-600 dark:text-blue-400 font-bold rounded-lg transition-colors font-sans border border-blue-200 dark:border-blue-800 text-xs sm:text-sm flex items-center gap-1">⚡ Import</button>
+                                    </div>
                                 </div>
                             )}
 
@@ -884,9 +1019,14 @@ const App: React.FC = () => {
                                             : `The league administrator must register teams in ${state.currentLeague} before matches can begin.`}
                                     </p>
                                     {userRole === 'admin' ? (
-                                        <button onClick={() => setState({ ...state, view: 'team_management' })} className="w-full py-3 px-4 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-xl transition-all shadow-md shadow-blue-900/20 text-xs sm:text-sm font-sans">
-                                            + Add Teams & Rosters
-                                        </button>
+                                        <div className="flex flex-col sm:flex-row gap-2">
+                                            <button onClick={() => setState({ ...state, view: 'team_management' })} className="flex-1 py-3 px-3 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-xl transition-all shadow-md shadow-blue-900/20 text-xs sm:text-sm font-sans">
+                                                + Add Teams
+                                            </button>
+                                            <button onClick={() => setShowDashboardImport(true)} className="py-3 px-3.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 border border-slate-300 dark:border-slate-700 font-bold rounded-xl transition-all text-xs sm:text-sm font-sans flex items-center justify-center gap-1.5">
+                                                <span>⚡ Import</span>
+                                            </button>
+                                        </div>
                                     ) : (
                                         <div className="text-[11px] text-slate-400 dark:text-slate-500 italic font-sans py-2 px-3 bg-slate-50 dark:bg-slate-950 rounded-lg border border-slate-200 dark:border-slate-800">
                                             Teams will appear here once configured by the admin.
@@ -1021,7 +1161,12 @@ const App: React.FC = () => {
                                                 <div className="flex gap-2 w-full sm:w-auto justify-end shrink-0">
                                                 <button onClick={() => handleOpenMatchStats(match)} className="flex-1 sm:flex-none text-center px-2 sm:px-3 py-1.5 sm:py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800/50 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 hover:border-blue-400 dark:hover:border-blue-500/50 font-bold text-xs sm:text-sm transition-all font-sans">Stats</button>
                                                 
-                                                <button onClick={() => setState({ ...state, view: 'scoring', currentMatchId: match.id })} className="flex-1 sm:flex-none text-center px-2 sm:px-3 py-1.5 sm:py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800/50 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 hover:text-slate-900 dark:hover:text-white font-bold text-xs sm:text-sm transition-all font-sans">
+                                                <button onClick={() => {
+                                                    if (!match.isComplete && userRole !== 'fan') {
+                                                        safeStorage.setItem('dugout_active_match_id', match.id);
+                                                    }
+                                                    setState({ ...state, view: 'scoring', currentMatchId: match.id });
+                                                }} className="flex-1 sm:flex-none text-center px-2 sm:px-3 py-1.5 sm:py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800/50 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 hover:text-slate-900 dark:hover:text-white font-bold text-xs sm:text-sm transition-all font-sans">
                                                     {userRole === 'fan' ? (match.isComplete ? 'View' : 'Watch Live') : (match.isComplete ? 'View' : 'Score')}
                                                 </button>
                                                 
@@ -1211,6 +1356,19 @@ const App: React.FC = () => {
                 </div>
             </div>,
             document.body
+        )}
+
+        {showDashboardImport && state.currentLeague && (
+            <RosterImportModal
+                isOpen={showDashboardImport}
+                onClose={() => setShowDashboardImport(false)}
+                onSuccess={() => {
+                    if (state.currentLeague) refreshDashboard(state.currentLeague, state.season);
+                }}
+                currentLeague={state.currentLeague}
+                currentSeason={state.season}
+                availableLeagues={leagues.map(l => l.id)}
+            />
         )}
     </div>
   );

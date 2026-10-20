@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { Match, Inning, Team, TieBreakerRound, Player } from '../types';
 import * as storage from '../services/storageService';
 import { ScoreInput } from './ScoreInput';
+import { useVoiceScoring } from '../hooks/useVoiceScoring';
 
 interface ScoreboardProps {
   matchId: string;
@@ -29,6 +30,7 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
   const [showFinishModal, setShowFinishModal] = useState(false);
   const [showExitConfirmModal, setShowExitConfirmModal] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [voiceEnabled, setVoiceEnabled] = useState(false);
   
   const [activeCell, setActiveCell] = useState<{ side: 'home' | 'away'; lineupIdx: number; pitchIdx: number; roundIdx?: number } | null>(null);
 
@@ -78,13 +80,42 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
       const m = await storage.getMatch(matchId);
       if (m) {
         const allTeams = await storage.getAllTeams();
-        const home = allTeams.find(t => t.id === m.homeTeamId);
-        const away = allTeams.find(t => t.id === m.awayTeamId);
+        let home = allTeams.find(t => t.id === m.homeTeamId);
+        let away = allTeams.find(t => t.id === m.awayTeamId);
+
+        // Offline team resolution fallback from localStorage
+        if (!home && typeof window !== 'undefined') {
+            try {
+                const cachedHome = localStorage.getItem(`dugout_team_${m.homeTeamId}`);
+                if (cachedHome) home = JSON.parse(cachedHome);
+            } catch (e) {}
+        }
+        if (!away && typeof window !== 'undefined') {
+            try {
+                const cachedAway = localStorage.getItem(`dugout_team_${m.awayTeamId}`);
+                if (cachedAway) away = JSON.parse(cachedAway);
+            } catch (e) {}
+        }
+
+        // Ensure home and away teams are cached for offline mode
+        if (home && typeof window !== 'undefined') {
+            try { localStorage.setItem(`dugout_team_${home.id}`, JSON.stringify(home)); } catch (e) {}
+        }
+        if (away && typeof window !== 'undefined') {
+            try { localStorage.setItem(`dugout_team_${away.id}`, JSON.stringify(away)); } catch (e) {}
+        }
+
         setMatch(m);
         setTeams({ home, away });
         
         if (home && !tbHomePlayerId && home.players.length > 0) setTbHomePlayerId(home.players[0].id);
         if (away && !tbAwayPlayerId && away.players.length > 0) setTbAwayPlayerId(away.players[0].id);
+
+        if (!isReadOnly && !m.isComplete) {
+            try {
+                if (typeof window !== 'undefined') localStorage.setItem('dugout_active_match_id', m.id);
+            } catch (e) {}
+        }
 
         if (isReadOnly) {
             const liveIdx = getLiveInningIndex(m);
@@ -140,8 +171,25 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
       return () => clearInterval(interval);
   }, [matchId, isReadOnly]);
 
+  useEffect(() => {
+      const handleOnline = () => {
+          storage.syncOfflineData();
+      };
+      window.addEventListener('online', handleOnline);
+      return () => window.removeEventListener('online', handleOnline);
+  }, []);
+
   if (loading) return <div className="flex items-center justify-center h-screen text-slate-400 font-bold font-sans">Loading Match Data...</div>;
-  if (!match || !teams.home || !teams.away) return <div className="text-center p-8 font-sans">Error loading match</div>;
+  if (!match || !teams.home || !teams.away) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[50vh] p-8 text-center font-sans">
+        <p className="text-slate-600 dark:text-slate-300 font-bold mb-4">Unable to load match details or teams.</p>
+        <button onClick={onExit} className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-xl font-bold text-sm shadow-md transition-colors">
+          Return to Dashboard
+        </button>
+      </div>
+    );
+  }
 
   const currentInning = match.innings[activeInningIdx] || match.innings[0];
   const isExtraInnings = activeInningIdx === 6;
@@ -266,6 +314,9 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
     const newMatch = { ...match, isComplete: true };
     setMatch(newMatch);
     await storage.updateMatch(newMatch);
+    try {
+        if (typeof window !== 'undefined') localStorage.removeItem('dugout_active_match_id');
+    } catch (e) {}
     setShowFinishModal(false);
     onExit();
   };
@@ -297,6 +348,92 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
       }
       await storage.updateMatch(newMatch);
   };
+
+  const getFirstUnscoredCell = () => {
+    if (activeCell) return activeCell;
+    if (activeInningIdx === 6 && match?.tieBreaker && match.tieBreaker.length > 0) {
+      const roundIdx = match.tieBreaker.length - 1;
+      const round = match.tieBreaker[roundIdx];
+      const aIdx = round.awayScores.findIndex(s => s === null);
+      if (aIdx !== -1) return { side: 'away' as const, lineupIdx: 0, pitchIdx: aIdx, roundIdx };
+      const hIdx = round.homeScores.findIndex(s => s === null);
+      if (hIdx !== -1) return { side: 'home' as const, lineupIdx: 0, pitchIdx: hIdx, roundIdx };
+      return null;
+    }
+    const currentIng = match?.innings[activeInningIdx];
+    if (!currentIng) return null;
+    for (let l = 0; l < currentIng.away.playerScores.length; l++) {
+      const pIdx = currentIng.away.playerScores[l].pitches.findIndex(p => p.points === null);
+      if (pIdx !== -1) return { side: 'away' as const, lineupIdx: l, pitchIdx: pIdx };
+    }
+    for (let l = 0; l < currentIng.home.playerScores.length; l++) {
+      const pIdx = currentIng.home.playerScores[l].pitches.findIndex(p => p.points === null);
+      if (pIdx !== -1) return { side: 'home' as const, lineupIdx: l, pitchIdx: pIdx };
+    }
+    return null;
+  };
+
+  const handleVoiceScore = (val: number) => {
+    if (isReadOnly || match?.isComplete) return;
+    const target = getFirstUnscoredCell();
+    if (!target) return;
+    if (target.roundIdx !== undefined) {
+      handleTieBreakerScore(target.roundIdx, target.side, target.pitchIdx, val);
+    } else {
+      handleScoreUpdate(target.side, target.lineupIdx, target.pitchIdx, val);
+    }
+  };
+
+  const handleVoiceUndo = () => {
+    if (isReadOnly || match?.isComplete) return;
+    if (activeCell) {
+      handleUndo(activeCell.side, activeCell.lineupIdx, activeCell.pitchIdx, activeCell.roundIdx);
+      return;
+    }
+    if (activeInningIdx === 6 && match?.tieBreaker && match.tieBreaker.length > 0) {
+      const roundIdx = match.tieBreaker.length - 1;
+      const round = match.tieBreaker[roundIdx];
+      for (let p = round.homeScores.length - 1; p >= 0; p--) {
+        if (round.homeScores[p] !== null) {
+          handleUndo('home', 0, p + 1, roundIdx);
+          return;
+        }
+      }
+      for (let p = round.awayScores.length - 1; p >= 0; p--) {
+        if (round.awayScores[p] !== null) {
+          handleUndo('away', 0, p + 1, roundIdx);
+          return;
+        }
+      }
+      return;
+    }
+    const currentIng = match?.innings[activeInningIdx];
+    if (!currentIng) return;
+    for (let l = currentIng.home.playerScores.length - 1; l >= 0; l--) {
+      const pitches = currentIng.home.playerScores[l].pitches;
+      for (let p = pitches.length - 1; p >= 0; p--) {
+        if (pitches[p].points !== null) {
+          handleUndo('home', l, p + 1);
+          return;
+        }
+      }
+    }
+    for (let l = currentIng.away.playerScores.length - 1; l >= 0; l--) {
+      const pitches = currentIng.away.playerScores[l].pitches;
+      for (let p = pitches.length - 1; p >= 0; p--) {
+        if (pitches[p].points !== null) {
+          handleUndo('away', l, p + 1);
+          return;
+        }
+      }
+    }
+  };
+
+  const { isListening, lastHeard, supported: voiceSupported } = useVoiceScoring({
+    enabled: voiceEnabled && !isReadOnly && userRole !== 'fan' && !match?.isComplete,
+    onScore: handleVoiceScore,
+    onUndo: handleVoiceUndo
+  });
 
   const saveRosterChange = async (side: 'home' | 'away', playerIds: string[]) => {
       if (isReadOnly || !match) return;
@@ -497,6 +634,30 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
           </div>
           <div className="flex items-center gap-2 shrink-0">
             {isReadOnly && <div className="text-red-600 px-3 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-wider animate-pulse">LIVE</div>}
+            {!isReadOnly && userRole !== 'fan' && !match.isComplete && (
+              <button
+                type="button"
+                onClick={() => setVoiceEnabled(prev => !prev)}
+                className={`flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-lg border font-bold text-xs font-sans transition-all ${
+                  voiceEnabled
+                    ? 'bg-emerald-600 border-emerald-500 text-white shadow-sm'
+                    : 'bg-white dark:bg-slate-800 border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700'
+                }`}
+                title={
+                  !voiceSupported 
+                    ? 'Speech recognition not supported in this browser'
+                    : voiceEnabled 
+                      ? 'Hands-free voice scoring is ON. Speak 0, 1, 2, 3, 4, or Undo' 
+                      : 'Toggle hands-free voice scoring ON'
+                }
+              >
+                <span className={`w-2 h-2 rounded-full ${voiceEnabled ? 'bg-white animate-pulse' : 'bg-slate-400'}`} />
+                <span>Voice: {voiceEnabled ? 'ON' : 'OFF'}</span>
+                {voiceEnabled && lastHeard && (
+                  <span className="text-[10px] bg-emerald-700/60 px-1.5 py-0.5 rounded text-emerald-100">{lastHeard}</span>
+                )}
+              </button>
+            )}
             <button onClick={handleExitRequest} className="text-sm font-bold text-slate-500 bg-slate-100 dark:bg-slate-800 dark:text-slate-300 py-2 px-3 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors">Exit</button>
           </div>
         </div>

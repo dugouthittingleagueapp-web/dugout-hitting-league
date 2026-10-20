@@ -61,7 +61,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     else if (req.method === 'POST') {
       const { id, league, homeTeamId, awayTeamId, date, isComplete, innings, season } = req.body;
       
-      const matchSeason = season || '2025';
+      const matchSeason = season || '2026';
 
       const query = `INSERT INTO matches (id, league, home_team_id, away_team_id, date, is_complete, innings, season) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *`;
       const values = [id, league, homeTeamId, awayTeamId, date, isComplete, JSON.stringify(innings), matchSeason];

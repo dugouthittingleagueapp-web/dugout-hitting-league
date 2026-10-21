@@ -12,8 +12,8 @@ interface MatchSetupProps {
 
 export const MatchSetup: React.FC<MatchSetupProps> = ({ homeTeam, awayTeam, onStart, onCancel }) => {
   // Initialize with only the first 3 players to prevent overflow if team has >3 players
-  const [homeLineup, setHomeLineup] = useState<Player[]>(homeTeam.players.slice(0, 3));
-  const [awayLineup, setAwayLineup] = useState<Player[]>(awayTeam.players.slice(0, 3));
+  const [homeLineup, setHomeLineup] = useState<Player[]>(() => (homeTeam?.players || []).slice(0, 3));
+  const [awayLineup, setAwayLineup] = useState<Player[]>(() => (awayTeam?.players || []).slice(0, 3));
   
   const [isSwapped, setIsSwapped] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);

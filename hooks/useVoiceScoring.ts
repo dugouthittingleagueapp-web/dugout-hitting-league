@@ -7,24 +7,32 @@ interface VoiceScoringOptions {
 }
 
 // Gentle audio chime confirmation using Web Audio API so umpire knows a pitch was recognized without looking down
+let sharedAudioCtx: AudioContext | null = null;
+
 const playChime = (frequency: number = 587.33, type: OscillatorType = 'sine', duration: number = 0.12) => {
   try {
+    if (typeof window === 'undefined') return;
     const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
     if (!AudioContextClass) return;
-    const ctx = new AudioContextClass();
-    const osc = ctx.createOscillator();
-    const gain = ctx.createGain();
+    if (!sharedAudioCtx || sharedAudioCtx.state === 'closed') {
+      sharedAudioCtx = new AudioContextClass();
+    }
+    if (sharedAudioCtx.state === 'suspended') {
+      sharedAudioCtx.resume().catch(() => {});
+    }
+    const osc = sharedAudioCtx.createOscillator();
+    const gain = sharedAudioCtx.createGain();
     
     osc.type = type;
-    osc.frequency.setValueAtTime(frequency, ctx.currentTime);
-    gain.gain.setValueAtTime(0.08, ctx.currentTime);
-    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + duration);
+    osc.frequency.setValueAtTime(frequency, sharedAudioCtx.currentTime);
+    gain.gain.setValueAtTime(0.08, sharedAudioCtx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, sharedAudioCtx.currentTime + duration);
 
     osc.connect(gain);
-    gain.connect(ctx.destination);
+    gain.connect(sharedAudioCtx.destination);
 
     osc.start();
-    osc.stop(ctx.currentTime + duration);
+    osc.stop(sharedAudioCtx.currentTime + duration);
   } catch (e) {
     // Audio context may be blocked before first user gesture
   }
@@ -88,6 +96,7 @@ export const useVoiceScoring = ({ enabled, onScore, onUndo }: VoiceScoringOption
       return;
     }
 
+    let isCleanedUp = false;
     const recognition = new SpeechRecognitionClass();
     recognition.continuous = true;
     recognition.interimResults = false;
@@ -100,8 +109,8 @@ export const useVoiceScoring = ({ enabled, onScore, onUndo }: VoiceScoringOption
 
     recognition.onend = () => {
       setIsListening(false);
-      // If voice scoring is still enabled by the umpire, restart automatically
-      if (enabledRef.current) {
+      // If voice scoring is still enabled and hook is not cleaned up, restart automatically
+      if (!isCleanedUp && enabledRef.current) {
         try {
           recognition.start();
         } catch (e) {}
@@ -133,6 +142,7 @@ export const useVoiceScoring = ({ enabled, onScore, onUndo }: VoiceScoringOption
     }
 
     return () => {
+      isCleanedUp = true;
       try {
         recognition.stop();
       } catch (e) {}

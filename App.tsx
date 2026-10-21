@@ -291,16 +291,19 @@ const App: React.FC = () => {
               });
           }
       } else {
+          let isCurrent = true;
           storage.getMatch(storedActiveId).then(m => {
+              if (!isCurrent) return;
               if (m && !m.isComplete) {
                   storage.getAllTeams().then(allTeams => {
+                      if (!isCurrent) return;
                       const home = allTeams.find(t => t.id === m.homeTeamId);
                       const away = allTeams.find(t => t.id === m.awayTeamId);
                       let activeInning = 1;
-                      for (let i = 0; i < m.innings.length; i++) {
+                      for (let i = 0; i < (m.innings || []).length; i++) {
                           const ing = m.innings[i];
-                          const homeDone = ing.home.playerScores.every(p => p.pitches.every(pt => pt.points !== null));
-                          const awayDone = ing.away.playerScores.every(p => p.pitches.every(pt => pt.points !== null));
+                          const homeDone = ing?.home?.playerScores?.every(p => p.pitches?.every(pt => pt.points !== null));
+                          const awayDone = ing?.away?.playerScores?.every(p => p.pitches?.every(pt => pt.points !== null));
                           if (!homeDone || !awayDone) { activeInning = ing.number; break; }
                       }
                       setResumeMatch({
@@ -317,6 +320,7 @@ const App: React.FC = () => {
                   setResumeMatch(null);
               }
           }).catch(() => {});
+          return () => { isCurrent = false; };
       }
   }, [matches, teams, dismissedResumeId, state.view]);
 
@@ -500,9 +504,16 @@ const App: React.FC = () => {
     }
   };
 
-  const handleOpenMatchStats = (match: Match) => {
-      const home = teams.find(t => t.id === match.homeTeamId);
-      const away = teams.find(t => t.id === match.awayTeamId);
+  const handleOpenMatchStats = async (match: Match) => {
+      let home = teams.find(t => t.id === match.homeTeamId);
+      let away = teams.find(t => t.id === match.awayTeamId);
+      if (!home || !away) {
+          try {
+              const allTeams = await storage.getAllTeams();
+              if (!home) home = allTeams.find(t => t.id === match.homeTeamId);
+              if (!away) away = allTeams.find(t => t.id === match.awayTeamId);
+          } catch (e) {}
+      }
       if (home && away) {
           const stats = storage.calculateMatchStats(match, home, away);
           setStatsModalData(stats);
@@ -599,43 +610,45 @@ const App: React.FC = () => {
           const matchPlayerTotals = new Map<string, number>();
 
           // Process Innings
-          m.innings.forEach(ing => {
+          (m.innings || []).forEach(ing => {
               [ing.home, ing.away].forEach(side => {
-                   const isGhostMode = side.playerScores.length === 2 && side.playerScores[0].pitches.length >= 15;
+                   if (!side?.playerScores) return;
+                   const isGhostMode = side.playerScores.length === 2 && (side.playerScores[0]?.pitches?.length || 0) >= 15;
                    side.playerScores.forEach(ps => {
-                       if (ps.playerId.startsWith('ghost-')) return;
+                       if (!ps || ps.playerId.startsWith('ghost-')) return;
                        
-                       let pitchesToCount = ps.pitches;
+                       let pitchesToCount = ps.pitches || [];
                        // Strictly slice first 10 for individual stats in Ghost Mode
                        if (isGhostMode && pitchesToCount.length > 10) {
                            pitchesToCount = pitchesToCount.slice(0, 10);
                        }
                        
-                       const pts = pitchesToCount.reduce((sum, p) => sum + (p.points || 0), 0);
+                       const pts = pitchesToCount.reduce((sum, p) => sum + (p?.points || 0), 0);
                        matchPlayerTotals.set(ps.playerId, (matchPlayerTotals.get(ps.playerId) || 0) + pts);
                    });
               });
           });
 
           // Process Tie Breakers (No ghost mode in tie breakers usually, but standard addition)
-          if (m.tieBreaker) {
+          if (m.tieBreaker && Array.isArray(m.tieBreaker)) {
               m.tieBreaker.forEach(tb => {
                   const addTbScore = (pid: string, scores: (number|null)[]) => {
+                      if (!Array.isArray(scores)) return;
                       const pts = scores.reduce((sum, s) => sum + (s || 0), 0);
                       matchPlayerTotals.set(pid, (matchPlayerTotals.get(pid) || 0) + pts);
                   };
-                  addTbScore(tb.homePlayerId, tb.homeScores);
-                  addTbScore(tb.awayPlayerId, tb.awayScores);
+                  if (tb.homePlayerId) addTbScore(tb.homePlayerId, tb.homeScores);
+                  if (tb.awayPlayerId) addTbScore(tb.awayPlayerId, tb.awayScores);
               });
           }
 
           // Update Leaderboard with this Match's Totals
           matchPlayerTotals.forEach((totalScore, playerId) => {
                // Find player info
-               let player = [...home.players, ...(home.subs||[])].find(p => p.id === playerId);
+               let player = [...(home.players || []), ...(home.subs || [])].find(p => p.id === playerId);
                let teamName = home.name;
                if (!player) {
-                   player = [...away.players, ...(away.subs||[])].find(p => p.id === playerId);
+                   player = [...(away.players || []), ...(away.subs || [])].find(p => p.id === playerId);
                    teamName = away.name;
                }
 
@@ -650,21 +663,22 @@ const App: React.FC = () => {
           });
 
           // 2. Best Inning (Existing Logic - ensure consistency)
-          m.innings.forEach(ing => {
+          (m.innings || []).forEach(ing => {
               [ing.home, ing.away].forEach((side, sideIdx) => {
+                  if (!side?.playerScores) return;
                   const team = sideIdx === 0 ? home : away;
-                  const isGhostMode = side.playerScores.length === 2 && side.playerScores[0].pitches.length >= 15;
+                  const isGhostMode = side.playerScores.length === 2 && (side.playerScores[0]?.pitches?.length || 0) >= 15;
 
                   side.playerScores.forEach(ps => {
-                      if (ps.playerId.startsWith('ghost-')) return;
+                      if (!ps || ps.playerId.startsWith('ghost-')) return;
 
-                      const p = [...team.players, ...(team.subs||[])].find(x => x.id === ps.playerId);
+                      const p = [...(team.players || []), ...(team.subs || [])].find(x => x.id === ps.playerId);
                       if (p) {
-                          let pitchesToCount = ps.pitches;
+                          let pitchesToCount = ps.pitches || [];
                           if (isGhostMode && pitchesToCount.length > 10) {
                               pitchesToCount = pitchesToCount.slice(0, 10);
                           }
-                          const score = pitchesToCount.reduce((sum, v) => sum + (v.points || 0), 0);
+                          const score = pitchesToCount.reduce((sum, v) => sum + (v?.points || 0), 0);
                           
                           const existing = uniqueInnings.get(p.id);
                           if (!existing || score > existing.score) {
@@ -683,7 +697,7 @@ const App: React.FC = () => {
       };
   }, [matches, teams, leaderboardWeek, activeWeeks]);
 
-  const weeklyStats = calculateWeeklyLeaders();
+  const weeklyStats = useMemo(() => calculateWeeklyLeaders(), [calculateWeeklyLeaders]);
   const visibleMatches = useMemo(() => {
       const w = activeWeeks.find(w => w.id === matchListWeek);
       return w ? w.matches : [];
@@ -705,14 +719,17 @@ const App: React.FC = () => {
       if (!m.isComplete) return;
       
       const getScore = (innings: Inning[], side: 'home' | 'away', tb?: TieBreakerRound[]) => {
-         let score = innings.reduce((acc, ing) => {
-             const team = side === 'home' ? ing.home : ing.away;
-             return acc + team.playerScores.reduce((pAcc, p) => pAcc + p.pitches.reduce((piAcc, pi) => piAcc + (pi.points || 0), 0), 0);
+         let score = (innings || []).reduce((acc, ing) => {
+             const team = side === 'home' ? ing?.home : ing?.away;
+             if (!team?.playerScores) return acc;
+             return acc + team.playerScores.reduce((pAcc, p) => pAcc + (p?.pitches || []).reduce((piAcc, pi) => piAcc + (pi?.points || 0), 0), 0);
          }, 0);
-         if(tb) {
+         if(tb && Array.isArray(tb)) {
              tb.forEach(r => {
-                 const rScore = side === 'home' ? r.homeScores : r.awayScores;
-                 score += rScore.reduce((a,b) => a + (b||0), 0);
+                 const rScore = side === 'home' ? r?.homeScores : r?.awayScores;
+                 if (Array.isArray(rScore)) {
+                     score += rScore.reduce((a,b) => a + (b||0), 0);
+                 }
              });
          }
          return score;
@@ -798,18 +815,22 @@ const App: React.FC = () => {
   const getMatchScores = (m: Match) => {
       const getSideScore = (side: 'home' | 'away') => {
           let total = 0;
-          m.innings.forEach(ing => {
-              const teamData = side === 'home' ? ing.home : ing.away;
-              teamData.playerScores.forEach(p => {
-                  p.pitches.forEach(pt => {
-                      if (pt.points !== null) total += pt.points;
+          (m.innings || []).forEach(ing => {
+              const teamData = side === 'home' ? ing?.home : ing?.away;
+              if (teamData?.playerScores) {
+                  teamData.playerScores.forEach(p => {
+                      (p.pitches || []).forEach(pt => {
+                          if (pt && pt.points !== null) total += pt.points;
+                      });
                   });
-              });
+              }
           });
-          if (m.tieBreaker) {
+          if (m.tieBreaker && Array.isArray(m.tieBreaker)) {
               m.tieBreaker.forEach(tb => {
-                  const scores = side === 'home' ? tb.homeScores : tb.awayScores;
-                  scores.forEach(s => { if(s !== null) total += s; });
+                  const scores = side === 'home' ? tb?.homeScores : tb?.awayScores;
+                  if (Array.isArray(scores)) {
+                      scores.forEach(s => { if(s !== null) total += s; });
+                  }
               });
           }
           return total;
@@ -944,11 +965,25 @@ const App: React.FC = () => {
             )}
 
             {/* MATCH SETUP VIEW */}
-            {state.view === 'match_setup' && selectedHomeId && selectedAwayId && state.currentLeague && (
-                <div className="flex-1 bg-slate-50 dark:bg-slate-950 text-slate-800 dark:text-slate-200 w-full">
-                    <MatchSetup homeTeam={teams.find(t => t.id === selectedHomeId)!} awayTeam={teams.find(t => t.id === selectedAwayId)!} onStart={handleStartGame} onCancel={() => setState({ ...state, view: 'dashboard' })} />
-                </div>
-            )}
+            {state.view === 'match_setup' && state.currentLeague && (() => {
+                const homeTeam = teams.find(t => t.id === selectedHomeId);
+                const awayTeam = teams.find(t => t.id === selectedAwayId);
+                if (!homeTeam || !awayTeam) {
+                    return (
+                        <div className="flex flex-col items-center justify-center min-h-[50vh] p-8 text-center font-sans">
+                            <p className="text-slate-600 dark:text-slate-300 font-bold mb-4">Teams not found or still loading.</p>
+                            <button onClick={() => setState({ ...state, view: 'dashboard' })} className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-xl font-bold text-sm shadow-md transition-colors">
+                                Return to Dashboard
+                            </button>
+                        </div>
+                    );
+                }
+                return (
+                    <div className="flex-1 bg-slate-50 dark:bg-slate-950 text-slate-800 dark:text-slate-200 w-full">
+                        <MatchSetup homeTeam={homeTeam} awayTeam={awayTeam} onStart={handleStartGame} onCancel={() => setState({ ...state, view: 'dashboard' })} />
+                    </div>
+                );
+            })()}
 
             {/* SCORING VIEW */}
             {state.view === 'scoring' && state.currentMatchId && (
@@ -1128,7 +1163,8 @@ const App: React.FC = () => {
                                     {visibleMatches.map(match => {
                                         const home = teams.find(t => t.id === match.homeTeamId);
                                         const away = teams.find(t => t.id === match.awayTeamId);
-                                        if (!home || !away) return null;
+                                        const homeName = home?.name || 'Home Team';
+                                        const awayName = away?.name || 'Away Team';
                                         
                                         const { home: homeScore, away: awayScore } = getMatchScores(match);
 
@@ -1140,7 +1176,7 @@ const App: React.FC = () => {
                                                     <div className="flex flex-1 sm:flex-auto items-center justify-between sm:justify-start sm:gap-6 w-full sm:w-auto min-w-0">
                                                         {/* Away Team (Left) */}
                                                         <div className="flex-1 sm:flex-none sm:w-32 text-right sm:text-left min-w-0">
-                                                            <div className="text-[9px] sm:text-lg font-bold text-blue-700 dark:text-blue-400 font-sans break-words whitespace-normal leading-tight">{away.name}</div>
+                                                            <div className="text-[9px] sm:text-lg font-bold text-blue-700 dark:text-blue-400 font-sans break-words whitespace-normal leading-tight">{awayName}</div>
                                                             <div className="text-[8px] sm:text-[10px] font-bold uppercase text-slate-400">Away</div>
                                                         </div>
                                                         
@@ -1153,7 +1189,7 @@ const App: React.FC = () => {
 
                                                         {/* Home Team (Right) */}
                                                         <div className="flex-1 sm:flex-none sm:w-32 text-left sm:text-right min-w-0">
-                                                            <div className="text-[9px] sm:text-lg font-bold text-red-700 dark:text-red-400 font-sans break-words whitespace-normal leading-tight">{home.name}</div>
+                                                            <div className="text-[9px] sm:text-lg font-bold text-red-700 dark:text-red-400 font-sans break-words whitespace-normal leading-tight">{homeName}</div>
                                                             <div className="text-[8px] sm:text-[10px] font-bold uppercase text-slate-400">Home</div>
                                                         </div>
                                                     </div>

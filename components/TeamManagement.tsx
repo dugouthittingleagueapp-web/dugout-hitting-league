@@ -94,7 +94,7 @@ export const TeamManagement: React.FC<TeamManagementProps> = ({ league, season, 
     
     // Fill players, separate First/Last if needed or just load
     // Explicitly type as EditablePlayer[] to allow optional IDs for new empty slots
-    const currentPlayers: EditablePlayer[] = team.players.map(p => ({
+    const currentPlayers: EditablePlayer[] = (team.players || []).map(p => ({
         id: p.id,
         name: p.name,
         lastName: p.lastName || ''

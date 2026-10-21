@@ -89,7 +89,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         WHERE id = $1 
         RETURNING *
       `;
-      const values = [id, isComplete, JSON.stringify(innings), tieBreaker ? JSON.stringify(tieBreaker) : null, league];
+      const values = [id, isComplete, JSON.stringify(innings), tieBreaker ? JSON.stringify(tieBreaker) : null, league !== undefined ? league : null];
 
       const { rows } = await pool.query(queryUpdate, values);
       

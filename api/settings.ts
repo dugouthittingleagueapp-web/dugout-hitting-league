@@ -18,13 +18,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     await pool.query(`
       INSERT INTO app_settings (key, value) VALUES ('admin_password', 'admin') ON CONFLICT (key) DO NOTHING;
       INSERT INTO app_settings (key, value) VALUES ('umpire_password', 'umpire') ON CONFLICT (key) DO NOTHING;
-      INSERT INTO app_settings (key, value) VALUES ('current_season', '2025') ON CONFLICT (key) DO NOTHING;
+      INSERT INTO app_settings (key, value) VALUES ('current_season', '2026') ON CONFLICT (key) DO NOTHING;
     `);
 
     if (req.method === 'GET') {
         // Return all public settings (exclude passwords)
         const { rows } = await pool.query("SELECT value FROM app_settings WHERE key = 'current_season'");
-        const currentSeason = rows[0]?.value || '2025';
+        const currentSeason = rows[0]?.value || '2026';
         return res.status(200).json({ currentSeason });
     }
     else if (req.method === 'POST') {

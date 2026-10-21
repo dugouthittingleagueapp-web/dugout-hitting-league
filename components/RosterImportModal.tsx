@@ -48,9 +48,20 @@ export const RosterImportModal: React.FC<RosterImportModalProps> = ({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const photoInputRef = useRef<HTMLInputElement>(null);
 
+  React.useEffect(() => {
+    return () => {
+      if (imageFile?.previewUrl) {
+        try { URL.revokeObjectURL(imageFile.previewUrl); } catch (e) {}
+      }
+    };
+  }, [imageFile]);
+
   if (!isOpen) return null;
 
   const handleReset = () => {
+    if (imageFile?.previewUrl) {
+      try { URL.revokeObjectURL(imageFile.previewUrl); } catch (e) {}
+    }
     setRawText('');
     setImageFile(null);
     setPreviewTeams(null);
@@ -231,12 +242,18 @@ export const RosterImportModal: React.FC<RosterImportModalProps> = ({
     setLoading(true);
     setErrorMessage(null);
     try {
-      const payload: storage.ParsedTeamInput[] = previewTeams.map(t => ({
-        name: t.name.trim(),
-        league: t.league,
-        players: t.players.filter(p => !p.isSub).map(p => ({ name: p.name.trim(), lastName: p.lastName?.trim() })),
-        subs: t.players.filter(p => p.isSub).map(p => ({ name: p.name.trim(), lastName: p.lastName?.trim() }))
-      }));
+      const payload: storage.ParsedTeamInput[] = previewTeams
+        .map(t => ({
+          name: t.name.trim(),
+          league: t.league,
+          players: t.players.filter(p => !p.isSub && p.name.trim()).map(p => ({ name: p.name.trim(), lastName: p.lastName?.trim() })),
+          subs: t.players.filter(p => p.isSub && p.name.trim()).map(p => ({ name: p.name.trim(), lastName: p.lastName?.trim() }))
+        }))
+        .filter(t => t.name.length > 0 && (t.players.length > 0 || (t.subs && t.subs.length > 0)));
+
+      if (payload.length === 0) {
+        throw new Error('No valid teams with player names to save');
+      }
 
       await storage.createTeamsBatch(payload, currentSeason);
       onSuccess();
@@ -478,9 +495,8 @@ export const RosterImportModal: React.FC<RosterImportModalProps> = ({
                         type="text"
                         value={team.name}
                         onChange={(e) => {
-                          const updated = [...previewTeams];
-                          updated[tIdx].name = e.target.value;
-                          setPreviewTeams(updated);
+                          const val = e.target.value;
+                          setPreviewTeams(prev => prev ? prev.map((t, i) => i === tIdx ? { ...t, name: val } : t) : null);
                         }}
                         className="flex-1 px-2.5 py-1 text-xs font-bold rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white font-sans"
                         placeholder="Team Name"
@@ -488,7 +504,7 @@ export const RosterImportModal: React.FC<RosterImportModalProps> = ({
                       <button
                         type="button"
                         onClick={() => {
-                          setPreviewTeams(previewTeams.filter((_, i) => i !== tIdx));
+                          setPreviewTeams(prev => prev ? prev.filter((_, i) => i !== tIdx) : null);
                         }}
                         className="text-xs text-red-500 hover:text-red-700 px-2 py-1 font-bold"
                       >
@@ -504,9 +520,11 @@ export const RosterImportModal: React.FC<RosterImportModalProps> = ({
                             type="text"
                             value={player.name}
                             onChange={(e) => {
-                              const updated = [...previewTeams];
-                              updated[tIdx].players[pIdx].name = e.target.value;
-                              setPreviewTeams(updated);
+                              const val = e.target.value;
+                              setPreviewTeams(prev => prev ? prev.map((t, i) => i === tIdx ? {
+                                ...t,
+                                players: t.players.map((p, pi) => pi === pIdx ? { ...p, name: val } : p)
+                              } : t) : null);
                             }}
                             placeholder="First Name"
                             className="w-28 px-2 py-1 rounded border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white"
@@ -515,9 +533,11 @@ export const RosterImportModal: React.FC<RosterImportModalProps> = ({
                             type="text"
                             value={player.lastName || ''}
                             onChange={(e) => {
-                              const updated = [...previewTeams];
-                              updated[tIdx].players[pIdx].lastName = e.target.value;
-                              setPreviewTeams(updated);
+                              const val = e.target.value;
+                              setPreviewTeams(prev => prev ? prev.map((t, i) => i === tIdx ? {
+                                ...t,
+                                players: t.players.map((p, pi) => pi === pIdx ? { ...p, lastName: val } : p)
+                              } : t) : null);
                             }}
                             placeholder="Last Name"
                             className="w-32 px-2 py-1 rounded border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white"
@@ -525,9 +545,10 @@ export const RosterImportModal: React.FC<RosterImportModalProps> = ({
                           <button
                             type="button"
                             onClick={() => {
-                              const updated = [...previewTeams];
-                              updated[tIdx].players[pIdx].isSub = !updated[tIdx].players[pIdx].isSub;
-                              setPreviewTeams(updated);
+                              setPreviewTeams(prev => prev ? prev.map((t, i) => i === tIdx ? {
+                                ...t,
+                                players: t.players.map((p, pi) => pi === pIdx ? { ...p, isSub: !p.isSub } : p)
+                              } : t) : null);
                             }}
                             className={`px-2 py-0.5 rounded text-[10px] font-bold border ${
                               player.isSub
@@ -540,9 +561,10 @@ export const RosterImportModal: React.FC<RosterImportModalProps> = ({
                           <button
                             type="button"
                             onClick={() => {
-                              const updated = [...previewTeams];
-                              updated[tIdx].players = updated[tIdx].players.filter((_, i) => i !== pIdx);
-                              setPreviewTeams(updated);
+                              setPreviewTeams(prev => prev ? prev.map((t, i) => i === tIdx ? {
+                                ...t,
+                                players: t.players.filter((_, pi) => pi !== pIdx)
+                              } : t) : null);
                             }}
                             className="text-slate-400 hover:text-red-500 px-1 font-bold"
                           >
@@ -554,9 +576,10 @@ export const RosterImportModal: React.FC<RosterImportModalProps> = ({
                       <button
                         type="button"
                         onClick={() => {
-                          const updated = [...previewTeams];
-                          updated[tIdx].players.push({ name: '', isSub: false });
-                          setPreviewTeams(updated);
+                          setPreviewTeams(prev => prev ? prev.map((t, i) => i === tIdx ? {
+                            ...t,
+                            players: [...t.players, { name: '', isSub: false }]
+                          } : t) : null);
                         }}
                         className="text-[11px] text-blue-600 dark:text-blue-400 font-bold hover:underline pt-1"
                       >

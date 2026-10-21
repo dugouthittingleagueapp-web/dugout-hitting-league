@@ -28,22 +28,30 @@ export const AdminDashboard: React.FC<{ onBack: () => void; onBrowseArchive?: (s
   const [showGuide, setShowGuide] = useState(false);
 
   useEffect(() => {
+    let isMounted = true;
     const loadData = async () => { 
         setLoading(true);
-        const season = await storage.getCurrentSeason();
-        setCurrentSeason(season);
-        const [d, ls, ts] = await Promise.all([
-            storage.exportData(),
-            storage.getLeagues(season),
-            storage.getAllTeams()
-        ]);
-        
-        setData(d); 
-        setLeagues(ls);
-        setAllTeams(ts);
-        setLoading(false);
+        try {
+            const season = await storage.getCurrentSeason();
+            if (isMounted) setCurrentSeason(season);
+            const [d, ls, ts] = await Promise.all([
+                storage.exportData().catch(() => '{}'),
+                storage.getLeagues(season).catch(() => []),
+                storage.getAllTeams().catch(() => [])
+            ]);
+            if (isMounted) {
+                setData(d); 
+                setLeagues(ls);
+                setAllTeams(ts);
+            }
+        } catch (e) {
+            console.error("Error loading admin dashboard data", e);
+        } finally {
+            if (isMounted) setLoading(false);
+        }
     };
     loadData();
+    return () => { isMounted = false; };
   }, []);
 
   const handleExport = () => {

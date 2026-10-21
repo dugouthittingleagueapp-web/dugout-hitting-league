@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { AgeGroup, League } from '../types';
 
 interface NavbarProps {
@@ -41,9 +41,30 @@ export const Navbar: React.FC<NavbarProps> = ({
 }) => {
   const [showSeasonMenu, setShowSeasonMenu] = useState(false);
   const [showLeagueMenu, setShowLeagueMenu] = useState(false);
+  const leagueMenuRef = useRef<HTMLDivElement>(null);
+  const seasonMenuRef = useRef<HTMLDivElement>(null);
+
+  // Click-outside listener for dropdowns
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent | TouchEvent) => {
+      const target = e.target as Node;
+      if (leagueMenuRef.current && !leagueMenuRef.current.contains(target)) {
+        setShowLeagueMenu(false);
+      }
+      if (seasonMenuRef.current && !seasonMenuRef.current.contains(target)) {
+        setShowSeasonMenu(false);
+      }
+    };
+    if (showLeagueMenu || showSeasonMenu) {
+      document.addEventListener('mousedown', handleClickOutside);
+      document.addEventListener('touchstart', handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('touchstart', handleClickOutside);
+    };
+  }, [showLeagueMenu, showSeasonMenu]);
   
-  const baseYear = 2025;
-  const years = Array.from({length: 5}, (_, i) => (baseYear + i).toString());
   const sortedLeagues = [...leagues].sort((a, b) => 
       a.id.localeCompare(b.id, undefined, { numeric: true, sensitivity: 'base' })
   );
@@ -131,12 +152,12 @@ export const Navbar: React.FC<NavbarProps> = ({
             <div className="w-full border-t border-slate-200 dark:border-slate-800/50">
                 <div className="max-w-7xl mx-auto flex items-center gap-3 px-2 sm:px-6 py-2 sm:py-3 relative z-[900]">
                     {/* League Indicator & Switcher (Left) */}
-                    <div className="relative">
+                    <div className="relative" ref={leagueMenuRef}>
                         <button 
                             onClick={() => setShowLeagueMenu(!showLeagueMenu)}
                             className="flex items-center gap-2 bg-white/50 dark:bg-slate-800/50 hover:bg-white dark:hover:bg-slate-800 px-2 sm:px-3 py-1 sm:py-1.5 rounded-md border border-slate-200 dark:border-slate-700/50 shrink-0 transition-colors group cursor-pointer"
                         >
-                            <span className="w-2 h-2 sm:w-2.5 sm:h-2.5 rounded-full bg-green-50 shadow-[0_0_8px_rgba(34,197,94,0.6)]"></span>
+                            <span className="w-2 h-2 sm:w-2.5 sm:h-2.5 rounded-full bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.6)]"></span>
                             <span className="text-[10px] sm:text-xs font-bold uppercase tracking-wider text-slate-600 dark:text-slate-300 group-hover:text-blue-600 dark:group-hover:text-blue-400">{currentLeague} League</span>
                             <svg className="w-3 h-3 text-slate-400 group-hover:text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path></svg>
                         </button>
@@ -157,7 +178,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                     {/* Controls (Right) - Season Only (Admin can switch between active and archive) */}
                     <div className="ml-auto flex items-center gap-4 sm:gap-6 relative z-[1000]">
                         {userRole === 'admin' ? (
-                            <div className="relative">
+                            <div className="relative" ref={seasonMenuRef}>
                                 <button onClick={() => setShowSeasonMenu(!showSeasonMenu)} className="text-[10px] sm:text-xs font-bold uppercase tracking-wider text-slate-500 hover:text-slate-800 dark:hover:text-slate-300 transition-colors flex items-center gap-1.5">
                                     Season: <span className="text-slate-900 dark:text-white font-extrabold">{currentSeason}</span>
                                     {currentSeason === '2025' && <span className="bg-amber-100 dark:bg-amber-900/50 text-amber-700 dark:text-amber-300 text-[9px] px-1.5 py-0.2 rounded font-bold">Archive</span>}

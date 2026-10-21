@@ -60,8 +60,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const { id, name, league, players, subs, season } = req.body;
       if (!name || !league || !players) return res.status(400).json({ error: 'Missing fields' });
 
-      // Default to 2025 if not provided
-      const teamSeason = season || '2025';
+      // Default to 2026 if not provided
+      const teamSeason = season || '2026';
       const teamSubs = subs || [];
 
       const query = `INSERT INTO teams (id, name, league, players, subs, season) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`;

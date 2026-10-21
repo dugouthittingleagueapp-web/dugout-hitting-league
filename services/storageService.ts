@@ -15,7 +15,7 @@ const mapMatchFromDB = (dbMatch: any): Match => ({
   date: dbMatch.date,
   isComplete: dbMatch.is_complete,
   innings: typeof dbMatch.innings === 'string' ? JSON.parse(dbMatch.innings) : dbMatch.innings,
-  season: dbMatch.season || '2025',
+  season: dbMatch.season || '2026',
   tieBreaker: dbMatch.tie_breaker ? (typeof dbMatch.tie_breaker === 'string' ? JSON.parse(dbMatch.tie_breaker) : dbMatch.tie_breaker) : undefined
 });
 
@@ -41,9 +41,29 @@ export const generateUUID = (): string => {
 export const getLeagues = async (season?: string): Promise<League[]> => {
   let url = '/api/leagues';
   if (season) url += `?season=${encodeURIComponent(season)}`;
-  const res = await fetch(url);
-  if (!res.ok) return [];
-  return await res.json();
+  try {
+    const res = await fetch(url);
+    if (res.ok) {
+      const data = await res.json();
+      if (typeof window !== 'undefined') {
+        try {
+          localStorage.setItem(`dugout_leagues_${season || 'all'}`, JSON.stringify(data));
+        } catch (e) {}
+      }
+      return data;
+    }
+  } catch (err) {
+    console.warn('Network fetch failed for getLeagues, using offline cache', err);
+  }
+
+  // Offline fallback
+  if (typeof window !== 'undefined') {
+    try {
+      const cached = localStorage.getItem(`dugout_leagues_${season || 'all'}`);
+      if (cached) return JSON.parse(cached);
+    } catch (e) {}
+  }
+  return [];
 };
 
 export const createLeague = async (id: string, season?: string): Promise<League> => {
@@ -316,10 +336,30 @@ export const deleteTeam = async (teamId: string) => {
 
 // Match Methods
 export const getMatches = async (league: AgeGroup, season: string): Promise<Match[]> => {
-  const res = await fetch(`/api/matches?league=${league}&season=${season}`);
-  if (!res.ok) return [];
-  const data = await res.json();
-  return data.map(mapMatchFromDB);
+  try {
+    const res = await fetch(`/api/matches?league=${league}&season=${season}`);
+    if (res.ok) {
+      const data = await res.json();
+      const mapped = data.map(mapMatchFromDB);
+      if (typeof window !== 'undefined') {
+        try {
+          localStorage.setItem(`dugout_matches_${season}_${league}`, JSON.stringify(mapped));
+        } catch (e) {}
+      }
+      return mapped;
+    }
+  } catch (err) {
+    console.warn('Network fetch failed for getMatches, using offline cache', err);
+  }
+
+  // Offline fallback
+  if (typeof window !== 'undefined') {
+    try {
+      const cached = localStorage.getItem(`dugout_matches_${season}_${league}`);
+      if (cached) return JSON.parse(cached);
+    } catch (e) {}
+  }
+  return [];
 };
 
 export const getAllMatches = async (): Promise<Match[]> => {
@@ -470,14 +510,15 @@ export const restoreTeamRoster = async (matchId: string, teamId: string, current
     const team = allTeams.find(t => t.id === teamId);
     if (!team) throw new Error("Team not found");
 
-    const newInnings = [...match.innings];
+    const newInnings: Inning[] = JSON.parse(JSON.stringify(match.innings || []));
     
     // Reset future innings.
     const startResetIdx = currentInningIdx + 1;
 
-    for(let i = startResetIdx; i < 6; i++) {
-        const oldHomeIds = newInnings[i].home.playerScores.map(p => p.playerId);
-        const oldAwayIds = newInnings[i].away.playerScores.map(p => p.playerId);
+    for(let i = startResetIdx; i < newInnings.length; i++) {
+        if (!newInnings[i]) continue;
+        const oldHomeIds = (newInnings[i].home?.playerScores || []).map(p => p.playerId);
+        const oldAwayIds = (newInnings[i].away?.playerScores || []).map(p => p.playerId);
         
         const isHome = match.homeTeamId === teamId;
         
@@ -502,36 +543,39 @@ export const calculateMatchStats = (match: Match, homeTeam: Team, awayTeam: Team
     // Pre-fill players AND subs from the match data
     // We must iterate the match innings to catch players who might be subs
     const allMatchPlayerIds = new Set<string>();
-    match.innings.forEach(i => {
-        i.home.playerScores.forEach(p => allMatchPlayerIds.add(p.playerId));
-        i.away.playerScores.forEach(p => allMatchPlayerIds.add(p.playerId));
+    (match.innings || []).forEach(i => {
+        (i?.home?.playerScores || []).forEach(p => allMatchPlayerIds.add(p.playerId));
+        (i?.away?.playerScores || []).forEach(p => allMatchPlayerIds.add(p.playerId));
     });
 
     // Add team players with FORMATTED names
-    homeTeam.players.forEach(p => stats.set(p.id, initStat(p.id, formatName(p))));
-    awayTeam.players.forEach(p => stats.set(p.id, initStat(p.id, formatName(p))));
+    (homeTeam?.players || []).forEach(p => stats.set(p.id, initStat(p.id, formatName(p))));
+    (awayTeam?.players || []).forEach(p => stats.set(p.id, initStat(p.id, formatName(p))));
     
     // Add any subs that might be in the match but not main roster
     // Check home subs
-    if(homeTeam.subs) {
+    if(homeTeam?.subs) {
         homeTeam.subs.forEach(p => {
             if(allMatchPlayerIds.has(p.id)) stats.set(p.id, initStat(p.id, formatName(p)));
         });
     }
     // Check away subs
-    if(awayTeam.subs) {
+    if(awayTeam?.subs) {
         awayTeam.subs.forEach(p => {
             if(allMatchPlayerIds.has(p.id)) stats.set(p.id, initStat(p.id, formatName(p)));
         });
     }
 
-    match.innings.forEach(inning => {
+    (match.innings || []).forEach(inning => {
+        if (!inning) return;
         [inning.home, inning.away].forEach(teamData => {
-            const isGhostMode = teamData.playerScores.length === 2 && teamData.playerScores[0].pitches.length >= 15;
+            if (!teamData?.playerScores) return;
+            const isGhostMode = teamData.playerScores.length === 2 && (teamData.playerScores[0]?.pitches?.length || 0) >= 15;
             const actualTeamId = teamData.teamId === 'home' ? match.homeTeamId : match.awayTeamId;
             const ghostId = `ghost-${actualTeamId}`; // Unique ID for this team's ghost
 
-            teamData.playerScores.forEach((ps, idx) => {
+            teamData.playerScores.forEach((ps) => {
+                if (!ps) return;
                 let pStats = stats.get(ps.playerId);
                 if (!pStats) {
                      // Handle unknown sub (shouldn't happen if subs array is sync'd, but safety fallback)
@@ -540,17 +584,21 @@ export const calculateMatchStats = (match: Match, homeTeam: Team, awayTeam: Team
                 }
 
                 // In Ghost mode, only first 10 pitches count for player. 11-15 go to ghost.
-                const playerPitches = isGhostMode ? ps.pitches.slice(0, 10) : ps.pitches;
-                const ghostPitches = isGhostMode ? ps.pitches.slice(10, 15) : [];
+                const pitches = ps.pitches || [];
+                const playerPitches = isGhostMode ? pitches.slice(0, 10) : pitches;
+                const ghostPitches = isGhostMode ? pitches.slice(10, 15) : [];
 
                 const processPitch = (p: any, statObj: PlayerStats) => {
-                    if (p.points !== null) {
-                        statObj.totalPoints += p.points;
-                        statObj.pitchesSeen += 1;
-                        if (p.points === 4) statObj.hits4++;
-                        if (p.points === 3) statObj.hits3++;
-                        if (p.points === 2) statObj.hits2++;
-                        if (p.points === 1) statObj.hits1++;
+                    if (p && p.points !== null && p.points !== undefined) {
+                        const val = Number(p.points);
+                        if (!isNaN(val)) {
+                            statObj.totalPoints += val;
+                            statObj.pitchesSeen += 1;
+                            if (val === 4) statObj.hits4++;
+                            else if (val === 3) statObj.hits3++;
+                            else if (val === 2) statObj.hits2++;
+                            else if (val === 1) statObj.hits1++;
+                        }
                     }
                 };
 
@@ -569,25 +617,30 @@ export const calculateMatchStats = (match: Match, homeTeam: Team, awayTeam: Team
     });
     
     // Process Tie Breaker
-    if(match.tieBreaker) {
+    if(match.tieBreaker && Array.isArray(match.tieBreaker)) {
         match.tieBreaker.forEach(tb => {
+            if (!tb) return;
             const addTb = (pid: string, scores: (number|null)[]) => {
+                if (!pid || !Array.isArray(scores)) return;
                 let s = stats.get(pid);
                 if(!s) { 
                      // Try to find name in teams/subs if not init
-                     const allP = [...homeTeam.players, ...(homeTeam.subs||[]), ...awayTeam.players, ...(awayTeam.subs||[])];
+                     const allP = [...(homeTeam?.players || []), ...(homeTeam?.subs||[]), ...(awayTeam?.players || []), ...(awayTeam?.subs||[])];
                      const found = allP.find(p=>p.id===pid);
                      s = initStat(pid, found ? formatName(found) : 'Unknown'); 
                      stats.set(pid, s); 
                 }
                 scores.forEach(val => {
-                    if(val !== null) {
-                        s!.totalPoints += val;
-                        s!.pitchesSeen++;
-                        if (val === 4) s!.hits4++;
-                        if (val === 3) s!.hits3++;
-                        if (val === 2) s!.hits2++;
-                        if (val === 1) s!.hits1++;
+                    if(val !== null && val !== undefined) {
+                        const num = Number(val);
+                        if (!isNaN(num)) {
+                            s!.totalPoints += num;
+                            s!.pitchesSeen++;
+                            if (num === 4) s!.hits4++;
+                            else if (num === 3) s!.hits3++;
+                            else if (num === 2) s!.hits2++;
+                            else if (num === 1) s!.hits1++;
+                        }
                     }
                 });
             };
@@ -658,10 +711,26 @@ export const updateUmpirePassword = async (password: string) => {
 };
 
 export const getCurrentSeason = async (): Promise<string> => {
-    const res = await fetch('/api/settings');
-    if(!res.ok) return '2025';
-    const data = await res.json();
-    return data.currentSeason || '2025';
+    try {
+        const res = await fetch('/api/settings');
+        if (res.ok) {
+            const data = await res.json();
+            const season = data.currentSeason || '2026';
+            if (typeof window !== 'undefined') {
+                try { localStorage.setItem('dugout_current_season', season); } catch (e) {}
+            }
+            return season;
+        }
+    } catch (e) {
+        console.warn('Network fetch failed for getCurrentSeason, using cached season', e);
+    }
+    if (typeof window !== 'undefined') {
+        try {
+            const cached = localStorage.getItem('dugout_current_season');
+            if (cached) return cached;
+        } catch (e) {}
+    }
+    return '2026';
 };
 
 export const updateCurrentSeason = async (season: string) => {

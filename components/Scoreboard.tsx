@@ -179,31 +179,20 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
       return () => window.removeEventListener('online', handleOnline);
   }, []);
 
-  if (loading) return <div className="flex items-center justify-center h-screen text-slate-400 font-bold font-sans">Loading Match Data...</div>;
-  if (!match || !teams.home || !teams.away) {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-[50vh] p-8 text-center font-sans">
-        <p className="text-slate-600 dark:text-slate-300 font-bold mb-4">Unable to load match details or teams.</p>
-        <button onClick={onExit} className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-xl font-bold text-sm shadow-md transition-colors">
-          Return to Dashboard
-        </button>
-      </div>
-    );
-  }
-
-  const currentInning = match.innings[activeInningIdx] || match.innings[0];
-  const isExtraInnings = activeInningIdx === 6;
-
-  const calculateTeamInningTotal = (side: 'home' | 'away', inning: Inning) => {
+  const calculateTeamInningTotal = (side: 'home' | 'away', inning?: Inning) => {
+    if (!inning) return 0;
     const teamData = side === 'home' ? inning.home : inning.away;
+    if (!teamData?.playerScores) return 0;
     return teamData.playerScores.reduce((sum, player) => sum + player.pitches.reduce((pSum, pitch) => pSum + (pitch.points || 0), 0), 0);
   };
 
-  const calculateTeamGameTotal = (side: 'home' | 'away', matchData: Match = match) => {
-    const baseScore = matchData.innings.reduce((sum, inning) => sum + calculateTeamInningTotal(side, inning), 0);
+  const calculateTeamGameTotal = (side: 'home' | 'away', matchData?: Match | null) => {
+    const target = matchData || match;
+    if (!target?.innings) return 0;
+    const baseScore = target.innings.reduce((sum, inning) => sum + calculateTeamInningTotal(side, inning), 0);
     let tieScore = 0;
-    if (matchData.tieBreaker) {
-        matchData.tieBreaker.forEach(round => {
+    if (target.tieBreaker) {
+        target.tieBreaker.forEach(round => {
             const scores = side === 'home' ? round.homeScores : round.awayScores;
             tieScore += scores.reduce((a, b) => (a || 0) + (b || 0), 0);
         });
@@ -211,11 +200,8 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
     return baseScore + tieScore;
   };
 
-  const homeTotal = calculateTeamGameTotal('home');
-  const awayTotal = calculateTeamGameTotal('away');
-
   const startTieBreakerRound = async () => {
-      if (!teams.home || !teams.away || !tbHomePlayerId || !tbAwayPlayerId) return;
+      if (!match || !teams.home || !teams.away || !tbHomePlayerId || !tbAwayPlayerId) return;
       let nextLimit = 5;
       let roundNum = 1;
       if (match.tieBreaker && match.tieBreaker.length > 0) {
@@ -232,7 +218,7 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
           homeScores: Array(nextLimit).fill(null),
           awayScores: Array(nextLimit).fill(null)
       };
-      const updatedMatch = { ...match };
+      const updatedMatch: Match = JSON.parse(JSON.stringify(match));
       if (!updatedMatch.tieBreaker) updatedMatch.tieBreaker = [];
       updatedMatch.tieBreaker.push(newRound);
       updatedMatch.isComplete = false;
@@ -243,31 +229,40 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
   };
 
   const handleUndo = async (side: 'home' | 'away', lineupIdx: number, currentPitchIdx: number, roundIdx?: number) => {
+      if (!match) return;
       const prevPitchIdx = currentPitchIdx - 1;
       if (prevPitchIdx < 0) return;
-      const newMatch = { ...match };
+      const newMatch: Match = JSON.parse(JSON.stringify(match));
       if (roundIdx !== undefined && newMatch.tieBreaker) {
           const round = newMatch.tieBreaker[roundIdx];
-          if (side === 'home') round.homeScores[prevPitchIdx] = null;
-          else round.awayScores[prevPitchIdx] = null;
-          setActiveCell({ side, lineupIdx: 0, pitchIdx: prevPitchIdx, roundIdx });
+          if (round) {
+              if (side === 'home') round.homeScores[prevPitchIdx] = null;
+              else round.awayScores[prevPitchIdx] = null;
+              setActiveCell({ side, lineupIdx: 0, pitchIdx: prevPitchIdx, roundIdx });
+          }
       } else {
-          const inning = newMatch.innings[activeInningIdx];
-          const teamData = side === 'home' ? inning.home : inning.away;
-          teamData.playerScores[lineupIdx].pitches[prevPitchIdx].points = null;
-          setActiveCell({ side, lineupIdx, pitchIdx: prevPitchIdx });
+          const inning = newMatch.innings?.[activeInningIdx];
+          if (inning) {
+              const teamData = side === 'home' ? inning.home : inning.away;
+              if (teamData?.playerScores?.[lineupIdx]?.pitches?.[prevPitchIdx]) {
+                  teamData.playerScores[lineupIdx].pitches[prevPitchIdx].points = null;
+                  setActiveCell({ side, lineupIdx, pitchIdx: prevPitchIdx });
+              }
+          }
       }
       setMatch(newMatch);
       await storage.updateMatch(newMatch).catch(err => console.error("Undo failed", err));
   };
 
   const handleScoreUpdate = async (side: 'home' | 'away', lineupIdx: number, pitchIdx: number, val: number) => {
-    if (isReadOnly) return;
-    const inning = match.innings[activeInningIdx];
+    if (isReadOnly || !match) return;
+    const inning = match.innings?.[activeInningIdx];
+    if (!inning) return;
     const teamData = side === 'home' ? inning.home : inning.away;
+    if (!teamData?.playerScores?.[lineupIdx]?.pitches?.[pitchIdx]) return;
     const existingValue = teamData.playerScores[lineupIdx].pitches[pitchIdx].points;
     const isEdit = existingValue !== null;
-    const newMatch = { ...match };
+    const newMatch: Match = JSON.parse(JSON.stringify(match));
     const curInning = newMatch.innings[activeInningIdx];
     const curTeamData = side === 'home' ? curInning.home : curInning.away;
     curTeamData.playerScores[lineupIdx].pitches[pitchIdx].points = val;
@@ -305,8 +300,10 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
   };
 
   const confirmCompleteGame = async () => {
-    if (isReadOnly) return;
-    if (homeTotal === awayTotal) {
+    if (isReadOnly || !match) return;
+    const hT = calculateTeamGameTotal('home', match);
+    const aT = calculateTeamGameTotal('away', match);
+    if (hT === aT) {
         setShowFinishModal(false);
         setShowTieBreakerSetup(true);
         return;
@@ -322,10 +319,10 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
   };
 
   const handleTieBreakerScore = async (roundIdx: number, side: 'home'|'away', pitchIdx: number, val: number) => {
-      if(!match.tieBreaker) return;
-      const round = match.tieBreaker[roundIdx];
-      const newMatch = { ...match };
-      const cur = newMatch.tieBreaker![roundIdx];
+      if(!match?.tieBreaker) return;
+      const newMatch: Match = JSON.parse(JSON.stringify(match));
+      const cur = newMatch.tieBreaker?.[roundIdx];
+      if (!cur) return;
       const limit = cur.pitchLimit;
       const existing = side === 'home' ? cur.homeScores[pitchIdx] : cur.awayScores[pitchIdx];
       const isEdit = existing !== null;
@@ -434,6 +431,23 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
     onScore: handleVoiceScore,
     onUndo: handleVoiceUndo
   });
+
+  if (loading) return <div className="flex items-center justify-center h-screen text-slate-400 font-bold font-sans">Loading Match Data...</div>;
+  if (!match || !teams.home || !teams.away) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[50vh] p-8 text-center font-sans">
+        <p className="text-slate-600 dark:text-slate-300 font-bold mb-4">Unable to load match details or teams.</p>
+        <button onClick={onExit} className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-xl font-bold text-sm shadow-md transition-colors">
+          Return to Dashboard
+        </button>
+      </div>
+    );
+  }
+
+  const currentInning = match.innings[activeInningIdx] || match.innings[0];
+  const isExtraInnings = activeInningIdx === 6;
+  const homeTotal = calculateTeamGameTotal('home', match);
+  const awayTotal = calculateTeamGameTotal('away', match);
 
   const saveRosterChange = async (side: 'home' | 'away', playerIds: string[]) => {
       if (isReadOnly || !match) return;

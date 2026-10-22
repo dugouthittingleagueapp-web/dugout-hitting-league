@@ -57,13 +57,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const adminRes = await pool.query("SELECT value FROM app_settings WHERE key = 'admin_password'");
         const umpireRes = await pool.query("SELECT value FROM app_settings WHERE key = 'umpire_password'");
         
-        const storedAdmin = adminRes.rows[0]?.value;
-        const storedUmpire = umpireRes.rows[0]?.value;
+        const storedAdmin = (adminRes.rows[0]?.value || 'admin').trim();
+        const storedUmpire = (umpireRes.rows[0]?.value || 'umpire').trim();
+        const cleanPw = (password || '').trim();
         
-        if (password === storedAdmin) {
+        if (cleanPw.toLowerCase() === storedAdmin.toLowerCase()) {
           return res.status(200).json({ success: true, role: 'admin' });
         }
-        if (password === storedUmpire) {
+        if (cleanPw.toLowerCase() === storedUmpire.toLowerCase()) {
           return res.status(200).json({ success: true, role: 'umpire' });
         }
         

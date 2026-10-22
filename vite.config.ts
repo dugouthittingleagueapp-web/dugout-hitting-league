@@ -30,7 +30,13 @@ function devApiPlugin(): Plugin {
         return defaultData;
       }
       const raw = fs.readFileSync(dbFile, 'utf-8');
-      return JSON.parse(raw);
+      const parsed = JSON.parse(raw);
+      if (!parsed.settings) {
+        parsed.settings = { ...defaultData.settings };
+      }
+      if (!parsed.settings.admin_password) parsed.settings.admin_password = 'admin';
+      if (!parsed.settings.umpire_password) parsed.settings.umpire_password = 'umpire';
+      return parsed;
     } catch (e) {
       return defaultData;
     }
@@ -85,7 +91,7 @@ function devApiPlugin(): Plugin {
           // 1. Settings Endpoint
           if (pathname === '/api/settings') {
             if (method === 'GET') {
-              const currentSeason = db.settings.current_season || String(new Date().getFullYear());
+              const currentSeason = db.settings?.current_season || String(new Date().getFullYear());
               const seasonsSet = new Set<string>();
               seasonsSet.add(currentSeason);
               (db.leagues || []).forEach((l: any) => l.season && seasonsSet.add(l.season));
@@ -97,10 +103,13 @@ function devApiPlugin(): Plugin {
             if (method === 'POST') {
               const body = await readBody(req);
               if (body.action === 'verify') {
-                if (body.password === db.settings.admin_password) {
+                const cleanPw = (body.password || '').trim();
+                const adminPw = (db.settings?.admin_password || 'admin').trim();
+                const umpirePw = (db.settings?.umpire_password || 'umpire').trim();
+                if (cleanPw.toLowerCase() === adminPw.toLowerCase()) {
                   return sendJson(res, 200, { success: true, role: 'admin' });
                 }
-                if (body.password === db.settings.umpire_password) {
+                if (cleanPw.toLowerCase() === umpirePw.toLowerCase()) {
                   return sendJson(res, 200, { success: true, role: 'umpire' });
                 }
                 return sendJson(res, 401, { success: false, error: 'Incorrect password' });

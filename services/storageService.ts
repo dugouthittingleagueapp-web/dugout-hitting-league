@@ -696,21 +696,74 @@ export const getTeamStats = async (team: Team, league: AgeGroup, season: string)
 };
 
 // Settings & Admin
-export const verifyPassword = async (password: string): Promise<{success: boolean, role?: 'admin'|'umpire'}> => {
-    const res = await fetch('/api/settings', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'verify', password })
-    });
-    return await res.json();
+export const verifyPassword = async (password: string): Promise<{success: boolean, role?: 'admin'|'umpire', error?: string}> => {
+    const trimmed = (password || '').trim();
+    if (!trimmed) {
+        return { success: false, error: 'Password cannot be empty' };
+    }
+
+    try {
+        const res = await fetch('/api/settings', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'verify', password: trimmed })
+        });
+        const data = await res.json().catch(() => ({}));
+        if (res.ok && data.success && data.role) {
+            return { success: true, role: data.role };
+        }
+        if (data.error && !res.ok && res.status !== 500) {
+            return { success: false, error: data.error };
+        }
+    } catch (err) {
+        console.warn('Network verifyPassword failed, falling back to cached authentication', err);
+    }
+
+    // Offline / Network Failure Fallback
+    try {
+        const cachedAdmin = (typeof window !== 'undefined' ? localStorage.getItem('dugout_cached_admin_pw') : null) || 'admin';
+        const cachedUmpire = (typeof window !== 'undefined' ? localStorage.getItem('dugout_cached_umpire_pw') : null) || 'umpire';
+        if (trimmed.toLowerCase() === cachedAdmin.toLowerCase()) {
+            return { success: true, role: 'admin' };
+        }
+        if (trimmed.toLowerCase() === cachedUmpire.toLowerCase()) {
+            return { success: true, role: 'umpire' };
+        }
+    } catch (e) {}
+
+    return { success: false, error: 'Incorrect password' };
 };
 
 export const updateAdminPassword = async (password: string) => {
-     await fetch('/api/settings', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'update_password', password }) });
+    const trimmed = password.trim();
+    if (typeof window !== 'undefined') {
+        try { localStorage.setItem('dugout_cached_admin_pw', trimmed); } catch (e) {}
+    }
+    const res = await fetch('/api/settings', { 
+        method: 'POST', 
+        headers: { 'Content-Type': 'application/json' }, 
+        body: JSON.stringify({ action: 'update_password', password: trimmed }) 
+    });
+    if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || 'Failed to update admin password');
+    }
 };
 
 export const updateUmpirePassword = async (password: string) => {
-     await fetch('/api/settings', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'update_umpire_password', password }) });
+    const trimmed = password.trim();
+    if (typeof window !== 'undefined') {
+        try { localStorage.setItem('dugout_cached_umpire_pw', trimmed); } catch (e) {}
+    }
+    const res = await fetch('/api/settings', { 
+        method: 'POST', 
+        headers: { 'Content-Type': 'application/json' }, 
+        body: JSON.stringify({ action: 'update_umpire_password', password: trimmed }) 
+    });
+    if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || 'Failed to update umpire password');
+    }
 };
 
 export const getCurrentSeason = async (): Promise<string> => {

@@ -143,6 +143,7 @@ const App: React.FC = () => {
 
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [passwordInput, setPasswordInput] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [loginError, setLoginError] = useState('');
 
   // Match Stats Modal
@@ -549,6 +550,7 @@ const App: React.FC = () => {
       setShowLoginModal(true);
       setPasswordInput('');
       setLoginError('');
+      setShowPassword(false);
       setIsMenuOpen(false);
   };
   
@@ -561,18 +563,35 @@ const App: React.FC = () => {
 
   const handleLoginSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    const cleanPw = passwordInput.trim();
+    if (!cleanPw) {
+      setLoginError('Please enter a password.');
+      return;
+    }
     setLoading(true);
-    const result = await storage.verifyPassword(passwordInput);
-    setLoading(false);
-    
-    if (result.success && result.role) {
-      setUserRole(result.role);
-      safeStorage.setItem('userRole', result.role);
-      safeStorage.setItem('lastActivity', Date.now().toString());
-      setShowLoginModal(false);
-      // Removed automatic redirection to Admin Dashboard for Admins
-    } else {
-      setLoginError('Incorrect password.');
+    setLoginError('');
+    try {
+      const result = await storage.verifyPassword(cleanPw);
+      setLoading(false);
+      
+      if (result.success && result.role) {
+        setUserRole(result.role);
+        safeStorage.setItem('userRole', result.role);
+        safeStorage.setItem('lastActivity', Date.now().toString());
+        setShowLoginModal(false);
+        setPasswordInput('');
+        setLoginError('');
+        
+        // When logging in as Admin, navigate directly to Admin Dashboard
+        if (result.role === 'admin') {
+          setState(s => ({ ...s, view: 'admin' }));
+        }
+      } else {
+        setLoginError(result.error || 'Incorrect password. Default: "admin" or "umpire"');
+      }
+    } catch (err: any) {
+      setLoading(false);
+      setLoginError(err?.message || 'Login verification failed. Please check connection and try again.');
     }
   };
 
@@ -968,6 +987,34 @@ const App: React.FC = () => {
                             ))}
                             </div>
                         )}
+
+                        {/* Admin / Umpire Quick Access on Home Screen */}
+                        {userRole === 'admin' && (
+                            <div className="mt-6 flex flex-col sm:flex-row items-center justify-center gap-3">
+                                <button 
+                                    onClick={() => setState(s => ({ ...s, view: 'admin' }))}
+                                    className="px-6 py-2.5 bg-blue-600 hover:bg-blue-500 text-white rounded-xl font-bold text-sm shadow-lg shadow-blue-900/20 transition-all flex items-center gap-2 cursor-pointer"
+                                >
+                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+                                    <span>Open Admin Dashboard</span>
+                                </button>
+                            </div>
+                        )}
+                        {userRole === 'umpire' && (
+                            <div className="mt-6 text-center text-xs text-slate-500 dark:text-slate-400 font-medium">
+                                ⚾ Umpire Active: Select any division above to score live pitches and manage innings.
+                            </div>
+                        )}
+                        {userRole === 'fan' && (
+                            <div className="mt-6 text-center">
+                                <button 
+                                    onClick={openLoginModal}
+                                    className="text-xs font-semibold text-slate-500 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 underline transition-colors cursor-pointer"
+                                >
+                                    Umpire or Admin Log In
+                                </button>
+                            </div>
+                        )}
                     </div>
                 </>
             )}
@@ -1328,15 +1375,85 @@ const App: React.FC = () => {
         {/* Modals (Login, Move Match, Stats) rendered here - Code unchanged */}
         {showLoginModal && createPortal(
           <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/80 backdrop-blur-sm animate-in fade-in duration-200" onClick={() => setShowLoginModal(false)}>
-            <div className="bg-slate-900 p-8 rounded-2xl shadow-2xl w-full max-w-sm transform scale-100 animate-in zoom-in-95 duration-200 font-sans border border-slate-700" onClick={e => e.stopPropagation()}>
-              <h3 className="text-xl font-bold text-white mb-4 text-center font-sans">Access Control</h3>
-              <p className="text-sm text-slate-400 mb-4 text-center font-sans">Enter password for Umpire or Admin access.</p>
+            <div className="bg-slate-900 p-6 sm:p-8 rounded-2xl shadow-2xl w-full max-w-sm transform scale-100 animate-in zoom-in-95 duration-200 font-sans border border-slate-700 mx-4" onClick={e => e.stopPropagation()}>
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="text-xl font-bold text-white font-sans">Access Control</h3>
+                <button onClick={() => setShowLoginModal(false)} className="text-slate-400 hover:text-white text-xl font-bold p-1">&times;</button>
+              </div>
+              <p className="text-xs sm:text-sm text-slate-400 mb-5 font-sans leading-relaxed">
+                Enter your password to sign in as an <strong className="text-slate-200 font-semibold">Administrator</strong> or <strong className="text-slate-200 font-semibold">Umpire (Scorer)</strong>.
+              </p>
+              
               <form onSubmit={handleLoginSubmit}>
                 <div className="mb-4">
-                  <input type="password" autoFocus className={`w-full bg-slate-950 border rounded-lg px-4 py-3 text-lg outline-none focus:ring-2 text-white placeholder-slate-600 font-sans ${loginError ? 'border-red-500 focus:ring-red-900' : 'border-slate-700 focus:ring-blue-900'}`} value={passwordInput} onChange={e => setPasswordInput(e.target.value)} placeholder="Password" />
-                  {loginError && <p className="text-red-500 text-xs mt-2 font-bold font-sans">{loginError}</p>}
+                  <div className="relative">
+                    <input 
+                      type={showPassword ? "text" : "password"} 
+                      autoFocus 
+                      autoCapitalize="none"
+                      autoCorrect="off"
+                      autoComplete="current-password"
+                      spellCheck={false}
+                      className={`w-full bg-slate-950 border rounded-xl px-4 py-3 pr-12 text-base outline-none focus:ring-2 text-white placeholder-slate-500 font-sans ${loginError ? 'border-red-500 focus:ring-red-900' : 'border-slate-700 focus:ring-blue-600'}`} 
+                      value={passwordInput} 
+                      onChange={e => {
+                        setPasswordInput(e.target.value);
+                        if (loginError) setLoginError('');
+                      }} 
+                      placeholder="Password" 
+                    />
+                    <button 
+                      type="button" 
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white p-1 text-xs font-semibold select-none"
+                      title={showPassword ? "Hide password" : "Show password"}
+                    >
+                      {showPassword ? "Hide" : "Show"}
+                    </button>
+                  </div>
+                  {loginError && <p className="text-red-400 text-xs mt-2 font-bold font-sans bg-red-950/40 p-2 rounded-lg border border-red-900/40">{loginError}</p>}
                 </div>
-                <button type="submit" disabled={loading} className="w-full bg-blue-600 text-white font-bold py-3 rounded-lg hover:bg-blue-500 transition-colors font-sans shadow-lg shadow-blue-900/20">{loading ? 'Verifying...' : 'Log In'}</button>
+
+                <div className="bg-slate-950/70 p-3 rounded-xl border border-slate-800 text-[11px] text-slate-400 mb-5 space-y-1">
+                  <div className="font-bold uppercase tracking-wider text-[10px] text-slate-500">Default Access</div>
+                  <div className="flex justify-between">
+                    <span>Admin:</span>
+                    <button 
+                      type="button" 
+                      onClick={() => setPasswordInput('admin')} 
+                      className="text-blue-400 hover:text-blue-300 font-mono font-bold hover:underline cursor-pointer"
+                    >
+                      admin
+                    </button>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Umpire:</span>
+                    <button 
+                      type="button" 
+                      onClick={() => setPasswordInput('umpire')} 
+                      className="text-blue-400 hover:text-blue-300 font-mono font-bold hover:underline cursor-pointer"
+                    >
+                      umpire
+                    </button>
+                  </div>
+                </div>
+
+                <div className="flex gap-2">
+                  <button 
+                    type="button" 
+                    onClick={() => setShowLoginModal(false)} 
+                    className="flex-1 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold py-3 rounded-xl transition-colors font-sans text-sm"
+                  >
+                    Cancel
+                  </button>
+                  <button 
+                    type="submit" 
+                    disabled={loading || !passwordInput.trim()} 
+                    className="flex-1 bg-blue-600 text-white font-bold py-3 rounded-xl hover:bg-blue-500 disabled:opacity-50 transition-colors font-sans shadow-lg shadow-blue-900/20 text-sm"
+                  >
+                    {loading ? 'Verifying...' : 'Log In'}
+                  </button>
+                </div>
               </form>
             </div>
           </div>,

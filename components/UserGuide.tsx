@@ -59,7 +59,7 @@ export const UserGuide: React.FC<UserGuideProps> = ({ onClose }) => {
                 <ul className="list-disc pl-5 space-y-1 text-sm sm:text-base">
                     <li><strong>Create League:</strong> Use the Admin Dashboard to create categories (e.g., Varsity, 10u).</li>
                     <li><strong>Team Rosters:</strong> Enter First Name (Display) and optional Last Name (Admin tracking).</li>
-                    <li><strong>Active Season:</strong> Admin can switch seasons (e.g., 2025 to 2026) to archive old data.</li>
+                    <li><strong>Active Season:</strong> Admin can create and switch seasons (e.g., to future years) to archive old data and start fresh brackets.</li>
                 </ul>
             </section>
 

@@ -9,10 +9,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       CREATE TABLE IF NOT EXISTS teams (
         id UUID PRIMARY KEY,
         name TEXT NOT NULL,
-        league TEXT NOT NULL REFERENCES leagues(id) ON DELETE CASCADE,
+        league TEXT NOT NULL,
         players JSONB NOT NULL,
         subs JSONB DEFAULT '[]',
-        season TEXT NOT NULL DEFAULT '2025',
+        season TEXT NOT NULL DEFAULT TO_CHAR(CURRENT_DATE, 'YYYY'),
         created_at TIMESTAMPTZ DEFAULT NOW()
       );
       
@@ -20,7 +20,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       DO $$ 
       BEGIN 
         IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='teams' AND column_name='season') THEN 
-          ALTER TABLE teams ADD COLUMN season TEXT NOT NULL DEFAULT '2025'; 
+          ALTER TABLE teams ADD COLUMN season TEXT NOT NULL DEFAULT TO_CHAR(CURRENT_DATE, 'YYYY'); 
         END IF; 
       END $$;
 
@@ -60,8 +60,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const { id, name, league, players, subs, season } = req.body;
       if (!name || !league || !players) return res.status(400).json({ error: 'Missing fields' });
 
-      // Default to 2026 if not provided
-      const teamSeason = season || '2026';
+      let teamSeason = season;
+      if (!teamSeason) {
+        try {
+          const sRes = await pool.query("SELECT value FROM app_settings WHERE key = 'current_season'");
+          teamSeason = sRes.rows[0]?.value;
+        } catch (e) {}
+      }
+      if (!teamSeason) teamSeason = new Date().getFullYear().toString();
+
       const teamSubs = subs || [];
 
       const query = `INSERT INTO teams (id, name, league, players, subs, season) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`;

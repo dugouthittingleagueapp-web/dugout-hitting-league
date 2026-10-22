@@ -7,17 +7,20 @@ const mapTeamFromDB = (dbTeam: any): Team => ({
   subs: dbTeam.subs ? (typeof dbTeam.subs === 'string' ? JSON.parse(dbTeam.subs) : dbTeam.subs) : []
 });
 
-const mapMatchFromDB = (dbMatch: any): Match => ({
-  id: dbMatch.id,
-  league: dbMatch.league,
-  homeTeamId: dbMatch.home_team_id,
-  awayTeamId: dbMatch.away_team_id,
-  date: dbMatch.date,
-  isComplete: dbMatch.is_complete,
-  innings: typeof dbMatch.innings === 'string' ? JSON.parse(dbMatch.innings) : dbMatch.innings,
-  season: dbMatch.season || '2026',
-  tieBreaker: dbMatch.tie_breaker ? (typeof dbMatch.tie_breaker === 'string' ? JSON.parse(dbMatch.tie_breaker) : dbMatch.tie_breaker) : undefined
-});
+const mapMatchFromDB = (dbMatch: any): Match => {
+  const defaultSeason = (typeof window !== 'undefined' ? localStorage.getItem('dugout_current_season') : null) || String(new Date().getFullYear());
+  return {
+    id: dbMatch.id,
+    league: dbMatch.league,
+    homeTeamId: dbMatch.home_team_id,
+    awayTeamId: dbMatch.away_team_id,
+    date: dbMatch.date,
+    isComplete: dbMatch.is_complete,
+    innings: typeof dbMatch.innings === 'string' ? JSON.parse(dbMatch.innings) : dbMatch.innings,
+    season: dbMatch.season || defaultSeason,
+    tieBreaker: dbMatch.tie_breaker ? (typeof dbMatch.tie_breaker === 'string' ? JSON.parse(dbMatch.tie_breaker) : dbMatch.tie_breaker) : undefined
+  };
+};
 
 // Helper to format name as First L.
 const formatName = (p: { name: string, lastName?: string }) => 
@@ -711,13 +714,17 @@ export const updateUmpirePassword = async (password: string) => {
 };
 
 export const getCurrentSeason = async (): Promise<string> => {
+    const defaultSeason = (typeof window !== 'undefined' ? localStorage.getItem('dugout_current_season') : null) || String(new Date().getFullYear());
     try {
         const res = await fetch('/api/settings');
         if (res.ok) {
             const data = await res.json();
-            const season = data.currentSeason || '2026';
+            const season = data.currentSeason || defaultSeason;
             if (typeof window !== 'undefined') {
                 try { localStorage.setItem('dugout_current_season', season); } catch (e) {}
+                if (data.seasons && Array.isArray(data.seasons)) {
+                    try { localStorage.setItem('dugout_available_seasons', JSON.stringify(data.seasons)); } catch (e) {}
+                }
             }
             return season;
         }
@@ -730,11 +737,39 @@ export const getCurrentSeason = async (): Promise<string> => {
             if (cached) return cached;
         } catch (e) {}
     }
-    return '2026';
+    return defaultSeason;
+};
+
+export const getAvailableSeasons = async (): Promise<string[]> => {
+    try {
+        const res = await fetch('/api/settings');
+        if (res.ok) {
+            const data = await res.json();
+            if (data.seasons && Array.isArray(data.seasons) && data.seasons.length > 0) {
+                if (typeof window !== 'undefined') {
+                    try { localStorage.setItem('dugout_available_seasons', JSON.stringify(data.seasons)); } catch (e) {}
+                }
+                return data.seasons;
+            }
+        }
+    } catch (e) {
+        console.warn('Network fetch failed for getAvailableSeasons, using cache', e);
+    }
+    if (typeof window !== 'undefined') {
+        try {
+            const cached = localStorage.getItem('dugout_available_seasons');
+            if (cached) return JSON.parse(cached);
+        } catch (e) {}
+    }
+    const fallbackSeason = (typeof window !== 'undefined' ? localStorage.getItem('dugout_current_season') : null) || String(new Date().getFullYear());
+    return [fallbackSeason];
 };
 
 export const updateCurrentSeason = async (season: string) => {
     await fetch('/api/settings', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'update_season', season }) });
+    if (typeof window !== 'undefined') {
+        try { localStorage.setItem('dugout_current_season', season); } catch (e) {}
+    }
 };
 
 export const exportData = async (): Promise<string> => {

@@ -191,10 +191,12 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
     if (!target?.innings) return 0;
     const baseScore = target.innings.reduce((sum, inning) => sum + calculateTeamInningTotal(side, inning), 0);
     let tieScore = 0;
-    if (target.tieBreaker) {
+    if (target.tieBreaker && Array.isArray(target.tieBreaker)) {
         target.tieBreaker.forEach(round => {
             const scores = side === 'home' ? round.homeScores : round.awayScores;
-            tieScore += scores.reduce((a, b) => (a || 0) + (b || 0), 0);
+            if (Array.isArray(scores)) {
+                tieScore += scores.reduce<number>((a, b) => (a || 0) + (b || 0), 0);
+            }
         });
     }
     return baseScore + tieScore;

@@ -15,17 +15,40 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // 2. Ensure default values exist
     // Admin default: 'admin'
     // Umpire default: 'umpire'
+    const defaultYear = new Date().getFullYear().toString();
     await pool.query(`
       INSERT INTO app_settings (key, value) VALUES ('admin_password', 'admin') ON CONFLICT (key) DO NOTHING;
       INSERT INTO app_settings (key, value) VALUES ('umpire_password', 'umpire') ON CONFLICT (key) DO NOTHING;
-      INSERT INTO app_settings (key, value) VALUES ('current_season', '2026') ON CONFLICT (key) DO NOTHING;
-    `);
+      INSERT INTO app_settings (key, value) VALUES ('current_season', $1) ON CONFLICT (key) DO NOTHING;
+    `, [defaultYear]);
 
     if (req.method === 'GET') {
         // Return all public settings (exclude passwords)
         const { rows } = await pool.query("SELECT value FROM app_settings WHERE key = 'current_season'");
-        const currentSeason = rows[0]?.value || '2026';
-        return res.status(200).json({ currentSeason });
+        const currentSeason = rows[0]?.value || defaultYear;
+
+        let seasons: string[] = [currentSeason];
+        try {
+          const seasonsRes = await pool.query(`
+            SELECT DISTINCT season FROM (
+              SELECT season FROM leagues WHERE season IS NOT NULL
+              UNION
+              SELECT season FROM teams WHERE season IS NOT NULL
+              UNION
+              SELECT season FROM matches WHERE season IS NOT NULL
+              UNION
+              SELECT $1 AS season
+            ) s WHERE season != '' ORDER BY season DESC
+          `, [currentSeason]);
+          if (seasonsRes.rows.length > 0) {
+            seasons = seasonsRes.rows.map(r => r.season);
+          }
+        } catch (e) {
+          // Fallback if schema is legacy
+        }
+
+        const uniqueSeasons = Array.from(new Set(seasons)).sort((a, b) => b.localeCompare(a, undefined, { numeric: true }));
+        return res.status(200).json({ currentSeason, seasons: uniqueSeasons });
     }
     else if (req.method === 'POST') {
       const { action, password, season } = req.body;
@@ -71,7 +94,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         }
         const newSeason = season.trim();
         const curRes = await pool.query("SELECT value FROM app_settings WHERE key = 'current_season'");
-        const prevSeason = curRes.rows[0]?.value || '2025';
+        const prevSeason = curRes.rows[0]?.value || defaultYear;
 
         await pool.query("UPDATE app_settings SET value = $1 WHERE key = 'current_season'", [newSeason]);
 
@@ -79,8 +102,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         try {
           const newLeagues = await pool.query("SELECT id FROM leagues WHERE season = $1", [newSeason]);
           if (newLeagues.rows.length === 0) {
-            const prevLeagues = await pool.query("SELECT id FROM leagues WHERE season = $1", [prevSeason]);
-            for (const row of prevLeagues.rows) {
+            const prevLeagues = await pool.query("SELECT DISTINCT id FROM leagues WHERE season = $1", [prevSeason]);
+            const sourceRows = prevLeagues.rows.length > 0 ? prevLeagues.rows : (await pool.query("SELECT DISTINCT id FROM leagues")).rows;
+            for (const row of sourceRows) {
               await pool.query("INSERT INTO leagues (id, season) VALUES ($1, $2) ON CONFLICT DO NOTHING", [row.id, newSeason]);
             }
           }

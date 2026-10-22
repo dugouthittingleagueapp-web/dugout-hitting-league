@@ -6,9 +6,9 @@ A comprehensive management system for youth baseball hitting leagues, designed f
 ## Features
 
 ### ⚾ League & Season Management
-- **Multi-Year Support:** seamless transitions between seasons (e.g., 2025 to 2026) while preserving historical data.
-- **Dynamic Leagues:** Create custom leagues (9u, 10u, Varsity, etc.) on the fly.
-- **Global vs Seasonal:** Leagues are persistent, while teams and matches are tied to specific seasons.
+- **Multi-Year Support:** Automated season lifecycles with dynamic archiving, seamless transitions across any future year (e.g., 2026, 2027, 2028+), and automatic division rollover with preserved historical records.
+- **Dynamic Leagues:** Create custom leagues (9u, 10u, Varsity, etc.) on the fly per season.
+- **Season Isolation:** Historical seasons remain immutable in archives while active seasons operate with fresh rosters and schedules.
 
 ### 👥 Role-Based Access Control
 - **Fan Mode (Default):** Read-only access. Fans can view live scores (auto-refreshing), standings, and season stats without logging in.

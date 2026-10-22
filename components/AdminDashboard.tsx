@@ -4,14 +4,31 @@ import * as storage from '../services/storageService';
 import { Team, League } from '../types';
 import { UserGuide } from './UserGuide';
 
-export const AdminDashboard: React.FC<{ onBack: () => void; onBrowseArchive?: (season: string) => void }> = ({ onBack, onBrowseArchive }) => {
+export const AdminDashboard: React.FC<{ 
+  onBack: () => void; 
+  onBrowseArchive?: (season: string) => void;
+  onSeasonUpdated?: () => void;
+}> = ({ onBack, onBrowseArchive, onSeasonUpdated }) => {
   const [data, setData] = useState('');
   const [loading, setLoading] = useState(false);
   const [newLeagueName, setNewLeagueName] = useState('');
   const [creatingLeague, setCreatingLeague] = useState(false);
   
   // Settings State
-  const [currentSeason, setCurrentSeason] = useState('2026');
+  const [currentSeason, setCurrentSeason] = useState<string>(() => {
+    try {
+      return localStorage.getItem('dugout_current_season') || String(new Date().getFullYear());
+    } catch {
+      return String(new Date().getFullYear());
+    }
+  });
+  const [allSeasons, setAllSeasons] = useState<string[]>(() => {
+    try {
+      const s = localStorage.getItem('dugout_available_seasons');
+      if (s) return JSON.parse(s);
+    } catch {}
+    return [String(new Date().getFullYear())];
+  });
   const [newSeasonInput, setNewSeasonInput] = useState('');
   
   // Password State
@@ -33,7 +50,11 @@ export const AdminDashboard: React.FC<{ onBack: () => void; onBrowseArchive?: (s
         setLoading(true);
         try {
             const season = await storage.getCurrentSeason();
-            if (isMounted) setCurrentSeason(season);
+            const seasons = await storage.getAvailableSeasons();
+            if (isMounted) {
+                setCurrentSeason(season);
+                setAllSeasons(seasons);
+            }
             const [d, ls, ts] = await Promise.all([
                 storage.exportData().catch(() => '{}'),
                 storage.getLeagues(season).catch(() => []),
@@ -100,12 +121,24 @@ export const AdminDashboard: React.FC<{ onBack: () => void; onBrowseArchive?: (s
       if(!newSeasonInput.trim()) return;
       const targetSeason = newSeasonInput.trim();
       if(confirm(`Set active season to ${targetSeason}? Previous season data will be preserved in the archive, and league divisions will carry over as clean blank brackets.`)) {
-          await storage.updateCurrentSeason(targetSeason);
-          setCurrentSeason(targetSeason);
-          const newLeagues = await storage.getLeagues(targetSeason);
-          setLeagues(newLeagues);
-          setNewSeasonInput('');
-          alert(`Season ${targetSeason} is now active with clean league divisions ready for teams.`);
+          setLoading(true);
+          try {
+              await storage.updateCurrentSeason(targetSeason);
+              setCurrentSeason(targetSeason);
+              const [newLeagues, newSeasons] = await Promise.all([
+                  storage.getLeagues(targetSeason),
+                  storage.getAvailableSeasons()
+              ]);
+              setLeagues(newLeagues);
+              setAllSeasons(newSeasons);
+              setNewSeasonInput('');
+              if (onSeasonUpdated) onSeasonUpdated();
+              alert(`Season ${targetSeason} is now active with clean league divisions ready for teams.`);
+          } catch (e: any) {
+              alert('Failed to update season: ' + (e?.message || 'Unknown error'));
+          } finally {
+              setLoading(false);
+          }
       }
   };
 
@@ -189,7 +222,7 @@ export const AdminDashboard: React.FC<{ onBack: () => void; onBrowseArchive?: (s
             </div>
 
             <div className="mt-6 border-t border-slate-100 dark:border-slate-800 pt-6">
-                <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase mb-2 font-sans">Existing Leagues</label>
+                <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase mb-2 font-sans">Existing Leagues ({currentSeason} Season)</label>
                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
                     {leagues.map(l => (
                         <div key={l.id} className="flex justify-between items-center p-3 bg-slate-50 dark:bg-slate-950 rounded-lg border border-slate-200 dark:border-slate-800">
@@ -203,7 +236,7 @@ export const AdminDashboard: React.FC<{ onBack: () => void; onBrowseArchive?: (s
                             </button>
                         </div>
                     ))}
-                    {leagues.length === 0 && <div className="text-sm text-slate-400 italic font-sans">No leagues found.</div>}
+                    {leagues.length === 0 && <div className="text-sm text-slate-400 italic font-sans">No leagues found for {currentSeason}. Create one above or switch seasons.</div>}
                 </div>
             </div>
 
@@ -216,30 +249,48 @@ export const AdminDashboard: React.FC<{ onBack: () => void; onBrowseArchive?: (s
                     </div>
                 </div>
 
-                {/* Season Archive Card */}
-                <div className="bg-slate-50 dark:bg-slate-950 p-4 rounded-xl border border-slate-200 dark:border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                    <div>
-                        <div className="flex items-center gap-2 mb-0.5">
-                            <h4 className="text-sm font-bold text-slate-800 dark:text-white font-sans">2025 Season Archive</h4>
-                            <span className="text-[9px] uppercase font-bold px-1.5 py-0.5 rounded bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300">Preserved</span>
+                {/* Dynamic Season Archives Grid */}
+                {(() => {
+                    const archivedSeasons = allSeasons.filter(s => s !== currentSeason);
+                    if (archivedSeasons.length === 0) return null;
+                    return (
+                        <div className="space-y-3">
+                            <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase font-sans">
+                                Preserved Historical Archives ({archivedSeasons.length})
+                            </label>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                {archivedSeasons.map(archSeason => (
+                                    <div key={archSeason} className="bg-slate-50 dark:bg-slate-950 p-4 rounded-xl border border-slate-200 dark:border-slate-800 flex items-center justify-between gap-3">
+                                        <div>
+                                            <div className="flex items-center gap-2 mb-0.5">
+                                                <h4 className="text-sm font-bold text-slate-800 dark:text-white font-sans">{archSeason} Season</h4>
+                                                <span className="text-[9px] uppercase font-bold px-1.5 py-0.5 rounded bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300">Preserved</span>
+                                            </div>
+                                            <p className="text-[11px] text-slate-500 dark:text-slate-400 font-sans">Historical leagues, rosters, and match scoreboards.</p>
+                                        </div>
+                                        {onBrowseArchive && (
+                                            <button 
+                                                onClick={() => onBrowseArchive(archSeason)} 
+                                                className="px-3.5 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-xs font-bold font-sans transition-colors shrink-0 shadow-sm"
+                                            >
+                                                Browse {archSeason}
+                                            </button>
+                                        )}
+                                    </div>
+                                ))}
+                            </div>
                         </div>
-                        <p className="text-xs text-slate-500 dark:text-slate-400 font-sans">Contains historical 2025 leagues, rosters, and match scoreboards.</p>
-                    </div>
-                    {onBrowseArchive && (
-                        <button 
-                            onClick={() => onBrowseArchive('2025')} 
-                            className="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-xs font-bold font-sans transition-colors shrink-0 shadow-md shadow-amber-900/20"
-                        >
-                            Browse 2025 Archive
-                        </button>
-                    )}
-                </div>
+                    );
+                })()}
 
                 <div className="border-t border-slate-100 dark:border-slate-800 pt-4">
-                    <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase mb-1 font-sans">Switch Active Season</label>
+                    <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase mb-1 font-sans">Create & Switch to New Active Season</label>
+                    <p className="text-xs text-slate-500 dark:text-slate-400 mb-3 font-sans">
+                        Moving to next year (e.g. 2027, 2028)? Entering a new year archives the current season with full history and rolls over divisions as clean blank brackets for the new year.
+                    </p>
                     <div className="flex gap-3">
-                        <input type="text" value={newSeasonInput} onChange={e => setNewSeasonInput(e.target.value)} placeholder="e.g. 2027" className="w-40 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 text-slate-900 dark:text-white rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 outline-none font-sans" />
-                        <button onClick={handleUpdateSeason} className="bg-slate-700 dark:bg-slate-600 text-white px-6 py-2 rounded-lg hover:bg-slate-800 dark:hover:bg-slate-500 font-bold font-sans">Update Season</button>
+                        <input type="text" value={newSeasonInput} onChange={e => setNewSeasonInput(e.target.value)} placeholder={`e.g. ${Number(currentSeason) ? Number(currentSeason) + 1 : new Date().getFullYear() + 1}`} className="w-40 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 text-slate-900 dark:text-white rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 outline-none font-sans" />
+                        <button onClick={handleUpdateSeason} className="bg-slate-700 dark:bg-slate-600 text-white px-6 py-2 rounded-lg hover:bg-slate-800 dark:hover:bg-slate-500 font-bold font-sans">Activate Season</button>
                     </div>
                 </div>
             </div>

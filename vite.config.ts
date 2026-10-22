@@ -6,16 +6,17 @@ import path from 'node:path';
 function devApiPlugin(): Plugin {
   const dbFile = path.resolve(process.cwd(), '.data', 'db.json');
 
+  const currentYearStr = String(new Date().getFullYear());
   const defaultData = {
     settings: {
       admin_password: 'admin',
       umpire_password: 'umpire',
-      current_season: '2026',
+      current_season: currentYearStr,
     },
     leagues: [
-      { id: '10u', season: '2025', created_at: '2025-01-01T00:00:00.000Z' },
-      { id: '12u', season: '2025', created_at: '2025-01-01T00:00:00.000Z' },
-      { id: 'Varsity', season: '2025', created_at: '2025-01-01T00:00:00.000Z' },
+      { id: '10u', season: currentYearStr, created_at: new Date().toISOString() },
+      { id: '12u', season: currentYearStr, created_at: new Date().toISOString() },
+      { id: 'Varsity', season: currentYearStr, created_at: new Date().toISOString() },
     ],
     teams: [] as any[],
     matches: [] as any[],
@@ -84,7 +85,14 @@ function devApiPlugin(): Plugin {
           // 1. Settings Endpoint
           if (pathname === '/api/settings') {
             if (method === 'GET') {
-              return sendJson(res, 200, { currentSeason: db.settings.current_season || '2025' });
+              const currentSeason = db.settings.current_season || String(new Date().getFullYear());
+              const seasonsSet = new Set<string>();
+              seasonsSet.add(currentSeason);
+              (db.leagues || []).forEach((l: any) => l.season && seasonsSet.add(l.season));
+              (db.teams || []).forEach((t: any) => t.season && seasonsSet.add(t.season));
+              (db.matches || []).forEach((m: any) => m.season && seasonsSet.add(m.season));
+              const seasons = Array.from(seasonsSet).sort((a, b) => b.localeCompare(a, undefined, { numeric: true }));
+              return sendJson(res, 200, { currentSeason, seasons });
             }
             if (method === 'POST') {
               const body = await readBody(req);
@@ -108,15 +116,16 @@ function devApiPlugin(): Plugin {
                 return sendJson(res, 200, { success: true });
               }
               if (body.action === 'update_season') {
-                const prevSeason = db.settings.current_season || '2025';
+                const prevSeason = db.settings.current_season || String(new Date().getFullYear());
                 const newSeason = body.season.trim();
                 db.settings.current_season = newSeason;
 
                 // Automatically rollover previous season's league divisions if new season is empty
-                const existingInNewSeason = db.leagues.filter((l: any) => (l.season || '2025') === newSeason);
+                const existingInNewSeason = db.leagues.filter((l: any) => (l.season || prevSeason) === newSeason);
                 if (existingInNewSeason.length === 0) {
-                  const prevLeagues = db.leagues.filter((l: any) => (l.season || '2025') === prevSeason);
-                  prevLeagues.forEach((pl: any) => {
+                  const prevLeagues = db.leagues.filter((l: any) => (l.season || prevSeason) === prevSeason);
+                  const source = prevLeagues.length > 0 ? prevLeagues : Array.from(new Set(db.leagues.map((l: any) => l.id))).map(id => ({ id }));
+                  source.forEach((pl: any) => {
                     db.leagues.push({
                       id: pl.id,
                       season: newSeason,
@@ -134,10 +143,11 @@ function devApiPlugin(): Plugin {
 
           // 2. Leagues Endpoint
           if (pathname === '/api/leagues') {
+            const activeSeason = db.settings.current_season || String(new Date().getFullYear());
             if (method === 'GET') {
               const season = query.season;
               if (season) {
-                const filtered = db.leagues.filter((l: any) => (l.season || '2025') === season);
+                const filtered = db.leagues.filter((l: any) => (l.season || activeSeason) === season);
                 return sendJson(res, 200, filtered);
               }
               return sendJson(res, 200, db.leagues);
@@ -146,8 +156,8 @@ function devApiPlugin(): Plugin {
               const body = await readBody(req);
               const cleanId = (body.id || '').trim();
               if (!cleanId) return sendJson(res, 400, { error: 'League ID is required' });
-              const season = body.season || query.season || db.settings.current_season || '2026';
-              const existing = db.leagues.find((l: any) => l.id.toLowerCase() === cleanId.toLowerCase() && (l.season || '2025') === season);
+              const season = body.season || query.season || activeSeason;
+              const existing = db.leagues.find((l: any) => l.id.toLowerCase() === cleanId.toLowerCase() && (l.season || activeSeason) === season);
               if (existing) {
                 return sendJson(res, 200, existing);
               }
@@ -160,15 +170,15 @@ function devApiPlugin(): Plugin {
               const id = query.id;
               const season = query.season;
               db.leagues = db.leagues.filter((l: any) => {
-                if (season) return !(l.id === id && (l.season || '2025') === season);
+                if (season) return !(l.id === id && (l.season || activeSeason) === season);
                 return l.id !== id;
               });
               db.teams = db.teams.filter((t: any) => {
-                if (season) return !(t.league === id && (t.season || '2025') === season);
+                if (season) return !(t.league === id && (t.season || activeSeason) === season);
                 return t.league !== id;
               });
               db.matches = db.matches.filter((m: any) => {
-                if (season) return !(m.league === id && (m.season || '2025') === season);
+                if (season) return !(m.league === id && (m.season || activeSeason) === season);
                 return m.league !== id;
               });
               saveDb(db);
@@ -178,13 +188,14 @@ function devApiPlugin(): Plugin {
 
           // 3. Teams Endpoint
           if (pathname === '/api/teams') {
+            const activeSeason = db.settings.current_season || String(new Date().getFullYear());
             if (method === 'GET') {
               let teams = db.teams;
               if (query.league) {
                 teams = teams.filter((t: any) => t.league === query.league);
               }
               if (query.season) {
-                teams = teams.filter((t: any) => (t.season || '2025') === query.season);
+                teams = teams.filter((t: any) => (t.season || activeSeason) === query.season);
               }
               return sendJson(res, 200, teams);
             }
@@ -194,7 +205,7 @@ function devApiPlugin(): Plugin {
                 id: team.id || `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
                 name: team.name,
                 league: team.league,
-                season: team.season || '2025',
+                season: team.season || activeSeason,
                 players: team.players || [],
                 subs: team.subs || [],
                 created_at: new Date().toISOString(),
@@ -237,6 +248,7 @@ function devApiPlugin(): Plugin {
 
           // 4. Matches Endpoint
           if (pathname === '/api/matches') {
+            const activeSeason = db.settings.current_season || String(new Date().getFullYear());
             if (method === 'GET') {
               if (query.id) {
                 const match = db.matches.find((m: any) => m.id === query.id);
@@ -248,7 +260,7 @@ function devApiPlugin(): Plugin {
                 matches = matches.filter((m: any) => m.league === query.league);
               }
               if (query.season) {
-                matches = matches.filter((m: any) => (m.season || '2025') === query.season);
+                matches = matches.filter((m: any) => (m.season || activeSeason) === query.season);
               }
               return sendJson(res, 200, matches);
             }
@@ -262,7 +274,7 @@ function devApiPlugin(): Plugin {
                 date: match.date || new Date().toISOString(),
                 is_complete: match.isComplete ?? match.is_complete ?? false,
                 innings: match.innings || [],
-                season: match.season || '2025',
+                season: match.season || activeSeason,
                 tie_breaker: match.tieBreaker || match.tie_breaker,
                 created_at: new Date().toISOString(),
               };

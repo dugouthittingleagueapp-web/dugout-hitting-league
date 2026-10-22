@@ -4,17 +4,30 @@ import pool from './db.js';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   try {
-    // 1. Ensure table exists (Lazy migration with season column)
+    // 1. Ensure table exists with composite (id, season) key
     await pool.query(`
       CREATE TABLE IF NOT EXISTS leagues (
-        id TEXT PRIMARY KEY,
-        season TEXT DEFAULT '2026',
-        created_at TIMESTAMPTZ DEFAULT NOW()
+        id TEXT NOT NULL,
+        season TEXT NOT NULL DEFAULT TO_CHAR(CURRENT_DATE, 'YYYY'),
+        created_at TIMESTAMPTZ DEFAULT NOW(),
+        PRIMARY KEY (id, season)
       );
       DO $$
       BEGIN
         IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='leagues' AND column_name='season') THEN
-          ALTER TABLE leagues ADD COLUMN season TEXT DEFAULT '2026';
+          ALTER TABLE leagues ADD COLUMN season TEXT NOT NULL DEFAULT TO_CHAR(CURRENT_DATE, 'YYYY');
+        END IF;
+
+        IF EXISTS (
+          SELECT 1 FROM information_schema.table_constraints 
+          WHERE table_name = 'leagues' AND constraint_type = 'PRIMARY KEY'
+        ) THEN
+          IF (SELECT count(*) FROM information_schema.key_column_usage WHERE table_name = 'leagues') = 1 THEN
+            ALTER TABLE matches DROP CONSTRAINT IF EXISTS matches_league_fkey;
+            ALTER TABLE teams DROP CONSTRAINT IF EXISTS teams_league_fkey;
+            ALTER TABLE leagues DROP CONSTRAINT IF EXISTS leagues_pkey;
+            ALTER TABLE leagues ADD PRIMARY KEY (id, season);
+          END IF;
         END IF;
       END $$;
     `);
@@ -29,22 +42,30 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(200).json(rows);
     } 
     else if (req.method === 'POST') {
-      const { id, season = '2026' } = req.body;
+      const { id, season } = req.body;
       
       if (!id || typeof id !== 'string' || !id.trim()) {
         return res.status(400).json({ error: 'League Name ID is required and cannot be empty' });
       }
 
       const cleanId = id.trim();
+      let targetSeason = season;
+      if (!targetSeason) {
+        try {
+          const sRes = await pool.query("SELECT value FROM app_settings WHERE key = 'current_season'");
+          targetSeason = sRes.rows[0]?.value;
+        } catch (e) {}
+      }
+      if (!targetSeason) targetSeason = new Date().getFullYear().toString();
 
-      // Use UPSERT (Do Update) to ensure RETURNING * always returns a row, even if it exists
+      // Upsert on composite (id, season)
       const query = `
         INSERT INTO leagues (id, season) VALUES ($1, $2) 
-        ON CONFLICT (id) DO UPDATE SET season = EXCLUDED.season 
+        ON CONFLICT (id, season) DO UPDATE SET id = EXCLUDED.id 
         RETURNING *
       `;
       
-      const { rows } = await pool.query(query, [cleanId, season]);
+      const { rows } = await pool.query(query, [cleanId, targetSeason]);
       
       if (!rows || rows.length === 0) {
         throw new Error("Database executed query but returned no rows.");
@@ -53,13 +74,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(201).json(rows[0]);
     }
     else if (req.method === 'DELETE') {
-      const { id } = req.query;
+      const { id, season } = req.query;
       if (!id || typeof id !== 'string') {
         return res.status(400).json({ error: 'League ID is required' });
       }
       
-      // Due to ON DELETE CASCADE in teams/matches, this will wipe data for that league
-      await pool.query('DELETE FROM leagues WHERE id = $1', [id]);
+      if (season && typeof season === 'string') {
+        await pool.query('DELETE FROM matches WHERE league = $1 AND season = $2', [id, season]);
+        await pool.query('DELETE FROM teams WHERE league = $1 AND season = $2', [id, season]);
+        await pool.query('DELETE FROM leagues WHERE id = $1 AND season = $2', [id, season]);
+      } else {
+        await pool.query('DELETE FROM matches WHERE league = $1', [id]);
+        await pool.query('DELETE FROM teams WHERE league = $1', [id]);
+        await pool.query('DELETE FROM leagues WHERE id = $1', [id]);
+      }
       return res.status(200).json({ success: true });
     }
     

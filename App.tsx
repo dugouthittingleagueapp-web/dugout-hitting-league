@@ -37,7 +37,7 @@ const safeStorage = {
     }
 };
 
-// Helper to get ISO Week Key (YYYY-Www) to group matches chronologically
+// Helper to get ISO Week Key (YYYY-Www) with zero-padded week to ensure natural chronological sorting
 const getWeekKey = (dateStr: string) => {
     const d = new Date(dateStr);
     d.setHours(0, 0, 0, 0);
@@ -46,13 +46,15 @@ const getWeekKey = (dateStr: string) => {
     d.setDate(d.getDate() + 4 - (d.getDay() || 7));
     const yearStart = new Date(d.getFullYear(), 0, 1);
     const weekNo = Math.ceil(( ( (d.getTime() - yearStart.getTime()) / 86400000) + 1) / 7);
-    return `${d.getFullYear()}-W${weekNo}`;
+    const paddedWeek = String(weekNo).padStart(2, '0');
+    return `${d.getFullYear()}-W${paddedWeek}`;
 };
 
 const App: React.FC = () => {
   // Initialize state from localStorage if available to support "refresh current page"
   const [state, setState] = useState<AppState>(() => {
     const saved = safeStorage.getItem('dugout_app_state');
+    const defaultInitialSeason = safeStorage.getItem('dugout_current_season') || String(new Date().getFullYear());
     if (saved) {
         try {
             const parsed = JSON.parse(saved);
@@ -68,13 +70,14 @@ const App: React.FC = () => {
             }
             // Ensure dashboardTab exists
             if (!parsed.dashboardTab) parsed.dashboardTab = 'matches';
+            if (!parsed.season) parsed.season = defaultInitialSeason;
             
             return parsed;
         } catch (e) {
             console.error("Error parsing app state", e);
         }
     }
-    return { view: 'league_select', currentLeague: null, currentMatchId: null, season: '2026', dashboardTab: 'matches' };
+    return { view: 'league_select', currentLeague: null, currentMatchId: null, season: defaultInitialSeason, dashboardTab: 'matches' };
   });
 
   // Persist App State
@@ -90,6 +93,16 @@ const App: React.FC = () => {
   const [selectedAwayId, setSelectedAwayId] = useState('');
   const [showDashboardImport, setShowDashboardImport] = useState(false);
   
+  // Dynamic Season Management State
+  const [activeSeason, setActiveSeason] = useState<string>(() => safeStorage.getItem('dugout_current_season') || String(new Date().getFullYear()));
+  const [availableSeasons, setAvailableSeasons] = useState<string[]>(() => {
+    try {
+      const s = safeStorage.getItem('dugout_available_seasons');
+      if (s) return JSON.parse(s);
+    } catch {}
+    return [safeStorage.getItem('dugout_current_season') || String(new Date().getFullYear())];
+  });
+
   // In-Progress Match Recovery State
   const [resumeMatch, setResumeMatch] = useState<{ id: string; league: string; season: string; homeTeamName: string; awayTeamName: string; inningNumber: number } | null>(null);
   const [dismissedResumeId, setDismissedResumeId] = useState<string | null>(null);
@@ -196,14 +209,17 @@ const App: React.FC = () => {
 
   useEffect(() => {
     const init = async () => {
-        const currentSeason = await storage.getCurrentSeason();
-        const activeSeason = currentSeason || '2026';
-        const ls = await storage.getLeagues(activeSeason);
+        const curSeason = await storage.getCurrentSeason();
+        const seasonsList = await storage.getAvailableSeasons();
+        const liveSeason = curSeason || String(new Date().getFullYear());
+        setActiveSeason(liveSeason);
+        setAvailableSeasons(seasonsList);
+        const ls = await storage.getLeagues(liveSeason);
         setLeagues(ls);
         
         setState(s => {
             if (s.view === 'league_select' && !s.currentLeague) {
-                 return { ...s, season: activeSeason };
+                 return { ...s, season: liveSeason };
             }
             return s;
         });
@@ -211,7 +227,7 @@ const App: React.FC = () => {
     init();
   }, []);
 
-  // Sync leagues whenever the active season changes (e.g. browsing 2025 archive)
+  // Sync leagues whenever the selected season changes (active season or any past archive)
   useEffect(() => {
     if (state.season) {
       storage.getLeagues(state.season).then(setLeagues).catch(console.error);
@@ -634,7 +650,7 @@ const App: React.FC = () => {
               m.tieBreaker.forEach(tb => {
                   const addTbScore = (pid: string, scores: (number|null)[]) => {
                       if (!Array.isArray(scores)) return;
-                      const pts = scores.reduce((sum, s) => sum + (s || 0), 0);
+                      const pts = scores.reduce<number>((sum, s) => (sum || 0) + (s || 0), 0);
                       matchPlayerTotals.set(pid, (matchPlayerTotals.get(pid) || 0) + pts);
                   };
                   if (tb.homePlayerId) addTbScore(tb.homePlayerId, tb.homeScores);
@@ -728,7 +744,7 @@ const App: React.FC = () => {
              tb.forEach(r => {
                  const rScore = side === 'home' ? r?.homeScores : r?.awayScores;
                  if (Array.isArray(rScore)) {
-                     score += rScore.reduce((a,b) => a + (b||0), 0);
+                     score += rScore.reduce<number>((a, b) => (a || 0) + (b || 0), 0);
                  }
              });
          }
@@ -795,6 +811,8 @@ const App: React.FC = () => {
   const navbarProps = {
       currentLeague: state.currentLeague,
       currentSeason: state.season,
+      activeSeason: activeSeason,
+      availableSeasons: availableSeasons,
       leagues: leagues,
       userRole: userRole,
       showLeagueHomeButton: state.view !== 'dashboard' && !!state.currentLeague,
@@ -871,18 +889,18 @@ const App: React.FC = () => {
             </div>
         )}
 
-        {/* Archive Banner (Shown when viewing 2025 Historical Records) */}
-        {state.season !== '2026' && (
+        {/* Archive Banner (Shown when viewing any historical archived season) */}
+        {state.season !== activeSeason && (
             <div className="bg-amber-500/15 border-b border-amber-500/30 text-amber-900 dark:text-amber-200 px-4 py-2.5 flex items-center justify-between text-xs font-bold font-sans z-[1100] relative">
                 <div className="flex items-center gap-2">
                     <span className="w-2.5 h-2.5 rounded-full bg-amber-500 animate-pulse"></span>
                     <span>ARCHIVE MODE: Viewing {state.season} Season History (Historical Data)</span>
                 </div>
                 <button 
-                    onClick={() => setState(s => ({ ...s, season: '2026', currentLeague: null, view: 'league_select' }))} 
-                    className="px-3 py-1 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-xs font-bold transition-colors shadow-sm"
+                    onClick={() => setState(s => ({ ...s, season: activeSeason, currentLeague: null, view: 'league_select' }))} 
+                    className="px-3 py-1 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-xs font-bold transition-colors shadow-sm cursor-pointer"
                 >
-                    Return to 2026 Season
+                    Return to {activeSeason} Season
                 </button>
             </div>
         )}
@@ -912,8 +930,8 @@ const App: React.FC = () => {
                                 <div className="w-16 h-16 bg-slate-100 dark:bg-slate-800 rounded-full flex items-center justify-center mx-auto mb-4">
                                     <svg className="w-8 h-8 text-slate-400 dark:text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
                                 </div>
-                                <h3 className="text-xl font-bold text-slate-800 dark:text-white mb-2">No 2026 Leagues Found</h3>
-                                <p className="text-slate-500 dark:text-slate-400 mb-6 text-sm">The 2026 season is ready. Create your first league category to begin.</p>
+                                <h3 className="text-xl font-bold text-slate-800 dark:text-white mb-2">No {state.season} Leagues Found</h3>
+                                <p className="text-slate-500 dark:text-slate-400 mb-6 text-sm">The {state.season} season is ready. Create your first league category to begin.</p>
                                 {userRole === 'admin' ? (
                                     <button onClick={() => setState(s => ({ ...s, view: 'admin' }))} className="w-full px-4 py-3 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-500 transition-all shadow-lg shadow-blue-900/20">Go to Admin to Create Leagues</button>
                                 ) : (
@@ -959,7 +977,14 @@ const App: React.FC = () => {
                 <div className="flex-1 bg-slate-50 dark:bg-slate-950 text-slate-800 dark:text-slate-200 w-full">
                     <AdminDashboard 
                         onBack={() => setState({ ...state, view: 'league_select' })} 
-                        onBrowseArchive={(archiveSeason) => setState(s => ({ ...s, season: archiveSeason, view: 'league_select', currentLeague: null }))} 
+                        onBrowseArchive={(archiveSeason) => setState(s => ({ ...s, season: archiveSeason, view: 'league_select', currentLeague: null }))}
+                        onSeasonUpdated={async () => {
+                            const newActive = await storage.getCurrentSeason();
+                            const seasonsList = await storage.getAvailableSeasons();
+                            setActiveSeason(newActive);
+                            setAvailableSeasons(seasonsList);
+                            setState(s => ({ ...s, season: newActive, currentLeague: null }));
+                        }}
                     />
                 </div>
             )}

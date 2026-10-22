@@ -9,7 +9,7 @@ DUGOUT HITTING LEAGUE - OPERATIONAL GUIDE
 2. SETTING UP (Admin)
    - Create League: Use the Admin Dashboard to create categories (e.g., Varsity, 10u).
    - Team Rosters: Enter First Name (Display) and optional Last Name (Admin tracking).
-   - Active Season: Admin can switch seasons (e.g., 2025 to 2026) to archive old data.
+   - Active Season: Admin can create and switch seasons (e.g., 2027, 2028, etc.) to archive old data and rollover clean brackets.
 
 3. MATCH WORKFLOW
    - Log in as Umpire or Admin.

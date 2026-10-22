@@ -8,13 +8,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     await pool.query(`
       CREATE TABLE IF NOT EXISTS matches (
         id UUID PRIMARY KEY,
-        league TEXT NOT NULL REFERENCES leagues(id) ON DELETE CASCADE,
+        league TEXT NOT NULL,
         home_team_id UUID REFERENCES teams(id) ON DELETE CASCADE,
         away_team_id UUID REFERENCES teams(id) ON DELETE CASCADE,
         date TIMESTAMPTZ NOT NULL,
         is_complete BOOLEAN DEFAULT FALSE,
         innings JSONB NOT NULL,
-        season TEXT NOT NULL DEFAULT '2025',
+        season TEXT NOT NULL DEFAULT TO_CHAR(CURRENT_DATE, 'YYYY'),
         created_at TIMESTAMPTZ DEFAULT NOW()
       );
 
@@ -22,7 +22,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       DO $$ 
       BEGIN 
         IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='matches' AND column_name='season') THEN 
-          ALTER TABLE matches ADD COLUMN season TEXT NOT NULL DEFAULT '2025'; 
+          ALTER TABLE matches ADD COLUMN season TEXT NOT NULL DEFAULT TO_CHAR(CURRENT_DATE, 'YYYY'); 
         END IF; 
       END $$;
     `);
@@ -61,7 +61,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     else if (req.method === 'POST') {
       const { id, league, homeTeamId, awayTeamId, date, isComplete, innings, season } = req.body;
       
-      const matchSeason = season || '2026';
+      let matchSeason = season;
+      if (!matchSeason) {
+        try {
+          const sRes = await pool.query("SELECT value FROM app_settings WHERE key = 'current_season'");
+          matchSeason = sRes.rows[0]?.value;
+        } catch (e) {}
+      }
+      if (!matchSeason) matchSeason = new Date().getFullYear().toString();
 
       const query = `INSERT INTO matches (id, league, home_team_id, away_team_id, date, is_complete, innings, season) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *`;
       const values = [id, league, homeTeamId, awayTeamId, date, isComplete, JSON.stringify(innings), matchSeason];

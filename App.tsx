@@ -587,7 +587,7 @@ const App: React.FC = () => {
           setState(s => ({ ...s, view: 'admin' }));
         }
       } else {
-        setLoginError(result.error || 'Incorrect password. Default: "admin" or "umpire"');
+        setLoginError(result.error || 'Incorrect password.');
       }
     } catch (err: any) {
       setLoading(false);
@@ -1376,16 +1376,16 @@ const App: React.FC = () => {
         {showLoginModal && createPortal(
           <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/80 backdrop-blur-sm animate-in fade-in duration-200" onClick={() => setShowLoginModal(false)}>
             <div className="bg-slate-900 p-6 sm:p-8 rounded-2xl shadow-2xl w-full max-w-sm transform scale-100 animate-in zoom-in-95 duration-200 font-sans border border-slate-700 mx-4" onClick={e => e.stopPropagation()}>
-              <div className="flex justify-between items-center mb-4">
-                <h3 className="text-xl font-bold text-white font-sans">Access Control</h3>
-                <button onClick={() => setShowLoginModal(false)} className="text-slate-400 hover:text-white text-xl font-bold p-1">&times;</button>
+              <div className="flex justify-between items-center mb-3">
+                <h3 className="text-lg sm:text-xl font-bold text-white font-sans">Access Control</h3>
+                <button onClick={() => setShowLoginModal(false)} className="text-slate-400 hover:text-white text-xl font-bold p-1 cursor-pointer">&times;</button>
               </div>
               <p className="text-xs sm:text-sm text-slate-400 mb-5 font-sans leading-relaxed">
                 Enter your password to sign in as an <strong className="text-slate-200 font-semibold">Administrator</strong> or <strong className="text-slate-200 font-semibold">Umpire (Scorer)</strong>.
               </p>
               
               <form onSubmit={handleLoginSubmit}>
-                <div className="mb-4">
+                <div className="mb-6">
                   <div className="relative">
                     <input 
                       type={showPassword ? "text" : "password"} 
@@ -1394,7 +1394,7 @@ const App: React.FC = () => {
                       autoCorrect="off"
                       autoComplete="current-password"
                       spellCheck={false}
-                      className={`w-full bg-slate-950 border rounded-xl px-4 py-3 pr-12 text-base outline-none focus:ring-2 text-white placeholder-slate-500 font-sans ${loginError ? 'border-red-500 focus:ring-red-900' : 'border-slate-700 focus:ring-blue-600'}`} 
+                      className={`w-full bg-slate-950 border rounded-xl px-4 py-3 pr-14 text-base outline-none focus:ring-2 text-white placeholder-slate-500 font-sans ${loginError ? 'border-red-500 focus:ring-red-900' : 'border-slate-700 focus:ring-blue-600'}`} 
                       value={passwordInput} 
                       onChange={e => {
                         setPasswordInput(e.target.value);
@@ -1405,7 +1405,7 @@ const App: React.FC = () => {
                     <button 
                       type="button" 
                       onClick={() => setShowPassword(!showPassword)}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white p-1 text-xs font-semibold select-none"
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white p-1 text-xs font-semibold select-none cursor-pointer"
                       title={showPassword ? "Hide password" : "Show password"}
                     >
                       {showPassword ? "Hide" : "Show"}
@@ -1414,42 +1414,18 @@ const App: React.FC = () => {
                   {loginError && <p className="text-red-400 text-xs mt-2 font-bold font-sans bg-red-950/40 p-2 rounded-lg border border-red-900/40">{loginError}</p>}
                 </div>
 
-                <div className="bg-slate-950/70 p-3 rounded-xl border border-slate-800 text-[11px] text-slate-400 mb-5 space-y-1">
-                  <div className="font-bold uppercase tracking-wider text-[10px] text-slate-500">Default Access</div>
-                  <div className="flex justify-between">
-                    <span>Admin:</span>
-                    <button 
-                      type="button" 
-                      onClick={() => setPasswordInput('admin')} 
-                      className="text-blue-400 hover:text-blue-300 font-mono font-bold hover:underline cursor-pointer"
-                    >
-                      admin
-                    </button>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>Umpire:</span>
-                    <button 
-                      type="button" 
-                      onClick={() => setPasswordInput('umpire')} 
-                      className="text-blue-400 hover:text-blue-300 font-mono font-bold hover:underline cursor-pointer"
-                    >
-                      umpire
-                    </button>
-                  </div>
-                </div>
-
                 <div className="flex gap-2">
                   <button 
                     type="button" 
                     onClick={() => setShowLoginModal(false)} 
-                    className="flex-1 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold py-3 rounded-xl transition-colors font-sans text-sm"
+                    className="flex-1 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold py-3 rounded-xl transition-colors font-sans text-sm cursor-pointer"
                   >
                     Cancel
                   </button>
                   <button 
                     type="submit" 
                     disabled={loading || !passwordInput.trim()} 
-                    className="flex-1 bg-blue-600 text-white font-bold py-3 rounded-xl hover:bg-blue-500 disabled:opacity-50 transition-colors font-sans shadow-lg shadow-blue-900/20 text-sm"
+                    className="flex-1 bg-blue-600 text-white font-bold py-3 rounded-xl hover:bg-blue-500 disabled:opacity-50 transition-colors font-sans shadow-lg shadow-blue-900/20 text-sm cursor-pointer"
                   >
                     {loading ? 'Verifying...' : 'Log In'}
                   </button>

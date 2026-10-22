@@ -199,52 +199,79 @@ export const AdminDashboard: React.FC<{
   });
   
   return (
-    <div className="max-w-5xl mx-auto p-6 pb-24">
-      <div className="flex justify-between items-center mb-8">
-          <h2 className="text-3xl font-bold text-slate-800 dark:text-white font-sans">Admin Dashboard</h2>
-          <div className="flex gap-3">
-              <button onClick={() => setShowGuide(true)} className="px-4 py-2 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 hover:bg-blue-200 dark:hover:bg-blue-900/50 rounded font-medium font-sans transition-colors">User Guide</button>
-              <button onClick={onBack} className="px-4 py-2 bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 rounded text-slate-700 dark:text-slate-300 font-medium font-sans transition-colors">Exit Admin</button>
+    <div className="max-w-5xl mx-auto px-3 sm:px-6 py-4 sm:py-6 pb-24 w-full font-sans">
+      {/* Top Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-5 sm:mb-8">
+          <div>
+              <h2 className="text-xl sm:text-3xl font-black text-slate-900 dark:text-white font-sans tracking-tight">Admin Dashboard</h2>
+              <p className="text-xs text-slate-500 dark:text-slate-400 font-sans mt-0.5">Manage divisions, seasons, rosters, and system security</p>
+          </div>
+          <div className="flex items-center gap-2 self-start sm:self-auto">
+              <button 
+                  onClick={() => setShowGuide(true)} 
+                  className="px-3 py-1.5 sm:px-4 sm:py-2 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 hover:bg-blue-200 dark:hover:bg-blue-900/50 rounded-lg text-xs sm:text-sm font-bold font-sans transition-colors cursor-pointer"
+              >
+                  Guide
+              </button>
+              <button 
+                  onClick={onBack} 
+                  className="px-3 py-1.5 sm:px-4 sm:py-2 bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 rounded-lg text-slate-700 dark:text-slate-300 text-xs sm:text-sm font-bold font-sans transition-colors cursor-pointer"
+              >
+                  ← Exit Admin
+              </button>
           </div>
       </div>
-      <div className="grid gap-8">
+
+      <div className="space-y-4 sm:space-y-6">
         
-        {/* Configuration */}
-        <section className="bg-white/60 dark:bg-slate-900/60 backdrop-blur-xl p-6 rounded-xl shadow border border-slate-200 dark:border-slate-800">
-            <h3 className="text-xl font-bold text-slate-700 dark:text-slate-300 mb-4 font-sans">League Configuration</h3>
+        {/* 1. Configuration */}
+        <section className="bg-white/70 dark:bg-slate-900/70 backdrop-blur-xl p-4 sm:p-6 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800">
+            <h3 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white mb-3 font-sans">Division Configuration</h3>
             
-            <div className="mb-6">
-                <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase mb-1 font-sans">Create New League Category</label>
-                <div className="flex gap-3">
-                    <input type="text" value={newLeagueName} onChange={e => setNewLeagueName(e.target.value)} placeholder="e.g. 12u, Varsity" className="flex-1 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 text-slate-900 dark:text-white rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 outline-none font-sans" />
-                    <button onClick={handleCreateLeague} disabled={creatingLeague} className="bg-green-600 text-white px-6 py-2 rounded-lg hover:bg-green-700 font-bold disabled:opacity-50 font-sans">{creatingLeague ? 'Creating...' : 'Create'}</button>
+            <div className="mb-5">
+                <label className="block text-[11px] sm:text-xs font-bold text-slate-500 dark:text-slate-400 uppercase mb-1.5 font-sans">Create New League Division</label>
+                <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
+                    <input 
+                        type="text" 
+                        value={newLeagueName} 
+                        onChange={e => setNewLeagueName(e.target.value)} 
+                        placeholder="e.g. 10u, 12u, Varsity" 
+                        className="flex-1 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 text-slate-900 dark:text-white rounded-xl px-3.5 py-2 sm:py-2.5 text-sm focus:ring-2 focus:ring-blue-500 outline-none font-sans" 
+                    />
+                    <button 
+                        onClick={handleCreateLeague} 
+                        disabled={creatingLeague || !newLeagueName.trim()} 
+                        className="bg-green-600 text-white px-5 py-2 sm:py-2.5 rounded-xl hover:bg-green-700 font-bold text-xs sm:text-sm disabled:opacity-50 font-sans transition-colors cursor-pointer"
+                    >
+                        {creatingLeague ? 'Creating...' : '+ Create Division'}
+                    </button>
                 </div>
             </div>
 
-            <div className="mt-6 border-t border-slate-100 dark:border-slate-800 pt-6">
-                <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase mb-2 font-sans">Existing Leagues ({currentSeason} Season)</label>
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+            <div className="mt-5 border-t border-slate-100 dark:border-slate-800 pt-4">
+                <label className="block text-[11px] sm:text-xs font-bold text-slate-500 dark:text-slate-400 uppercase mb-2 font-sans">Existing Divisions ({currentSeason} Season)</label>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 sm:gap-3">
                     {leagues.map(l => (
-                        <div key={l.id} className="flex justify-between items-center p-3 bg-slate-50 dark:bg-slate-950 rounded-lg border border-slate-200 dark:border-slate-800">
-                            <span className="font-bold text-slate-700 dark:text-slate-300 font-sans">{l.id}</span>
+                        <div key={l.id} className="flex justify-between items-center p-2.5 sm:p-3 bg-slate-50 dark:bg-slate-950 rounded-xl border border-slate-200 dark:border-slate-800">
+                            <span className="font-bold text-slate-800 dark:text-white font-sans text-xs sm:text-sm truncate">{l.id}</span>
                             <button 
                                 onClick={() => handleDeleteLeague(l.id)}
-                                className="text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20 p-2 rounded transition-colors"
-                                title="Delete League"
+                                className="text-red-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 p-1.5 rounded-lg transition-colors cursor-pointer shrink-0"
+                                title="Delete Division"
                             >
                                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
                             </button>
                         </div>
                     ))}
-                    {leagues.length === 0 && <div className="text-sm text-slate-400 italic font-sans">No leagues found for {currentSeason}. Create one above or switch seasons.</div>}
+                    {leagues.length === 0 && <div className="col-span-full text-xs text-slate-400 italic font-sans py-2">No divisions found for {currentSeason}. Create one above or activate a season.</div>}
                 </div>
             </div>
 
-            <div className="pt-6 border-t border-slate-100 dark:border-slate-800 mt-6 space-y-6">
+            <div className="pt-4 border-t border-slate-100 dark:border-slate-800 mt-5 space-y-4 sm:space-y-5">
                 <div>
-                    <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase mb-1 font-sans">Active Season</label>
+                    <label className="block text-[11px] sm:text-xs font-bold text-slate-500 dark:text-slate-400 uppercase mb-1 font-sans">Active Season</label>
                     <div className="flex items-center gap-2">
-                        <span className="text-2xl font-black text-blue-600 dark:text-blue-400 font-sans">{currentSeason}</span>
+                        <span className="text-xl sm:text-2xl font-black text-blue-600 dark:text-blue-400 font-sans">{currentSeason}</span>
                         <span className="text-[10px] uppercase font-bold px-2 py-0.5 rounded bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-300">Live Active</span>
                     </div>
                 </div>
@@ -254,24 +281,24 @@ export const AdminDashboard: React.FC<{
                     const archivedSeasons = allSeasons.filter(s => s !== currentSeason);
                     if (archivedSeasons.length === 0) return null;
                     return (
-                        <div className="space-y-3">
-                            <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase font-sans">
-                                Preserved Historical Archives ({archivedSeasons.length})
+                        <div className="space-y-2.5">
+                            <label className="block text-[11px] sm:text-xs font-bold text-slate-500 dark:text-slate-400 uppercase font-sans">
+                                Historical Archives ({archivedSeasons.length})
                             </label>
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                                 {archivedSeasons.map(archSeason => (
-                                    <div key={archSeason} className="bg-slate-50 dark:bg-slate-950 p-4 rounded-xl border border-slate-200 dark:border-slate-800 flex items-center justify-between gap-3">
-                                        <div>
-                                            <div className="flex items-center gap-2 mb-0.5">
-                                                <h4 className="text-sm font-bold text-slate-800 dark:text-white font-sans">{archSeason} Season</h4>
-                                                <span className="text-[9px] uppercase font-bold px-1.5 py-0.5 rounded bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300">Preserved</span>
+                                    <div key={archSeason} className="bg-slate-50 dark:bg-slate-950 p-3 rounded-xl border border-slate-200 dark:border-slate-800 flex items-center justify-between gap-2.5">
+                                        <div className="min-w-0">
+                                            <div className="flex items-center gap-1.5 mb-0.5">
+                                                <h4 className="text-xs sm:text-sm font-bold text-slate-800 dark:text-white font-sans">{archSeason} Season</h4>
+                                                <span className="text-[9px] uppercase font-bold px-1.5 py-0.2 rounded bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300">Archive</span>
                                             </div>
-                                            <p className="text-[11px] text-slate-500 dark:text-slate-400 font-sans">Historical leagues, rosters, and match scoreboards.</p>
+                                            <p className="text-[10px] text-slate-500 dark:text-slate-400 font-sans truncate">Preserved leagues, rosters & scores.</p>
                                         </div>
                                         {onBrowseArchive && (
                                             <button 
                                                 onClick={() => onBrowseArchive(archSeason)} 
-                                                className="px-3.5 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-xs font-bold font-sans transition-colors shrink-0 shadow-sm"
+                                                className="px-2.5 py-1.5 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-xs font-bold font-sans transition-colors shrink-0 shadow-sm cursor-pointer"
                                             >
                                                 Browse {archSeason}
                                             </button>
@@ -284,91 +311,140 @@ export const AdminDashboard: React.FC<{
                 })()}
 
                 <div className="border-t border-slate-100 dark:border-slate-800 pt-4">
-                    <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase mb-1 font-sans">Create & Switch to New Active Season</label>
-                    <p className="text-xs text-slate-500 dark:text-slate-400 mb-3 font-sans">
-                        Moving to next year (e.g. 2027, 2028)? Entering a new year archives the current season with full history and rolls over divisions as clean blank brackets for the new year.
+                    <label className="block text-[11px] sm:text-xs font-bold text-slate-500 dark:text-slate-400 uppercase mb-1 font-sans">Create & Switch to New Active Season</label>
+                    <p className="text-xs text-slate-500 dark:text-slate-400 mb-2.5 font-sans leading-relaxed">
+                        Moving to next year? Activating a new year archives the current season with full history and carries over divisions as clean brackets.
                     </p>
-                    <div className="flex gap-3">
-                        <input type="text" value={newSeasonInput} onChange={e => setNewSeasonInput(e.target.value)} placeholder={`e.g. ${Number(currentSeason) ? Number(currentSeason) + 1 : new Date().getFullYear() + 1}`} className="w-40 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 text-slate-900 dark:text-white rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 outline-none font-sans" />
-                        <button onClick={handleUpdateSeason} className="bg-slate-700 dark:bg-slate-600 text-white px-6 py-2 rounded-lg hover:bg-slate-800 dark:hover:bg-slate-500 font-bold font-sans">Activate Season</button>
+                    <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
+                        <input 
+                            type="text" 
+                            value={newSeasonInput} 
+                            onChange={e => setNewSeasonInput(e.target.value)} 
+                            placeholder={`e.g. ${Number(currentSeason) ? Number(currentSeason) + 1 : new Date().getFullYear() + 1}`} 
+                            className="w-full sm:w-44 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 text-slate-900 dark:text-white rounded-xl px-3.5 py-2 sm:py-2.5 text-sm focus:ring-2 focus:ring-blue-500 outline-none font-sans" 
+                        />
+                        <button 
+                            onClick={handleUpdateSeason} 
+                            disabled={!newSeasonInput.trim()}
+                            className="w-full sm:w-auto bg-slate-700 dark:bg-slate-600 text-white px-5 py-2 sm:py-2.5 rounded-xl hover:bg-slate-800 dark:hover:bg-slate-500 disabled:opacity-50 font-bold text-xs sm:text-sm font-sans transition-colors cursor-pointer"
+                        >
+                            Activate Season
+                        </button>
                     </div>
                 </div>
             </div>
         </section>
 
-        {/* Bulk Move Teams */}
-        <section className="bg-white/60 dark:bg-slate-900/60 backdrop-blur-xl p-6 rounded-xl shadow border border-slate-200 dark:border-slate-800">
-            <h3 className="text-xl font-bold text-slate-700 dark:text-slate-300 mb-4 font-sans">Bulk Move Teams</h3>
-            <p className="text-sm text-slate-500 dark:text-slate-400 mb-6 font-sans">Select teams to move them to a different league. All match history and stats will follow the team to the new league.</p>
+        {/* 2. Bulk Move Teams */}
+        <section className="bg-white/70 dark:bg-slate-900/70 backdrop-blur-xl p-4 sm:p-6 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800">
+            <h3 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white mb-1.5 font-sans">Bulk Move Teams</h3>
+            <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mb-4 font-sans leading-relaxed">Select teams to move them to a different league division. Match history and player stats will transfer automatically.</p>
             
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6 max-h-96 overflow-y-auto pr-2">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 mb-4 max-h-60 sm:max-h-72 overflow-y-auto pr-1">
                 {Object.keys(teamsByLeague).map(league => (
-                    <div key={league} className="bg-slate-50 dark:bg-slate-950 p-4 rounded-lg border border-slate-200 dark:border-slate-800">
-                        <h4 className="font-bold text-blue-600 dark:text-blue-400 uppercase text-xs mb-3 border-b border-slate-200 dark:border-slate-800 pb-2">{league} League</h4>
-                        <div className="space-y-2">
+                    <div key={league} className="bg-slate-50 dark:bg-slate-950 p-3 rounded-xl border border-slate-200 dark:border-slate-800">
+                        <h4 className="font-bold text-blue-600 dark:text-blue-400 uppercase text-[11px] mb-2 border-b border-slate-200 dark:border-slate-800 pb-1.5">{league} Division</h4>
+                        <div className="space-y-1.5">
                             {teamsByLeague[league].map(team => (
-                                <label key={team.id} className="flex items-center gap-2 cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-900 p-1 rounded transition-colors">
+                                <label key={team.id} className="flex items-center gap-2 cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-900 p-1 rounded-lg transition-colors">
                                     <input 
                                         type="checkbox" 
                                         className="w-4 h-4 text-blue-600 rounded" 
                                         checked={selectedTeamIds.has(team.id)} 
                                         onChange={() => toggleTeamSelection(team.id)} 
                                     />
-                                    <span className="text-sm font-medium text-slate-700 dark:text-slate-300 font-sans truncate">{team.name}</span>
+                                    <span className="text-xs font-medium text-slate-700 dark:text-slate-300 font-sans truncate">{team.name}</span>
                                 </label>
                             ))}
                         </div>
                     </div>
                 ))}
+                {allTeams.length === 0 && (
+                    <div className="col-span-full text-xs text-slate-400 italic py-2">No teams registered yet.</div>
+                )}
             </div>
             
-            <div className="flex flex-col sm:flex-row gap-4 items-end border-t border-slate-200 dark:border-slate-800 pt-4">
+            <div className="flex flex-col sm:flex-row gap-2.5 sm:gap-3 items-stretch sm:items-end border-t border-slate-200 dark:border-slate-800 pt-3.5">
                 <div className="w-full sm:flex-1">
-                    <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase mb-1 font-sans">Destination League</label>
+                    <label className="block text-[11px] sm:text-xs font-bold text-slate-500 dark:text-slate-400 uppercase mb-1 font-sans">Destination Division</label>
                     <select 
-                        className="w-full p-3 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 rounded-lg font-bold text-slate-800 dark:text-white font-sans"
+                        className="w-full p-2 sm:p-2.5 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 rounded-xl font-bold text-xs sm:text-sm text-slate-800 dark:text-white font-sans"
                         value={targetLeagueForMove}
                         onChange={e => setTargetLeagueForMove(e.target.value)}
                     >
-                        <option value="">Select Target League...</option>
+                        <option value="">Select Destination Division...</option>
                         {leagues.map(l => <option key={l.id} value={l.id}>{l.id}</option>)}
                     </select>
                 </div>
                 <button 
                     onClick={handleBulkMove} 
                     disabled={selectedTeamIds.size === 0 || !targetLeagueForMove || movingTeams}
-                    className="w-full sm:w-auto px-6 py-3 bg-blue-600 text-white font-bold rounded-lg shadow-lg shadow-blue-900/20 hover:bg-blue-500 disabled:opacity-50 transition-all font-sans"
+                    className="w-full sm:w-auto px-5 py-2.5 bg-blue-600 text-white font-bold text-xs sm:text-sm rounded-xl shadow-md hover:bg-blue-500 disabled:opacity-50 transition-all font-sans cursor-pointer"
                 >
                     {movingTeams ? 'Moving...' : `Move ${selectedTeamIds.size} Selected Team(s)`}
                 </button>
             </div>
         </section>
 
-        {/* Passwords */}
-        <section className="bg-white/60 dark:bg-slate-900/60 backdrop-blur-xl p-6 rounded-xl shadow border border-slate-200 dark:border-slate-800">
-            <h3 className="text-xl font-bold text-slate-700 dark:text-slate-300 mb-4 font-sans">Access Control</h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        {/* 3. Passwords */}
+        <section className="bg-white/70 dark:bg-slate-900/70 backdrop-blur-xl p-4 sm:p-6 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800">
+            <h3 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white mb-1.5 font-sans">Access Control Passwords</h3>
+            <p className="text-xs text-slate-500 dark:text-slate-400 mb-4 font-sans">Update administrator and umpire passwords anytime.</p>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
                 <div>
-                    <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase mb-1 font-sans">New Admin Password</label>
-                    <div className="flex gap-3">
-                        <input type="text" value={newAdminPw} onChange={e => setNewAdminPw(e.target.value)} placeholder="New Admin Pass" className="w-full border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 text-slate-900 dark:text-white rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 outline-none font-sans" />
-                        <button onClick={handleUpdateAdminPw} className="bg-slate-600 dark:bg-slate-700 text-white px-4 py-2 rounded-lg hover:bg-slate-700 dark:hover:bg-slate-600 font-bold text-sm font-sans">Update</button>
+                    <label className="block text-[11px] sm:text-xs font-bold text-slate-500 dark:text-slate-400 uppercase mb-1 font-sans">New Admin Password</label>
+                    <div className="flex gap-2">
+                        <input 
+                            type="text" 
+                            value={newAdminPw} 
+                            onChange={e => setNewAdminPw(e.target.value)} 
+                            placeholder="Enter new admin password" 
+                            className="flex-1 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 text-slate-900 dark:text-white rounded-xl px-3 py-2 text-xs sm:text-sm focus:ring-2 focus:ring-blue-500 outline-none font-sans" 
+                        />
+                        <button 
+                            onClick={handleUpdateAdminPw} 
+                            disabled={!newAdminPw.trim()}
+                            className="bg-slate-700 dark:bg-slate-600 text-white px-4 py-2 rounded-xl hover:bg-slate-800 dark:hover:bg-slate-500 disabled:opacity-50 font-bold text-xs font-sans transition-colors cursor-pointer"
+                        >
+                            Update
+                        </button>
                     </div>
                 </div>
                 <div>
-                    <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase mb-1 font-sans">New Umpire Password</label>
-                    <div className="flex gap-3">
-                        <input type="text" value={newUmpirePw} onChange={e => setNewUmpirePw(e.target.value)} placeholder="New Umpire Pass" className="w-full border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 text-slate-900 dark:text-white rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 outline-none font-sans" />
-                        <button onClick={handleUpdateUmpirePw} className="bg-amber-600 text-white px-4 py-2 rounded-lg hover:bg-amber-700 font-bold text-sm font-sans">Update</button>
+                    <label className="block text-[11px] sm:text-xs font-bold text-slate-500 dark:text-slate-400 uppercase mb-1 font-sans">New Umpire Password</label>
+                    <div className="flex gap-2">
+                        <input 
+                            type="text" 
+                            value={newUmpirePw} 
+                            onChange={e => setNewUmpirePw(e.target.value)} 
+                            placeholder="Enter new umpire password" 
+                            className="flex-1 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 text-slate-900 dark:text-white rounded-xl px-3 py-2 text-xs sm:text-sm focus:ring-2 focus:ring-blue-500 outline-none font-sans" 
+                        />
+                        <button 
+                            onClick={handleUpdateUmpirePw} 
+                            disabled={!newUmpirePw.trim()}
+                            className="bg-amber-600 text-white px-4 py-2 rounded-xl hover:bg-amber-700 disabled:opacity-50 font-bold text-xs font-sans transition-colors cursor-pointer"
+                        >
+                            Update
+                        </button>
                     </div>
                 </div>
             </div>
         </section>
 
-        {/* Data */}
-        <section className="bg-white/60 dark:bg-slate-900/60 backdrop-blur-xl p-6 rounded-xl shadow border border-slate-200 dark:border-slate-800">
-            <h3 className="text-xl font-bold text-slate-700 dark:text-slate-300 mb-4 font-sans">Data Management</h3>
-            <button onClick={handleExport} className="flex items-center gap-2 bg-blue-600 text-white px-5 py-3 rounded-lg hover:bg-blue-700 transition-colors font-sans">Export JSON Database</button>
+        {/* 4. Data Management */}
+        <section className="bg-white/70 dark:bg-slate-900/70 backdrop-blur-xl p-4 sm:p-6 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div>
+                <h3 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white font-sans">Data Management</h3>
+                <p className="text-xs text-slate-500 dark:text-slate-400 font-sans mt-0.5">Download a backup of all leagues, teams, and match scoreboards as JSON.</p>
+            </div>
+            <button 
+                onClick={handleExport} 
+                className="flex items-center justify-center gap-2 bg-blue-600 text-white px-4 py-2.5 rounded-xl hover:bg-blue-500 font-bold text-xs sm:text-sm shadow-md transition-colors font-sans cursor-pointer self-start sm:self-auto"
+            >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+                <span>Export JSON Database</span>
+            </button>
         </section>
       </div>
 

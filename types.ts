@@ -86,3 +86,44 @@ export interface MatchSummaryData {
   teams: { name: string; league: string }[];
   recentMatches: { date: string; league: string; finished: boolean }[];
 }
+
+export interface PlayerSeasonStatRow {
+  season: string;
+  leagueId: string;
+  teamName: string;
+  gamesPlayed: number;
+  totalPoints: number;
+  hits4: number;
+  hits3: number;
+  hits2: number;
+  hits1: number;
+  pitchesSeen: number;
+  pointsPerPitch: number; // totalPoints / pitchesSeen
+  hitPercentage: number;   // (hits4 + hits3 + hits2 + hits1) / pitchesSeen * 100
+}
+
+export interface PlayerCareerSummary {
+  playerName: string;
+  seasons: PlayerSeasonStatRow[];
+  careerTotals: {
+    seasonsCount: number;
+    gamesPlayed: number;
+    totalPoints: number;
+    hits4: number;
+    hits3: number;
+    hits2: number;
+    hits1: number;
+    pitchesSeen: number;
+    pointsPerPitch: number;
+    hitPercentage: number;
+  };
+  seasonAverages: {
+    gamesPlayed: number;
+    totalPoints: number;
+    hits4: number;
+    hits3: number;
+    hits2: number;
+    hits1: number;
+    pitchesSeen: number;
+  };
+}

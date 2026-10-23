@@ -1,6 +1,6 @@
 {
-  "summary":  "Implementation plan for Hands-Free Voice Scoring (numbers 0-4 and Undo) with simultaneous touch scoring, and Admin Multi-Option Roster Import (Paste text, CSV spreadsheet, and Photo/Screenshot AI parsing).",
-  "updatedAt":  "2026-10-20T16:57:10.109201523Z",
+  "summary":  "Comprehensive implementation plan for multi-year player career stats modal (modeled after baseball reference career batting cards) and clean season rollovers that keep past season stats and matches strictly archived.",
+  "updatedAt":  "2026-10-23T12:34:16.768983486Z",
   "requestFeedback":  true,
   "userFacing":  true
 }

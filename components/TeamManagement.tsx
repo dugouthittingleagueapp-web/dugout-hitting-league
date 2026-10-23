@@ -8,6 +8,7 @@ interface TeamManagementProps {
   league: AgeGroup;
   season: string;
   onBack: () => void;
+  onPlayerClick?: (playerName: string) => void;
 }
 
 interface EditablePlayer {
@@ -16,7 +17,7 @@ interface EditablePlayer {
   lastName: string; // Last Name
 }
 
-export const TeamManagement: React.FC<TeamManagementProps> = ({ league, season, onBack }) => {
+export const TeamManagement: React.FC<TeamManagementProps> = ({ league, season, onBack, onPlayerClick }) => {
   const [teams, setTeams] = useState<Team[]>([]);
   const [selectedTeam, setSelectedTeam] = useState<Team | null>(null);
   const [teamStats, setTeamStats] = useState<PlayerStats[]>([]);
@@ -257,7 +258,20 @@ export const TeamManagement: React.FC<TeamManagementProps> = ({ league, season, 
                         <tbody className="divide-y divide-slate-200 dark:divide-slate-800">
                             {sortedStats.map(stat => (
                                 <tr key={stat.playerId} className="hover:bg-black/5 dark:hover:bg-slate-800/50 transition-colors">
-                                    <td className="px-4 py-3 font-bold text-slate-800 dark:text-white font-sans">{stat.name}</td>
+                                    <td className="px-4 py-3 font-bold text-slate-800 dark:text-white font-sans">
+                                        {onPlayerClick ? (
+                                            <button
+                                                type="button"
+                                                onClick={() => onPlayerClick(stat.name)}
+                                                className="text-left font-bold text-slate-800 dark:text-white hover:text-blue-600 dark:hover:text-blue-400 hover:underline cursor-pointer transition-colors"
+                                                title="View career batting record"
+                                            >
+                                                {stat.name}
+                                            </button>
+                                        ) : (
+                                            stat.name
+                                        )}
+                                    </td>
                                     <td className="px-4 py-3 text-right font-sans tabular-nums font-bold text-lg text-slate-900 dark:text-white">{stat.totalPoints}</td>
                                     <td className="px-4 py-3 text-right font-sans tabular-nums text-slate-600 dark:text-slate-400">{stat.hits4}</td>
                                     <td className="px-4 py-3 text-right font-sans tabular-nums text-slate-600 dark:text-slate-400">{stat.hits3}</td>
@@ -378,18 +392,42 @@ export const TeamManagement: React.FC<TeamManagementProps> = ({ league, season, 
                 <h4 className="font-bold text-lg text-slate-800 dark:text-slate-200 font-sans">{team.name}</h4>
                 <div className="flex flex-col gap-1 mt-2">
                   {team.players.map(p => (
-                    <span key={p.id} className="text-xs font-medium text-slate-600 dark:text-slate-400 font-sans">
+                    onPlayerClick ? (
+                      <button
+                        type="button"
+                        key={p.id}
+                        onClick={() => onPlayerClick(formatName(p))}
+                        className="text-left text-xs font-medium text-slate-600 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 hover:underline cursor-pointer transition-colors font-sans"
+                        title="View career batting record"
+                      >
                         {formatName(p)}
-                    </span>
+                      </button>
+                    ) : (
+                      <span key={p.id} className="text-xs font-medium text-slate-600 dark:text-slate-400 font-sans">
+                        {formatName(p)}
+                      </span>
+                    )
                   ))}
                 </div>
                 {team.subs && team.subs.length > 0 && (
                     <div className="flex flex-wrap gap-2 mt-2 items-center">
                         <span className="text-[10px] font-bold text-slate-400 uppercase mr-1 font-sans">Subs:</span>
                         {team.subs.map(s => (
-                            <span key={s.id} className="text-xs font-medium bg-slate-50 dark:bg-slate-900/50 text-slate-500 dark:text-slate-500 px-2 py-0.5 rounded border border-slate-200 dark:border-slate-800 italic font-sans">
+                            onPlayerClick ? (
+                              <button
+                                type="button"
+                                key={s.id}
+                                onClick={() => onPlayerClick(formatName(s))}
+                                className="text-xs font-medium bg-slate-50 dark:bg-slate-900/50 text-slate-500 hover:text-blue-600 dark:hover:text-blue-400 hover:border-blue-300 px-2 py-0.5 rounded border border-slate-200 dark:border-slate-800 italic font-sans cursor-pointer transition-colors"
+                                title="View career batting record"
+                              >
                                 {formatName(s)}
-                            </span>
+                              </button>
+                            ) : (
+                              <span key={s.id} className="text-xs font-medium bg-slate-50 dark:bg-slate-900/50 text-slate-500 dark:text-slate-500 px-2 py-0.5 rounded border border-slate-200 dark:border-slate-800 italic font-sans">
+                                {formatName(s)}
+                              </span>
+                            )
                         ))}
                     </div>
                 )}

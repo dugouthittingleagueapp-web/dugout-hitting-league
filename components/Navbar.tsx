@@ -43,10 +43,8 @@ export const Navbar: React.FC<NavbarProps> = ({
   isMenuOpen,
   setMenuOpen,
 }) => {
-  const [showSeasonMenu, setShowSeasonMenu] = useState(false);
   const [showLeagueMenu, setShowLeagueMenu] = useState(false);
   const leagueMenuRef = useRef<HTMLDivElement>(null);
-  const seasonMenuRef = useRef<HTMLDivElement>(null);
 
   // Click-outside listener for dropdowns
   useEffect(() => {
@@ -55,11 +53,8 @@ export const Navbar: React.FC<NavbarProps> = ({
       if (leagueMenuRef.current && !leagueMenuRef.current.contains(target)) {
         setShowLeagueMenu(false);
       }
-      if (seasonMenuRef.current && !seasonMenuRef.current.contains(target)) {
-        setShowSeasonMenu(false);
-      }
     };
-    if (showLeagueMenu || showSeasonMenu) {
+    if (showLeagueMenu) {
       document.addEventListener('mousedown', handleClickOutside);
       document.addEventListener('touchstart', handleClickOutside);
     }
@@ -67,7 +62,7 @@ export const Navbar: React.FC<NavbarProps> = ({
       document.removeEventListener('mousedown', handleClickOutside);
       document.removeEventListener('touchstart', handleClickOutside);
     };
-  }, [showLeagueMenu, showSeasonMenu]);
+  }, [showLeagueMenu]);
   
   const sortedLeagues = [...leagues].sort((a, b) => 
       a.id.localeCompare(b.id, undefined, { numeric: true, sensitivity: 'base' })
@@ -217,34 +212,14 @@ export const Navbar: React.FC<NavbarProps> = ({
                         )}
                     </div>
 
-                    {/* Controls (Right) - Dynamic Season Menu (Supports current + all archived years) */}
+                    {/* Season Display (Clean static label; pulldown removed from all pages except admin) */}
                     <div className="ml-auto flex items-center gap-4 sm:gap-6 relative z-[1000]">
-                        <div className="relative" ref={seasonMenuRef}>
-                            <button onClick={() => setShowSeasonMenu(!showSeasonMenu)} className="text-[10px] sm:text-xs font-bold uppercase tracking-wider text-slate-500 hover:text-slate-800 dark:hover:text-slate-300 transition-colors flex items-center gap-1.5 cursor-pointer">
-                                Season: <span className="text-slate-900 dark:text-white font-extrabold">{currentSeason}</span>
-                                {isCurrentArchived && <span className="bg-amber-100 dark:bg-amber-900/50 text-amber-700 dark:text-amber-300 text-[9px] px-1.5 py-0.2 rounded font-bold">Archive</span>}
-                                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path></svg>
-                            </button>
-                            {showSeasonMenu && (
-                                <div className="absolute top-full right-0 mt-2 bg-white dark:bg-slate-900 text-slate-900 dark:text-white rounded-xl shadow-xl py-2 w-44 border border-slate-200 dark:border-slate-800 z-[1001] overflow-hidden animate-in slide-in-from-top-2 fade-in duration-200">
-                                    <div className="px-3 py-1.5 text-[9px] font-black uppercase text-slate-400 dark:text-slate-500 border-b border-slate-100 dark:border-slate-800 tracking-wider">Select Season</div>
-                                    {seasonsList.map(s => {
-                                        const isLive = s === activeSeason;
-                                        const isSelected = s === currentSeason;
-                                        return (
-                                            <button 
-                                                key={s} 
-                                                onClick={() => { onSeasonChange(s); setShowSeasonMenu(false); }} 
-                                                className={`w-full text-left px-3 py-2 text-xs font-bold hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors font-sans flex items-center justify-between ${isSelected ? 'text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20' : 'text-slate-700 dark:text-slate-300'}`}
-                                            >
-                                                <span>{s}</span>
-                                                <span className={`text-[9px] font-bold uppercase ${isLive ? 'text-green-600 dark:text-green-400' : 'text-amber-600 dark:text-amber-400'}`}>
-                                                    {isLive ? 'Active' : 'Archive'}
-                                                </span>
-                                            </button>
-                                        );
-                                    })}
-                                </div>
+                        <div className="text-[10px] sm:text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 flex items-center gap-1.5 select-none font-sans">
+                            Season: <span className="text-slate-900 dark:text-white font-extrabold">{currentSeason}</span>
+                            {isCurrentArchived && (
+                                <span className="bg-amber-100 dark:bg-amber-900/50 text-amber-700 dark:text-amber-300 text-[9px] px-1.5 py-0.5 rounded font-bold">
+                                    Archive
+                                </span>
                             )}
                         </div>
                     </div>
@@ -283,39 +258,14 @@ export const Navbar: React.FC<NavbarProps> = ({
                             </button>
                         </div>
 
-                        {/* Dynamic Season Selector in Drawer */}
+                        {/* Current Season Info in Drawer */}
                         <div>
-                            <div className="flex items-center justify-between mb-3">
-                                <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider">Season</h3>
-                                {isCurrentArchived && (
-                                    <span className="text-[9px] uppercase font-bold px-1.5 py-0.5 rounded bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300">
-                                        Archive View
-                                    </span>
-                                )}
-                            </div>
-                            <div className="grid grid-cols-2 gap-2">
-                                {seasonsList.map(s => {
-                                    const isLive = s === activeSeason;
-                                    const isSelected = s === currentSeason;
-                                    return (
-                                        <button 
-                                            key={s}
-                                            onClick={() => { onSeasonChange(s); setMenuOpen(false); }} 
-                                            className={`py-2 px-3 rounded-lg text-xs font-bold flex flex-col items-center gap-0.5 transition-colors ${
-                                                isSelected 
-                                                    ? isLive 
-                                                        ? 'bg-blue-600 text-white shadow-md shadow-blue-900/30' 
-                                                        : 'bg-amber-600 text-white shadow-md shadow-amber-900/30' 
-                                                    : 'bg-slate-100 dark:bg-slate-900 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-800'
-                                            }`}
-                                        >
-                                            <span>{s}</span>
-                                            <span className="text-[9px] uppercase font-bold opacity-80">
-                                                {isLive ? 'Active' : 'Archive'}
-                                            </span>
-                                        </button>
-                                    );
-                                })}
+                            <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Current Season</h3>
+                            <div className="p-3 rounded-xl bg-slate-100 dark:bg-slate-900 flex items-center justify-between font-sans">
+                                <span className="text-sm font-extrabold text-slate-900 dark:text-white">{currentSeason}</span>
+                                <span className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded ${isCurrentArchived ? 'bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300' : 'bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-300'}`}>
+                                    {isCurrentArchived ? 'Archive' : 'Active'}
+                                </span>
                             </div>
                         </div>
 

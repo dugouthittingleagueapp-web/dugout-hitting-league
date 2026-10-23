@@ -1,5 +1,5 @@
 
-import { AgeGroup, Match, Team, Inning, PlayerInningScore, League, PlayerStats, Player } from '../types';
+import { AgeGroup, Match, Team, Inning, PlayerInningScore, League, PlayerStats, Player, PlayerSeasonStatRow, PlayerCareerSummary } from '../types';
 
 const mapTeamFromDB = (dbTeam: any): Team => ({
   ...dbTeam,
@@ -865,4 +865,236 @@ export const createTeamsBatch = async (teamsToCreate: ParsedTeamInput[], season:
     created.push(team);
   }
   return created;
+};
+
+// Player Career Statistics Across All Seasons
+export const getPlayerCareerStats = async (playerIdentifier: string): Promise<PlayerCareerSummary | null> => {
+  if (!playerIdentifier || !playerIdentifier.trim()) return null;
+  const target = playerIdentifier.trim().toLowerCase();
+
+  const [allTeams, allMatches] = await Promise.all([
+    getAllTeams().catch(() => []),
+    getAllMatches().catch(() => [])
+  ]);
+
+  const matchingPlayerIds = new Set<string>();
+  let canonicalName = playerIdentifier.trim();
+
+  allTeams.forEach(team => {
+    const list = [...(team.players || []), ...(team.subs || [])];
+    list.forEach(p => {
+      const fName = formatName(p);
+      const simpleName = `${p.name || ''} ${p.lastName || ''}`.trim();
+      if (
+        p.id.toLowerCase() === target ||
+        fName.toLowerCase() === target ||
+        simpleName.toLowerCase() === target ||
+        (p.name && p.name.toLowerCase() === target)
+      ) {
+        matchingPlayerIds.add(p.id);
+        if (fName && canonicalName === playerIdentifier.trim()) {
+          canonicalName = fName;
+        }
+      }
+    });
+  });
+
+  matchingPlayerIds.add(playerIdentifier);
+
+  const seasonGroups = new Map<string, {
+    season: string;
+    leagueId: string;
+    teamName: string;
+    gamesPlayed: number;
+    totalPoints: number;
+    hits4: number;
+    hits3: number;
+    hits2: number;
+    hits1: number;
+    pitchesSeen: number;
+    matchIds: Set<string>;
+  }>();
+
+  allMatches.forEach(match => {
+    if (!match.isComplete) return;
+
+    let playedSide: 'home' | 'away' | null = null;
+    let playedTeamId = '';
+
+    (match.innings || []).forEach(inning => {
+      if (!inning) return;
+      (inning.home?.playerScores || []).forEach(ps => {
+        if (ps && matchingPlayerIds.has(ps.playerId)) {
+          playedSide = 'home';
+          playedTeamId = match.homeTeamId;
+        }
+      });
+      (inning.away?.playerScores || []).forEach(ps => {
+        if (ps && matchingPlayerIds.has(ps.playerId)) {
+          playedSide = 'away';
+          playedTeamId = match.awayTeamId;
+        }
+      });
+    });
+
+    if (!playedSide && match.tieBreaker && Array.isArray(match.tieBreaker)) {
+      match.tieBreaker.forEach(tb => {
+        if (tb) {
+          if (matchingPlayerIds.has(tb.homePlayerId)) {
+            playedSide = 'home';
+            playedTeamId = match.homeTeamId;
+          } else if (matchingPlayerIds.has(tb.awayPlayerId)) {
+            playedSide = 'away';
+            playedTeamId = match.awayTeamId;
+          }
+        }
+      });
+    }
+
+    if (!playedSide) return;
+
+    const season = match.season || String(new Date(match.date || Date.now()).getFullYear());
+    const leagueId = match.league || 'Standard';
+    const teamObj = allTeams.find(t => t.id === playedTeamId);
+    const teamName = teamObj ? teamObj.name : (playedSide === 'home' ? 'Home' : 'Away');
+
+    const groupKey = `${season}||${leagueId}||${teamName}`;
+    if (!seasonGroups.has(groupKey)) {
+      seasonGroups.set(groupKey, {
+        season,
+        leagueId,
+        teamName,
+        gamesPlayed: 0,
+        totalPoints: 0,
+        hits4: 0,
+        hits3: 0,
+        hits2: 0,
+        hits1: 0,
+        pitchesSeen: 0,
+        matchIds: new Set<string>()
+      });
+    }
+
+    const group = seasonGroups.get(groupKey)!;
+    if (!group.matchIds.has(match.id)) {
+      group.matchIds.add(match.id);
+      group.gamesPlayed += 1;
+    }
+
+    (match.innings || []).forEach(inning => {
+      if (!inning) return;
+      const sideData = playedSide === 'home' ? inning.home : inning.away;
+      if (!sideData?.playerScores) return;
+
+      const isGhostMode = sideData.playerScores.length === 2 && (sideData.playerScores[0]?.pitches?.length || 0) >= 15;
+
+      sideData.playerScores.forEach(ps => {
+        if (ps && matchingPlayerIds.has(ps.playerId)) {
+          const pitches = ps.pitches || [];
+          const playerPitches = isGhostMode ? pitches.slice(0, 10) : pitches;
+
+          playerPitches.forEach(p => {
+            if (p && p.points !== null && p.points !== undefined) {
+              const val = Number(p.points);
+              if (!isNaN(val)) {
+                group.totalPoints += val;
+                group.pitchesSeen += 1;
+                if (val === 4) group.hits4 += 1;
+                else if (val === 3) group.hits3 += 1;
+                else if (val === 2) group.hits2 += 1;
+                else if (val === 1) group.hits1 += 1;
+              }
+            }
+          });
+        }
+      });
+    });
+
+    if (match.tieBreaker && Array.isArray(match.tieBreaker)) {
+      match.tieBreaker.forEach(tb => {
+        if (!tb) return;
+        const checkTb = (pid: string, scores: (number | null)[]) => {
+          if (matchingPlayerIds.has(pid) && Array.isArray(scores)) {
+            scores.forEach(val => {
+              if (val !== null && val !== undefined) {
+                const num = Number(val);
+                if (!isNaN(num)) {
+                  group.totalPoints += num;
+                  group.pitchesSeen += 1;
+                  if (num === 4) group.hits4 += 1;
+                  else if (num === 3) group.hits3 += 1;
+                  else if (num === 2) group.hits2 += 1;
+                  else if (num === 1) group.hits1 += 1;
+                }
+              }
+            });
+          }
+        };
+        if (playedSide === 'home') checkTb(tb.homePlayerId, tb.homeScores);
+        else checkTb(tb.awayPlayerId, tb.awayScores);
+      });
+    }
+  });
+
+  const seasonRows: PlayerSeasonStatRow[] = Array.from(seasonGroups.values()).map(g => {
+    const pointsPerPitch = g.pitchesSeen > 0 ? Number((g.totalPoints / g.pitchesSeen).toFixed(2)) : 0;
+    const totalHits = g.hits4 + g.hits3 + g.hits2 + g.hits1;
+    const hitPercentage = g.pitchesSeen > 0 ? Number(((totalHits / g.pitchesSeen) * 100).toFixed(1)) : 0;
+    return {
+      season: g.season,
+      leagueId: g.leagueId,
+      teamName: g.teamName,
+      gamesPlayed: g.gamesPlayed,
+      totalPoints: g.totalPoints,
+      hits4: g.hits4,
+      hits3: g.hits3,
+      hits2: g.hits2,
+      hits1: g.hits1,
+      pitchesSeen: g.pitchesSeen,
+      pointsPerPitch,
+      hitPercentage
+    };
+  }).sort((a, b) => b.season.localeCompare(a.season, undefined, { numeric: true }));
+
+  const uniqueSeasons = new Set(seasonRows.map(r => r.season));
+  const totalGP = seasonRows.reduce((sum, r) => sum + r.gamesPlayed, 0);
+  const totalPts = seasonRows.reduce((sum, r) => sum + r.totalPoints, 0);
+  const total4s = seasonRows.reduce((sum, r) => sum + r.hits4, 0);
+  const total3s = seasonRows.reduce((sum, r) => sum + r.hits3, 0);
+  const total2s = seasonRows.reduce((sum, r) => sum + r.hits2, 0);
+  const total1s = seasonRows.reduce((sum, r) => sum + r.hits1, 0);
+  const totalPit = seasonRows.reduce((sum, r) => sum + r.pitchesSeen, 0);
+
+  const careerPPP = totalPit > 0 ? Number((totalPts / totalPit).toFixed(2)) : 0;
+  const careerHits = total4s + total3s + total2s + total1s;
+  const careerHitPct = totalPit > 0 ? Number(((careerHits / totalPit) * 100).toFixed(1)) : 0;
+
+  const seasonsCount = uniqueSeasons.size || (seasonRows.length > 0 ? 1 : 0);
+  const avgDiv = seasonsCount > 0 ? seasonsCount : 1;
+
+  return {
+    playerName: canonicalName,
+    seasons: seasonRows,
+    careerTotals: {
+      seasonsCount,
+      gamesPlayed: totalGP,
+      totalPoints: totalPts,
+      hits4: total4s,
+      hits3: total3s,
+      hits2: total2s,
+      hits1: total1s,
+      pitchesSeen: totalPit,
+      pointsPerPitch: careerPPP,
+      hitPercentage: careerHitPct
+    },
+    seasonAverages: {
+      gamesPlayed: Number((totalGP / avgDiv).toFixed(1)),
+      totalPoints: Math.round(totalPts / avgDiv),
+      hits4: Math.round(total4s / avgDiv),
+      hits3: Math.round(total3s / avgDiv),
+      hits2: Math.round(total2s / avgDiv),
+      hits1: Math.round(total1s / avgDiv),
+      pitchesSeen: Math.round(totalPit / avgDiv)
+    }
+  };
 };

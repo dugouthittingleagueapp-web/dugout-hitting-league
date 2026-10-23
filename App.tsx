@@ -7,6 +7,7 @@ import { Scoreboard } from './components/Scoreboard';
 import { AdminDashboard } from './components/AdminDashboard';
 import { MatchSetup } from './components/MatchSetup';
 import { RosterImportModal } from './components/RosterImportModal';
+import { PlayerCareerModal } from './components/PlayerCareerModal';
 import * as storage from './services/storageService';
 
 const INACTIVITY_LIMIT = 3 * 60 * 60 * 1000; // 3 hours
@@ -158,6 +159,9 @@ const App: React.FC = () => {
   const [seasonSort, setSeasonSort] = useState<{ key: keyof PlayerStats; direction: 'asc' | 'desc' }>({ key: 'totalPoints', direction: 'desc' });
   const [matchSort, setMatchSort] = useState<{ key: keyof PlayerStats; direction: 'asc' | 'desc' }>({ key: 'totalPoints', direction: 'desc' });
 
+  // Player Career Stats Modal State
+  const [selectedCareerPlayer, setSelectedCareerPlayer] = useState<string | null>(null);
+
   // Handle Theme Toggle & Persistence
   useEffect(() => {
     const html = document.documentElement;
@@ -234,6 +238,13 @@ const App: React.FC = () => {
       storage.getLeagues(state.season).then(setLeagues).catch(console.error);
     }
   }, [state.season]);
+
+  // Umpires and spectators are only concerned with the current year (strictly locked to activeSeason)
+  useEffect(() => {
+    if (userRole !== 'admin' && activeSeason && state.season !== activeSeason) {
+      setState(s => ({ ...s, season: activeSeason }));
+    }
+  }, [userRole, activeSeason, state.season]);
 
   const refreshDashboard = useCallback(async (league: AgeGroup, season: string, silent = false) => {
     if (!silent) setLoading(true);
@@ -409,9 +420,16 @@ const App: React.FC = () => {
       safeStorage.removeItem('userRole');
       safeStorage.removeItem('lastActivity');
       safeStorage.removeItem('dugout_app_state'); 
-      setState(s => ({...s, view: 'league_select', currentLeague: null, currentMatchId: null, dashboardTab: 'matches'})); 
+      setState(s => ({
+          ...s, 
+          season: activeSeason, 
+          view: 'league_select', 
+          currentLeague: null, 
+          currentMatchId: null, 
+          dashboardTab: 'matches'
+      })); 
       setIsMenuOpen(false);
-  }, []);
+  }, [activeSeason]);
 
   // Session Inactivity
   useEffect(() => {
@@ -908,8 +926,8 @@ const App: React.FC = () => {
             </div>
         )}
 
-        {/* Archive Banner (Shown when viewing any historical archived season) */}
-        {state.season !== activeSeason && (
+        {/* Archive Banner (Shown ONLY to admins viewing any historical archived season) */}
+        {userRole === 'admin' && state.season !== activeSeason && (
             <div className="bg-amber-500/15 border-b border-amber-500/30 text-amber-900 dark:text-amber-200 px-4 py-2.5 flex items-center justify-between text-xs font-bold font-sans z-[1100] relative">
                 <div className="flex items-center gap-2">
                     <span className="w-2.5 h-2.5 rounded-full bg-amber-500 animate-pulse"></span>
@@ -1060,7 +1078,7 @@ const App: React.FC = () => {
             {/* SCORING VIEW */}
             {state.view === 'scoring' && state.currentMatchId && (
                 <div className="flex-1 bg-slate-100 dark:bg-slate-950 text-slate-800 dark:text-slate-200 w-full overflow-hidden">
-                    <Scoreboard matchId={state.currentMatchId} onExit={() => setState({ ...state, view: 'dashboard', currentMatchId: null })} isReadOnly={userRole === 'fan'} userRole={userRole} />
+                    <Scoreboard matchId={state.currentMatchId} onExit={() => setState({ ...state, view: 'dashboard', currentMatchId: null })} isReadOnly={userRole === 'fan'} userRole={userRole} onPlayerClick={setSelectedCareerPlayer} />
                 </div>
             )}
 
@@ -1068,7 +1086,7 @@ const App: React.FC = () => {
             {state.view === 'team_management' && state.currentLeague && (
                 <div className="flex-1 bg-slate-50 dark:bg-slate-950 text-slate-800 dark:text-slate-200 w-full">
                     {userRole === 'admin' ? (
-                        <TeamManagement league={state.currentLeague} season={state.season} onBack={() => setState({ ...state, view: 'dashboard' })} />
+                        <TeamManagement league={state.currentLeague} season={state.season} onBack={() => setState({ ...state, view: 'dashboard' })} onPlayerClick={setSelectedCareerPlayer} />
                     ) : (
                         <div className="p-8 text-center font-sans max-w-md mx-auto my-12 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-lg">
                             <h3 className="text-lg font-bold text-slate-800 dark:text-white mb-2">Admin Only Access</h3>
@@ -1350,7 +1368,16 @@ const App: React.FC = () => {
                                             <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-slate-600 dark:text-slate-300">
                                                 {performSort(seasonStats, seasonSort).map(stat => (
                                                     <tr key={stat.playerId} className="hover:bg-white/50 dark:hover:bg-slate-800/50 transition-colors">
-                                                        <td className="px-2 sm:px-6 py-2 sm:py-3 font-bold text-slate-900 dark:text-white font-sans text-xs sm:text-base">{stat.name}</td>
+                                                        <td className="px-2 sm:px-6 py-2 sm:py-3 font-bold text-slate-900 dark:text-white font-sans text-xs sm:text-base">
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => setSelectedCareerPlayer(stat.name)}
+                                                                className="text-left font-bold text-slate-900 dark:text-white hover:text-blue-600 dark:hover:text-blue-400 hover:underline cursor-pointer transition-colors"
+                                                                title="View career batting record"
+                                                            >
+                                                                {stat.name}
+                                                            </button>
+                                                        </td>
                                                         <td className="px-1 sm:px-4 py-2 sm:py-3 text-right font-sans tabular-nums font-bold text-sm sm:text-lg text-slate-900 dark:text-white">{stat.totalPoints}</td>
                                                         <td className="px-1 sm:px-4 py-2 sm:py-3 text-right font-sans tabular-nums text-[10px] sm:text-sm">{stat.hits4}</td>
                                                         <td className="px-1 sm:px-4 py-2 sm:py-3 text-right font-sans tabular-nums text-[10px] sm:text-sm">{stat.hits3}</td>
@@ -1492,7 +1519,16 @@ const App: React.FC = () => {
                             <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-slate-600 dark:text-slate-300">
                                 {performSort(statsModalData, matchSort).map(stat => (
                                     <tr key={stat.playerId} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
-                                        <td className="px-2 sm:px-6 py-2 sm:py-3 font-bold text-slate-900 dark:text-white font-sans text-xs sm:text-base">{stat.name}</td>
+                                        <td className="px-2 sm:px-6 py-2 sm:py-3 font-bold text-slate-900 dark:text-white font-sans text-xs sm:text-base">
+                                            <button
+                                                type="button"
+                                                onClick={() => setSelectedCareerPlayer(stat.name)}
+                                                className="text-left font-bold text-slate-900 dark:text-white hover:text-blue-600 dark:hover:text-blue-400 hover:underline cursor-pointer transition-colors"
+                                                title="View career batting record"
+                                            >
+                                                {stat.name}
+                                            </button>
+                                        </td>
                                         <td className="px-1 sm:px-4 py-2 sm:py-3 text-right font-sans tabular-nums font-bold text-sm sm:text-lg text-slate-900 dark:text-white">{stat.totalPoints}</td>
                                         <td className="px-1 sm:px-4 py-2 sm:py-3 text-right font-sans tabular-nums text-[10px] sm:text-sm">{stat.hits4}</td>
                                         <td className="px-1 sm:px-4 py-2 sm:py-3 text-right font-sans tabular-nums text-[10px] sm:text-sm">{stat.hits3}</td>
@@ -1524,6 +1560,13 @@ const App: React.FC = () => {
                 availableLeagues={leagues.map(l => l.id)}
             />
         )}
+
+        {/* Player Career Stats Modal */}
+        <PlayerCareerModal
+            isOpen={!!selectedCareerPlayer}
+            playerName={selectedCareerPlayer}
+            onClose={() => setSelectedCareerPlayer(null)}
+        />
     </div>
   );
 };

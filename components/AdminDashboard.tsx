@@ -22,6 +22,13 @@ export const AdminDashboard: React.FC<{
       return String(new Date().getFullYear());
     }
   });
+  const [selectedSeason, setSelectedSeason] = useState<string>(() => {
+    try {
+      return localStorage.getItem('dugout_current_season') || String(new Date().getFullYear());
+    } catch {
+      return String(new Date().getFullYear());
+    }
+  });
   const [allSeasons, setAllSeasons] = useState<string[]>(() => {
     try {
       const s = localStorage.getItem('dugout_available_seasons');
@@ -53,12 +60,13 @@ export const AdminDashboard: React.FC<{
             const seasons = await storage.getAvailableSeasons();
             if (isMounted) {
                 setCurrentSeason(season);
+                setSelectedSeason(season);
                 setAllSeasons(seasons);
             }
             const [d, ls, ts] = await Promise.all([
                 storage.exportData().catch(() => '{}'),
                 storage.getLeagues(season).catch(() => []),
-                storage.getAllTeams().catch(() => [])
+                storage.getTeams(null, season).catch(() => [])
             ]);
             if (isMounted) {
                 setData(d); 
@@ -75,6 +83,46 @@ export const AdminDashboard: React.FC<{
     return () => { isMounted = false; };
   }, []);
 
+  const handleSwitchViewSeason = async (seasonToView: string) => {
+    setSelectedSeason(seasonToView);
+    setLoading(true);
+    try {
+        const [ls, ts] = await Promise.all([
+            storage.getLeagues(seasonToView).catch(() => []),
+            storage.getTeams(null, seasonToView).catch(() => [])
+        ]);
+        setLeagues(ls);
+        setAllTeams(ts);
+    } catch (e) {
+        console.error("Error switching viewed season", e);
+    } finally {
+        setLoading(false);
+    }
+  };
+
+  const handleMakeActiveSeason = async (targetSeason: string) => {
+    if (confirm(`Set ${targetSeason} as the live active season for all umpires and spectators?`)) {
+        setLoading(true);
+        try {
+            await storage.updateCurrentSeason(targetSeason);
+            setCurrentSeason(targetSeason);
+            setSelectedSeason(targetSeason);
+            const [newLeagues, newSeasons] = await Promise.all([
+                storage.getLeagues(targetSeason),
+                storage.getAvailableSeasons()
+            ]);
+            setLeagues(newLeagues);
+            setAllSeasons(newSeasons);
+            if (onSeasonUpdated) onSeasonUpdated();
+            alert(`Season ${targetSeason} is now active.`);
+        } catch (e: any) {
+            alert('Failed to set active season: ' + (e?.message || 'Unknown error'));
+        } finally {
+            setLoading(false);
+        }
+    }
+  };
+
   const handleExport = () => {
     const blob = new Blob([data], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
@@ -88,10 +136,10 @@ export const AdminDashboard: React.FC<{
     if (!newLeagueName.trim()) return;
     setCreatingLeague(true);
     try {
-      await storage.createLeague(newLeagueName.trim(), currentSeason);
-      const newLeagues = await storage.getLeagues(currentSeason);
+      await storage.createLeague(newLeagueName.trim(), selectedSeason);
+      const newLeagues = await storage.getLeagues(selectedSeason);
       setLeagues(newLeagues);
-      alert('League created!');
+      alert(`League created for ${selectedSeason}!`);
       setNewLeagueName('');
     } catch (e: any) {
       alert('Failed to create league: ' + (e.message || 'Unknown error'));
@@ -101,12 +149,12 @@ export const AdminDashboard: React.FC<{
   };
 
   const handleDeleteLeague = async (leagueId: string) => {
-    if (confirm(`Are you sure you want to delete the "${leagueId}" league? WARNING: All teams and matches associated with this league will be permanently deleted.`)) {
+    if (confirm(`Are you sure you want to delete the "${leagueId}" league in ${selectedSeason}? WARNING: All teams and matches associated with this league will be permanently deleted.`)) {
         setLoading(true);
         try {
-            await storage.deleteLeague(leagueId, currentSeason);
+            await storage.deleteLeague(leagueId, selectedSeason);
             // Refresh
-            const newLeagues = await storage.getLeagues(currentSeason);
+            const newLeagues = await storage.getLeagues(selectedSeason);
             setLeagues(newLeagues);
             alert('League deleted.');
         } catch (e) {
@@ -224,52 +272,125 @@ export const AdminDashboard: React.FC<{
 
       <div className="space-y-4 sm:space-y-6">
         
-        {/* 1. Configuration */}
+        {/* 1. League Year Selector & Division Configuration (Exclusive to Admin) */}
         <section className="bg-white/70 dark:bg-slate-900/70 backdrop-blur-xl p-4 sm:p-6 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800">
-            <h3 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white mb-3 font-sans">Division Configuration</h3>
-            
-            <div className="mb-5">
-                <label className="block text-[11px] sm:text-xs font-bold text-slate-500 dark:text-slate-400 uppercase mb-1.5 font-sans">Create New League Division</label>
-                <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
-                    <input 
-                        type="text" 
-                        value={newLeagueName} 
-                        onChange={e => setNewLeagueName(e.target.value)} 
-                        placeholder="e.g. 10u, 12u, Varsity" 
-                        className="flex-1 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 text-slate-900 dark:text-white rounded-xl px-3.5 py-2 sm:py-2.5 text-sm focus:ring-2 focus:ring-blue-500 outline-none font-sans" 
-                    />
-                    <button 
-                        onClick={handleCreateLeague} 
-                        disabled={creatingLeague || !newLeagueName.trim()} 
-                        className="bg-green-600 text-white px-5 py-2 sm:py-2.5 rounded-xl hover:bg-green-700 font-bold text-xs sm:text-sm disabled:opacity-50 font-sans transition-colors cursor-pointer"
-                    >
-                        {creatingLeague ? 'Creating...' : '+ Create Division'}
-                    </button>
-                </div>
-            </div>
-
-            <div className="mt-5 border-t border-slate-100 dark:border-slate-800 pt-4">
-                <label className="block text-[11px] sm:text-xs font-bold text-slate-500 dark:text-slate-400 uppercase mb-2 font-sans">Existing Divisions ({currentSeason} Season)</label>
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 sm:gap-3">
-                    {leagues.map(l => (
-                        <div key={l.id} className="flex justify-between items-center p-2.5 sm:p-3 bg-slate-50 dark:bg-slate-950 rounded-xl border border-slate-200 dark:border-slate-800">
-                            <span className="font-bold text-slate-800 dark:text-white font-sans text-xs sm:text-sm truncate">{l.id}</span>
-                            <button 
-                                onClick={() => handleDeleteLeague(l.id)}
-                                className="text-red-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 p-1.5 rounded-lg transition-colors cursor-pointer shrink-0"
-                                title="Delete Division"
-                            >
-                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
-                            </button>
-                        </div>
-                    ))}
-                    {leagues.length === 0 && <div className="col-span-full text-xs text-slate-400 italic font-sans py-2">No divisions found for {currentSeason}. Create one above or activate a season.</div>}
-                </div>
-            </div>
-
-            <div className="pt-4 border-t border-slate-100 dark:border-slate-800 mt-5 space-y-4 sm:space-y-5">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-5 border-b border-slate-100 dark:border-slate-800">
                 <div>
-                    <label className="block text-[11px] sm:text-xs font-bold text-slate-500 dark:text-slate-400 uppercase mb-1 font-sans">Active Season</label>
+                    <div className="flex items-center gap-2 mb-1">
+                        <span className="text-[10px] sm:text-xs font-black uppercase tracking-wider text-blue-600 dark:text-blue-400 font-sans">
+                            League Year Selector
+                        </span>
+                        <span className="text-slate-300 dark:text-slate-700">•</span>
+                        <span className="text-xs text-slate-500 font-sans">
+                            Current Active: <strong className="text-slate-900 dark:text-white font-bold">{currentSeason}</strong>
+                        </span>
+                    </div>
+                    <h3 className="text-lg sm:text-xl font-bold text-slate-900 dark:text-white font-sans">
+                        Managing Season: <span className="text-blue-600 dark:text-blue-400 font-extrabold">{selectedSeason}</span> {selectedSeason === currentSeason ? '(Active Live)' : '(Archive)'}
+                    </h3>
+                    <p className="text-xs text-slate-500 dark:text-slate-400 font-sans mt-0.5">
+                        Umpires and spectators only see the active season ({currentSeason}). Use the pulldown below to go back to all years to inspect divisions, teams, or historical matches.
+                    </p>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-2.5">
+                    <div className="relative">
+                        <select
+                            value={selectedSeason}
+                            onChange={(e) => handleSwitchViewSeason(e.target.value)}
+                            className="bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-white font-bold py-2.5 px-4 pr-10 rounded-xl shadow-sm text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer font-sans"
+                            aria-label="Select League Year"
+                        >
+                            {allSeasons.map(s => (
+                                <option key={s} value={s}>
+                                    Season {s} {s === currentSeason ? '★ (Active)' : '(Archive)'}
+                                </option>
+                            ))}
+                        </select>
+                        <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-slate-500">
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path></svg>
+                        </div>
+                    </div>
+
+                    {selectedSeason !== currentSeason && (
+                        <button
+                            type="button"
+                            onClick={() => handleMakeActiveSeason(selectedSeason)}
+                            className="px-3.5 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs sm:text-sm font-bold font-sans transition-all shadow-sm cursor-pointer whitespace-nowrap"
+                            title={`Make ${selectedSeason} the live active season for all users`}
+                        >
+                            Set as Live Active Season
+                        </button>
+                    )}
+
+                    {onBrowseArchive && (
+                        <button
+                            type="button"
+                            onClick={() => onBrowseArchive(selectedSeason)}
+                            className="px-3.5 py-2.5 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs sm:text-sm font-bold font-sans transition-all shadow-sm flex items-center gap-1.5 cursor-pointer whitespace-nowrap"
+                            title={`Browse ${selectedSeason} in App`}
+                        >
+                            <span>Browse {selectedSeason} in App</span>
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M14 5l7 7m0 0l-7 7m7-7H3"></path></svg>
+                        </button>
+                    )}
+                </div>
+            </div>
+
+            {/* Division Configuration for selectedSeason */}
+            <div className="pt-5">
+                <h4 className="text-base font-bold text-slate-900 dark:text-white mb-3 font-sans">
+                    Division Configuration ({selectedSeason} Season)
+                </h4>
+                
+                <div className="mb-5">
+                    <label className="block text-[11px] sm:text-xs font-bold text-slate-500 dark:text-slate-400 uppercase mb-1.5 font-sans">
+                        Create New League Division (in {selectedSeason})
+                    </label>
+                    <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
+                        <input 
+                            type="text" 
+                            value={newLeagueName} 
+                            onChange={e => setNewLeagueName(e.target.value)} 
+                            placeholder="e.g. 10u, 12u, Varsity" 
+                            className="flex-1 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 text-slate-900 dark:text-white rounded-xl px-3.5 py-2 sm:py-2.5 text-sm focus:ring-2 focus:ring-blue-500 outline-none font-sans" 
+                        />
+                        <button 
+                            onClick={handleCreateLeague} 
+                            disabled={creatingLeague || !newLeagueName.trim()} 
+                            className="bg-green-600 text-white px-5 py-2 sm:py-2.5 rounded-xl hover:bg-green-700 font-bold text-xs sm:text-sm disabled:opacity-50 font-sans transition-colors cursor-pointer"
+                        >
+                            {creatingLeague ? 'Creating...' : `+ Create Division in ${selectedSeason}`}
+                        </button>
+                    </div>
+                </div>
+
+                <div className="mt-5 border-t border-slate-100 dark:border-slate-800 pt-4">
+                    <label className="block text-[11px] sm:text-xs font-bold text-slate-500 dark:text-slate-400 uppercase mb-2 font-sans">
+                        Existing Divisions ({selectedSeason} Season)
+                    </label>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 sm:gap-3">
+                        {leagues.map(l => (
+                            <div key={l.id} className="flex justify-between items-center p-2.5 sm:p-3 bg-slate-50 dark:bg-slate-950 rounded-xl border border-slate-200 dark:border-slate-800">
+                                <span className="font-bold text-slate-800 dark:text-white font-sans text-xs sm:text-sm truncate">{l.id}</span>
+                                <button 
+                                    onClick={() => handleDeleteLeague(l.id)}
+                                    className="text-red-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 p-1.5 rounded-lg transition-colors cursor-pointer shrink-0"
+                                    title="Delete Division"
+                                >
+                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                                </button>
+                            </div>
+                        ))}
+                        {leagues.length === 0 && <div className="col-span-full text-xs text-slate-400 italic font-sans py-2">No divisions found for {selectedSeason}. Create one above or import rosters.</div>}
+                    </div>
+                </div>
+            </div>
+
+            {/* Historical Archives & Season Rollover Tool */}
+            <div className="pt-5 border-t border-slate-100 dark:border-slate-800 mt-5 space-y-4 sm:space-y-5">
+                <div>
+                    <label className="block text-[11px] sm:text-xs font-bold text-slate-500 dark:text-slate-400 uppercase mb-1 font-sans">Live Active Season (Public & Umpires)</label>
                     <div className="flex items-center gap-2">
                         <span className="text-xl sm:text-2xl font-black text-blue-600 dark:text-blue-400 font-sans">{currentSeason}</span>
                         <span className="text-[10px] uppercase font-bold px-2 py-0.5 rounded bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-300">Live Active</span>
@@ -295,14 +416,24 @@ export const AdminDashboard: React.FC<{
                                             </div>
                                             <p className="text-[10px] text-slate-500 dark:text-slate-400 font-sans truncate">Preserved leagues, rosters & scores.</p>
                                         </div>
-                                        {onBrowseArchive && (
+                                        <div className="flex items-center gap-1.5 shrink-0">
                                             <button 
-                                                onClick={() => onBrowseArchive(archSeason)} 
-                                                className="px-2.5 py-1.5 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-xs font-bold font-sans transition-colors shrink-0 shadow-sm cursor-pointer"
+                                                onClick={() => handleSwitchViewSeason(archSeason)} 
+                                                className="px-2.5 py-1.5 bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-lg text-xs font-bold font-sans transition-colors cursor-pointer"
+                                                title={`Manage ${archSeason} in admin`}
                                             >
-                                                Browse {archSeason}
+                                                Manage
                                             </button>
-                                        )}
+                                            {onBrowseArchive && (
+                                                <button 
+                                                    onClick={() => onBrowseArchive(archSeason)} 
+                                                    className="px-2.5 py-1.5 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-xs font-bold font-sans transition-colors shadow-sm cursor-pointer"
+                                                    title={`Browse ${archSeason} in app`}
+                                                >
+                                                    Browse
+                                                </button>
+                                            )}
+                                        </div>
                                     </div>
                                 ))}
                             </div>
@@ -328,7 +459,7 @@ export const AdminDashboard: React.FC<{
                             disabled={!newSeasonInput.trim()}
                             className="w-full sm:w-auto bg-slate-700 dark:bg-slate-600 text-white px-5 py-2 sm:py-2.5 rounded-xl hover:bg-slate-800 dark:hover:bg-slate-500 disabled:opacity-50 font-bold text-xs sm:text-sm font-sans transition-colors cursor-pointer"
                         >
-                            Activate Season
+                            Activate New Season
                         </button>
                     </div>
                 </div>

@@ -94,6 +94,9 @@ function devApiPlugin(): Plugin {
               const currentSeason = db.settings?.current_season || String(new Date().getFullYear());
               const seasonsSet = new Set<string>();
               seasonsSet.add(currentSeason);
+              if (Array.isArray(db.settings?.available_seasons)) {
+                db.settings.available_seasons.forEach((s: any) => s && seasonsSet.add(String(s)));
+              }
               (db.leagues || []).forEach((l: any) => l.season && seasonsSet.add(l.season));
               (db.teams || []).forEach((t: any) => t.season && seasonsSet.add(t.season));
               (db.matches || []).forEach((m: any) => m.season && seasonsSet.add(m.season));
@@ -128,6 +131,15 @@ function devApiPlugin(): Plugin {
                 const prevSeason = db.settings.current_season || String(new Date().getFullYear());
                 const newSeason = body.season.trim();
                 db.settings.current_season = newSeason;
+                if (!Array.isArray(db.settings.available_seasons)) {
+                  db.settings.available_seasons = [];
+                }
+                if (!db.settings.available_seasons.includes(prevSeason)) {
+                  db.settings.available_seasons.push(prevSeason);
+                }
+                if (!db.settings.available_seasons.includes(newSeason)) {
+                  db.settings.available_seasons.push(newSeason);
+                }
 
                 // Automatically rollover previous season's league divisions if new season is empty
                 const existingInNewSeason = db.leagues.filter((l: any) => (l.season || prevSeason) === newSeason);

@@ -10,6 +10,7 @@ interface ScoreboardProps {
   onExit: () => void;
   isReadOnly?: boolean;
   userRole?: 'fan' | 'umpire' | 'admin';
+  onPlayerClick?: (playerName: string) => void;
 }
 
 const getLiveInningIndex = (m: Match): number => {
@@ -23,7 +24,7 @@ const getLiveInningIndex = (m: Match): number => {
     return 5;
 };
 
-export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadOnly = false, userRole = 'fan' }) => {
+export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadOnly = false, userRole = 'fan', onPlayerClick }) => {
   const [match, setMatch] = useState<Match | null>(null);
   const [teams, setTeams] = useState<{ home?: Team, away?: Team }>({});
   const [activeInningIdx, setActiveInningIdx] = useState(0); 
@@ -554,7 +555,22 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
                 <td className="px-0.5 sm:px-2 py-1 sm:py-2 font-medium text-slate-700 dark:text-slate-200 sticky left-0 bg-white dark:bg-slate-900 z-20 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)] border-r border-slate-200 dark:border-slate-700 w-[85px] sm:w-auto max-w-[120px]">
                     <div className="flex items-center gap-1.5 sm:gap-2 w-full">
                         <span className={`text-[8px] sm:text-[10px] font-bold w-4 h-4 sm:w-5 sm:h-5 rounded-full flex items-center justify-center shrink-0 font-sans ${isGhostRow ? 'bg-slate-200 dark:bg-slate-800 text-slate-500 dark:text-slate-400' : 'bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-400'}`}>{isGhostRow ? '3' : lineupIdx + 1}</span>
-                        <span className="truncate text-[10px] sm:text-sm font-sans text-slate-900 dark:text-slate-100 font-bold block flex-1">{isGhostRow ? <span className="italic text-slate-400">Ghost</span> : formatName(player)}</span>
+                        <span className="truncate text-[10px] sm:text-sm font-sans text-slate-900 dark:text-slate-100 font-bold block flex-1">
+                          {isGhostRow ? (
+                            <span className="italic text-slate-400">Ghost</span>
+                          ) : onPlayerClick ? (
+                            <button
+                              type="button"
+                              onClick={() => onPlayerClick(formatName(player))}
+                              className="text-left font-bold text-slate-900 dark:text-slate-100 hover:text-blue-600 dark:hover:text-blue-400 hover:underline cursor-pointer truncate max-w-full transition-colors"
+                              title="View career batting record"
+                            >
+                              {formatName(player)}
+                            </button>
+                          ) : (
+                            formatName(player)
+                          )}
+                        </span>
                     </div>
                 </td>
                 <td className="px-0.5 sm:px-2 py-1 sm:py-2">
@@ -621,13 +637,45 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
                     <div key={idx}>
                          <div className="bg-amber-50 dark:bg-amber-950 p-3 rounded-t-xl border border-amber-200 flex justify-between items-center"><h3 className="font-bold text-amber-800 font-sans">Extra Round {round.roundNumber}</h3>{idx === match.tieBreaker!.length - 1 && !match.isComplete && hS === aS && <button onClick={() => startTieBreakerRound()} className="bg-amber-600 text-white font-bold px-4 py-2 rounded-lg">Next Round</button>}</div>
                          <div className="bg-white dark:bg-slate-900 border-x border-b border-slate-200 rounded-b-xl overflow-x-auto"><table className="w-full"><tbody>
-                            <tr className="bg-blue-50/10">
-                                <td className="px-4 py-3 font-medium w-[150px]"><span className="font-bold">{formatName([...(teams.away?.players || []), ...(teams.away?.subs || [])].find(p => p.id === round.awayPlayerId))}</span></td>
+                             <tr className="bg-blue-50/10">
+                                <td className="px-4 py-3 font-medium w-[150px]">
+                                    {(() => {
+                                        const pName = formatName([...(teams.away?.players || []), ...(teams.away?.subs || [])].find(p => p.id === round.awayPlayerId));
+                                        return onPlayerClick ? (
+                                            <button
+                                                type="button"
+                                                onClick={() => onPlayerClick(pName)}
+                                                className="font-bold text-slate-900 dark:text-white hover:text-blue-600 dark:hover:text-blue-400 hover:underline cursor-pointer text-left transition-colors"
+                                                title="View career batting record"
+                                            >
+                                                {pName}
+                                            </button>
+                                        ) : (
+                                            <span className="font-bold">{pName}</span>
+                                        );
+                                    })()}
+                                </td>
                                 <td className="px-2 py-3"><div className="flex gap-2">{round.awayScores.map((s, pI) => (<ScoreInput key={pI} pitchNumber={pI+1} value={s} readOnly={isReadOnly || (match.isComplete && userRole !== 'admin')} isEditing={activeCell?.side === 'away' && activeCell?.roundIdx === idx && activeCell?.pitchIdx === pI} onOpen={() => setActiveCell({ side: 'away', lineupIdx: 0, pitchIdx: pI, roundIdx: idx })} onClose={() => setActiveCell(null)} onChange={v => handleTieBreakerScore(idx, 'away', pI, v)} onUndo={() => handleUndo('away', 0, pI, idx)} />))}</div></td>
                                 <td className="px-4 py-3 font-bold text-xl text-center tabular-nums">{aS}</td>
                             </tr>
                             <tr className="bg-red-50/10">
-                                <td className="px-4 py-3 font-medium w-[150px]"><span className="font-bold">{formatName([...(teams.home?.players || []), ...(teams.home?.subs || [])].find(p => p.id === round.homePlayerId))}</span></td>
+                                <td className="px-4 py-3 font-medium w-[150px]">
+                                    {(() => {
+                                        const pName = formatName([...(teams.home?.players || []), ...(teams.home?.subs || [])].find(p => p.id === round.homePlayerId));
+                                        return onPlayerClick ? (
+                                            <button
+                                                type="button"
+                                                onClick={() => onPlayerClick(pName)}
+                                                className="font-bold text-slate-900 dark:text-white hover:text-red-600 dark:hover:text-red-400 hover:underline cursor-pointer text-left transition-colors"
+                                                title="View career batting record"
+                                            >
+                                                {pName}
+                                            </button>
+                                        ) : (
+                                            <span className="font-bold">{pName}</span>
+                                        );
+                                    })()}
+                                </td>
                                 <td className="px-2 py-3"><div className="flex gap-2">{round.homeScores.map((s, pI) => (<ScoreInput key={pI} pitchNumber={pI+1} value={s} readOnly={isReadOnly || (match.isComplete && userRole !== 'admin')} isEditing={activeCell?.side === 'home' && activeCell?.roundIdx === idx && activeCell?.pitchIdx === pI} onOpen={() => setActiveCell({ side: 'home', lineupIdx: 0, pitchIdx: pI, roundIdx: idx })} onClose={() => setActiveCell(null)} onChange={v => handleTieBreakerScore(idx, 'home', pI, v)} onUndo={() => handleUndo('home', 0, pI, idx)} />))}</div></td>
                                 <td className="px-4 py-3 font-bold text-xl text-center tabular-nums">{hS}</td>
                             </tr>

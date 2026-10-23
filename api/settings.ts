@@ -27,7 +27,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const { rows } = await pool.query("SELECT value FROM app_settings WHERE key = 'current_season'");
         const currentSeason = rows[0]?.value || defaultYear;
 
-        let seasons: string[] = [currentSeason];
+        let seasons: string[] = [currentSeason, '2025'];
         try {
           const seasonsRes = await pool.query(`
             SELECT DISTINCT season FROM (
@@ -36,6 +36,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
               SELECT season FROM teams WHERE season IS NOT NULL
               UNION
               SELECT season FROM matches WHERE season IS NOT NULL
+              UNION
+              SELECT '2025' AS season
+              UNION
+              SELECT '2026' AS season
               UNION
               SELECT $1 AS season
             ) s WHERE season != '' ORDER BY season DESC
@@ -47,7 +51,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           // Fallback if schema is legacy
         }
 
-        const uniqueSeasons = Array.from(new Set(seasons)).sort((a, b) => b.localeCompare(a, undefined, { numeric: true }));
+        const uniqueSeasons = Array.from(new Set([...seasons, '2026', '2025', currentSeason])).sort((a, b) => b.localeCompare(a, undefined, { numeric: true }));
         return res.status(200).json({ currentSeason, seasons: uniqueSeasons });
     }
     else if (req.method === 'POST') {

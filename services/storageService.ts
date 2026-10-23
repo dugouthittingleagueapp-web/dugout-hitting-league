@@ -767,7 +767,7 @@ export const updateUmpirePassword = async (password: string) => {
 };
 
 export const getCurrentSeason = async (): Promise<string> => {
-    const defaultSeason = (typeof window !== 'undefined' ? localStorage.getItem('dugout_current_season') : null) || String(new Date().getFullYear());
+    const defaultSeason = (typeof window !== 'undefined' ? localStorage.getItem('dugout_current_season') : null) || '2026';
     try {
         const res = await fetch('/api/settings');
         if (res.ok) {
@@ -775,9 +775,10 @@ export const getCurrentSeason = async (): Promise<string> => {
             const season = data.currentSeason || defaultSeason;
             if (typeof window !== 'undefined') {
                 try { localStorage.setItem('dugout_current_season', season); } catch (e) {}
-                if (data.seasons && Array.isArray(data.seasons)) {
-                    try { localStorage.setItem('dugout_available_seasons', JSON.stringify(data.seasons)); } catch (e) {}
-                }
+                const list = Array.isArray(data.seasons) ? data.seasons : [];
+                const merged = Array.from(new Set([...list, '2026', '2025', season]))
+                    .sort((a, b) => b.localeCompare(a, undefined, { numeric: true }));
+                try { localStorage.setItem('dugout_available_seasons', JSON.stringify(merged)); } catch (e) {}
             }
             return season;
         }
@@ -794,16 +795,18 @@ export const getCurrentSeason = async (): Promise<string> => {
 };
 
 export const getAvailableSeasons = async (): Promise<string[]> => {
+    const defaultSeason = (typeof window !== 'undefined' ? localStorage.getItem('dugout_current_season') : null) || '2026';
     try {
         const res = await fetch('/api/settings');
         if (res.ok) {
             const data = await res.json();
-            if (data.seasons && Array.isArray(data.seasons) && data.seasons.length > 0) {
-                if (typeof window !== 'undefined') {
-                    try { localStorage.setItem('dugout_available_seasons', JSON.stringify(data.seasons)); } catch (e) {}
-                }
-                return data.seasons;
+            const list = Array.isArray(data.seasons) ? data.seasons : [];
+            const merged = Array.from(new Set([...list, '2026', '2025', data.currentSeason || defaultSeason]))
+                .sort((a, b) => b.localeCompare(a, undefined, { numeric: true }));
+            if (typeof window !== 'undefined') {
+                try { localStorage.setItem('dugout_available_seasons', JSON.stringify(merged)); } catch (e) {}
             }
+            return merged;
         }
     } catch (e) {
         console.warn('Network fetch failed for getAvailableSeasons, using cache', e);
@@ -811,17 +814,34 @@ export const getAvailableSeasons = async (): Promise<string[]> => {
     if (typeof window !== 'undefined') {
         try {
             const cached = localStorage.getItem('dugout_available_seasons');
-            if (cached) return JSON.parse(cached);
+            if (cached) {
+                const parsed = JSON.parse(cached);
+                if (Array.isArray(parsed) && parsed.length > 0) {
+                    const merged = Array.from(new Set([...parsed, '2026', '2025', defaultSeason]))
+                        .sort((a, b) => b.localeCompare(a, undefined, { numeric: true }));
+                    localStorage.setItem('dugout_available_seasons', JSON.stringify(merged));
+                    return merged;
+                }
+            }
         } catch (e) {}
     }
-    const fallbackSeason = (typeof window !== 'undefined' ? localStorage.getItem('dugout_current_season') : null) || String(new Date().getFullYear());
-    return [fallbackSeason];
+    const mergedFallback = Array.from(new Set([defaultSeason, '2026', '2025'])).sort((a, b) => b.localeCompare(a, undefined, { numeric: true }));
+    if (typeof window !== 'undefined') {
+        try { localStorage.setItem('dugout_available_seasons', JSON.stringify(mergedFallback)); } catch (e) {}
+    }
+    return mergedFallback;
 };
 
 export const updateCurrentSeason = async (season: string) => {
     await fetch('/api/settings', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'update_season', season }) });
     if (typeof window !== 'undefined') {
-        try { localStorage.setItem('dugout_current_season', season); } catch (e) {}
+        try { 
+            localStorage.setItem('dugout_current_season', season);
+            const cached = localStorage.getItem('dugout_available_seasons');
+            const list = cached ? JSON.parse(cached) : [];
+            const merged = Array.from(new Set([...list, season, '2026', '2025'])).sort((a, b) => b.localeCompare(a, undefined, { numeric: true }));
+            localStorage.setItem('dugout_available_seasons', JSON.stringify(merged));
+        } catch (e) {}
     }
 };
 

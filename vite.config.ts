@@ -91,9 +91,11 @@ function devApiPlugin(): Plugin {
           // 1. Settings Endpoint
           if (pathname === '/api/settings') {
             if (method === 'GET') {
-              const currentSeason = db.settings?.current_season || String(new Date().getFullYear());
+              const currentSeason = db.settings?.current_season || '2026';
               const seasonsSet = new Set<string>();
               seasonsSet.add(currentSeason);
+              seasonsSet.add('2026');
+              seasonsSet.add('2025');
               if (Array.isArray(db.settings?.available_seasons)) {
                 db.settings.available_seasons.forEach((s: any) => s && seasonsSet.add(String(s)));
               }

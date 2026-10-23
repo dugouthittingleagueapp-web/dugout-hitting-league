@@ -30,6 +30,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           END IF;
         END IF;
       END $$;
+
+      INSERT INTO leagues (id, season) VALUES
+        ('10u', '2025'),
+        ('12u', '2025'),
+        ('Varsity', '2025')
+      ON CONFLICT (id, season) DO NOTHING;
     `);
 
     if (req.method === 'GET') {

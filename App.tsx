@@ -95,13 +95,18 @@ const App: React.FC = () => {
   const [showDashboardImport, setShowDashboardImport] = useState(false);
   
   // Dynamic Season Management State
-  const [activeSeason, setActiveSeason] = useState<string>(() => safeStorage.getItem('dugout_current_season') || String(new Date().getFullYear()));
+  const [activeSeason, setActiveSeason] = useState<string>(() => safeStorage.getItem('dugout_current_season') || '2026');
   const [availableSeasons, setAvailableSeasons] = useState<string[]>(() => {
     try {
       const s = safeStorage.getItem('dugout_available_seasons');
-      if (s) return JSON.parse(s);
+      if (s) {
+        const parsed = JSON.parse(s);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return Array.from(new Set([...parsed, '2026', '2025'])).sort((a, b) => b.localeCompare(a, undefined, { numeric: true }));
+        }
+      }
     } catch {}
-    return [safeStorage.getItem('dugout_current_season') || String(new Date().getFullYear())];
+    return ['2026', '2025'];
   });
 
   // In-Progress Match Recovery State
@@ -216,9 +221,10 @@ const App: React.FC = () => {
     const init = async () => {
         const curSeason = await storage.getCurrentSeason();
         const seasonsList = await storage.getAvailableSeasons();
-        const liveSeason = curSeason || String(new Date().getFullYear());
+        const liveSeason = curSeason || '2026';
+        const mergedList = Array.from(new Set([...seasonsList, '2026', '2025', liveSeason])).sort((a, b) => b.localeCompare(a, undefined, { numeric: true }));
         setActiveSeason(liveSeason);
-        setAvailableSeasons(seasonsList);
+        setAvailableSeasons(mergedList);
         const ls = await storage.getLeagues(liveSeason);
         setLeagues(ls);
         
@@ -1046,8 +1052,9 @@ const App: React.FC = () => {
                         onSeasonUpdated={async () => {
                             const newActive = await storage.getCurrentSeason();
                             const seasonsList = await storage.getAvailableSeasons();
+                            const merged = Array.from(new Set([...seasonsList, '2026', '2025', newActive])).sort((a, b) => b.localeCompare(a, undefined, { numeric: true }));
                             setActiveSeason(newActive);
-                            setAvailableSeasons(seasonsList);
+                            setAvailableSeasons(merged);
                             setState(s => ({ ...s, season: newActive, currentLeague: null }));
                         }}
                     />

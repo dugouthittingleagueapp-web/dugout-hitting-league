@@ -32,9 +32,14 @@ export const AdminDashboard: React.FC<{
   const [allSeasons, setAllSeasons] = useState<string[]>(() => {
     try {
       const s = localStorage.getItem('dugout_available_seasons');
-      if (s) return JSON.parse(s);
+      if (s) {
+        const parsed = JSON.parse(s);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return Array.from(new Set([...parsed, '2026', '2025'])).sort((a, b) => b.localeCompare(a, undefined, { numeric: true }));
+        }
+      }
     } catch {}
-    return [String(new Date().getFullYear())];
+    return ['2026', '2025'];
   });
   const [newSeasonInput, setNewSeasonInput] = useState('');
   
@@ -57,7 +62,8 @@ export const AdminDashboard: React.FC<{
         setLoading(true);
         try {
             const season = await storage.getCurrentSeason();
-            const seasons = await storage.getAvailableSeasons();
+            const fetchedSeasons = await storage.getAvailableSeasons();
+            const seasons = Array.from(new Set([...fetchedSeasons, season, '2026', '2025'])).sort((a, b) => b.localeCompare(a, undefined, { numeric: true }));
             if (isMounted) {
                 setCurrentSeason(season);
                 setSelectedSeason(season);
@@ -107,12 +113,13 @@ export const AdminDashboard: React.FC<{
             await storage.updateCurrentSeason(targetSeason);
             setCurrentSeason(targetSeason);
             setSelectedSeason(targetSeason);
-            const [newLeagues, newSeasons] = await Promise.all([
+            const [newLeagues, fetchedSeasons] = await Promise.all([
                 storage.getLeagues(targetSeason),
                 storage.getAvailableSeasons()
             ]);
+            const seasons = Array.from(new Set([...fetchedSeasons, targetSeason, '2026', '2025'])).sort((a, b) => b.localeCompare(a, undefined, { numeric: true }));
             setLeagues(newLeagues);
-            setAllSeasons(newSeasons);
+            setAllSeasons(seasons);
             if (onSeasonUpdated) onSeasonUpdated();
             alert(`Season ${targetSeason} is now active.`);
         } catch (e: any) {
@@ -173,12 +180,13 @@ export const AdminDashboard: React.FC<{
           try {
               await storage.updateCurrentSeason(targetSeason);
               setCurrentSeason(targetSeason);
-              const [newLeagues, newSeasons] = await Promise.all([
+              const [newLeagues, fetchedSeasons] = await Promise.all([
                   storage.getLeagues(targetSeason),
                   storage.getAvailableSeasons()
               ]);
+              const seasons = Array.from(new Set([...fetchedSeasons, targetSeason, '2026', '2025'])).sort((a, b) => b.localeCompare(a, undefined, { numeric: true }));
               setLeagues(newLeagues);
-              setAllSeasons(newSeasons);
+              setAllSeasons(seasons);
               setNewSeasonInput('');
               if (onSeasonUpdated) onSeasonUpdated();
               alert(`Season ${targetSeason} is now active with clean league divisions ready for teams.`);
@@ -301,7 +309,7 @@ export const AdminDashboard: React.FC<{
                             className="bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-white font-bold py-2.5 px-4 pr-10 rounded-xl shadow-sm text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer font-sans"
                             aria-label="Select League Year"
                         >
-                            {allSeasons.map(s => (
+                            {Array.from(new Set([...allSeasons, '2026', '2025'])).sort((a, b) => b.localeCompare(a, undefined, { numeric: true })).map(s => (
                                 <option key={s} value={s}>
                                     Season {s} {s === currentSeason ? '★ (Active)' : '(Archive)'}
                                 </option>

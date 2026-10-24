@@ -47,8 +47,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           params.push(league);
         }
         if (season) {
-          conditions.push(` season = $${paramCount++}`);
-          params.push(season);
+          if (season === '2025') {
+            conditions.push(` (season = $${paramCount++} OR season IS NULL)`);
+            params.push(season);
+          } else {
+            conditions.push(` season = $${paramCount++}`);
+            params.push(season);
+          }
         }
         query += conditions.join(' AND');
       }

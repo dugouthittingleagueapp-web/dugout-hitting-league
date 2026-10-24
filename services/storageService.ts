@@ -3,12 +3,13 @@ import { AgeGroup, Match, Team, Inning, PlayerInningScore, League, PlayerStats, 
 
 const mapTeamFromDB = (dbTeam: any): Team => ({
   ...dbTeam,
+  season: dbTeam.season || '2025',
   players: typeof dbTeam.players === 'string' ? JSON.parse(dbTeam.players) : dbTeam.players,
   subs: dbTeam.subs ? (typeof dbTeam.subs === 'string' ? JSON.parse(dbTeam.subs) : dbTeam.subs) : []
 });
 
 const mapMatchFromDB = (dbMatch: any): Match => {
-  const defaultSeason = (typeof window !== 'undefined' ? localStorage.getItem('dugout_current_season') : null) || String(new Date().getFullYear());
+  const inferredSeason = dbMatch.season || (dbMatch.date ? String(new Date(dbMatch.date).getFullYear()) : '2025');
   return {
     id: dbMatch.id,
     league: dbMatch.league,
@@ -17,7 +18,7 @@ const mapMatchFromDB = (dbMatch: any): Match => {
     date: dbMatch.date,
     isComplete: dbMatch.is_complete,
     innings: typeof dbMatch.innings === 'string' ? JSON.parse(dbMatch.innings) : dbMatch.innings,
-    season: dbMatch.season || defaultSeason,
+    season: inferredSeason,
     tieBreaker: dbMatch.tie_breaker ? (typeof dbMatch.tie_breaker === 'string' ? JSON.parse(dbMatch.tie_breaker) : dbMatch.tie_breaker) : undefined
   };
 };
@@ -224,7 +225,7 @@ export const getTeams = async (league: AgeGroup | null, season: string): Promise
       const allCached = localStorage.getItem('dugout_all_teams_cache');
       if (allCached) {
         const parsed: Team[] = JSON.parse(allCached);
-        return parsed.filter(t => (!league || t.league === league) && (!season || t.season === season));
+        return parsed.filter(t => (!league || t.league === league) && (!season || (t.season || '2025') === season));
       }
     } catch (e) {}
   }

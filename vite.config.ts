@@ -24,8 +24,14 @@ function devApiPlugin(): Plugin {
 
   const getDb = () => {
     try {
+      const seedFile = path.resolve(process.cwd(), '.data', 'seedData.json');
       if (!fs.existsSync(dbFile)) {
         fs.mkdirSync(path.dirname(dbFile), { recursive: true });
+        if (fs.existsSync(seedFile)) {
+          const seedRaw = fs.readFileSync(seedFile, 'utf-8');
+          fs.writeFileSync(dbFile, seedRaw, 'utf-8');
+          return JSON.parse(seedRaw);
+        }
         fs.writeFileSync(dbFile, JSON.stringify(defaultData, null, 2), 'utf-8');
         return defaultData;
       }
@@ -36,6 +42,20 @@ function devApiPlugin(): Plugin {
       }
       if (!parsed.settings.admin_password) parsed.settings.admin_password = 'admin';
       if (!parsed.settings.umpire_password) parsed.settings.umpire_password = 'umpire';
+      
+      // If teams are empty, automatically seed 2025 archive data
+      if ((!parsed.teams || parsed.teams.length === 0) && fs.existsSync(seedFile)) {
+        try {
+          const seed = JSON.parse(fs.readFileSync(seedFile, 'utf-8'));
+          if (seed.teams && seed.teams.length > 0) {
+            parsed.teams = seed.teams;
+            parsed.matches = seed.matches || [];
+            if (seed.leagues) parsed.leagues = seed.leagues;
+            saveDb(parsed);
+          }
+        } catch (e) {}
+      }
+
       return parsed;
     } catch (e) {
       return defaultData;
@@ -218,7 +238,7 @@ function devApiPlugin(): Plugin {
                 teams = teams.filter((t: any) => t.league === query.league);
               }
               if (query.season) {
-                teams = teams.filter((t: any) => (t.season || activeSeason) === query.season);
+                teams = teams.filter((t: any) => (t.season || (t.created_at && t.created_at.startsWith('2026') ? '2026' : '2025')) === query.season);
               }
               return sendJson(res, 200, teams);
             }
@@ -283,7 +303,7 @@ function devApiPlugin(): Plugin {
                 matches = matches.filter((m: any) => m.league === query.league);
               }
               if (query.season) {
-                matches = matches.filter((m: any) => (m.season || activeSeason) === query.season);
+                matches = matches.filter((m: any) => (m.season || (m.date && m.date.startsWith('2026') ? '2026' : '2025')) === query.season);
               }
               return sendJson(res, 200, matches);
             }

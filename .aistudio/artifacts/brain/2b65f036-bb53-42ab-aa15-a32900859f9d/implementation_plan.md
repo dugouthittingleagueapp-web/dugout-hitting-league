@@ -1,81 +1,89 @@
-# Multi-Year Player Career Stats & Clean Season Rollover
+# Automated Test Suite for Core Umpire Scoring Logic
 
-A complete, production-grade system to aggregate and display multi-year player career batting statistics across all league seasons—modeled after traditional Baseball Reference / MLB career cards—while ensuring new season activation starts with fresh, empty rosters and zeroed match records without contaminating historical archives.
+A comprehensive, automated test suite utilizing **Vitest** for continuous testing of core umpire scoring rules, inning progression, 3v2 ghost mode attribution, multi-round tiebreaker mechanics, undo operations, and career batting statistic aggregations.
 
 ## User Review & Critical Decisions
 
 > [!IMPORTANT]
 > The following decisions were clarified and confirmed with the user in Phase 1:
-> - **Clickable Player Triggers**: Everywhere player names appear (leaderboards, box scores, match scorecards, and roster tables) will be clickable to open the player's multi-year career batting card.
-> - **Career Batting Table Metrics**: Modeled directly after the user's uploaded reference image (without team logos), featuring columns for **Season, Division, Team, GP (Matches Played), Total Points, 4s, 3s, 2s, 1s, Pitches Seen, Pts/Pitch (efficiency), and Hit %**, completed with bold **Career Totals** and **Season Averages** summary rows.
-> - **Clean Season Rollovers**: Activating a new season creates fresh blank division brackets with zero teams and zero matches. All past team rosters, match logs, and division standings remain strictly sealed inside their respective historical archives.
+> - **Test Framework**: Vitest was selected for native, zero-config Vite and TypeScript integration without requiring duplicate Babel/ts-jest build steps.
+> - **Test Coverage Scope**: Full coverage of all core rules: standard 3v3 (30 pitches/team), 2v2 (20 pitches/team), asymmetric 3v2 Ghost Mode (15 pitches per player with 11-15 attributed to Ghost), multi-round tiebreakers (5/3/1 pitch limits), cell editing/undo, and career statistics aggregation.
+> - **Execution & CI Workflow**: Standard `npm test` script with continuous watch mode (`npm run test:watch`) and coverage reporting (`npm run test:coverage`), allowing seamless local development and automated CI/CD continuous validation.
 
 ---
 
 ## 1. Overview & Core Concept
 
 ### What It Does
-1. **Multi-Year Career Batting Card**: When a fan, umpire, or administrator clicks or taps any player's name anywhere in the application, a sleek modal opens displaying their comprehensive career batting history broken down year-by-year, followed by lifetime Career Totals and Season Averages.
-2. **Cross-Season Player Normalization**: Automatically aggregates a player's statistics across all years they have competed, matching by player name across teams, divisions, and seasons.
-3. **Pristine Season Rollover**: When an administrator activates a new season in the Admin Dashboard, the new season initializes with clean division brackets and zero teams/matches, ensuring no previous season data bleeds into the new year.
+1. **Automated Inning & Match Scoring Verification**: Tests pitch validation (0 to 4 point scale), inning totals calculation, match completion triggers, and automatic advance upon completing regulation innings.
+2. **Ghost Mode Rule Enforcement**: Formally tests the 3v2 short-handed team dynamics where a 2-player team receives 15 pitches each (30 total), verifying that pitches 1–10 attribute to the individual player while pitches 11–15 attribute to the team's Ghost Player 3.
+3. **Tiebreaker Ladder Verification**: Validates extra-inning tiebreaker rounds (Round 1: 5 pitches; Round 2: 3 pitches; Round 3+: sudden-death 1 pitch), player nomination, and point rollups into total team and match scores.
+4. **Data Aggregation Integrity**: Ensures `calculateMatchStats`, `getTeamStats`, and `getPlayerCareerSummary` accurately tabulate hits (4s, 3s, 2s, 1s), total points, pitches seen, hit percentages, and points per pitch across single matches and multi-year archives.
 
 ### Target Audience & Persona
-- **Players & Parents**: Can see their development and lifetime performance year-over-year.
-- **League Umpires & Scorers**: Can inspect historical performance directly from the scoreboard or lineup.
-- **League Administrators**: Can advance the league into future years with one click without manually wiping teams or contaminating past archives.
+- **Developers & Maintainers**: Can continuously run `npm test` during development and refactoring with instant feedback.
+- **League Umpires & Scorers**: Guaranteed consistent rule enforcement without scoring calculation regressions.
 
 ---
 
 ## 2. User Experience & Visual Design
 
-### Key User Flows
+### Test Execution & CLI Output Experience
 
 ```
-[ Leaderboard / Scoreboard / Team Roster ]
-                   │
-                   ▼ (Tap on any Player Name)
-     [ Player Career Batting Modal ]
-     ┌─────────────────────────────────────────────────────────┐
-     │ ⚾ John Doe                         [Close ×]           │
-     │ Career Batting Summary · Dugout Hitting League          │
-     │ ─────────────────────────────────────────────────────── │
-     │ Quick KPI Cards: [Career Pts: 480] [Pitches: 320] [Hit%: 74.2%]
-     │                                                         │
-     │ CAREER BATTING                                          │
-     │ ┌──────┬──────────┬───────────┬────┬─────┬───┬───┬───┬...
-     │ │SEASON│ DIVISION │ TEAM      │ GP │ PTS │ 4s│ 3s│ 2s│...
-     │ ├──────┼──────────┼───────────┼────┼─────┼───┼───┼───┼...
-     │ │ 2025 │ 12u      │ Sluggers  │ 6  │ 210 │ 12│ 24│ 30│...
-     │ │ 2026 │ Varsity  │ Thunder   │ 8  │ 270 │ 18│ 32│ 38│...
-     │ ├──────┼──────────┼───────────┼────┼─────┼───┼───┼───┼...
-     │ │Career│          │ 2 Seasons │ 14 │ 480 │ 30│ 56│ 68│...
-     │ │Season Averages  │           │ 7  │ 240 │ 15│ 28│ 34│...
-     │ └──────┴──────────┴───────────┴────┴─────┴───┴───┴───┴...
-     └─────────────────────────────────────────────────────────┘
+ ✓ tests/scoring/inningScoring.test.ts (6 tests)
+   ✓ calculates individual player pitch points correctly
+   ✓ calculates team inning score from player scores
+   ✓ prevents points outside the 0-4 range
+   ✓ handles undo on active pitch by reverting to null
+   ✓ detects when all regulation innings are complete
+   ✓ triggers tiebreaker check on tied regulation score
+
+ ✓ tests/scoring/ghostMode.test.ts (5 tests)
+   ✓ generates 15 pitch slots for 2-player team facing 3-player team
+   ✓ attributes pitches 1-10 to the active player stats
+   ✓ attributes pitches 11-15 to the team Ghost player
+   ✓ correctly filters Ghost player out of public individual leaderboards
+   ✓ counts Ghost points toward overall team match score
+
+ ✓ tests/scoring/tieBreaker.test.ts (4 tests)
+   ✓ creates 5-pitch Round 1 with nominated shooters
+   ✓ advances to 3-pitch Round 2 if Round 1 remains tied
+   ✓ advances to 1-pitch sudden death for Round 3+
+   ✓ incorporates tiebreaker scores into team game total
+
+ ✓ tests/stats/careerAggregation.test.ts (4 tests)
+   ✓ aggregates career stats across multi-year seasons
+   ✓ computes hit percentage and points per pitch accurately
+   ✓ computes Career Totals and Season Averages summary rows
+
+Test Files  4 passed (4)
+     Tests  19 passed (19)
+  Duration  450ms
 ```
 
-### Visual Identity & Theme
-- **Baseball Reference Inspiration**: Clear, clean horizontal tabular data with subtle zebra striping, sticky header, and distinct summary footer rows.
-- **No Logo Clutter**: Following user guidance, team and division names are displayed as crisp, high-contrast typography rather than external logos or heavy graphics.
-- **Responsive Layout**: Designed mobile-first with smooth horizontal scrolling on phone screens (`overflow-x-auto`) and a sticky first column (`sticky left-0 bg-white dark:bg-slate-900`) so the player's year and team are always visible while swiping right.
-- **Typography & Numeral Math**: All numerical columns use `tabular-nums font-mono text-right` for vertical alignment. Display headers use `Plus Jakarta Sans` with bold weights.
+### Visual & Interactive Integration
+- **CLI Clean Output**: Instant Vitest console feedback with green checkmarks, detailed diffs on failure, and execution timing.
+- **npm Scripts**:
+  - `npm test`: Single-run continuous test execution (ideal for CI/CD and pre-commit checks).
+  - `npm run test:watch`: Interactive watch mode that re-runs relevant tests on file edits.
 
 ---
 
 ## 3. Key Product Decisions & Trade-Offs
 
-### Decision 1: Player Identity Resolution Across Seasons
-- **Chosen Approach**: Resolve career identity using normalized player names (`firstName + lastName` trimmed and case-insensitive).
-- **Why**: Players may be assigned different UUIDs if rosters are re-entered or imported from text in different years. Name-based aggregation ensures an athlete who played in 2025 as a 12u player and in 2026 as a Varsity player has their full multi-year record seamlessly linked.
-- **Alternative Considered**: UUID-only matching. Rejected because each annual roster creation generates new unique player IDs, which would fragment career records.
+### Decision 1: Vitest vs. Jest
+- **Chosen Approach**: Vitest (`vitest`).
+- **Why**: Since this application is a Vite + TypeScript project, Vitest shares the existing `vite.config.ts`, resolves TypeScript paths effortlessly, requires no separate Babel or ts-jest transformation, and executes in milliseconds.
+- **Alternatives Considered**: Jest. Rejected due to heavy configuration requirements and configuration divergence with Vite's modern ESM pipeline.
 
-### Decision 2: Clean Season Rollover Semantics
-- **Chosen Approach**: When `update_season` is called with a new year:
-  - Copy division categories (e.g. `10u`, `12u`, `Varsity`) to the new season so the league structure is instantly ready.
-  - Do NOT copy teams, players, or matches into the new season.
-  - The new season starts completely fresh with 0 teams and 0 matches.
-  - The Admin can then add or import fresh teams for the new season.
-- **Why**: Teams change rosters and players age up into higher divisions every year. Carrying over old teams with 0 stats created stale placeholders. A clean slate respects the natural lifecycle of annual youth sports leagues.
+### Decision 2: Modular Test Suite Structure
+- **Chosen Approach**: Group tests by functional domain:
+  - `tests/scoring/inningScoring.test.ts`: Pitch recording, inning sums, regulation match flow, undo.
+  - `tests/scoring/ghostMode.test.ts`: Asymmetric 3v2 pitch slots, 10 vs 5 pitch cutoff, ghost attribution.
+  - `tests/scoring/tieBreaker.test.ts`: Extra innings, pitch limit ladder (5 -> 3 -> 1), shooter scores.
+  - `tests/stats/careerAggregation.test.ts`: Cross-season batting cards, hit % and points/pitch math.
+- **Why**: Keeps test files compact, readable, and directly mapped to the umpire rulebook sections.
 
 ---
 
@@ -84,99 +92,92 @@ A complete, production-grade system to aggregate and display multi-year player c
 ### System Architecture Diagram
 
 ```
-┌──────────────────────────────────────────────────────────────────────────┐
-│                         DUGOUT HITTING LEAGUE                            │
-├──────────────────────────────────────────────────────────────────────────┤
-│                                                                          │
-│  [ UI Views & Triggers ]                                                 │
-│    ├── Leaderboard Table (Player name links)                             │
-│    ├── Match Box Score / Scoreboard (Lineup name links)                  │
-│    └── Team Management / Roster List (Roster name links)                 │
-│              │                                                           │
-│              ▼                                                           │
-│  [ Player Career Stats Aggregator ] (storageService.ts)                  │
-│    ├── Fetches all teams across all seasons (`getAllTeams`)              │
-│    ├── Fetches all matches across all seasons (`getAllMatches`)          │
-│    ├── Filters matches where player participated (main roster or sub)    │
-│    ├── Groups statistics by season & team & division                     │
-│    └── Computes: GP, Total Pts, 4s, 3s, 2s, 1s, Pitches, Pts/Pit, Hit%   │
-│              │                                                           │
-│              ▼                                                           │
-│  [ PlayerCareerModal Component ]                                         │
-│    ├── Header: Player Name, Career Summary Pill, Year Span               │
-│    ├── Table: Multi-Year Breakdown (2025, 2026, etc.)                    │
-│    └── Summary Rows: Career Totals & Season Averages                     │
-│                                                                          │
-└──────────────────────────────────────────────────────────────────────────┘
+┌────────────────────────────────────────────────────────────────────────┐
+│                        VITEST AUTOMATED TEST SUITE                     │
+├────────────────────────────────────────────────────────────────────────┤
+│                                                                        │
+│  [ CLI Command: npm test ]                                             │
+│       │                                                                │
+│       ▼                                                                │
+│  [ vitest.config.ts ] ──> Shared Vite environment (happy-dom / node)   │
+│       │                                                                │
+│       ├──> [ 1. Inning Scoring Suite ] (tests/scoring/inningScoring)   │
+│       │    ├── createEmptyInning (2v2 vs 3v3 pitch allocation)         │
+│       │    ├── calculateTeamInningTotal (summation)                   │
+│       │    └── regulation completion & tie detection                   │
+│       │                                                                │
+│       ├──> [ 2. Ghost Mode Suite ] (tests/scoring/ghostMode)           │
+│       │    ├── 15-pitch generation for 2-player team                   │
+│       │    ├── pitches 1-10 -> player; 11-15 -> ghost                  │
+│       │    └── ghost player filtering in stats vs. team totals        │
+│       │                                                                │
+│       ├──> [ 3. Tiebreaker Suite ] (tests/scoring/tieBreaker)          │
+│       │    ├── Round 1 (5 pitches), Round 2 (3), Round 3+ (1)          │
+│       │    ├── Shooter pitch recording & score rollups                 │
+│       │    └── Match winning condition                                 │
+│       │                                                                │
+│       └──> [ 4. Career Aggregation Suite ] (tests/stats/career)        │
+│            ├── Multi-season normalization (2025 + 2026)                │
+│            ├── Points per pitch (PPP) and Hit Percentage (Hit%)        │
+│            └── Career Totals & Season Averages computation             │
+│                                                                        │
+└────────────────────────────────────────────────────────────────────────┘
 ```
 
-### Data Structures
+### Detailed Test Specifications
 
-```typescript
-export interface PlayerSeasonStatRow {
-  season: string;
-  leagueId: string;
-  teamName: string;
-  gamesPlayed: number;
-  totalPoints: number;
-  hits4: number;
-  hits3: number;
-  hits2: number;
-  hits1: number;
-  pitchesSeen: number;
-  pointsPerPitch: number; // totalPoints / pitchesSeen
-  hitPercentage: number;   // (hits4 + hits3 + hits2 + hits1) / pitchesSeen * 100
-}
+#### Test Suite 1: Inning & Match Scoring Logic
+- **Pitches per Inning**:
+  - In 3v3 match: Each team has 3 players receiving 10 pitches (30 pitches/team/inning).
+  - In 2v2 match: Each team has 2 players receiving 10 pitches (20 pitches/team/inning).
+- **Point Values**:
+  - Accept valid values: `0`, `1`, `2`, `3`, `4`.
+  - Empty pitches represented as `null`.
+- **Inning Totals & Game Totals**:
+  - Sum individual pitch points accurately across 6 regulation innings.
+- **Undo Operation**:
+  - Calling undo on pitch `n` sets pitch `n` to `null` while preserving preceding pitches.
 
-export interface PlayerCareerSummary {
-  playerName: string;
-  seasons: PlayerSeasonStatRow[];
-  careerTotals: {
-    seasonsCount: number;
-    gamesPlayed: number;
-    totalPoints: number;
-    hits4: number;
-    hits3: number;
-    hits2: number;
-    hits1: number;
-    pitchesSeen: number;
-    pointsPerPitch: number;
-    hitPercentage: number;
-  };
-  seasonAverages: {
-    gamesPlayed: number;
-    totalPoints: number;
-    hits4: number;
-    hits3: number;
-    hits2: number;
-    hits1: number;
-    pitchesSeen: number;
-  };
-}
-```
+#### Test Suite 2: 3v2 Ghost Mode Mechanics
+- **Asymmetric Generation**:
+  - When Home has 3 players and Away has 2 players: Away players receive 15 pitches each; Home receives 10 pitches each.
+- **Stats Split**:
+  - For Away players: pitches 1–10 accumulate to their individual stats (hits and totalPoints).
+  - Pitches 11–15 accumulate to `ghost-<awayTeamId>`.
+- **Filtering**:
+  - Ghost stats are included in team match totals.
+  - Ghost stats (`ghost-*`) are strictly excluded from individual player leaderboards.
 
-### Implementation Steps
+#### Test Suite 3: Tiebreaker Ladder Logic
+- **Round Initiation**:
+  - When regulation 6 innings end in a tie, tiebreaker round is initiated.
+- **Pitch Limit Step-Down**:
+  - Round 1 allocates 5 pitches per shooter.
+  - Round 2 allocates 3 pitches per shooter.
+  - Round 3+ allocates 1 pitch per shooter.
+- **Rollup**:
+  - Tiebreaker scores roll up into team game total and player total stats.
 
-1. **Season Rollover Logic (`vite.config.ts` & `api/settings.ts`)**:
-   - Update `update_season` action: ensure that when a new season is created, only league division definitions are populated. Do NOT duplicate teams or matches into the new season.
-   - When moving teams between divisions in `update_teams`: ensure changes only affect the target team in its specific season, without altering past archived records.
+#### Test Suite 4: Career Stats & Metric Accuracy
+- **Formula Checks**:
+  - `Points Per Pitch (PPP)` = `totalPoints / pitchesSeen` rounded to 2 decimals.
+  - `Hit Percentage (Hit%)` = `(hits4 + hits3 + hits2 + hits1) / pitchesSeen * 100` rounded to 1 decimal.
+- **Cross-Season Linking**:
+  - Matches across 2025 and 2026 for the same player name merge into single multi-year summary with accurate Career Totals and Season Averages.
 
-2. **Career Statistics Service Method (`services/storageService.ts`)**:
-   - Implement `getPlayerCareerStats(playerName: string): Promise<PlayerCareerSummary>`.
-   - Normalizes names with `name + (lastName ? ' ' + lastName : '')`.
-   - Iterates through all matches across all seasons where `isComplete` is true.
-   - Calculates hit totals, pitch counts (with ghost mode isolation), games played, and averages.
+---
 
-3. **Career Batting Modal Component (`components/PlayerCareerModal.tsx`)**:
-   - Dedicated modal component rendering the user's requested Baseball Reference style table.
-   - Includes quick overview KPI summary, season-by-season rows, Career totals row, and Season Averages row.
-   - Mobile responsive with horizontal scroll and sticky year column.
+## 5. Execution Steps (Post-Approval)
 
-4. **Integration Across App Views (`App.tsx`, `Scoreboard.tsx`, `TeamManagement.tsx`)**:
-   - Add `selectedCareerPlayer` state in `App.tsx`.
-   - Wrap player names in clickable buttons with hover underlines across:
-     - Dashboard season leaderboard table
-     - Weekly leaderboard
-     - Scoreboard box score and lineup table
-     - Team management player rosters
-   - Mount `PlayerCareerModal` via React Portal for seamless overlay on all screen sizes.
+1. **Install Dependencies**:
+   - Install `vitest` and `@vitest/coverage-v8` via `install_applet_package`.
+2. **Configure Vitest**:
+   - Add `test` and `test:watch` scripts to `package.json`.
+   - Configure `vitest.config.ts`.
+3. **Implement Test Suites**:
+   - Create `tests/scoring/inningScoring.test.ts`
+   - Create `tests/scoring/ghostMode.test.ts`
+   - Create `tests/scoring/tieBreaker.test.ts`
+   - Create `tests/stats/careerAggregation.test.ts`
+4. **Run & Verify**:
+   - Execute `npm test` and verify that all 19+ test cases pass cleanly.

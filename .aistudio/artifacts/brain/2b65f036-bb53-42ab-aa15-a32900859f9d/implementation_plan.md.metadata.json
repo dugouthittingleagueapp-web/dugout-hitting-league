@@ -1,6 +1,6 @@
 {
-  "summary":  "Comprehensive implementation plan for multi-year player career stats modal (modeled after baseball reference career batting cards) and clean season rollovers that keep past season stats and matches strictly archived.",
-  "updatedAt":  "2026-10-23T12:34:16.768983486Z",
+  "summary":  "Automated test suite using Vitest for core umpire scoring logic, ghost mode (3v2), tiebreakers, undo, and player/team aggregations.",
+  "updatedAt":  "2026-10-24T21:53:21.213136855Z",
   "requestFeedback":  true,
   "userFacing":  true
 }

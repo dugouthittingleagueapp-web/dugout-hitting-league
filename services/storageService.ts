@@ -438,7 +438,7 @@ export const createMatch = async (league: AgeGroup, homeTeamId: string, awayTeam
     return mapMatchFromDB(data);
 };
 
-const createEmptyInning = (number: number, homeIds: string[], awayIds: string[]): Inning => {
+export const createEmptyInning = (number: number, homeIds: string[], awayIds: string[]): Inning => {
     // LOGIC:
     // 3v3: 10 pitches each (30 vs 30)
     // 2v2: 10 pitches each (20 vs 20) - Standard scoring per user request
@@ -466,6 +466,28 @@ const createEmptyInning = (number: number, homeIds: string[], awayIds: string[])
         home: { teamId: 'home', playerScores: homeIds.map(id => createPlayerScore(id, homePitches)) },
         away: { teamId: 'away', playerScores: awayIds.map(id => createPlayerScore(id, awayPitches)) }
     };
+};
+
+export const calculateTeamInningTotal = (side: 'home' | 'away', inning?: Inning): number => {
+    if (!inning) return 0;
+    const teamData = side === 'home' ? inning.home : inning.away;
+    if (!teamData?.playerScores) return 0;
+    return teamData.playerScores.reduce((sum, player) => sum + (player.pitches || []).reduce((pSum, pitch) => pSum + (pitch.points || 0), 0), 0);
+};
+
+export const calculateTeamGameTotal = (side: 'home' | 'away', matchData?: Match | null): number => {
+    if (!matchData?.innings) return 0;
+    const baseScore = matchData.innings.reduce((sum, inning) => sum + calculateTeamInningTotal(side, inning), 0);
+    let tieScore = 0;
+    if (matchData.tieBreaker && Array.isArray(matchData.tieBreaker)) {
+        matchData.tieBreaker.forEach(round => {
+            const scores = side === 'home' ? round.homeScores : round.awayScores;
+            if (Array.isArray(scores)) {
+                tieScore += scores.reduce<number>((a, b) => (a || 0) + (b || 0), 0);
+            }
+        });
+    }
+    return baseScore + tieScore;
 };
 
 export const updateMatch = async (match: Match): Promise<Match> => {

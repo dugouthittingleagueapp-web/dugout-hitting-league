@@ -43,7 +43,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         query += ' WHERE';
         const conditions = [];
         if (league) {
-          conditions.push(` league = $${paramCount++}`);
+          conditions.push(` LOWER(league) = LOWER($${paramCount++})`);
           params.push(league);
         }
         if (season) {

@@ -381,6 +381,7 @@ const App: React.FC = () => {
       
       const weeksMap = new Map<string, Match[]>();
       matches.forEach(m => {
+          if (m.league && !storage.leaguesMatch(m.league, state.currentLeague)) return;
           const key = getWeekKey(m.date);
           if (!weeksMap.has(key)) weeksMap.set(key, []);
           weeksMap.get(key)!.push(m);
@@ -762,7 +763,7 @@ const App: React.FC = () => {
       return w ? w.matches : [];
   }, [activeWeeks, matchListWeek]);
 
-  const leagueTeams = teams.filter(t => t.league === state.currentLeague);
+  const leagueTeams = teams.filter(t => storage.leaguesMatch(t.league, state.currentLeague));
 
   // --- NEW: Standings Calculation ---
   const standings = useMemo(() => {
@@ -775,7 +776,7 @@ const App: React.FC = () => {
     });
 
     matches.forEach(m => {
-      if (!m.isComplete) return;
+      if (!m.isComplete || (m.league && !storage.leaguesMatch(m.league, state.currentLeague))) return;
       
       const getScore = (innings: Inning[], side: 'home' | 'away', tb?: TieBreakerRound[]) => {
          let score = (innings || []).reduce((acc, ing) => {
@@ -826,7 +827,7 @@ const App: React.FC = () => {
       const aggStats = new Map<string, PlayerStats>();
       
       matches.forEach(m => {
-          if (!m.isComplete) return;
+          if (!m.isComplete || (m.league && !storage.leaguesMatch(m.league, state.currentLeague))) return;
           const home = teams.find(t => t.id === m.homeTeamId);
           const away = teams.find(t => t.id === m.awayTeamId);
           if (!home || !away) return;

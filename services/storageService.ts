@@ -1,5 +1,15 @@
 
 import { AgeGroup, Match, Team, Inning, PlayerInningScore, League, PlayerStats, Player, PlayerSeasonStatRow, PlayerCareerSummary } from '../types';
+import { ARCHIVE_2025_LEAGUES, ARCHIVE_2025_TEAMS, ARCHIVE_2025_MATCHES } from './archive2025Data';
+
+export const normalizeLeague = (league?: string | null): string => {
+  return (league || '').trim().toLowerCase();
+};
+
+export const leaguesMatch = (leagueA?: string | null, leagueB?: string | null): boolean => {
+  if (!leagueA || !leagueB) return false;
+  return normalizeLeague(leagueA) === normalizeLeague(leagueB);
+};
 
 const mapTeamFromDB = (dbTeam: any): Team => ({
   ...dbTeam,
@@ -49,12 +59,14 @@ export const getLeagues = async (season?: string): Promise<League[]> => {
     const res = await fetch(url);
     if (res.ok) {
       const data = await res.json();
-      if (typeof window !== 'undefined') {
-        try {
-          localStorage.setItem(`dugout_leagues_${season || 'all'}`, JSON.stringify(data));
-        } catch (e) {}
+      if (Array.isArray(data) && (data.length > 0 || season !== '2025')) {
+        if (typeof window !== 'undefined') {
+          try {
+            localStorage.setItem(`dugout_leagues_${season || 'all'}`, JSON.stringify(data));
+          } catch (e) {}
+        }
+        return data;
       }
-      return data;
     }
   } catch (err) {
     console.warn('Network fetch failed for getLeagues, using offline cache', err);
@@ -64,8 +76,17 @@ export const getLeagues = async (season?: string): Promise<League[]> => {
   if (typeof window !== 'undefined') {
     try {
       const cached = localStorage.getItem(`dugout_leagues_${season || 'all'}`);
-      if (cached) return JSON.parse(cached);
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        if (Array.isArray(parsed) && (parsed.length > 0 || season !== '2025')) {
+          return parsed;
+        }
+      }
     } catch (e) {}
+  }
+
+  if (season === '2025') {
+    return ARCHIVE_2025_LEAGUES;
   }
   return [];
 };
@@ -198,20 +219,22 @@ if (typeof window !== 'undefined') {
 
 // Team Methods
 export const getTeams = async (league: AgeGroup | null, season: string): Promise<Team[]> => {
-  let url = `/api/teams?season=${season}`;
-  if (league) url += `&league=${league}`;
+  let url = `/api/teams?season=${encodeURIComponent(season)}`;
+  if (league) url += `&league=${encodeURIComponent(league)}`;
   
   try {
     const res = await fetch(url);
     if (res.ok) {
       const data = await res.json();
       const mapped = data.map(mapTeamFromDB);
-      if (typeof window !== 'undefined') {
-        try {
-          localStorage.setItem(`dugout_teams_${season}_${league || 'all'}`, JSON.stringify(mapped));
-        } catch (e) {}
+      if (mapped.length > 0 || season !== '2025') {
+        if (typeof window !== 'undefined') {
+          try {
+            localStorage.setItem(`dugout_teams_${season}_${league || 'all'}`, JSON.stringify(mapped));
+          } catch (e) {}
+        }
+        return mapped;
       }
-      return mapped;
     }
   } catch (err) {
     console.warn('Network fetch failed for getTeams, falling back to cache', err);
@@ -221,42 +244,70 @@ export const getTeams = async (league: AgeGroup | null, season: string): Promise
   if (typeof window !== 'undefined') {
     try {
       const cached = localStorage.getItem(`dugout_teams_${season}_${league || 'all'}`);
-      if (cached) return JSON.parse(cached);
+      if (cached) {
+        const parsed: Team[] = JSON.parse(cached);
+        if (parsed.length > 0 || season !== '2025') return parsed;
+      }
       const allCached = localStorage.getItem('dugout_all_teams_cache');
       if (allCached) {
         const parsed: Team[] = JSON.parse(allCached);
-        return parsed.filter(t => (!league || t.league === league) && (!season || (t.season || '2025') === season));
+        const filtered = parsed.filter(t => (!league || leaguesMatch(t.league, league)) && (!season || (t.season || '2025') === season));
+        if (filtered.length > 0 || season !== '2025') return filtered;
       }
     } catch (e) {}
   }
+
+  // Guaranteed fallback for 2025 historical archive
+  if (season === '2025') {
+    const fallback = ARCHIVE_2025_TEAMS.filter(t => !league || leaguesMatch(t.league, league));
+    if (typeof window !== 'undefined') {
+      try {
+        localStorage.setItem(`dugout_teams_2025_${league || 'all'}`, JSON.stringify(fallback));
+      } catch (e) {}
+    }
+    return fallback;
+  }
+
   return [];
 };
 
 export const getAllTeams = async (): Promise<Team[]> => {
+  let teams: Team[] = [];
   try {
     const res = await fetch(`/api/teams`);
     if (res.ok) {
       const data = await res.json();
-      const mapped = data.map(mapTeamFromDB);
+      teams = data.map(mapTeamFromDB);
       if (typeof window !== 'undefined') {
         try {
-          localStorage.setItem('dugout_all_teams_cache', JSON.stringify(mapped));
+          localStorage.setItem('dugout_all_teams_cache', JSON.stringify(teams));
         } catch (e) {}
       }
-      return mapped;
     }
   } catch (err) {
     console.warn('Network fetch failed for getAllTeams, falling back to cache', err);
   }
 
   // Offline fallback
-  if (typeof window !== 'undefined') {
+  if (teams.length === 0 && typeof window !== 'undefined') {
     try {
       const cached = localStorage.getItem('dugout_all_teams_cache');
-      if (cached) return JSON.parse(cached);
+      if (cached) {
+        teams = JSON.parse(cached);
+      }
     } catch (e) {}
   }
-  return [];
+
+  // Always ensure 2025 archive teams exist in full team directory
+  const teamIdSet = new Set(teams.map(t => t.id));
+  ARCHIVE_2025_TEAMS.forEach(at => {
+    if (!teamIdSet.has(at.id)) {
+      teams.push(at);
+      teamIdSet.add(at.id);
+    }
+  });
+
+  return teams;
 };
 
 export const createTeam = async (name: string, league: AgeGroup, players: {name: string, lastName?: string}[], season: string, subs: {name: string, lastName?: string}[] = []): Promise<Team> => {
@@ -341,16 +392,18 @@ export const deleteTeam = async (teamId: string) => {
 // Match Methods
 export const getMatches = async (league: AgeGroup, season: string): Promise<Match[]> => {
   try {
-    const res = await fetch(`/api/matches?league=${league}&season=${season}`);
+    const res = await fetch(`/api/matches?league=${encodeURIComponent(league)}&season=${encodeURIComponent(season)}`);
     if (res.ok) {
       const data = await res.json();
       const mapped = data.map(mapMatchFromDB);
-      if (typeof window !== 'undefined') {
-        try {
-          localStorage.setItem(`dugout_matches_${season}_${league}`, JSON.stringify(mapped));
-        } catch (e) {}
+      if (mapped.length > 0 || season !== '2025') {
+        if (typeof window !== 'undefined') {
+          try {
+            localStorage.setItem(`dugout_matches_${season}_${league}`, JSON.stringify(mapped));
+          } catch (e) {}
+        }
+        return mapped;
       }
-      return mapped;
     }
   } catch (err) {
     console.warn('Network fetch failed for getMatches, using offline cache', err);
@@ -360,17 +413,49 @@ export const getMatches = async (league: AgeGroup, season: string): Promise<Matc
   if (typeof window !== 'undefined') {
     try {
       const cached = localStorage.getItem(`dugout_matches_${season}_${league}`);
-      if (cached) return JSON.parse(cached);
+      if (cached) {
+        const parsed: Match[] = JSON.parse(cached);
+        if (parsed.length > 0 || season !== '2025') return parsed;
+      }
     } catch (e) {}
   }
+
+  // Guaranteed fallback for 2025 historical archive
+  if (season === '2025') {
+    const fallback = ARCHIVE_2025_MATCHES.filter(m => leaguesMatch(m.league, league));
+    if (typeof window !== 'undefined') {
+      try {
+        localStorage.setItem(`dugout_matches_2025_${league}`, JSON.stringify(fallback));
+      } catch (e) {}
+    }
+    return fallback;
+  }
+
   return [];
 };
 
 export const getAllMatches = async (): Promise<Match[]> => {
-  const res = await fetch('/api/matches');
-  if (!res.ok) return [];
-  const data = await res.json();
-  return data.map(mapMatchFromDB);
+  let matches: Match[] = [];
+  try {
+    const res = await fetch('/api/matches');
+    if (res.ok) {
+      const data = await res.json();
+      matches = data.map(mapMatchFromDB);
+    }
+  } catch (err) {
+    console.warn('Network fetch failed for getAllMatches', err);
+  }
+
+  // Merge 2025 archive matches if missing
+  const matchIdSet = new Set(matches.map(m => m.id));
+  ARCHIVE_2025_MATCHES.forEach(am => {
+    if (!matchIdSet.has(am.id)) {
+      matches.push(am);
+      matchIdSet.add(am.id);
+    }
+  });
+
+  return matches;
 };
 
 export const getMatch = async (id: string): Promise<Match | undefined> => {
@@ -399,6 +484,11 @@ export const getMatch = async (id: string): Promise<Match | undefined> => {
       }
     } catch (e) {}
   }
+
+  // Archive 2025 match fallback
+  const archiveMatch = ARCHIVE_2025_MATCHES.find(m => m.id === id);
+  if (archiveMatch) return archiveMatch;
+
   return undefined;
 };
 

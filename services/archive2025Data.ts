@@ -1,0 +1,24619 @@
+import { League, Team, Match } from "../types";
+
+export const ARCHIVE_2025_LEAGUES: League[] = [
+  {
+    "id": "10u",
+    "season": "2025",
+    "created_at": "2025-01-01T00:00:00.000Z"
+  },
+  {
+    "id": "12u",
+    "season": "2025",
+    "created_at": "2025-01-01T00:00:00.000Z"
+  },
+  {
+    "id": "Varsity",
+    "season": "2025",
+    "created_at": "2025-01-01T00:00:00.000Z"
+  }
+];
+
+export const ARCHIVE_2025_TEAMS: Team[] = [
+  {
+    "id": "team-10u-1",
+    "name": "Iron Pigs",
+    "league": "10u",
+    "season": "2025",
+    "players": [
+      {
+        "id": "p-10u-1",
+        "name": "Liam",
+        "lastName": "Davis"
+      },
+      {
+        "id": "p-10u-2",
+        "name": "Noah",
+        "lastName": "Martinez"
+      },
+      {
+        "id": "p-10u-3",
+        "name": "Lucas",
+        "lastName": "Wilson"
+      }
+    ],
+    "subs": [
+      {
+        "id": "p-10u-4",
+        "name": "Mason",
+        "lastName": "Taylor"
+      }
+    ]
+  },
+  {
+    "id": "team-10u-2",
+    "name": "Mudcats",
+    "league": "10u",
+    "season": "2025",
+    "players": [
+      {
+        "id": "p-10u-5",
+        "name": "Ethan",
+        "lastName": "Miller"
+      },
+      {
+        "id": "p-10u-6",
+        "name": "Oliver",
+        "lastName": "Anderson"
+      },
+      {
+        "id": "p-10u-7",
+        "name": "Elijah",
+        "lastName": "Thomas"
+      }
+    ],
+    "subs": [
+      {
+        "id": "p-10u-8",
+        "name": "Logan",
+        "lastName": "White"
+      }
+    ]
+  },
+  {
+    "id": "team-10u-3",
+    "name": "River Bandits",
+    "league": "10u",
+    "season": "2025",
+    "players": [
+      {
+        "id": "p-10u-9",
+        "name": "Aiden",
+        "lastName": "Jackson"
+      },
+      {
+        "id": "p-10u-10",
+        "name": "Jackson",
+        "lastName": "Harris"
+      },
+      {
+        "id": "p-10u-11",
+        "name": "Carter",
+        "lastName": "Martin"
+      }
+    ],
+    "subs": []
+  },
+  {
+    "id": "team-10u-4",
+    "name": "Grasshoppers",
+    "league": "10u",
+    "season": "2025",
+    "players": [
+      {
+        "id": "p-10u-12",
+        "name": "Benjamin",
+        "lastName": "Clark"
+      },
+      {
+        "id": "p-10u-13",
+        "name": "James",
+        "lastName": "Lewis"
+      },
+      {
+        "id": "p-10u-14",
+        "name": "Alexander",
+        "lastName": "Robinson"
+      }
+    ],
+    "subs": []
+  },
+  {
+    "id": "team-12u-1",
+    "name": "Sluggers",
+    "league": "12u",
+    "season": "2025",
+    "players": [
+      {
+        "id": "p-12u-1",
+        "name": "Jake",
+        "lastName": "Thompson"
+      },
+      {
+        "id": "p-12u-2",
+        "name": "Ryan",
+        "lastName": "Cooper"
+      },
+      {
+        "id": "p-12u-3",
+        "name": "Sam",
+        "lastName": "Miller"
+      }
+    ],
+    "subs": [
+      {
+        "id": "p-12u-4",
+        "name": "Tyler",
+        "lastName": "Brooks"
+      }
+    ]
+  },
+  {
+    "id": "team-12u-2",
+    "name": "Sandlot Kings",
+    "league": "12u",
+    "season": "2025",
+    "players": [
+      {
+        "id": "p-12u-5",
+        "name": "Cole",
+        "lastName": "Davis"
+      },
+      {
+        "id": "p-12u-6",
+        "name": "Dylan",
+        "lastName": "Reed"
+      },
+      {
+        "id": "p-12u-7",
+        "name": "Max",
+        "lastName": "Johnson"
+      }
+    ],
+    "subs": []
+  },
+  {
+    "id": "team-12u-3",
+    "name": "Diamondbacks",
+    "league": "12u",
+    "season": "2025",
+    "players": [
+      {
+        "id": "p-12u-8",
+        "name": "Austin",
+        "lastName": "Hayes"
+      },
+      {
+        "id": "p-12u-9",
+        "name": "Luke",
+        "lastName": "Phillips"
+      },
+      {
+        "id": "p-12u-10",
+        "name": "Chase",
+        "lastName": "Bennett"
+      }
+    ],
+    "subs": []
+  },
+  {
+    "id": "team-12u-4",
+    "name": "Blue Jays",
+    "league": "12u",
+    "season": "2025",
+    "players": [
+      {
+        "id": "p-12u-11",
+        "name": "Owen",
+        "lastName": "Parker"
+      },
+      {
+        "id": "p-12u-12",
+        "name": "Wyatt",
+        "lastName": "Evans"
+      },
+      {
+        "id": "p-12u-13",
+        "name": "Caleb",
+        "lastName": "Morris"
+      }
+    ],
+    "subs": []
+  },
+  {
+    "id": "team-var-1",
+    "name": "Thunder",
+    "league": "Varsity",
+    "season": "2025",
+    "players": [
+      {
+        "id": "p-var-1",
+        "name": "Marcus",
+        "lastName": "Vance"
+      },
+      {
+        "id": "p-var-2",
+        "name": "Derek",
+        "lastName": "Cole"
+      },
+      {
+        "id": "p-var-3",
+        "name": "Travis",
+        "lastName": "Young"
+      }
+    ],
+    "subs": [
+      {
+        "id": "p-var-4",
+        "name": "Nathan",
+        "lastName": "Cross"
+      }
+    ]
+  },
+  {
+    "id": "team-var-2",
+    "name": "Knights",
+    "league": "Varsity",
+    "season": "2025",
+    "players": [
+      {
+        "id": "p-var-5",
+        "name": "Justin",
+        "lastName": "Ward"
+      },
+      {
+        "id": "p-var-6",
+        "name": "Brandon",
+        "lastName": "Lee"
+      },
+      {
+        "id": "p-var-7",
+        "name": "Kyle",
+        "lastName": "Sanchez"
+      }
+    ],
+    "subs": []
+  },
+  {
+    "id": "team-var-3",
+    "name": "Vipers",
+    "league": "Varsity",
+    "season": "2025",
+    "players": [
+      {
+        "id": "p-var-8",
+        "name": "Brett",
+        "lastName": "Peterson"
+      },
+      {
+        "id": "p-var-9",
+        "name": "Trevor",
+        "lastName": "Hall"
+      },
+      {
+        "id": "p-var-10",
+        "name": "Garrett",
+        "lastName": "Diaz"
+      }
+    ],
+    "subs": []
+  },
+  {
+    "id": "team-var-4",
+    "name": "Outlaws",
+    "league": "Varsity",
+    "season": "2025",
+    "players": [
+      {
+        "id": "p-var-11",
+        "name": "Colin",
+        "lastName": "Foster"
+      },
+      {
+        "id": "p-var-12",
+        "name": "Hunter",
+        "lastName": "Kelly"
+      },
+      {
+        "id": "p-var-13",
+        "name": "Zach",
+        "lastName": "Simmons"
+      }
+    ],
+    "subs": []
+  }
+];
+
+export const ARCHIVE_2025_MATCHES: Match[] = [
+  {
+    "id": "match-1000-t3de",
+    "league": "10u",
+    "homeTeamId": "team-10u-1",
+    "awayTeamId": "team-10u-2",
+    "date": "2025-10-06T18:00:00.000Z",
+    "isComplete": true,
+    "innings": [
+      {
+        "number": 1,
+        "home": {
+          "teamId": "home",
+          "playerScores": [
+            {
+              "playerId": "p-10u-1",
+              "pitches": [
+                {
+                  "points": 3
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 2
+                }
+              ]
+            },
+            {
+              "playerId": "p-10u-2",
+              "pitches": [
+                {
+                  "points": 4
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                }
+              ]
+            },
+            {
+              "playerId": "p-10u-3",
+              "pitches": [
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                }
+              ]
+            }
+          ]
+        },
+        "away": {
+          "teamId": "away",
+          "playerScores": [
+            {
+              "playerId": "p-10u-5",
+              "pitches": [
+                {
+                  "points": 3
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 2
+                }
+              ]
+            },
+            {
+              "playerId": "p-10u-6",
+              "pitches": [
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                }
+              ]
+            },
+            {
+              "playerId": "p-10u-7",
+              "pitches": [
+                {
+                  "points": 4
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 0
+                }
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "number": 2,
+        "home": {
+          "teamId": "home",
+          "playerScores": [
+            {
+              "playerId": "p-10u-1",
+              "pitches": [
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 4
+                }
+              ]
+            },
+            {
+              "playerId": "p-10u-2",
+              "pitches": [
+                {
+                  "points": 3
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 4
+                }
+              ]
+            },
+            {
+              "playerId": "p-10u-3",
+              "pitches": [
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 3
+                }
+              ]
+            }
+          ]
+        },
+        "away": {
+          "teamId": "away",
+          "playerScores": [
+            {
+              "playerId": "p-10u-5",
+              "pitches": [
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 3
+                }
+              ]
+            },
+            {
+              "playerId": "p-10u-6",
+              "pitches": [
+                {
+                  "points": 0
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                }
+              ]
+            },
+            {
+              "playerId": "p-10u-7",
+              "pitches": [
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 3
+                }
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "number": 3,
+        "home": {
+          "teamId": "home",
+          "playerScores": [
+            {
+              "playerId": "p-10u-1",
+              "pitches": [
+                {
+                  "points": 2
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                }
+              ]
+            },
+            {
+              "playerId": "p-10u-2",
+              "pitches": [
+                {
+                  "points": 4
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                }
+              ]
+            },
+            {
+              "playerId": "p-10u-3",
+              "pitches": [
+                {
+                  "points": 1
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                }
+              ]
+            }
+          ]
+        },
+        "away": {
+          "teamId": "away",
+          "playerScores": [
+            {
+              "playerId": "p-10u-5",
+              "pitches": [
+                {
+                  "points": 4
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 2
+                }
+              ]
+            },
+            {
+              "playerId": "p-10u-6",
+              "pitches": [
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 3
+                }
+              ]
+            },
+            {
+              "playerId": "p-10u-7",
+              "pitches": [
+                {
+                  "points": 3
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 3
+                }
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "number": 4,
+        "home": {
+          "teamId": "home",
+          "playerScores": [
+            {
+              "playerId": "p-10u-1",
+              "pitches": [
+                {
+                  "points": 3
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 0
+                }
+              ]
+            },
+            {
+              "playerId": "p-10u-2",
+              "pitches": [
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                }
+              ]
+            },
+            {
+              "playerId": "p-10u-3",
+              "pitches": [
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                }
+              ]
+            }
+          ]
+        },
+        "away": {
+          "teamId": "away",
+          "playerScores": [
+            {
+              "playerId": "p-10u-5",
+              "pitches": [
+                {
+                  "points": 4
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 0
+                }
+              ]
+            },
+            {
+              "playerId": "p-10u-6",
+              "pitches": [
+                {
+                  "points": 4
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                }
+              ]
+            },
+            {
+              "playerId": "p-10u-7",
+              "pitches": [
+                {
+                  "points": 2
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 1
+                }
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "number": 5,
+        "home": {
+          "teamId": "home",
+          "playerScores": [
+            {
+              "playerId": "p-10u-1",
+              "pitches": [
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                }
+              ]
+            },
+            {
+              "playerId": "p-10u-2",
+              "pitches": [
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                }
+              ]
+            },
+            {
+              "playerId": "p-10u-3",
+              "pitches": [
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 1
+                }
+              ]
+            }
+          ]
+        },
+        "away": {
+          "teamId": "away",
+          "playerScores": [
+            {
+              "playerId": "p-10u-5",
+              "pitches": [
+                {
+                  "points": 2
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 2
+                }
+              ]
+            },
+            {
+              "playerId": "p-10u-6",
+              "pitches": [
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                }
+              ]
+            },
+            {
+              "playerId": "p-10u-7",
+              "pitches": [
+                {
+                  "points": 0
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 3
+                }
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "number": 6,
+        "home": {
+          "teamId": "home",
+          "playerScores": [
+            {
+              "playerId": "p-10u-1",
+              "pitches": [
+                {
+                  "points": 2
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                }
+              ]
+            },
+            {
+              "playerId": "p-10u-2",
+              "pitches": [
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 4
+                }
+              ]
+            },
+            {
+              "playerId": "p-10u-3",
+              "pitches": [
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                }
+              ]
+            }
+          ]
+        },
+        "away": {
+          "teamId": "away",
+          "playerScores": [
+            {
+              "playerId": "p-10u-5",
+              "pitches": [
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 2
+                }
+              ]
+            },
+            {
+              "playerId": "p-10u-6",
+              "pitches": [
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 4
+                }
+              ]
+            },
+            {
+              "playerId": "p-10u-7",
+              "pitches": [
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                }
+              ]
+            }
+          ]
+        }
+      }
+    ],
+    "season": "2025"
+  },
+  {
+    "id": "match-1001-xfnb",
+    "league": "10u",
+    "homeTeamId": "team-10u-3",
+    "awayTeamId": "team-10u-4",
+    "date": "2025-10-06T18:00:00.000Z",
+    "isComplete": true,
+    "innings": [
+      {
+        "number": 1,
+        "home": {
+          "teamId": "home",
+          "playerScores": [
+            {
+              "playerId": "p-10u-9",
+              "pitches": [
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                }
+              ]
+            },
+            {
+              "playerId": "p-10u-10",
+              "pitches": [
+                {
+                  "points": 1
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                }
+              ]
+            },
+            {
+              "playerId": "p-10u-11",
+              "pitches": [
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 3
+                }
+              ]
+            }
+          ]
+        },
+        "away": {
+          "teamId": "away",
+          "playerScores": [
+            {
+              "playerId": "p-10u-12",
+              "pitches": [
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                }
+              ]
+            },
+            {
+              "playerId": "p-10u-13",
+              "pitches": [
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 1
+                }
+              ]
+            },
+            {
+              "playerId": "p-10u-14",
+              "pitches": [
+                {
+                  "points": 3
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                }
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "number": 2,
+        "home": {
+          "teamId": "home",
+          "playerScores": [
+            {
+              "playerId": "p-10u-9",
+              "pitches": [
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                }
+              ]
+            },
+            {
+              "playerId": "p-10u-10",
+              "pitches": [
+                {
+                  "points": 1
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                }
+              ]
+            },
+            {
+              "playerId": "p-10u-11",
+              "pitches": [
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                }
+              ]
+            }
+          ]
+        },
+        "away": {
+          "teamId": "away",
+          "playerScores": [
+            {
+              "playerId": "p-10u-12",
+              "pitches": [
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                }
+              ]
+            },
+            {
+              "playerId": "p-10u-13",
+              "pitches": [
+                {
+                  "points": 2
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                }
+              ]
+            },
+            {
+              "playerId": "p-10u-14",
+              "pitches": [
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                }
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "number": 3,
+        "home": {
+          "teamId": "home",
+          "playerScores": [
+            {
+              "playerId": "p-10u-9",
+              "pitches": [
+                {
+                  "points": 0
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 1
+                }
+              ]
+            },
+            {
+              "playerId": "p-10u-10",
+              "pitches": [
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                }
+              ]
+            },
+            {
+              "playerId": "p-10u-11",
+              "pitches": [
+                {
+                  "points": 3
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                }
+              ]
+            }
+          ]
+        },
+        "away": {
+          "teamId": "away",
+          "playerScores": [
+            {
+              "playerId": "p-10u-12",
+              "pitches": [
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 1
+                }
+              ]
+            },
+            {
+              "playerId": "p-10u-13",
+              "pitches": [
+                {
+                  "points": 2
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                }
+              ]
+            },
+            {
+              "playerId": "p-10u-14",
+              "pitches": [
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 1
+                }
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "number": 4,
+        "home": {
+          "teamId": "home",
+          "playerScores": [
+            {
+              "playerId": "p-10u-9",
+              "pitches": [
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                }
+              ]
+            },
+            {
+              "playerId": "p-10u-10",
+              "pitches": [
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                }
+              ]
+            },
+            {
+              "playerId": "p-10u-11",
+              "pitches": [
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                }
+              ]
+            }
+          ]
+        },
+        "away": {
+          "teamId": "away",
+          "playerScores": [
+            {
+              "playerId": "p-10u-12",
+              "pitches": [
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 0
+                }
+              ]
+            },
+            {
+              "playerId": "p-10u-13",
+              "pitches": [
+                {
+                  "points": 1
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                }
+              ]
+            },
+            {
+              "playerId": "p-10u-14",
+              "pitches": [
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 1
+                }
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "number": 5,
+        "home": {
+          "teamId": "home",
+          "playerScores": [
+            {
+              "playerId": "p-10u-9",
+              "pitches": [
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 1
+                }
+              ]
+            },
+            {
+              "playerId": "p-10u-10",
+              "pitches": [
+                {
+                  "points": 4
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 3
+                }
+              ]
+            },
+            {
+              "playerId": "p-10u-11",
+              "pitches": [
+                {
+                  "points": 1
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                }
+              ]
+            }
+          ]
+        },
+        "away": {
+          "teamId": "away",
+          "playerScores": [
+            {
+              "playerId": "p-10u-12",
+              "pitches": [
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 3
+                }
+              ]
+            },
+            {
+              "playerId": "p-10u-13",
+              "pitches": [
+                {
+                  "points": 2
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                }
+              ]
+            },
+            {
+              "playerId": "p-10u-14",
+              "pitches": [
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                }
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "number": 6,
+        "home": {
+          "teamId": "home",
+          "playerScores": [
+            {
+              "playerId": "p-10u-9",
+              "pitches": [
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 2
+                }
+              ]
+            },
+            {
+              "playerId": "p-10u-10",
+              "pitches": [
+                {
+                  "points": 3
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                }
+              ]
+            },
+            {
+              "playerId": "p-10u-11",
+              "pitches": [
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 3
+                }
+              ]
+            }
+          ]
+        },
+        "away": {
+          "teamId": "away",
+          "playerScores": [
+            {
+              "playerId": "p-10u-12",
+              "pitches": [
+                {
+                  "points": 2
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 3
+                }
+              ]
+            },
+            {
+              "playerId": "p-10u-13",
+              "pitches": [
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                }
+              ]
+            },
+            {
+              "playerId": "p-10u-14",
+              "pitches": [
+                {
+                  "points": 4
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 1
+                }
+              ]
+            }
+          ]
+        }
+      }
+    ],
+    "season": "2025"
+  },
+  {
+    "id": "match-1002-6okd",
+    "league": "10u",
+    "homeTeamId": "team-10u-1",
+    "awayTeamId": "team-10u-3",
+    "date": "2025-10-13T18:00:00.000Z",
+    "isComplete": true,
+    "innings": [
+      {
+        "number": 1,
+        "home": {
+          "teamId": "home",
+          "playerScores": [
+            {
+              "playerId": "p-10u-1",
+              "pitches": [
+                {
+                  "points": 1
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 2
+                }
+              ]
+            },
+            {
+              "playerId": "p-10u-2",
+              "pitches": [
+                {
+                  "points": 3
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                }
+              ]
+            },
+            {
+              "playerId": "p-10u-3",
+              "pitches": [
+                {
+                  "points": 1
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 1
+                }
+              ]
+            }
+          ]
+        },
+        "away": {
+          "teamId": "away",
+          "playerScores": [
+            {
+              "playerId": "p-10u-9",
+              "pitches": [
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 4
+                }
+              ]
+            },
+            {
+              "playerId": "p-10u-10",
+              "pitches": [
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                }
+              ]
+            },
+            {
+              "playerId": "p-10u-11",
+              "pitches": [
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                }
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "number": 2,
+        "home": {
+          "teamId": "home",
+          "playerScores": [
+            {
+              "playerId": "p-10u-1",
+              "pitches": [
+                {
+                  "points": 3
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 4
+                }
+              ]
+            },
+            {
+              "playerId": "p-10u-2",
+              "pitches": [
+                {
+                  "points": 1
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 0
+                }
+              ]
+            },
+            {
+              "playerId": "p-10u-3",
+              "pitches": [
+                {
+                  "points": 1
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 3
+                }
+              ]
+            }
+          ]
+        },
+        "away": {
+          "teamId": "away",
+          "playerScores": [
+            {
+              "playerId": "p-10u-9",
+              "pitches": [
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                }
+              ]
+            },
+            {
+              "playerId": "p-10u-10",
+              "pitches": [
+                {
+                  "points": 3
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                }
+              ]
+            },
+            {
+              "playerId": "p-10u-11",
+              "pitches": [
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 2
+                }
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "number": 3,
+        "home": {
+          "teamId": "home",
+          "playerScores": [
+            {
+              "playerId": "p-10u-1",
+              "pitches": [
+                {
+                  "points": 0
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                }
+              ]
+            },
+            {
+              "playerId": "p-10u-2",
+              "pitches": [
+                {
+                  "points": 4
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 3
+                }
+              ]
+            },
+            {
+              "playerId": "p-10u-3",
+              "pitches": [
+                {
+                  "points": 4
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 0
+                }
+              ]
+            }
+          ]
+        },
+        "away": {
+          "teamId": "away",
+          "playerScores": [
+            {
+              "playerId": "p-10u-9",
+              "pitches": [
+                {
+                  "points": 0
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 3
+                }
+              ]
+            },
+            {
+              "playerId": "p-10u-10",
+              "pitches": [
+                {
+                  "points": 1
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 2
+                }
+              ]
+            },
+            {
+              "playerId": "p-10u-11",
+              "pitches": [
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 4
+                }
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "number": 4,
+        "home": {
+          "teamId": "home",
+          "playerScores": [
+            {
+              "playerId": "p-10u-1",
+              "pitches": [
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                }
+              ]
+            },
+            {
+              "playerId": "p-10u-2",
+              "pitches": [
+                {
+                  "points": 1
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 3
+                }
+              ]
+            },
+            {
+              "playerId": "p-10u-3",
+              "pitches": [
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 3
+                }
+              ]
+            }
+          ]
+        },
+        "away": {
+          "teamId": "away",
+          "playerScores": [
+            {
+              "playerId": "p-10u-9",
+              "pitches": [
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 1
+                }
+              ]
+            },
+            {
+              "playerId": "p-10u-10",
+              "pitches": [
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                }
+              ]
+            },
+            {
+              "playerId": "p-10u-11",
+              "pitches": [
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 1
+                }
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "number": 5,
+        "home": {
+          "teamId": "home",
+          "playerScores": [
+            {
+              "playerId": "p-10u-1",
+              "pitches": [
+                {
+                  "points": 1
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 2
+                }
+              ]
+            },
+            {
+              "playerId": "p-10u-2",
+              "pitches": [
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                }
+              ]
+            },
+            {
+              "playerId": "p-10u-3",
+              "pitches": [
+                {
+                  "points": 3
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                }
+              ]
+            }
+          ]
+        },
+        "away": {
+          "teamId": "away",
+          "playerScores": [
+            {
+              "playerId": "p-10u-9",
+              "pitches": [
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 3
+                }
+              ]
+            },
+            {
+              "playerId": "p-10u-10",
+              "pitches": [
+                {
+                  "points": 1
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 3
+                }
+              ]
+            },
+            {
+              "playerId": "p-10u-11",
+              "pitches": [
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                }
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "number": 6,
+        "home": {
+          "teamId": "home",
+          "playerScores": [
+            {
+              "playerId": "p-10u-1",
+              "pitches": [
+                {
+                  "points": 2
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 2
+                }
+              ]
+            },
+            {
+              "playerId": "p-10u-2",
+              "pitches": [
+                {
+                  "points": 0
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                }
+              ]
+            },
+            {
+              "playerId": "p-10u-3",
+              "pitches": [
+                {
+                  "points": 2
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                }
+              ]
+            }
+          ]
+        },
+        "away": {
+          "teamId": "away",
+          "playerScores": [
+            {
+              "playerId": "p-10u-9",
+              "pitches": [
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                }
+              ]
+            },
+            {
+              "playerId": "p-10u-10",
+              "pitches": [
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                }
+              ]
+            },
+            {
+              "playerId": "p-10u-11",
+              "pitches": [
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 3
+                }
+              ]
+            }
+          ]
+        }
+      }
+    ],
+    "season": "2025"
+  },
+  {
+    "id": "match-1003-c5ms",
+    "league": "10u",
+    "homeTeamId": "team-10u-2",
+    "awayTeamId": "team-10u-4",
+    "date": "2025-10-13T18:00:00.000Z",
+    "isComplete": true,
+    "innings": [
+      {
+        "number": 1,
+        "home": {
+          "teamId": "home",
+          "playerScores": [
+            {
+              "playerId": "p-10u-5",
+              "pitches": [
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 4
+                }
+              ]
+            },
+            {
+              "playerId": "p-10u-6",
+              "pitches": [
+                {
+                  "points": 0
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 3
+                }
+              ]
+            },
+            {
+              "playerId": "p-10u-7",
+              "pitches": [
+                {
+                  "points": 3
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 3
+                }
+              ]
+            }
+          ]
+        },
+        "away": {
+          "teamId": "away",
+          "playerScores": [
+            {
+              "playerId": "p-10u-12",
+              "pitches": [
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 1
+                }
+              ]
+            },
+            {
+              "playerId": "p-10u-13",
+              "pitches": [
+                {
+                  "points": 3
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                }
+              ]
+            },
+            {
+              "playerId": "p-10u-14",
+              "pitches": [
+                {
+                  "points": 3
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                }
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "number": 2,
+        "home": {
+          "teamId": "home",
+          "playerScores": [
+            {
+              "playerId": "p-10u-5",
+              "pitches": [
+                {
+                  "points": 3
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                }
+              ]
+            },
+            {
+              "playerId": "p-10u-6",
+              "pitches": [
+                {
+                  "points": 2
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 4
+                }
+              ]
+            },
+            {
+              "playerId": "p-10u-7",
+              "pitches": [
+                {
+                  "points": 2
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                }
+              ]
+            }
+          ]
+        },
+        "away": {
+          "teamId": "away",
+          "playerScores": [
+            {
+              "playerId": "p-10u-12",
+              "pitches": [
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 3
+                }
+              ]
+            },
+            {
+              "playerId": "p-10u-13",
+              "pitches": [
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 0
+                }
+              ]
+            },
+            {
+              "playerId": "p-10u-14",
+              "pitches": [
+                {
+                  "points": 0
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 1
+                }
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "number": 3,
+        "home": {
+          "teamId": "home",
+          "playerScores": [
+            {
+              "playerId": "p-10u-5",
+              "pitches": [
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                }
+              ]
+            },
+            {
+              "playerId": "p-10u-6",
+              "pitches": [
+                {
+                  "points": 2
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                }
+              ]
+            },
+            {
+              "playerId": "p-10u-7",
+              "pitches": [
+                {
+                  "points": 1
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                }
+              ]
+            }
+          ]
+        },
+        "away": {
+          "teamId": "away",
+          "playerScores": [
+            {
+              "playerId": "p-10u-12",
+              "pitches": [
+                {
+                  "points": 0
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 3
+                }
+              ]
+            },
+            {
+              "playerId": "p-10u-13",
+              "pitches": [
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 4
+                }
+              ]
+            },
+            {
+              "playerId": "p-10u-14",
+              "pitches": [
+                {
+                  "points": 0
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                }
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "number": 4,
+        "home": {
+          "teamId": "home",
+          "playerScores": [
+            {
+              "playerId": "p-10u-5",
+              "pitches": [
+                {
+                  "points": 0
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                }
+              ]
+            },
+            {
+              "playerId": "p-10u-6",
+              "pitches": [
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 4
+                }
+              ]
+            },
+            {
+              "playerId": "p-10u-7",
+              "pitches": [
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 1
+                }
+              ]
+            }
+          ]
+        },
+        "away": {
+          "teamId": "away",
+          "playerScores": [
+            {
+              "playerId": "p-10u-12",
+              "pitches": [
+                {
+                  "points": 1
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                }
+              ]
+            },
+            {
+              "playerId": "p-10u-13",
+              "pitches": [
+                {
+                  "points": 1
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 0
+                }
+              ]
+            },
+            {
+              "playerId": "p-10u-14",
+              "pitches": [
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 1
+                }
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "number": 5,
+        "home": {
+          "teamId": "home",
+          "playerScores": [
+            {
+              "playerId": "p-10u-5",
+              "pitches": [
+                {
+                  "points": 3
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 3
+                }
+              ]
+            },
+            {
+              "playerId": "p-10u-6",
+              "pitches": [
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 2
+                }
+              ]
+            },
+            {
+              "playerId": "p-10u-7",
+              "pitches": [
+                {
+                  "points": 1
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 3
+                }
+              ]
+            }
+          ]
+        },
+        "away": {
+          "teamId": "away",
+          "playerScores": [
+            {
+              "playerId": "p-10u-12",
+              "pitches": [
+                {
+                  "points": 0
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                }
+              ]
+            },
+            {
+              "playerId": "p-10u-13",
+              "pitches": [
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                }
+              ]
+            },
+            {
+              "playerId": "p-10u-14",
+              "pitches": [
+                {
+                  "points": 3
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                }
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "number": 6,
+        "home": {
+          "teamId": "home",
+          "playerScores": [
+            {
+              "playerId": "p-10u-5",
+              "pitches": [
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 2
+                }
+              ]
+            },
+            {
+              "playerId": "p-10u-6",
+              "pitches": [
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 1
+                }
+              ]
+            },
+            {
+              "playerId": "p-10u-7",
+              "pitches": [
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                }
+              ]
+            }
+          ]
+        },
+        "away": {
+          "teamId": "away",
+          "playerScores": [
+            {
+              "playerId": "p-10u-12",
+              "pitches": [
+                {
+                  "points": 3
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                }
+              ]
+            },
+            {
+              "playerId": "p-10u-13",
+              "pitches": [
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 3
+                }
+              ]
+            },
+            {
+              "playerId": "p-10u-14",
+              "pitches": [
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 3
+                }
+              ]
+            }
+          ]
+        }
+      }
+    ],
+    "season": "2025"
+  },
+  {
+    "id": "match-1004-z96o",
+    "league": "10u",
+    "homeTeamId": "team-10u-1",
+    "awayTeamId": "team-10u-4",
+    "date": "2025-10-20T18:00:00.000Z",
+    "isComplete": true,
+    "innings": [
+      {
+        "number": 1,
+        "home": {
+          "teamId": "home",
+          "playerScores": [
+            {
+              "playerId": "p-10u-1",
+              "pitches": [
+                {
+                  "points": 3
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 3
+                }
+              ]
+            },
+            {
+              "playerId": "p-10u-2",
+              "pitches": [
+                {
+                  "points": 0
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                }
+              ]
+            },
+            {
+              "playerId": "p-10u-3",
+              "pitches": [
+                {
+                  "points": 3
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 4
+                }
+              ]
+            }
+          ]
+        },
+        "away": {
+          "teamId": "away",
+          "playerScores": [
+            {
+              "playerId": "p-10u-12",
+              "pitches": [
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 4
+                }
+              ]
+            },
+            {
+              "playerId": "p-10u-13",
+              "pitches": [
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                }
+              ]
+            },
+            {
+              "playerId": "p-10u-14",
+              "pitches": [
+                {
+                  "points": 4
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                }
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "number": 2,
+        "home": {
+          "teamId": "home",
+          "playerScores": [
+            {
+              "playerId": "p-10u-1",
+              "pitches": [
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 3
+                }
+              ]
+            },
+            {
+              "playerId": "p-10u-2",
+              "pitches": [
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 3
+                }
+              ]
+            },
+            {
+              "playerId": "p-10u-3",
+              "pitches": [
+                {
+                  "points": 1
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 4
+                }
+              ]
+            }
+          ]
+        },
+        "away": {
+          "teamId": "away",
+          "playerScores": [
+            {
+              "playerId": "p-10u-12",
+              "pitches": [
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 1
+                }
+              ]
+            },
+            {
+              "playerId": "p-10u-13",
+              "pitches": [
+                {
+                  "points": 1
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                }
+              ]
+            },
+            {
+              "playerId": "p-10u-14",
+              "pitches": [
+                {
+                  "points": 4
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 3
+                }
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "number": 3,
+        "home": {
+          "teamId": "home",
+          "playerScores": [
+            {
+              "playerId": "p-10u-1",
+              "pitches": [
+                {
+                  "points": 2
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 3
+                }
+              ]
+            },
+            {
+              "playerId": "p-10u-2",
+              "pitches": [
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                }
+              ]
+            },
+            {
+              "playerId": "p-10u-3",
+              "pitches": [
+                {
+                  "points": 2
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                }
+              ]
+            }
+          ]
+        },
+        "away": {
+          "teamId": "away",
+          "playerScores": [
+            {
+              "playerId": "p-10u-12",
+              "pitches": [
+                {
+                  "points": 2
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 3
+                }
+              ]
+            },
+            {
+              "playerId": "p-10u-13",
+              "pitches": [
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 1
+                }
+              ]
+            },
+            {
+              "playerId": "p-10u-14",
+              "pitches": [
+                {
+                  "points": 3
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 0
+                }
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "number": 4,
+        "home": {
+          "teamId": "home",
+          "playerScores": [
+            {
+              "playerId": "p-10u-1",
+              "pitches": [
+                {
+                  "points": 3
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                }
+              ]
+            },
+            {
+              "playerId": "p-10u-2",
+              "pitches": [
+                {
+                  "points": 0
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 3
+                }
+              ]
+            },
+            {
+              "playerId": "p-10u-3",
+              "pitches": [
+                {
+                  "points": 0
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 1
+                }
+              ]
+            }
+          ]
+        },
+        "away": {
+          "teamId": "away",
+          "playerScores": [
+            {
+              "playerId": "p-10u-12",
+              "pitches": [
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 1
+                }
+              ]
+            },
+            {
+              "playerId": "p-10u-13",
+              "pitches": [
+                {
+                  "points": 1
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                }
+              ]
+            },
+            {
+              "playerId": "p-10u-14",
+              "pitches": [
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 3
+                }
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "number": 5,
+        "home": {
+          "teamId": "home",
+          "playerScores": [
+            {
+              "playerId": "p-10u-1",
+              "pitches": [
+                {
+                  "points": 4
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 0
+                }
+              ]
+            },
+            {
+              "playerId": "p-10u-2",
+              "pitches": [
+                {
+                  "points": 1
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 2
+                }
+              ]
+            },
+            {
+              "playerId": "p-10u-3",
+              "pitches": [
+                {
+                  "points": 4
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 3
+                }
+              ]
+            }
+          ]
+        },
+        "away": {
+          "teamId": "away",
+          "playerScores": [
+            {
+              "playerId": "p-10u-12",
+              "pitches": [
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 1
+                }
+              ]
+            },
+            {
+              "playerId": "p-10u-13",
+              "pitches": [
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 3
+                }
+              ]
+            },
+            {
+              "playerId": "p-10u-14",
+              "pitches": [
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 0
+                }
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "number": 6,
+        "home": {
+          "teamId": "home",
+          "playerScores": [
+            {
+              "playerId": "p-10u-1",
+              "pitches": [
+                {
+                  "points": 2
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 0
+                }
+              ]
+            },
+            {
+              "playerId": "p-10u-2",
+              "pitches": [
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 1
+                }
+              ]
+            },
+            {
+              "playerId": "p-10u-3",
+              "pitches": [
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                }
+              ]
+            }
+          ]
+        },
+        "away": {
+          "teamId": "away",
+          "playerScores": [
+            {
+              "playerId": "p-10u-12",
+              "pitches": [
+                {
+                  "points": 3
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 0
+                }
+              ]
+            },
+            {
+              "playerId": "p-10u-13",
+              "pitches": [
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                }
+              ]
+            },
+            {
+              "playerId": "p-10u-14",
+              "pitches": [
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 4
+                }
+              ]
+            }
+          ]
+        }
+      }
+    ],
+    "season": "2025"
+  },
+  {
+    "id": "match-1005-e94z",
+    "league": "10u",
+    "homeTeamId": "team-10u-2",
+    "awayTeamId": "team-10u-3",
+    "date": "2025-10-20T18:00:00.000Z",
+    "isComplete": true,
+    "innings": [
+      {
+        "number": 1,
+        "home": {
+          "teamId": "home",
+          "playerScores": [
+            {
+              "playerId": "p-10u-5",
+              "pitches": [
+                {
+                  "points": 4
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 1
+                }
+              ]
+            },
+            {
+              "playerId": "p-10u-6",
+              "pitches": [
+                {
+                  "points": 3
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 4
+                }
+              ]
+            },
+            {
+              "playerId": "p-10u-7",
+              "pitches": [
+                {
+                  "points": 3
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                }
+              ]
+            }
+          ]
+        },
+        "away": {
+          "teamId": "away",
+          "playerScores": [
+            {
+              "playerId": "p-10u-9",
+              "pitches": [
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 3
+                }
+              ]
+            },
+            {
+              "playerId": "p-10u-10",
+              "pitches": [
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 1
+                }
+              ]
+            },
+            {
+              "playerId": "p-10u-11",
+              "pitches": [
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                }
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "number": 2,
+        "home": {
+          "teamId": "home",
+          "playerScores": [
+            {
+              "playerId": "p-10u-5",
+              "pitches": [
+                {
+                  "points": 3
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 1
+                }
+              ]
+            },
+            {
+              "playerId": "p-10u-6",
+              "pitches": [
+                {
+                  "points": 3
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 1
+                }
+              ]
+            },
+            {
+              "playerId": "p-10u-7",
+              "pitches": [
+                {
+                  "points": 1
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 3
+                }
+              ]
+            }
+          ]
+        },
+        "away": {
+          "teamId": "away",
+          "playerScores": [
+            {
+              "playerId": "p-10u-9",
+              "pitches": [
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                }
+              ]
+            },
+            {
+              "playerId": "p-10u-10",
+              "pitches": [
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 3
+                }
+              ]
+            },
+            {
+              "playerId": "p-10u-11",
+              "pitches": [
+                {
+                  "points": 3
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                }
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "number": 3,
+        "home": {
+          "teamId": "home",
+          "playerScores": [
+            {
+              "playerId": "p-10u-5",
+              "pitches": [
+                {
+                  "points": 4
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 3
+                }
+              ]
+            },
+            {
+              "playerId": "p-10u-6",
+              "pitches": [
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 2
+                }
+              ]
+            },
+            {
+              "playerId": "p-10u-7",
+              "pitches": [
+                {
+                  "points": 0
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 3
+                }
+              ]
+            }
+          ]
+        },
+        "away": {
+          "teamId": "away",
+          "playerScores": [
+            {
+              "playerId": "p-10u-9",
+              "pitches": [
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 2
+                }
+              ]
+            },
+            {
+              "playerId": "p-10u-10",
+              "pitches": [
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 4
+                }
+              ]
+            },
+            {
+              "playerId": "p-10u-11",
+              "pitches": [
+                {
+                  "points": 0
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 1
+                }
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "number": 4,
+        "home": {
+          "teamId": "home",
+          "playerScores": [
+            {
+              "playerId": "p-10u-5",
+              "pitches": [
+                {
+                  "points": 2
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                }
+              ]
+            },
+            {
+              "playerId": "p-10u-6",
+              "pitches": [
+                {
+                  "points": 1
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                }
+              ]
+            },
+            {
+              "playerId": "p-10u-7",
+              "pitches": [
+                {
+                  "points": 1
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                }
+              ]
+            }
+          ]
+        },
+        "away": {
+          "teamId": "away",
+          "playerScores": [
+            {
+              "playerId": "p-10u-9",
+              "pitches": [
+                {
+                  "points": 1
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 4
+                }
+              ]
+            },
+            {
+              "playerId": "p-10u-10",
+              "pitches": [
+                {
+                  "points": 2
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                }
+              ]
+            },
+            {
+              "playerId": "p-10u-11",
+              "pitches": [
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 0
+                }
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "number": 5,
+        "home": {
+          "teamId": "home",
+          "playerScores": [
+            {
+              "playerId": "p-10u-5",
+              "pitches": [
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                }
+              ]
+            },
+            {
+              "playerId": "p-10u-6",
+              "pitches": [
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 3
+                }
+              ]
+            },
+            {
+              "playerId": "p-10u-7",
+              "pitches": [
+                {
+                  "points": 4
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 3
+                }
+              ]
+            }
+          ]
+        },
+        "away": {
+          "teamId": "away",
+          "playerScores": [
+            {
+              "playerId": "p-10u-9",
+              "pitches": [
+                {
+                  "points": 4
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 0
+                }
+              ]
+            },
+            {
+              "playerId": "p-10u-10",
+              "pitches": [
+                {
+                  "points": 1
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                }
+              ]
+            },
+            {
+              "playerId": "p-10u-11",
+              "pitches": [
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                }
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "number": 6,
+        "home": {
+          "teamId": "home",
+          "playerScores": [
+            {
+              "playerId": "p-10u-5",
+              "pitches": [
+                {
+                  "points": 2
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 3
+                }
+              ]
+            },
+            {
+              "playerId": "p-10u-6",
+              "pitches": [
+                {
+                  "points": 1
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 0
+                }
+              ]
+            },
+            {
+              "playerId": "p-10u-7",
+              "pitches": [
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 1
+                }
+              ]
+            }
+          ]
+        },
+        "away": {
+          "teamId": "away",
+          "playerScores": [
+            {
+              "playerId": "p-10u-9",
+              "pitches": [
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                }
+              ]
+            },
+            {
+              "playerId": "p-10u-10",
+              "pitches": [
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                }
+              ]
+            },
+            {
+              "playerId": "p-10u-11",
+              "pitches": [
+                {
+                  "points": 2
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                }
+              ]
+            }
+          ]
+        }
+      }
+    ],
+    "season": "2025"
+  },
+  {
+    "id": "match-1006-s2n0",
+    "league": "12u",
+    "homeTeamId": "team-12u-1",
+    "awayTeamId": "team-12u-2",
+    "date": "2025-10-06T18:00:00.000Z",
+    "isComplete": true,
+    "innings": [
+      {
+        "number": 1,
+        "home": {
+          "teamId": "home",
+          "playerScores": [
+            {
+              "playerId": "p-12u-1",
+              "pitches": [
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                }
+              ]
+            },
+            {
+              "playerId": "p-12u-2",
+              "pitches": [
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 2
+                }
+              ]
+            },
+            {
+              "playerId": "p-12u-3",
+              "pitches": [
+                {
+                  "points": 2
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                }
+              ]
+            }
+          ]
+        },
+        "away": {
+          "teamId": "away",
+          "playerScores": [
+            {
+              "playerId": "p-12u-5",
+              "pitches": [
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 3
+                }
+              ]
+            },
+            {
+              "playerId": "p-12u-6",
+              "pitches": [
+                {
+                  "points": 1
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 4
+                }
+              ]
+            },
+            {
+              "playerId": "p-12u-7",
+              "pitches": [
+                {
+                  "points": 1
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                }
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "number": 2,
+        "home": {
+          "teamId": "home",
+          "playerScores": [
+            {
+              "playerId": "p-12u-1",
+              "pitches": [
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                }
+              ]
+            },
+            {
+              "playerId": "p-12u-2",
+              "pitches": [
+                {
+                  "points": 3
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 0
+                }
+              ]
+            },
+            {
+              "playerId": "p-12u-3",
+              "pitches": [
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                }
+              ]
+            }
+          ]
+        },
+        "away": {
+          "teamId": "away",
+          "playerScores": [
+            {
+              "playerId": "p-12u-5",
+              "pitches": [
+                {
+                  "points": 3
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                }
+              ]
+            },
+            {
+              "playerId": "p-12u-6",
+              "pitches": [
+                {
+                  "points": 2
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 0
+                }
+              ]
+            },
+            {
+              "playerId": "p-12u-7",
+              "pitches": [
+                {
+                  "points": 3
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 0
+                }
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "number": 3,
+        "home": {
+          "teamId": "home",
+          "playerScores": [
+            {
+              "playerId": "p-12u-1",
+              "pitches": [
+                {
+                  "points": 4
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 0
+                }
+              ]
+            },
+            {
+              "playerId": "p-12u-2",
+              "pitches": [
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 2
+                }
+              ]
+            },
+            {
+              "playerId": "p-12u-3",
+              "pitches": [
+                {
+                  "points": 3
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 0
+                }
+              ]
+            }
+          ]
+        },
+        "away": {
+          "teamId": "away",
+          "playerScores": [
+            {
+              "playerId": "p-12u-5",
+              "pitches": [
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 4
+                }
+              ]
+            },
+            {
+              "playerId": "p-12u-6",
+              "pitches": [
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 2
+                }
+              ]
+            },
+            {
+              "playerId": "p-12u-7",
+              "pitches": [
+                {
+                  "points": 1
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 2
+                }
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "number": 4,
+        "home": {
+          "teamId": "home",
+          "playerScores": [
+            {
+              "playerId": "p-12u-1",
+              "pitches": [
+                {
+                  "points": 0
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 3
+                }
+              ]
+            },
+            {
+              "playerId": "p-12u-2",
+              "pitches": [
+                {
+                  "points": 0
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                }
+              ]
+            },
+            {
+              "playerId": "p-12u-3",
+              "pitches": [
+                {
+                  "points": 3
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 3
+                }
+              ]
+            }
+          ]
+        },
+        "away": {
+          "teamId": "away",
+          "playerScores": [
+            {
+              "playerId": "p-12u-5",
+              "pitches": [
+                {
+                  "points": 4
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 4
+                }
+              ]
+            },
+            {
+              "playerId": "p-12u-6",
+              "pitches": [
+                {
+                  "points": 2
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                }
+              ]
+            },
+            {
+              "playerId": "p-12u-7",
+              "pitches": [
+                {
+                  "points": 3
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 3
+                }
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "number": 5,
+        "home": {
+          "teamId": "home",
+          "playerScores": [
+            {
+              "playerId": "p-12u-1",
+              "pitches": [
+                {
+                  "points": 4
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                }
+              ]
+            },
+            {
+              "playerId": "p-12u-2",
+              "pitches": [
+                {
+                  "points": 2
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 1
+                }
+              ]
+            },
+            {
+              "playerId": "p-12u-3",
+              "pitches": [
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 3
+                }
+              ]
+            }
+          ]
+        },
+        "away": {
+          "teamId": "away",
+          "playerScores": [
+            {
+              "playerId": "p-12u-5",
+              "pitches": [
+                {
+                  "points": 4
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 3
+                }
+              ]
+            },
+            {
+              "playerId": "p-12u-6",
+              "pitches": [
+                {
+                  "points": 3
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                }
+              ]
+            },
+            {
+              "playerId": "p-12u-7",
+              "pitches": [
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                }
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "number": 6,
+        "home": {
+          "teamId": "home",
+          "playerScores": [
+            {
+              "playerId": "p-12u-1",
+              "pitches": [
+                {
+                  "points": 4
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 3
+                }
+              ]
+            },
+            {
+              "playerId": "p-12u-2",
+              "pitches": [
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 2
+                }
+              ]
+            },
+            {
+              "playerId": "p-12u-3",
+              "pitches": [
+                {
+                  "points": 2
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                }
+              ]
+            }
+          ]
+        },
+        "away": {
+          "teamId": "away",
+          "playerScores": [
+            {
+              "playerId": "p-12u-5",
+              "pitches": [
+                {
+                  "points": 3
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                }
+              ]
+            },
+            {
+              "playerId": "p-12u-6",
+              "pitches": [
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                }
+              ]
+            },
+            {
+              "playerId": "p-12u-7",
+              "pitches": [
+                {
+                  "points": 2
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                }
+              ]
+            }
+          ]
+        }
+      }
+    ],
+    "season": "2025"
+  },
+  {
+    "id": "match-1007-5bkv",
+    "league": "12u",
+    "homeTeamId": "team-12u-3",
+    "awayTeamId": "team-12u-4",
+    "date": "2025-10-06T18:00:00.000Z",
+    "isComplete": true,
+    "innings": [
+      {
+        "number": 1,
+        "home": {
+          "teamId": "home",
+          "playerScores": [
+            {
+              "playerId": "p-12u-8",
+              "pitches": [
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 3
+                }
+              ]
+            },
+            {
+              "playerId": "p-12u-9",
+              "pitches": [
+                {
+                  "points": 3
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 1
+                }
+              ]
+            },
+            {
+              "playerId": "p-12u-10",
+              "pitches": [
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                }
+              ]
+            }
+          ]
+        },
+        "away": {
+          "teamId": "away",
+          "playerScores": [
+            {
+              "playerId": "p-12u-11",
+              "pitches": [
+                {
+                  "points": 2
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                }
+              ]
+            },
+            {
+              "playerId": "p-12u-12",
+              "pitches": [
+                {
+                  "points": 3
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                }
+              ]
+            },
+            {
+              "playerId": "p-12u-13",
+              "pitches": [
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                }
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "number": 2,
+        "home": {
+          "teamId": "home",
+          "playerScores": [
+            {
+              "playerId": "p-12u-8",
+              "pitches": [
+                {
+                  "points": 0
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                }
+              ]
+            },
+            {
+              "playerId": "p-12u-9",
+              "pitches": [
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                }
+              ]
+            },
+            {
+              "playerId": "p-12u-10",
+              "pitches": [
+                {
+                  "points": 2
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                }
+              ]
+            }
+          ]
+        },
+        "away": {
+          "teamId": "away",
+          "playerScores": [
+            {
+              "playerId": "p-12u-11",
+              "pitches": [
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                }
+              ]
+            },
+            {
+              "playerId": "p-12u-12",
+              "pitches": [
+                {
+                  "points": 2
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                }
+              ]
+            },
+            {
+              "playerId": "p-12u-13",
+              "pitches": [
+                {
+                  "points": 3
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                }
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "number": 3,
+        "home": {
+          "teamId": "home",
+          "playerScores": [
+            {
+              "playerId": "p-12u-8",
+              "pitches": [
+                {
+                  "points": 1
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                }
+              ]
+            },
+            {
+              "playerId": "p-12u-9",
+              "pitches": [
+                {
+                  "points": 3
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 1
+                }
+              ]
+            },
+            {
+              "playerId": "p-12u-10",
+              "pitches": [
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 4
+                }
+              ]
+            }
+          ]
+        },
+        "away": {
+          "teamId": "away",
+          "playerScores": [
+            {
+              "playerId": "p-12u-11",
+              "pitches": [
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 3
+                }
+              ]
+            },
+            {
+              "playerId": "p-12u-12",
+              "pitches": [
+                {
+                  "points": 1
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                }
+              ]
+            },
+            {
+              "playerId": "p-12u-13",
+              "pitches": [
+                {
+                  "points": 2
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                }
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "number": 4,
+        "home": {
+          "teamId": "home",
+          "playerScores": [
+            {
+              "playerId": "p-12u-8",
+              "pitches": [
+                {
+                  "points": 2
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                }
+              ]
+            },
+            {
+              "playerId": "p-12u-9",
+              "pitches": [
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 3
+                }
+              ]
+            },
+            {
+              "playerId": "p-12u-10",
+              "pitches": [
+                {
+                  "points": 2
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 1
+                }
+              ]
+            }
+          ]
+        },
+        "away": {
+          "teamId": "away",
+          "playerScores": [
+            {
+              "playerId": "p-12u-11",
+              "pitches": [
+                {
+                  "points": 2
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                }
+              ]
+            },
+            {
+              "playerId": "p-12u-12",
+              "pitches": [
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 4
+                }
+              ]
+            },
+            {
+              "playerId": "p-12u-13",
+              "pitches": [
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 3
+                }
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "number": 5,
+        "home": {
+          "teamId": "home",
+          "playerScores": [
+            {
+              "playerId": "p-12u-8",
+              "pitches": [
+                {
+                  "points": 0
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 3
+                }
+              ]
+            },
+            {
+              "playerId": "p-12u-9",
+              "pitches": [
+                {
+                  "points": 3
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                }
+              ]
+            },
+            {
+              "playerId": "p-12u-10",
+              "pitches": [
+                {
+                  "points": 3
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                }
+              ]
+            }
+          ]
+        },
+        "away": {
+          "teamId": "away",
+          "playerScores": [
+            {
+              "playerId": "p-12u-11",
+              "pitches": [
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                }
+              ]
+            },
+            {
+              "playerId": "p-12u-12",
+              "pitches": [
+                {
+                  "points": 3
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                }
+              ]
+            },
+            {
+              "playerId": "p-12u-13",
+              "pitches": [
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                }
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "number": 6,
+        "home": {
+          "teamId": "home",
+          "playerScores": [
+            {
+              "playerId": "p-12u-8",
+              "pitches": [
+                {
+                  "points": 4
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                }
+              ]
+            },
+            {
+              "playerId": "p-12u-9",
+              "pitches": [
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 2
+                }
+              ]
+            },
+            {
+              "playerId": "p-12u-10",
+              "pitches": [
+                {
+                  "points": 4
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                }
+              ]
+            }
+          ]
+        },
+        "away": {
+          "teamId": "away",
+          "playerScores": [
+            {
+              "playerId": "p-12u-11",
+              "pitches": [
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                }
+              ]
+            },
+            {
+              "playerId": "p-12u-12",
+              "pitches": [
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                }
+              ]
+            },
+            {
+              "playerId": "p-12u-13",
+              "pitches": [
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 1
+                }
+              ]
+            }
+          ]
+        }
+      }
+    ],
+    "season": "2025"
+  },
+  {
+    "id": "match-1008-ewca",
+    "league": "12u",
+    "homeTeamId": "team-12u-1",
+    "awayTeamId": "team-12u-3",
+    "date": "2025-10-13T18:00:00.000Z",
+    "isComplete": true,
+    "innings": [
+      {
+        "number": 1,
+        "home": {
+          "teamId": "home",
+          "playerScores": [
+            {
+              "playerId": "p-12u-1",
+              "pitches": [
+                {
+                  "points": 1
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 3
+                }
+              ]
+            },
+            {
+              "playerId": "p-12u-2",
+              "pitches": [
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                }
+              ]
+            },
+            {
+              "playerId": "p-12u-3",
+              "pitches": [
+                {
+                  "points": 2
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 4
+                }
+              ]
+            }
+          ]
+        },
+        "away": {
+          "teamId": "away",
+          "playerScores": [
+            {
+              "playerId": "p-12u-8",
+              "pitches": [
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                }
+              ]
+            },
+            {
+              "playerId": "p-12u-9",
+              "pitches": [
+                {
+                  "points": 2
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 2
+                }
+              ]
+            },
+            {
+              "playerId": "p-12u-10",
+              "pitches": [
+                {
+                  "points": 3
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                }
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "number": 2,
+        "home": {
+          "teamId": "home",
+          "playerScores": [
+            {
+              "playerId": "p-12u-1",
+              "pitches": [
+                {
+                  "points": 2
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 1
+                }
+              ]
+            },
+            {
+              "playerId": "p-12u-2",
+              "pitches": [
+                {
+                  "points": 3
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 1
+                }
+              ]
+            },
+            {
+              "playerId": "p-12u-3",
+              "pitches": [
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 1
+                }
+              ]
+            }
+          ]
+        },
+        "away": {
+          "teamId": "away",
+          "playerScores": [
+            {
+              "playerId": "p-12u-8",
+              "pitches": [
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                }
+              ]
+            },
+            {
+              "playerId": "p-12u-9",
+              "pitches": [
+                {
+                  "points": 3
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                }
+              ]
+            },
+            {
+              "playerId": "p-12u-10",
+              "pitches": [
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 4
+                }
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "number": 3,
+        "home": {
+          "teamId": "home",
+          "playerScores": [
+            {
+              "playerId": "p-12u-1",
+              "pitches": [
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 2
+                }
+              ]
+            },
+            {
+              "playerId": "p-12u-2",
+              "pitches": [
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 4
+                }
+              ]
+            },
+            {
+              "playerId": "p-12u-3",
+              "pitches": [
+                {
+                  "points": 4
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                }
+              ]
+            }
+          ]
+        },
+        "away": {
+          "teamId": "away",
+          "playerScores": [
+            {
+              "playerId": "p-12u-8",
+              "pitches": [
+                {
+                  "points": 1
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                }
+              ]
+            },
+            {
+              "playerId": "p-12u-9",
+              "pitches": [
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                }
+              ]
+            },
+            {
+              "playerId": "p-12u-10",
+              "pitches": [
+                {
+                  "points": 4
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                }
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "number": 4,
+        "home": {
+          "teamId": "home",
+          "playerScores": [
+            {
+              "playerId": "p-12u-1",
+              "pitches": [
+                {
+                  "points": 2
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 4
+                }
+              ]
+            },
+            {
+              "playerId": "p-12u-2",
+              "pitches": [
+                {
+                  "points": 1
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 1
+                }
+              ]
+            },
+            {
+              "playerId": "p-12u-3",
+              "pitches": [
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 4
+                }
+              ]
+            }
+          ]
+        },
+        "away": {
+          "teamId": "away",
+          "playerScores": [
+            {
+              "playerId": "p-12u-8",
+              "pitches": [
+                {
+                  "points": 3
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                }
+              ]
+            },
+            {
+              "playerId": "p-12u-9",
+              "pitches": [
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 1
+                }
+              ]
+            },
+            {
+              "playerId": "p-12u-10",
+              "pitches": [
+                {
+                  "points": 1
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                }
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "number": 5,
+        "home": {
+          "teamId": "home",
+          "playerScores": [
+            {
+              "playerId": "p-12u-1",
+              "pitches": [
+                {
+                  "points": 4
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                }
+              ]
+            },
+            {
+              "playerId": "p-12u-2",
+              "pitches": [
+                {
+                  "points": 4
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                }
+              ]
+            },
+            {
+              "playerId": "p-12u-3",
+              "pitches": [
+                {
+                  "points": 4
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                }
+              ]
+            }
+          ]
+        },
+        "away": {
+          "teamId": "away",
+          "playerScores": [
+            {
+              "playerId": "p-12u-8",
+              "pitches": [
+                {
+                  "points": 0
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                }
+              ]
+            },
+            {
+              "playerId": "p-12u-9",
+              "pitches": [
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                }
+              ]
+            },
+            {
+              "playerId": "p-12u-10",
+              "pitches": [
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 3
+                }
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "number": 6,
+        "home": {
+          "teamId": "home",
+          "playerScores": [
+            {
+              "playerId": "p-12u-1",
+              "pitches": [
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 1
+                }
+              ]
+            },
+            {
+              "playerId": "p-12u-2",
+              "pitches": [
+                {
+                  "points": 4
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                }
+              ]
+            },
+            {
+              "playerId": "p-12u-3",
+              "pitches": [
+                {
+                  "points": 3
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 4
+                }
+              ]
+            }
+          ]
+        },
+        "away": {
+          "teamId": "away",
+          "playerScores": [
+            {
+              "playerId": "p-12u-8",
+              "pitches": [
+                {
+                  "points": 2
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 3
+                }
+              ]
+            },
+            {
+              "playerId": "p-12u-9",
+              "pitches": [
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                }
+              ]
+            },
+            {
+              "playerId": "p-12u-10",
+              "pitches": [
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                }
+              ]
+            }
+          ]
+        }
+      }
+    ],
+    "season": "2025"
+  },
+  {
+    "id": "match-1009-rusq",
+    "league": "12u",
+    "homeTeamId": "team-12u-2",
+    "awayTeamId": "team-12u-4",
+    "date": "2025-10-13T18:00:00.000Z",
+    "isComplete": true,
+    "innings": [
+      {
+        "number": 1,
+        "home": {
+          "teamId": "home",
+          "playerScores": [
+            {
+              "playerId": "p-12u-5",
+              "pitches": [
+                {
+                  "points": 2
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                }
+              ]
+            },
+            {
+              "playerId": "p-12u-6",
+              "pitches": [
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                }
+              ]
+            },
+            {
+              "playerId": "p-12u-7",
+              "pitches": [
+                {
+                  "points": 2
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                }
+              ]
+            }
+          ]
+        },
+        "away": {
+          "teamId": "away",
+          "playerScores": [
+            {
+              "playerId": "p-12u-11",
+              "pitches": [
+                {
+                  "points": 1
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 3
+                }
+              ]
+            },
+            {
+              "playerId": "p-12u-12",
+              "pitches": [
+                {
+                  "points": 2
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 0
+                }
+              ]
+            },
+            {
+              "playerId": "p-12u-13",
+              "pitches": [
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 3
+                }
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "number": 2,
+        "home": {
+          "teamId": "home",
+          "playerScores": [
+            {
+              "playerId": "p-12u-5",
+              "pitches": [
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                }
+              ]
+            },
+            {
+              "playerId": "p-12u-6",
+              "pitches": [
+                {
+                  "points": 3
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 1
+                }
+              ]
+            },
+            {
+              "playerId": "p-12u-7",
+              "pitches": [
+                {
+                  "points": 2
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                }
+              ]
+            }
+          ]
+        },
+        "away": {
+          "teamId": "away",
+          "playerScores": [
+            {
+              "playerId": "p-12u-11",
+              "pitches": [
+                {
+                  "points": 3
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                }
+              ]
+            },
+            {
+              "playerId": "p-12u-12",
+              "pitches": [
+                {
+                  "points": 0
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                }
+              ]
+            },
+            {
+              "playerId": "p-12u-13",
+              "pitches": [
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 3
+                }
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "number": 3,
+        "home": {
+          "teamId": "home",
+          "playerScores": [
+            {
+              "playerId": "p-12u-5",
+              "pitches": [
+                {
+                  "points": 0
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                }
+              ]
+            },
+            {
+              "playerId": "p-12u-6",
+              "pitches": [
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 4
+                }
+              ]
+            },
+            {
+              "playerId": "p-12u-7",
+              "pitches": [
+                {
+                  "points": 0
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 2
+                }
+              ]
+            }
+          ]
+        },
+        "away": {
+          "teamId": "away",
+          "playerScores": [
+            {
+              "playerId": "p-12u-11",
+              "pitches": [
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 1
+                }
+              ]
+            },
+            {
+              "playerId": "p-12u-12",
+              "pitches": [
+                {
+                  "points": 2
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 0
+                }
+              ]
+            },
+            {
+              "playerId": "p-12u-13",
+              "pitches": [
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                }
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "number": 4,
+        "home": {
+          "teamId": "home",
+          "playerScores": [
+            {
+              "playerId": "p-12u-5",
+              "pitches": [
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 3
+                }
+              ]
+            },
+            {
+              "playerId": "p-12u-6",
+              "pitches": [
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                }
+              ]
+            },
+            {
+              "playerId": "p-12u-7",
+              "pitches": [
+                {
+                  "points": 2
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 4
+                }
+              ]
+            }
+          ]
+        },
+        "away": {
+          "teamId": "away",
+          "playerScores": [
+            {
+              "playerId": "p-12u-11",
+              "pitches": [
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 4
+                }
+              ]
+            },
+            {
+              "playerId": "p-12u-12",
+              "pitches": [
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 3
+                }
+              ]
+            },
+            {
+              "playerId": "p-12u-13",
+              "pitches": [
+                {
+                  "points": 3
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 1
+                }
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "number": 5,
+        "home": {
+          "teamId": "home",
+          "playerScores": [
+            {
+              "playerId": "p-12u-5",
+              "pitches": [
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                }
+              ]
+            },
+            {
+              "playerId": "p-12u-6",
+              "pitches": [
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                }
+              ]
+            },
+            {
+              "playerId": "p-12u-7",
+              "pitches": [
+                {
+                  "points": 2
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 2
+                }
+              ]
+            }
+          ]
+        },
+        "away": {
+          "teamId": "away",
+          "playerScores": [
+            {
+              "playerId": "p-12u-11",
+              "pitches": [
+                {
+                  "points": 2
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 3
+                }
+              ]
+            },
+            {
+              "playerId": "p-12u-12",
+              "pitches": [
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 1
+                }
+              ]
+            },
+            {
+              "playerId": "p-12u-13",
+              "pitches": [
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 3
+                }
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "number": 6,
+        "home": {
+          "teamId": "home",
+          "playerScores": [
+            {
+              "playerId": "p-12u-5",
+              "pitches": [
+                {
+                  "points": 3
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 3
+                }
+              ]
+            },
+            {
+              "playerId": "p-12u-6",
+              "pitches": [
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                }
+              ]
+            },
+            {
+              "playerId": "p-12u-7",
+              "pitches": [
+                {
+                  "points": 2
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 3
+                }
+              ]
+            }
+          ]
+        },
+        "away": {
+          "teamId": "away",
+          "playerScores": [
+            {
+              "playerId": "p-12u-11",
+              "pitches": [
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 3
+                }
+              ]
+            },
+            {
+              "playerId": "p-12u-12",
+              "pitches": [
+                {
+                  "points": 2
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 1
+                }
+              ]
+            },
+            {
+              "playerId": "p-12u-13",
+              "pitches": [
+                {
+                  "points": 1
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 3
+                }
+              ]
+            }
+          ]
+        }
+      }
+    ],
+    "season": "2025"
+  },
+  {
+    "id": "match-1010-rtbd",
+    "league": "12u",
+    "homeTeamId": "team-12u-1",
+    "awayTeamId": "team-12u-4",
+    "date": "2025-10-20T18:00:00.000Z",
+    "isComplete": true,
+    "innings": [
+      {
+        "number": 1,
+        "home": {
+          "teamId": "home",
+          "playerScores": [
+            {
+              "playerId": "p-12u-1",
+              "pitches": [
+                {
+                  "points": 2
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 1
+                }
+              ]
+            },
+            {
+              "playerId": "p-12u-2",
+              "pitches": [
+                {
+                  "points": 4
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 3
+                }
+              ]
+            },
+            {
+              "playerId": "p-12u-3",
+              "pitches": [
+                {
+                  "points": 1
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                }
+              ]
+            }
+          ]
+        },
+        "away": {
+          "teamId": "away",
+          "playerScores": [
+            {
+              "playerId": "p-12u-11",
+              "pitches": [
+                {
+                  "points": 3
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 1
+                }
+              ]
+            },
+            {
+              "playerId": "p-12u-12",
+              "pitches": [
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                }
+              ]
+            },
+            {
+              "playerId": "p-12u-13",
+              "pitches": [
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 4
+                }
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "number": 2,
+        "home": {
+          "teamId": "home",
+          "playerScores": [
+            {
+              "playerId": "p-12u-1",
+              "pitches": [
+                {
+                  "points": 3
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 3
+                }
+              ]
+            },
+            {
+              "playerId": "p-12u-2",
+              "pitches": [
+                {
+                  "points": 1
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 3
+                }
+              ]
+            },
+            {
+              "playerId": "p-12u-3",
+              "pitches": [
+                {
+                  "points": 2
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                }
+              ]
+            }
+          ]
+        },
+        "away": {
+          "teamId": "away",
+          "playerScores": [
+            {
+              "playerId": "p-12u-11",
+              "pitches": [
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 0
+                }
+              ]
+            },
+            {
+              "playerId": "p-12u-12",
+              "pitches": [
+                {
+                  "points": 3
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 2
+                }
+              ]
+            },
+            {
+              "playerId": "p-12u-13",
+              "pitches": [
+                {
+                  "points": 1
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                }
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "number": 3,
+        "home": {
+          "teamId": "home",
+          "playerScores": [
+            {
+              "playerId": "p-12u-1",
+              "pitches": [
+                {
+                  "points": 2
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 0
+                }
+              ]
+            },
+            {
+              "playerId": "p-12u-2",
+              "pitches": [
+                {
+                  "points": 0
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 1
+                }
+              ]
+            },
+            {
+              "playerId": "p-12u-3",
+              "pitches": [
+                {
+                  "points": 4
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 3
+                }
+              ]
+            }
+          ]
+        },
+        "away": {
+          "teamId": "away",
+          "playerScores": [
+            {
+              "playerId": "p-12u-11",
+              "pitches": [
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                }
+              ]
+            },
+            {
+              "playerId": "p-12u-12",
+              "pitches": [
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 2
+                }
+              ]
+            },
+            {
+              "playerId": "p-12u-13",
+              "pitches": [
+                {
+                  "points": 1
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 4
+                }
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "number": 4,
+        "home": {
+          "teamId": "home",
+          "playerScores": [
+            {
+              "playerId": "p-12u-1",
+              "pitches": [
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 0
+                }
+              ]
+            },
+            {
+              "playerId": "p-12u-2",
+              "pitches": [
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                }
+              ]
+            },
+            {
+              "playerId": "p-12u-3",
+              "pitches": [
+                {
+                  "points": 4
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 4
+                }
+              ]
+            }
+          ]
+        },
+        "away": {
+          "teamId": "away",
+          "playerScores": [
+            {
+              "playerId": "p-12u-11",
+              "pitches": [
+                {
+                  "points": 1
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                }
+              ]
+            },
+            {
+              "playerId": "p-12u-12",
+              "pitches": [
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                }
+              ]
+            },
+            {
+              "playerId": "p-12u-13",
+              "pitches": [
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                }
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "number": 5,
+        "home": {
+          "teamId": "home",
+          "playerScores": [
+            {
+              "playerId": "p-12u-1",
+              "pitches": [
+                {
+                  "points": 3
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 2
+                }
+              ]
+            },
+            {
+              "playerId": "p-12u-2",
+              "pitches": [
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 1
+                }
+              ]
+            },
+            {
+              "playerId": "p-12u-3",
+              "pitches": [
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 2
+                }
+              ]
+            }
+          ]
+        },
+        "away": {
+          "teamId": "away",
+          "playerScores": [
+            {
+              "playerId": "p-12u-11",
+              "pitches": [
+                {
+                  "points": 3
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 3
+                }
+              ]
+            },
+            {
+              "playerId": "p-12u-12",
+              "pitches": [
+                {
+                  "points": 0
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                }
+              ]
+            },
+            {
+              "playerId": "p-12u-13",
+              "pitches": [
+                {
+                  "points": 4
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 3
+                }
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "number": 6,
+        "home": {
+          "teamId": "home",
+          "playerScores": [
+            {
+              "playerId": "p-12u-1",
+              "pitches": [
+                {
+                  "points": 4
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                }
+              ]
+            },
+            {
+              "playerId": "p-12u-2",
+              "pitches": [
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 3
+                }
+              ]
+            },
+            {
+              "playerId": "p-12u-3",
+              "pitches": [
+                {
+                  "points": 2
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 2
+                }
+              ]
+            }
+          ]
+        },
+        "away": {
+          "teamId": "away",
+          "playerScores": [
+            {
+              "playerId": "p-12u-11",
+              "pitches": [
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                }
+              ]
+            },
+            {
+              "playerId": "p-12u-12",
+              "pitches": [
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                }
+              ]
+            },
+            {
+              "playerId": "p-12u-13",
+              "pitches": [
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 3
+                }
+              ]
+            }
+          ]
+        }
+      }
+    ],
+    "season": "2025"
+  },
+  {
+    "id": "match-1011-x2tb",
+    "league": "12u",
+    "homeTeamId": "team-12u-2",
+    "awayTeamId": "team-12u-3",
+    "date": "2025-10-20T18:00:00.000Z",
+    "isComplete": true,
+    "innings": [
+      {
+        "number": 1,
+        "home": {
+          "teamId": "home",
+          "playerScores": [
+            {
+              "playerId": "p-12u-5",
+              "pitches": [
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 3
+                }
+              ]
+            },
+            {
+              "playerId": "p-12u-6",
+              "pitches": [
+                {
+                  "points": 2
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 4
+                }
+              ]
+            },
+            {
+              "playerId": "p-12u-7",
+              "pitches": [
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                }
+              ]
+            }
+          ]
+        },
+        "away": {
+          "teamId": "away",
+          "playerScores": [
+            {
+              "playerId": "p-12u-8",
+              "pitches": [
+                {
+                  "points": 0
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 1
+                }
+              ]
+            },
+            {
+              "playerId": "p-12u-9",
+              "pitches": [
+                {
+                  "points": 1
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                }
+              ]
+            },
+            {
+              "playerId": "p-12u-10",
+              "pitches": [
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 3
+                }
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "number": 2,
+        "home": {
+          "teamId": "home",
+          "playerScores": [
+            {
+              "playerId": "p-12u-5",
+              "pitches": [
+                {
+                  "points": 3
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                }
+              ]
+            },
+            {
+              "playerId": "p-12u-6",
+              "pitches": [
+                {
+                  "points": 4
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                }
+              ]
+            },
+            {
+              "playerId": "p-12u-7",
+              "pitches": [
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 4
+                }
+              ]
+            }
+          ]
+        },
+        "away": {
+          "teamId": "away",
+          "playerScores": [
+            {
+              "playerId": "p-12u-8",
+              "pitches": [
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                }
+              ]
+            },
+            {
+              "playerId": "p-12u-9",
+              "pitches": [
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                }
+              ]
+            },
+            {
+              "playerId": "p-12u-10",
+              "pitches": [
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 0
+                }
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "number": 3,
+        "home": {
+          "teamId": "home",
+          "playerScores": [
+            {
+              "playerId": "p-12u-5",
+              "pitches": [
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 3
+                }
+              ]
+            },
+            {
+              "playerId": "p-12u-6",
+              "pitches": [
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 3
+                }
+              ]
+            },
+            {
+              "playerId": "p-12u-7",
+              "pitches": [
+                {
+                  "points": 3
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 3
+                }
+              ]
+            }
+          ]
+        },
+        "away": {
+          "teamId": "away",
+          "playerScores": [
+            {
+              "playerId": "p-12u-8",
+              "pitches": [
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 0
+                }
+              ]
+            },
+            {
+              "playerId": "p-12u-9",
+              "pitches": [
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                }
+              ]
+            },
+            {
+              "playerId": "p-12u-10",
+              "pitches": [
+                {
+                  "points": 1
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 1
+                }
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "number": 4,
+        "home": {
+          "teamId": "home",
+          "playerScores": [
+            {
+              "playerId": "p-12u-5",
+              "pitches": [
+                {
+                  "points": 4
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                }
+              ]
+            },
+            {
+              "playerId": "p-12u-6",
+              "pitches": [
+                {
+                  "points": 3
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 1
+                }
+              ]
+            },
+            {
+              "playerId": "p-12u-7",
+              "pitches": [
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 0
+                }
+              ]
+            }
+          ]
+        },
+        "away": {
+          "teamId": "away",
+          "playerScores": [
+            {
+              "playerId": "p-12u-8",
+              "pitches": [
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 0
+                }
+              ]
+            },
+            {
+              "playerId": "p-12u-9",
+              "pitches": [
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 0
+                }
+              ]
+            },
+            {
+              "playerId": "p-12u-10",
+              "pitches": [
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 0
+                }
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "number": 5,
+        "home": {
+          "teamId": "home",
+          "playerScores": [
+            {
+              "playerId": "p-12u-5",
+              "pitches": [
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 1
+                }
+              ]
+            },
+            {
+              "playerId": "p-12u-6",
+              "pitches": [
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 3
+                }
+              ]
+            },
+            {
+              "playerId": "p-12u-7",
+              "pitches": [
+                {
+                  "points": 3
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                }
+              ]
+            }
+          ]
+        },
+        "away": {
+          "teamId": "away",
+          "playerScores": [
+            {
+              "playerId": "p-12u-8",
+              "pitches": [
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                }
+              ]
+            },
+            {
+              "playerId": "p-12u-9",
+              "pitches": [
+                {
+                  "points": 1
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 4
+                }
+              ]
+            },
+            {
+              "playerId": "p-12u-10",
+              "pitches": [
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                }
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "number": 6,
+        "home": {
+          "teamId": "home",
+          "playerScores": [
+            {
+              "playerId": "p-12u-5",
+              "pitches": [
+                {
+                  "points": 2
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 3
+                }
+              ]
+            },
+            {
+              "playerId": "p-12u-6",
+              "pitches": [
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                }
+              ]
+            },
+            {
+              "playerId": "p-12u-7",
+              "pitches": [
+                {
+                  "points": 2
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 4
+                }
+              ]
+            }
+          ]
+        },
+        "away": {
+          "teamId": "away",
+          "playerScores": [
+            {
+              "playerId": "p-12u-8",
+              "pitches": [
+                {
+                  "points": 1
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                }
+              ]
+            },
+            {
+              "playerId": "p-12u-9",
+              "pitches": [
+                {
+                  "points": 1
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 0
+                }
+              ]
+            },
+            {
+              "playerId": "p-12u-10",
+              "pitches": [
+                {
+                  "points": 1
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                }
+              ]
+            }
+          ]
+        }
+      }
+    ],
+    "season": "2025"
+  },
+  {
+    "id": "match-1012-31s4",
+    "league": "Varsity",
+    "homeTeamId": "team-var-1",
+    "awayTeamId": "team-var-2",
+    "date": "2025-10-06T18:00:00.000Z",
+    "isComplete": true,
+    "innings": [
+      {
+        "number": 1,
+        "home": {
+          "teamId": "home",
+          "playerScores": [
+            {
+              "playerId": "p-var-1",
+              "pitches": [
+                {
+                  "points": 0
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                }
+              ]
+            },
+            {
+              "playerId": "p-var-2",
+              "pitches": [
+                {
+                  "points": 4
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                }
+              ]
+            },
+            {
+              "playerId": "p-var-3",
+              "pitches": [
+                {
+                  "points": 3
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 4
+                }
+              ]
+            }
+          ]
+        },
+        "away": {
+          "teamId": "away",
+          "playerScores": [
+            {
+              "playerId": "p-var-5",
+              "pitches": [
+                {
+                  "points": 2
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 3
+                }
+              ]
+            },
+            {
+              "playerId": "p-var-6",
+              "pitches": [
+                {
+                  "points": 3
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 2
+                }
+              ]
+            },
+            {
+              "playerId": "p-var-7",
+              "pitches": [
+                {
+                  "points": 4
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 4
+                }
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "number": 2,
+        "home": {
+          "teamId": "home",
+          "playerScores": [
+            {
+              "playerId": "p-var-1",
+              "pitches": [
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 2
+                }
+              ]
+            },
+            {
+              "playerId": "p-var-2",
+              "pitches": [
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 4
+                }
+              ]
+            },
+            {
+              "playerId": "p-var-3",
+              "pitches": [
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 1
+                }
+              ]
+            }
+          ]
+        },
+        "away": {
+          "teamId": "away",
+          "playerScores": [
+            {
+              "playerId": "p-var-5",
+              "pitches": [
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 0
+                }
+              ]
+            },
+            {
+              "playerId": "p-var-6",
+              "pitches": [
+                {
+                  "points": 1
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 2
+                }
+              ]
+            },
+            {
+              "playerId": "p-var-7",
+              "pitches": [
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                }
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "number": 3,
+        "home": {
+          "teamId": "home",
+          "playerScores": [
+            {
+              "playerId": "p-var-1",
+              "pitches": [
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 2
+                }
+              ]
+            },
+            {
+              "playerId": "p-var-2",
+              "pitches": [
+                {
+                  "points": 1
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 4
+                }
+              ]
+            },
+            {
+              "playerId": "p-var-3",
+              "pitches": [
+                {
+                  "points": 2
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 1
+                }
+              ]
+            }
+          ]
+        },
+        "away": {
+          "teamId": "away",
+          "playerScores": [
+            {
+              "playerId": "p-var-5",
+              "pitches": [
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                }
+              ]
+            },
+            {
+              "playerId": "p-var-6",
+              "pitches": [
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 1
+                }
+              ]
+            },
+            {
+              "playerId": "p-var-7",
+              "pitches": [
+                {
+                  "points": 2
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 1
+                }
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "number": 4,
+        "home": {
+          "teamId": "home",
+          "playerScores": [
+            {
+              "playerId": "p-var-1",
+              "pitches": [
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 1
+                }
+              ]
+            },
+            {
+              "playerId": "p-var-2",
+              "pitches": [
+                {
+                  "points": 3
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                }
+              ]
+            },
+            {
+              "playerId": "p-var-3",
+              "pitches": [
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 2
+                }
+              ]
+            }
+          ]
+        },
+        "away": {
+          "teamId": "away",
+          "playerScores": [
+            {
+              "playerId": "p-var-5",
+              "pitches": [
+                {
+                  "points": 1
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                }
+              ]
+            },
+            {
+              "playerId": "p-var-6",
+              "pitches": [
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 4
+                }
+              ]
+            },
+            {
+              "playerId": "p-var-7",
+              "pitches": [
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                }
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "number": 5,
+        "home": {
+          "teamId": "home",
+          "playerScores": [
+            {
+              "playerId": "p-var-1",
+              "pitches": [
+                {
+                  "points": 2
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 2
+                }
+              ]
+            },
+            {
+              "playerId": "p-var-2",
+              "pitches": [
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 3
+                }
+              ]
+            },
+            {
+              "playerId": "p-var-3",
+              "pitches": [
+                {
+                  "points": 3
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 3
+                }
+              ]
+            }
+          ]
+        },
+        "away": {
+          "teamId": "away",
+          "playerScores": [
+            {
+              "playerId": "p-var-5",
+              "pitches": [
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 3
+                }
+              ]
+            },
+            {
+              "playerId": "p-var-6",
+              "pitches": [
+                {
+                  "points": 4
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 3
+                }
+              ]
+            },
+            {
+              "playerId": "p-var-7",
+              "pitches": [
+                {
+                  "points": 4
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 1
+                }
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "number": 6,
+        "home": {
+          "teamId": "home",
+          "playerScores": [
+            {
+              "playerId": "p-var-1",
+              "pitches": [
+                {
+                  "points": 4
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 4
+                }
+              ]
+            },
+            {
+              "playerId": "p-var-2",
+              "pitches": [
+                {
+                  "points": 2
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 3
+                }
+              ]
+            },
+            {
+              "playerId": "p-var-3",
+              "pitches": [
+                {
+                  "points": 3
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                }
+              ]
+            }
+          ]
+        },
+        "away": {
+          "teamId": "away",
+          "playerScores": [
+            {
+              "playerId": "p-var-5",
+              "pitches": [
+                {
+                  "points": 3
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                }
+              ]
+            },
+            {
+              "playerId": "p-var-6",
+              "pitches": [
+                {
+                  "points": 0
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 3
+                }
+              ]
+            },
+            {
+              "playerId": "p-var-7",
+              "pitches": [
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                }
+              ]
+            }
+          ]
+        }
+      }
+    ],
+    "season": "2025"
+  },
+  {
+    "id": "match-1013-2r6t",
+    "league": "Varsity",
+    "homeTeamId": "team-var-3",
+    "awayTeamId": "team-var-4",
+    "date": "2025-10-06T18:00:00.000Z",
+    "isComplete": true,
+    "innings": [
+      {
+        "number": 1,
+        "home": {
+          "teamId": "home",
+          "playerScores": [
+            {
+              "playerId": "p-var-8",
+              "pitches": [
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                }
+              ]
+            },
+            {
+              "playerId": "p-var-9",
+              "pitches": [
+                {
+                  "points": 3
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 3
+                }
+              ]
+            },
+            {
+              "playerId": "p-var-10",
+              "pitches": [
+                {
+                  "points": 3
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 1
+                }
+              ]
+            }
+          ]
+        },
+        "away": {
+          "teamId": "away",
+          "playerScores": [
+            {
+              "playerId": "p-var-11",
+              "pitches": [
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 3
+                }
+              ]
+            },
+            {
+              "playerId": "p-var-12",
+              "pitches": [
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                }
+              ]
+            },
+            {
+              "playerId": "p-var-13",
+              "pitches": [
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 4
+                }
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "number": 2,
+        "home": {
+          "teamId": "home",
+          "playerScores": [
+            {
+              "playerId": "p-var-8",
+              "pitches": [
+                {
+                  "points": 2
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 1
+                }
+              ]
+            },
+            {
+              "playerId": "p-var-9",
+              "pitches": [
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 1
+                }
+              ]
+            },
+            {
+              "playerId": "p-var-10",
+              "pitches": [
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 0
+                }
+              ]
+            }
+          ]
+        },
+        "away": {
+          "teamId": "away",
+          "playerScores": [
+            {
+              "playerId": "p-var-11",
+              "pitches": [
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                }
+              ]
+            },
+            {
+              "playerId": "p-var-12",
+              "pitches": [
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                }
+              ]
+            },
+            {
+              "playerId": "p-var-13",
+              "pitches": [
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 1
+                }
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "number": 3,
+        "home": {
+          "teamId": "home",
+          "playerScores": [
+            {
+              "playerId": "p-var-8",
+              "pitches": [
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 3
+                }
+              ]
+            },
+            {
+              "playerId": "p-var-9",
+              "pitches": [
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 1
+                }
+              ]
+            },
+            {
+              "playerId": "p-var-10",
+              "pitches": [
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 1
+                }
+              ]
+            }
+          ]
+        },
+        "away": {
+          "teamId": "away",
+          "playerScores": [
+            {
+              "playerId": "p-var-11",
+              "pitches": [
+                {
+                  "points": 4
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 3
+                }
+              ]
+            },
+            {
+              "playerId": "p-var-12",
+              "pitches": [
+                {
+                  "points": 3
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                }
+              ]
+            },
+            {
+              "playerId": "p-var-13",
+              "pitches": [
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                }
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "number": 4,
+        "home": {
+          "teamId": "home",
+          "playerScores": [
+            {
+              "playerId": "p-var-8",
+              "pitches": [
+                {
+                  "points": 3
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 2
+                }
+              ]
+            },
+            {
+              "playerId": "p-var-9",
+              "pitches": [
+                {
+                  "points": 2
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 3
+                }
+              ]
+            },
+            {
+              "playerId": "p-var-10",
+              "pitches": [
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 4
+                }
+              ]
+            }
+          ]
+        },
+        "away": {
+          "teamId": "away",
+          "playerScores": [
+            {
+              "playerId": "p-var-11",
+              "pitches": [
+                {
+                  "points": 3
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 3
+                }
+              ]
+            },
+            {
+              "playerId": "p-var-12",
+              "pitches": [
+                {
+                  "points": 3
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 1
+                }
+              ]
+            },
+            {
+              "playerId": "p-var-13",
+              "pitches": [
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                }
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "number": 5,
+        "home": {
+          "teamId": "home",
+          "playerScores": [
+            {
+              "playerId": "p-var-8",
+              "pitches": [
+                {
+                  "points": 2
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                }
+              ]
+            },
+            {
+              "playerId": "p-var-9",
+              "pitches": [
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                }
+              ]
+            },
+            {
+              "playerId": "p-var-10",
+              "pitches": [
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 4
+                }
+              ]
+            }
+          ]
+        },
+        "away": {
+          "teamId": "away",
+          "playerScores": [
+            {
+              "playerId": "p-var-11",
+              "pitches": [
+                {
+                  "points": 1
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                }
+              ]
+            },
+            {
+              "playerId": "p-var-12",
+              "pitches": [
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 4
+                }
+              ]
+            },
+            {
+              "playerId": "p-var-13",
+              "pitches": [
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 3
+                }
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "number": 6,
+        "home": {
+          "teamId": "home",
+          "playerScores": [
+            {
+              "playerId": "p-var-8",
+              "pitches": [
+                {
+                  "points": 0
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 3
+                }
+              ]
+            },
+            {
+              "playerId": "p-var-9",
+              "pitches": [
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                }
+              ]
+            },
+            {
+              "playerId": "p-var-10",
+              "pitches": [
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 3
+                }
+              ]
+            }
+          ]
+        },
+        "away": {
+          "teamId": "away",
+          "playerScores": [
+            {
+              "playerId": "p-var-11",
+              "pitches": [
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                }
+              ]
+            },
+            {
+              "playerId": "p-var-12",
+              "pitches": [
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                }
+              ]
+            },
+            {
+              "playerId": "p-var-13",
+              "pitches": [
+                {
+                  "points": 3
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                }
+              ]
+            }
+          ]
+        }
+      }
+    ],
+    "season": "2025"
+  },
+  {
+    "id": "match-1014-3qtr",
+    "league": "Varsity",
+    "homeTeamId": "team-var-1",
+    "awayTeamId": "team-var-3",
+    "date": "2025-10-13T18:00:00.000Z",
+    "isComplete": true,
+    "innings": [
+      {
+        "number": 1,
+        "home": {
+          "teamId": "home",
+          "playerScores": [
+            {
+              "playerId": "p-var-1",
+              "pitches": [
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 4
+                }
+              ]
+            },
+            {
+              "playerId": "p-var-2",
+              "pitches": [
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                }
+              ]
+            },
+            {
+              "playerId": "p-var-3",
+              "pitches": [
+                {
+                  "points": 3
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                }
+              ]
+            }
+          ]
+        },
+        "away": {
+          "teamId": "away",
+          "playerScores": [
+            {
+              "playerId": "p-var-8",
+              "pitches": [
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 0
+                }
+              ]
+            },
+            {
+              "playerId": "p-var-9",
+              "pitches": [
+                {
+                  "points": 2
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                }
+              ]
+            },
+            {
+              "playerId": "p-var-10",
+              "pitches": [
+                {
+                  "points": 1
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 0
+                }
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "number": 2,
+        "home": {
+          "teamId": "home",
+          "playerScores": [
+            {
+              "playerId": "p-var-1",
+              "pitches": [
+                {
+                  "points": 2
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                }
+              ]
+            },
+            {
+              "playerId": "p-var-2",
+              "pitches": [
+                {
+                  "points": 4
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 3
+                }
+              ]
+            },
+            {
+              "playerId": "p-var-3",
+              "pitches": [
+                {
+                  "points": 4
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                }
+              ]
+            }
+          ]
+        },
+        "away": {
+          "teamId": "away",
+          "playerScores": [
+            {
+              "playerId": "p-var-8",
+              "pitches": [
+                {
+                  "points": 4
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                }
+              ]
+            },
+            {
+              "playerId": "p-var-9",
+              "pitches": [
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                }
+              ]
+            },
+            {
+              "playerId": "p-var-10",
+              "pitches": [
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 4
+                }
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "number": 3,
+        "home": {
+          "teamId": "home",
+          "playerScores": [
+            {
+              "playerId": "p-var-1",
+              "pitches": [
+                {
+                  "points": 3
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                }
+              ]
+            },
+            {
+              "playerId": "p-var-2",
+              "pitches": [
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                }
+              ]
+            },
+            {
+              "playerId": "p-var-3",
+              "pitches": [
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 3
+                }
+              ]
+            }
+          ]
+        },
+        "away": {
+          "teamId": "away",
+          "playerScores": [
+            {
+              "playerId": "p-var-8",
+              "pitches": [
+                {
+                  "points": 0
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 3
+                }
+              ]
+            },
+            {
+              "playerId": "p-var-9",
+              "pitches": [
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                }
+              ]
+            },
+            {
+              "playerId": "p-var-10",
+              "pitches": [
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 1
+                }
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "number": 4,
+        "home": {
+          "teamId": "home",
+          "playerScores": [
+            {
+              "playerId": "p-var-1",
+              "pitches": [
+                {
+                  "points": 4
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 3
+                }
+              ]
+            },
+            {
+              "playerId": "p-var-2",
+              "pitches": [
+                {
+                  "points": 1
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 1
+                }
+              ]
+            },
+            {
+              "playerId": "p-var-3",
+              "pitches": [
+                {
+                  "points": 1
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                }
+              ]
+            }
+          ]
+        },
+        "away": {
+          "teamId": "away",
+          "playerScores": [
+            {
+              "playerId": "p-var-8",
+              "pitches": [
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                }
+              ]
+            },
+            {
+              "playerId": "p-var-9",
+              "pitches": [
+                {
+                  "points": 1
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 0
+                }
+              ]
+            },
+            {
+              "playerId": "p-var-10",
+              "pitches": [
+                {
+                  "points": 2
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                }
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "number": 5,
+        "home": {
+          "teamId": "home",
+          "playerScores": [
+            {
+              "playerId": "p-var-1",
+              "pitches": [
+                {
+                  "points": 3
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 0
+                }
+              ]
+            },
+            {
+              "playerId": "p-var-2",
+              "pitches": [
+                {
+                  "points": 2
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 4
+                }
+              ]
+            },
+            {
+              "playerId": "p-var-3",
+              "pitches": [
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 3
+                }
+              ]
+            }
+          ]
+        },
+        "away": {
+          "teamId": "away",
+          "playerScores": [
+            {
+              "playerId": "p-var-8",
+              "pitches": [
+                {
+                  "points": 4
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                }
+              ]
+            },
+            {
+              "playerId": "p-var-9",
+              "pitches": [
+                {
+                  "points": 4
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 1
+                }
+              ]
+            },
+            {
+              "playerId": "p-var-10",
+              "pitches": [
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 3
+                }
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "number": 6,
+        "home": {
+          "teamId": "home",
+          "playerScores": [
+            {
+              "playerId": "p-var-1",
+              "pitches": [
+                {
+                  "points": 3
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 3
+                }
+              ]
+            },
+            {
+              "playerId": "p-var-2",
+              "pitches": [
+                {
+                  "points": 0
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                }
+              ]
+            },
+            {
+              "playerId": "p-var-3",
+              "pitches": [
+                {
+                  "points": 3
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                }
+              ]
+            }
+          ]
+        },
+        "away": {
+          "teamId": "away",
+          "playerScores": [
+            {
+              "playerId": "p-var-8",
+              "pitches": [
+                {
+                  "points": 2
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                }
+              ]
+            },
+            {
+              "playerId": "p-var-9",
+              "pitches": [
+                {
+                  "points": 2
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 3
+                }
+              ]
+            },
+            {
+              "playerId": "p-var-10",
+              "pitches": [
+                {
+                  "points": 1
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 3
+                }
+              ]
+            }
+          ]
+        }
+      }
+    ],
+    "season": "2025"
+  },
+  {
+    "id": "match-1015-h4xx",
+    "league": "Varsity",
+    "homeTeamId": "team-var-2",
+    "awayTeamId": "team-var-4",
+    "date": "2025-10-13T18:00:00.000Z",
+    "isComplete": true,
+    "innings": [
+      {
+        "number": 1,
+        "home": {
+          "teamId": "home",
+          "playerScores": [
+            {
+              "playerId": "p-var-5",
+              "pitches": [
+                {
+                  "points": 3
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                }
+              ]
+            },
+            {
+              "playerId": "p-var-6",
+              "pitches": [
+                {
+                  "points": 1
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 3
+                }
+              ]
+            },
+            {
+              "playerId": "p-var-7",
+              "pitches": [
+                {
+                  "points": 3
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 2
+                }
+              ]
+            }
+          ]
+        },
+        "away": {
+          "teamId": "away",
+          "playerScores": [
+            {
+              "playerId": "p-var-11",
+              "pitches": [
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                }
+              ]
+            },
+            {
+              "playerId": "p-var-12",
+              "pitches": [
+                {
+                  "points": 3
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 0
+                }
+              ]
+            },
+            {
+              "playerId": "p-var-13",
+              "pitches": [
+                {
+                  "points": 2
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 4
+                }
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "number": 2,
+        "home": {
+          "teamId": "home",
+          "playerScores": [
+            {
+              "playerId": "p-var-5",
+              "pitches": [
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                }
+              ]
+            },
+            {
+              "playerId": "p-var-6",
+              "pitches": [
+                {
+                  "points": 0
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 4
+                }
+              ]
+            },
+            {
+              "playerId": "p-var-7",
+              "pitches": [
+                {
+                  "points": 2
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 2
+                }
+              ]
+            }
+          ]
+        },
+        "away": {
+          "teamId": "away",
+          "playerScores": [
+            {
+              "playerId": "p-var-11",
+              "pitches": [
+                {
+                  "points": 3
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                }
+              ]
+            },
+            {
+              "playerId": "p-var-12",
+              "pitches": [
+                {
+                  "points": 1
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 1
+                }
+              ]
+            },
+            {
+              "playerId": "p-var-13",
+              "pitches": [
+                {
+                  "points": 4
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                }
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "number": 3,
+        "home": {
+          "teamId": "home",
+          "playerScores": [
+            {
+              "playerId": "p-var-5",
+              "pitches": [
+                {
+                  "points": 4
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 1
+                }
+              ]
+            },
+            {
+              "playerId": "p-var-6",
+              "pitches": [
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 4
+                }
+              ]
+            },
+            {
+              "playerId": "p-var-7",
+              "pitches": [
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 3
+                }
+              ]
+            }
+          ]
+        },
+        "away": {
+          "teamId": "away",
+          "playerScores": [
+            {
+              "playerId": "p-var-11",
+              "pitches": [
+                {
+                  "points": 2
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 0
+                }
+              ]
+            },
+            {
+              "playerId": "p-var-12",
+              "pitches": [
+                {
+                  "points": 1
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                }
+              ]
+            },
+            {
+              "playerId": "p-var-13",
+              "pitches": [
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                }
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "number": 4,
+        "home": {
+          "teamId": "home",
+          "playerScores": [
+            {
+              "playerId": "p-var-5",
+              "pitches": [
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 3
+                }
+              ]
+            },
+            {
+              "playerId": "p-var-6",
+              "pitches": [
+                {
+                  "points": 1
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                }
+              ]
+            },
+            {
+              "playerId": "p-var-7",
+              "pitches": [
+                {
+                  "points": 2
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 3
+                }
+              ]
+            }
+          ]
+        },
+        "away": {
+          "teamId": "away",
+          "playerScores": [
+            {
+              "playerId": "p-var-11",
+              "pitches": [
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 2
+                }
+              ]
+            },
+            {
+              "playerId": "p-var-12",
+              "pitches": [
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 1
+                }
+              ]
+            },
+            {
+              "playerId": "p-var-13",
+              "pitches": [
+                {
+                  "points": 3
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                }
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "number": 5,
+        "home": {
+          "teamId": "home",
+          "playerScores": [
+            {
+              "playerId": "p-var-5",
+              "pitches": [
+                {
+                  "points": 1
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 3
+                }
+              ]
+            },
+            {
+              "playerId": "p-var-6",
+              "pitches": [
+                {
+                  "points": 1
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 3
+                }
+              ]
+            },
+            {
+              "playerId": "p-var-7",
+              "pitches": [
+                {
+                  "points": 0
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 3
+                }
+              ]
+            }
+          ]
+        },
+        "away": {
+          "teamId": "away",
+          "playerScores": [
+            {
+              "playerId": "p-var-11",
+              "pitches": [
+                {
+                  "points": 4
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 3
+                }
+              ]
+            },
+            {
+              "playerId": "p-var-12",
+              "pitches": [
+                {
+                  "points": 3
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 1
+                }
+              ]
+            },
+            {
+              "playerId": "p-var-13",
+              "pitches": [
+                {
+                  "points": 3
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                }
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "number": 6,
+        "home": {
+          "teamId": "home",
+          "playerScores": [
+            {
+              "playerId": "p-var-5",
+              "pitches": [
+                {
+                  "points": 4
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 3
+                }
+              ]
+            },
+            {
+              "playerId": "p-var-6",
+              "pitches": [
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 2
+                }
+              ]
+            },
+            {
+              "playerId": "p-var-7",
+              "pitches": [
+                {
+                  "points": 3
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                }
+              ]
+            }
+          ]
+        },
+        "away": {
+          "teamId": "away",
+          "playerScores": [
+            {
+              "playerId": "p-var-11",
+              "pitches": [
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                }
+              ]
+            },
+            {
+              "playerId": "p-var-12",
+              "pitches": [
+                {
+                  "points": 1
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                }
+              ]
+            },
+            {
+              "playerId": "p-var-13",
+              "pitches": [
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 4
+                }
+              ]
+            }
+          ]
+        }
+      }
+    ],
+    "season": "2025"
+  },
+  {
+    "id": "match-1016-65dm",
+    "league": "Varsity",
+    "homeTeamId": "team-var-1",
+    "awayTeamId": "team-var-4",
+    "date": "2025-10-20T18:00:00.000Z",
+    "isComplete": true,
+    "innings": [
+      {
+        "number": 1,
+        "home": {
+          "teamId": "home",
+          "playerScores": [
+            {
+              "playerId": "p-var-1",
+              "pitches": [
+                {
+                  "points": 4
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 0
+                }
+              ]
+            },
+            {
+              "playerId": "p-var-2",
+              "pitches": [
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 2
+                }
+              ]
+            },
+            {
+              "playerId": "p-var-3",
+              "pitches": [
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 3
+                }
+              ]
+            }
+          ]
+        },
+        "away": {
+          "teamId": "away",
+          "playerScores": [
+            {
+              "playerId": "p-var-11",
+              "pitches": [
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 4
+                }
+              ]
+            },
+            {
+              "playerId": "p-var-12",
+              "pitches": [
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 0
+                }
+              ]
+            },
+            {
+              "playerId": "p-var-13",
+              "pitches": [
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                }
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "number": 2,
+        "home": {
+          "teamId": "home",
+          "playerScores": [
+            {
+              "playerId": "p-var-1",
+              "pitches": [
+                {
+                  "points": 3
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 1
+                }
+              ]
+            },
+            {
+              "playerId": "p-var-2",
+              "pitches": [
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 1
+                }
+              ]
+            },
+            {
+              "playerId": "p-var-3",
+              "pitches": [
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                }
+              ]
+            }
+          ]
+        },
+        "away": {
+          "teamId": "away",
+          "playerScores": [
+            {
+              "playerId": "p-var-11",
+              "pitches": [
+                {
+                  "points": 1
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                }
+              ]
+            },
+            {
+              "playerId": "p-var-12",
+              "pitches": [
+                {
+                  "points": 4
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                }
+              ]
+            },
+            {
+              "playerId": "p-var-13",
+              "pitches": [
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                }
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "number": 3,
+        "home": {
+          "teamId": "home",
+          "playerScores": [
+            {
+              "playerId": "p-var-1",
+              "pitches": [
+                {
+                  "points": 3
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 3
+                }
+              ]
+            },
+            {
+              "playerId": "p-var-2",
+              "pitches": [
+                {
+                  "points": 3
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 3
+                }
+              ]
+            },
+            {
+              "playerId": "p-var-3",
+              "pitches": [
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 4
+                }
+              ]
+            }
+          ]
+        },
+        "away": {
+          "teamId": "away",
+          "playerScores": [
+            {
+              "playerId": "p-var-11",
+              "pitches": [
+                {
+                  "points": 2
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 4
+                }
+              ]
+            },
+            {
+              "playerId": "p-var-12",
+              "pitches": [
+                {
+                  "points": 3
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                }
+              ]
+            },
+            {
+              "playerId": "p-var-13",
+              "pitches": [
+                {
+                  "points": 0
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 2
+                }
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "number": 4,
+        "home": {
+          "teamId": "home",
+          "playerScores": [
+            {
+              "playerId": "p-var-1",
+              "pitches": [
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 1
+                }
+              ]
+            },
+            {
+              "playerId": "p-var-2",
+              "pitches": [
+                {
+                  "points": 3
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 2
+                }
+              ]
+            },
+            {
+              "playerId": "p-var-3",
+              "pitches": [
+                {
+                  "points": 1
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                }
+              ]
+            }
+          ]
+        },
+        "away": {
+          "teamId": "away",
+          "playerScores": [
+            {
+              "playerId": "p-var-11",
+              "pitches": [
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                }
+              ]
+            },
+            {
+              "playerId": "p-var-12",
+              "pitches": [
+                {
+                  "points": 2
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 4
+                }
+              ]
+            },
+            {
+              "playerId": "p-var-13",
+              "pitches": [
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                }
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "number": 5,
+        "home": {
+          "teamId": "home",
+          "playerScores": [
+            {
+              "playerId": "p-var-1",
+              "pitches": [
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 3
+                }
+              ]
+            },
+            {
+              "playerId": "p-var-2",
+              "pitches": [
+                {
+                  "points": 3
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                }
+              ]
+            },
+            {
+              "playerId": "p-var-3",
+              "pitches": [
+                {
+                  "points": 2
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 4
+                }
+              ]
+            }
+          ]
+        },
+        "away": {
+          "teamId": "away",
+          "playerScores": [
+            {
+              "playerId": "p-var-11",
+              "pitches": [
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 0
+                }
+              ]
+            },
+            {
+              "playerId": "p-var-12",
+              "pitches": [
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 3
+                }
+              ]
+            },
+            {
+              "playerId": "p-var-13",
+              "pitches": [
+                {
+                  "points": 3
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 3
+                }
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "number": 6,
+        "home": {
+          "teamId": "home",
+          "playerScores": [
+            {
+              "playerId": "p-var-1",
+              "pitches": [
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 3
+                }
+              ]
+            },
+            {
+              "playerId": "p-var-2",
+              "pitches": [
+                {
+                  "points": 2
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 4
+                }
+              ]
+            },
+            {
+              "playerId": "p-var-3",
+              "pitches": [
+                {
+                  "points": 3
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 3
+                }
+              ]
+            }
+          ]
+        },
+        "away": {
+          "teamId": "away",
+          "playerScores": [
+            {
+              "playerId": "p-var-11",
+              "pitches": [
+                {
+                  "points": 2
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 4
+                }
+              ]
+            },
+            {
+              "playerId": "p-var-12",
+              "pitches": [
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                }
+              ]
+            },
+            {
+              "playerId": "p-var-13",
+              "pitches": [
+                {
+                  "points": 0
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                }
+              ]
+            }
+          ]
+        }
+      }
+    ],
+    "season": "2025"
+  },
+  {
+    "id": "match-1017-i29u",
+    "league": "Varsity",
+    "homeTeamId": "team-var-2",
+    "awayTeamId": "team-var-3",
+    "date": "2025-10-20T18:00:00.000Z",
+    "isComplete": true,
+    "innings": [
+      {
+        "number": 1,
+        "home": {
+          "teamId": "home",
+          "playerScores": [
+            {
+              "playerId": "p-var-5",
+              "pitches": [
+                {
+                  "points": 2
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 4
+                }
+              ]
+            },
+            {
+              "playerId": "p-var-6",
+              "pitches": [
+                {
+                  "points": 0
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                }
+              ]
+            },
+            {
+              "playerId": "p-var-7",
+              "pitches": [
+                {
+                  "points": 4
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 4
+                }
+              ]
+            }
+          ]
+        },
+        "away": {
+          "teamId": "away",
+          "playerScores": [
+            {
+              "playerId": "p-var-8",
+              "pitches": [
+                {
+                  "points": 0
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                }
+              ]
+            },
+            {
+              "playerId": "p-var-9",
+              "pitches": [
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 4
+                }
+              ]
+            },
+            {
+              "playerId": "p-var-10",
+              "pitches": [
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                }
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "number": 2,
+        "home": {
+          "teamId": "home",
+          "playerScores": [
+            {
+              "playerId": "p-var-5",
+              "pitches": [
+                {
+                  "points": 1
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 4
+                }
+              ]
+            },
+            {
+              "playerId": "p-var-6",
+              "pitches": [
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                }
+              ]
+            },
+            {
+              "playerId": "p-var-7",
+              "pitches": [
+                {
+                  "points": 3
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 0
+                }
+              ]
+            }
+          ]
+        },
+        "away": {
+          "teamId": "away",
+          "playerScores": [
+            {
+              "playerId": "p-var-8",
+              "pitches": [
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 1
+                }
+              ]
+            },
+            {
+              "playerId": "p-var-9",
+              "pitches": [
+                {
+                  "points": 2
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 3
+                }
+              ]
+            },
+            {
+              "playerId": "p-var-10",
+              "pitches": [
+                {
+                  "points": 0
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                }
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "number": 3,
+        "home": {
+          "teamId": "home",
+          "playerScores": [
+            {
+              "playerId": "p-var-5",
+              "pitches": [
+                {
+                  "points": 3
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                }
+              ]
+            },
+            {
+              "playerId": "p-var-6",
+              "pitches": [
+                {
+                  "points": 1
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 4
+                }
+              ]
+            },
+            {
+              "playerId": "p-var-7",
+              "pitches": [
+                {
+                  "points": 4
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 4
+                }
+              ]
+            }
+          ]
+        },
+        "away": {
+          "teamId": "away",
+          "playerScores": [
+            {
+              "playerId": "p-var-8",
+              "pitches": [
+                {
+                  "points": 2
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                }
+              ]
+            },
+            {
+              "playerId": "p-var-9",
+              "pitches": [
+                {
+                  "points": 3
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 1
+                }
+              ]
+            },
+            {
+              "playerId": "p-var-10",
+              "pitches": [
+                {
+                  "points": 1
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                }
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "number": 4,
+        "home": {
+          "teamId": "home",
+          "playerScores": [
+            {
+              "playerId": "p-var-5",
+              "pitches": [
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 4
+                }
+              ]
+            },
+            {
+              "playerId": "p-var-6",
+              "pitches": [
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                }
+              ]
+            },
+            {
+              "playerId": "p-var-7",
+              "pitches": [
+                {
+                  "points": 4
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 1
+                }
+              ]
+            }
+          ]
+        },
+        "away": {
+          "teamId": "away",
+          "playerScores": [
+            {
+              "playerId": "p-var-8",
+              "pitches": [
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 3
+                }
+              ]
+            },
+            {
+              "playerId": "p-var-9",
+              "pitches": [
+                {
+                  "points": 3
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                }
+              ]
+            },
+            {
+              "playerId": "p-var-10",
+              "pitches": [
+                {
+                  "points": 3
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                }
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "number": 5,
+        "home": {
+          "teamId": "home",
+          "playerScores": [
+            {
+              "playerId": "p-var-5",
+              "pitches": [
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 1
+                }
+              ]
+            },
+            {
+              "playerId": "p-var-6",
+              "pitches": [
+                {
+                  "points": 2
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                }
+              ]
+            },
+            {
+              "playerId": "p-var-7",
+              "pitches": [
+                {
+                  "points": 3
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 3
+                }
+              ]
+            }
+          ]
+        },
+        "away": {
+          "teamId": "away",
+          "playerScores": [
+            {
+              "playerId": "p-var-8",
+              "pitches": [
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 1
+                }
+              ]
+            },
+            {
+              "playerId": "p-var-9",
+              "pitches": [
+                {
+                  "points": 2
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                }
+              ]
+            },
+            {
+              "playerId": "p-var-10",
+              "pitches": [
+                {
+                  "points": 1
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                }
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "number": 6,
+        "home": {
+          "teamId": "home",
+          "playerScores": [
+            {
+              "playerId": "p-var-5",
+              "pitches": [
+                {
+                  "points": 3
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 1
+                }
+              ]
+            },
+            {
+              "playerId": "p-var-6",
+              "pitches": [
+                {
+                  "points": 4
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 4
+                }
+              ]
+            },
+            {
+              "playerId": "p-var-7",
+              "pitches": [
+                {
+                  "points": 4
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 1
+                }
+              ]
+            }
+          ]
+        },
+        "away": {
+          "teamId": "away",
+          "playerScores": [
+            {
+              "playerId": "p-var-8",
+              "pitches": [
+                {
+                  "points": 2
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                }
+              ]
+            },
+            {
+              "playerId": "p-var-9",
+              "pitches": [
+                {
+                  "points": 3
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 3
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 1
+                }
+              ]
+            },
+            {
+              "playerId": "p-var-10",
+              "pitches": [
+                {
+                  "points": 2
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 4
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 1
+                },
+                {
+                  "points": 0
+                },
+                {
+                  "points": 2
+                },
+                {
+                  "points": 4
+                }
+              ]
+            }
+          ]
+        }
+      }
+    ],
+    "season": "2025"
+  }
+];

@@ -233,9 +233,10 @@ function devApiPlugin(): Plugin {
           if (pathname === '/api/teams') {
             const activeSeason = db.settings.current_season || String(new Date().getFullYear());
             if (method === 'GET') {
-              let teams = db.teams;
+              let teams = db.teams || [];
               if (query.league) {
-                teams = teams.filter((t: any) => t.league === query.league);
+                const targetLeague = query.league.trim().toLowerCase();
+                teams = teams.filter((t: any) => t.league && t.league.trim().toLowerCase() === targetLeague);
               }
               if (query.season) {
                 teams = teams.filter((t: any) => (t.season || (t.created_at && t.created_at.startsWith('2026') ? '2026' : '2025')) === query.season);
@@ -294,13 +295,14 @@ function devApiPlugin(): Plugin {
             const activeSeason = db.settings.current_season || String(new Date().getFullYear());
             if (method === 'GET') {
               if (query.id) {
-                const match = db.matches.find((m: any) => m.id === query.id);
+                const match = (db.matches || []).find((m: any) => m.id === query.id);
                 if (!match) return sendJson(res, 404, { error: 'Match not found' });
                 return sendJson(res, 200, match);
               }
-              let matches = db.matches;
+              let matches = db.matches || [];
               if (query.league) {
-                matches = matches.filter((m: any) => m.league === query.league);
+                const targetLeague = query.league.trim().toLowerCase();
+                matches = matches.filter((m: any) => m.league && m.league.trim().toLowerCase() === targetLeague);
               }
               if (query.season) {
                 matches = matches.filter((m: any) => (m.season || (m.date && m.date.startsWith('2026') ? '2026' : '2025')) === query.season);

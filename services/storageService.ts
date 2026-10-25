@@ -23,13 +23,13 @@ const mapMatchFromDB = (dbMatch: any): Match => {
   return {
     id: dbMatch.id,
     league: dbMatch.league,
-    homeTeamId: dbMatch.home_team_id,
-    awayTeamId: dbMatch.away_team_id,
+    homeTeamId: dbMatch.home_team_id || dbMatch.homeTeamId,
+    awayTeamId: dbMatch.away_team_id || dbMatch.awayTeamId,
     date: dbMatch.date,
-    isComplete: dbMatch.is_complete,
+    isComplete: dbMatch.is_complete !== undefined ? dbMatch.is_complete : (dbMatch.isComplete ?? false),
     innings: typeof dbMatch.innings === 'string' ? JSON.parse(dbMatch.innings) : dbMatch.innings,
     season: inferredSeason,
-    tieBreaker: dbMatch.tie_breaker ? (typeof dbMatch.tie_breaker === 'string' ? JSON.parse(dbMatch.tie_breaker) : dbMatch.tie_breaker) : undefined
+    tieBreaker: dbMatch.tie_breaker ? (typeof dbMatch.tie_breaker === 'string' ? JSON.parse(dbMatch.tie_breaker) : dbMatch.tie_breaker) : (dbMatch.tieBreaker || undefined)
   };
 };
 

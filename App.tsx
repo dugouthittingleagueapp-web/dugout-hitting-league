@@ -620,7 +620,7 @@ const App: React.FC = () => {
     }
   };
 
-  const performSort = (data: PlayerStats[], config: { key: keyof PlayerStats; direction: 'asc' | 'desc' }) => {
+  const performSort = <T extends PlayerStats>(data: T[], config: { key: keyof PlayerStats; direction: 'asc' | 'desc' }): T[] => {
       return [...data].sort((a, b) => {
         const valA = a[config.key];
         const valB = b[config.key];
@@ -850,6 +850,20 @@ const App: React.FC = () => {
       });
       return Array.from(aggStats.values());
   }, [matches, teams, state.currentLeague]);
+
+  const seasonStatsWithTeam = useMemo(() => {
+      const map = new Map<string, string>();
+      teams.forEach(t => {
+          [...(t.players || []), ...(t.subs || [])].forEach(p => {
+              map.set(p.id, t.name);
+              if (p.name) map.set(p.name.trim().toLowerCase(), t.name);
+          });
+      });
+      return seasonStats.map(s => ({
+          ...s,
+          teamName: map.get(s.playerId) || map.get(s.name.trim().toLowerCase()) || ''
+      }));
+  }, [seasonStats, teams]);
 
 
   const navbarProps = {
@@ -1198,12 +1212,19 @@ const App: React.FC = () => {
                                                 <ul className="space-y-1 sm:space-y-2">
                                                     {weeklyStats.topTotals.map((s, idx) => (
                                                         <li key={idx} className="flex justify-between items-center bg-black/20 p-1 sm:p-2 rounded border border-white/5 hover:bg-black/30 transition-colors">
-                                                            <div className="flex items-center gap-2">
-                                                                <span className="font-bold bg-white text-indigo-600 w-5 h-5 sm:w-6 sm:h-6 flex items-center justify-center rounded-full text-[10px] sm:text-xs font-sans shadow tabular-nums">{idx+1}</span>
-                                                                <span className="font-semibold font-sans text-xs sm:text-base">{s.name}</span>
-                                                                <span className="text-[10px] sm:text-xs text-white/60 font-sans">({s.team})</span>
+                                                            <div className="flex items-center gap-2 min-w-0">
+                                                                <span className="font-bold bg-white text-indigo-600 w-5 h-5 sm:w-6 sm:h-6 flex items-center justify-center rounded-full text-[10px] sm:text-xs font-sans shadow tabular-nums shrink-0">{idx+1}</span>
+                                                                <button 
+                                                                    type="button"
+                                                                    onClick={() => setSelectedCareerPlayer(s.name)} 
+                                                                    className="font-semibold font-sans text-xs sm:text-base hover:underline hover:text-yellow-300 text-left cursor-pointer transition-colors truncate"
+                                                                    title="View career batting record"
+                                                                >
+                                                                    {s.name}
+                                                                </button>
+                                                                <span className="text-[10px] sm:text-xs text-white/60 font-sans shrink-0">({s.team})</span>
                                                             </div>
-                                                            <span className="font-sans tabular-nums font-bold text-base sm:text-xl">{s.score}</span>
+                                                            <span className="font-sans tabular-nums font-bold text-base sm:text-xl shrink-0">{s.score}</span>
                                                         </li>
                                                     ))}
                                                 </ul>
@@ -1215,12 +1236,19 @@ const App: React.FC = () => {
                                                 <ul className="space-y-1 sm:space-y-2">
                                                     {weeklyStats.topInnings.map((s, idx) => (
                                                         <li key={idx} className="flex justify-between items-center bg-black/20 p-1 sm:p-2 rounded border border-white/5 hover:bg-black/30 transition-colors">
-                                                            <div className="flex items-center gap-2">
-                                                                <span className="font-bold bg-white text-purple-600 w-5 h-5 sm:w-6 sm:h-6 flex items-center justify-center rounded-full text-[10px] sm:text-xs font-sans shadow tabular-nums">{idx+1}</span>
-                                                                <span className="font-semibold font-sans text-xs sm:text-base">{s.name}</span>
-                                                                <span className="text-[10px] sm:text-xs text-white/60 font-sans">({s.team})</span>
+                                                            <div className="flex items-center gap-2 min-w-0">
+                                                                <span className="font-bold bg-white text-purple-600 w-5 h-5 sm:w-6 sm:h-6 flex items-center justify-center rounded-full text-[10px] sm:text-xs font-sans shadow tabular-nums shrink-0">{idx+1}</span>
+                                                                <button 
+                                                                    type="button"
+                                                                    onClick={() => setSelectedCareerPlayer(s.name)} 
+                                                                    className="font-semibold font-sans text-xs sm:text-base hover:underline hover:text-yellow-300 text-left cursor-pointer transition-colors truncate"
+                                                                    title="View career batting record"
+                                                                >
+                                                                    {s.name}
+                                                                </button>
+                                                                <span className="text-[10px] sm:text-xs text-white/60 font-sans shrink-0">({s.team})</span>
                                                             </div>
-                                                            <span className="font-sans tabular-nums font-bold text-base sm:text-xl">{s.score}</span>
+                                                            <span className="font-sans tabular-nums font-bold text-base sm:text-xl shrink-0">{s.score}</span>
                                                         </li>
                                                     ))}
                                                 </ul>
@@ -1267,49 +1295,80 @@ const App: React.FC = () => {
                                         const { home: homeScore, away: awayScore } = getMatchScores(match);
 
                                         return (
-                                            <div key={match.id} className="bg-white/60 dark:bg-slate-900/60 backdrop-blur-xl p-2.5 sm:p-5 rounded-xl shadow-md dark:shadow-sm border border-white/20 dark:border-slate-800 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 sm:gap-4 hover:bg-white/80 dark:hover:bg-slate-800/50 transition-colors group">
-                                                <div className="flex items-center gap-2 sm:gap-4 w-full sm:w-auto min-w-0">
-                                                    <div className="shrink-0"><div className={`text-[8px] sm:text-[10px] font-black uppercase tracking-wider px-2 py-1 rounded font-sans border ${match.isComplete ? 'bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border-slate-300 dark:border-slate-700' : 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 border-green-500/30 animate-pulse'}`}>{match.isComplete ? 'FINAL' : 'LIVE'}</div></div>
+                                            <div key={match.id} className="bg-white/60 dark:bg-slate-900/60 backdrop-blur-xl p-3 sm:p-5 rounded-xl shadow-md dark:shadow-sm border border-white/20 dark:border-slate-800 flex flex-col lg:flex-row justify-between items-stretch lg:items-center gap-3 sm:gap-4 hover:bg-white/80 dark:hover:bg-slate-800/50 transition-colors group">
+                                                {/* Left Section: Status & Matchup (Home v Away) */}
+                                                <div className="flex flex-1 items-center gap-2 sm:gap-4 min-w-0">
+                                                    <div className="shrink-0">
+                                                        <div className={`text-[8px] sm:text-[10px] font-black uppercase tracking-wider px-2 py-1 rounded font-sans border ${match.isComplete ? 'bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border-slate-300 dark:border-slate-700' : 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 border-green-500/30 animate-pulse'}`}>
+                                                            {match.isComplete ? 'FINAL' : 'LIVE'}
+                                                        </div>
+                                                    </div>
                                                     
-                                                    <div className="flex flex-1 sm:flex-auto items-center justify-between sm:justify-start sm:gap-6 w-full sm:w-auto min-w-0">
-                                                        {/* Away Team (Left) */}
-                                                        <div className="flex-1 sm:flex-none sm:w-32 text-right sm:text-left min-w-0">
-                                                            <div className="text-[9px] sm:text-lg font-bold text-blue-700 dark:text-blue-400 font-sans break-words whitespace-normal leading-tight">{awayName}</div>
-                                                            <div className="text-[8px] sm:text-[10px] font-bold uppercase text-slate-400">Away</div>
+                                                    {/* Home vs Away Matchup with centered score */}
+                                                    <div className="flex flex-1 items-center justify-between sm:justify-start gap-2 sm:gap-4 min-w-0">
+                                                        {/* Home Team (Left) */}
+                                                        <div className="flex-1 text-right sm:text-right min-w-0">
+                                                            <div className="text-xs sm:text-base md:text-lg font-bold text-red-700 dark:text-red-400 font-sans break-words whitespace-normal leading-tight">
+                                                                {homeName}
+                                                            </div>
+                                                            <div className="text-[8px] sm:text-[10px] font-bold uppercase tracking-wider text-red-500/80">Home</div>
                                                         </div>
                                                         
-                                                        {/* Score Center */}
-                                                        <div className="shrink-0 flex items-center justify-center gap-2 px-2 min-w-[60px]">
-                                                            <span className="text-xl sm:text-3xl font-black text-slate-800 dark:text-white tabular-nums tracking-tight">{awayScore}</span>
-                                                            <span className="text-slate-300 dark:text-slate-600 text-lg font-light">-</span>
-                                                            <span className="text-xl sm:text-3xl font-black text-slate-800 dark:text-white tabular-nums tracking-tight">{homeScore}</span>
+                                                        {/* Score Center (Home - Away) */}
+                                                        <div className="shrink-0 flex items-center justify-center gap-1.5 sm:gap-2 px-2 py-1 rounded-lg bg-slate-100/80 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700/60 min-w-[64px] sm:min-w-[80px]">
+                                                            <span className="text-base sm:text-2xl font-black text-slate-800 dark:text-white tabular-nums tracking-tight">{homeScore}</span>
+                                                            <span className="text-slate-400 dark:text-slate-500 text-sm font-semibold">-</span>
+                                                            <span className="text-base sm:text-2xl font-black text-slate-800 dark:text-white tabular-nums tracking-tight">{awayScore}</span>
                                                         </div>
 
-                                                        {/* Home Team (Right) */}
-                                                        <div className="flex-1 sm:flex-none sm:w-32 text-left sm:text-right min-w-0">
-                                                            <div className="text-[9px] sm:text-lg font-bold text-red-700 dark:text-red-400 font-sans break-words whitespace-normal leading-tight">{homeName}</div>
-                                                            <div className="text-[8px] sm:text-[10px] font-bold uppercase text-slate-400">Home</div>
+                                                        {/* Away Team (Right) */}
+                                                        <div className="flex-1 text-left sm:text-left min-w-0">
+                                                            <div className="text-xs sm:text-base md:text-lg font-bold text-blue-700 dark:text-blue-400 font-sans break-words whitespace-normal leading-tight">
+                                                                {awayName}
+                                                            </div>
+                                                            <div className="text-[8px] sm:text-[10px] font-bold uppercase tracking-wider text-blue-500/80">Away</div>
                                                         </div>
                                                     </div>
                                                 </div>
-                                                <div className="flex gap-2 w-full sm:w-auto justify-end shrink-0">
-                                                <button onClick={() => handleOpenMatchStats(match)} className="flex-1 sm:flex-none text-center px-2 sm:px-3 py-1.5 sm:py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800/50 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 hover:border-blue-400 dark:hover:border-blue-500/50 font-bold text-xs sm:text-sm transition-all font-sans">Stats</button>
-                                                
-                                                <button onClick={() => {
-                                                    if (!match.isComplete && userRole !== 'fan') {
-                                                        safeStorage.setItem('dugout_active_match_id', match.id);
-                                                    }
-                                                    setState({ ...state, view: 'scoring', currentMatchId: match.id });
-                                                }} className="flex-1 sm:flex-none text-center px-2 sm:px-3 py-1.5 sm:py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800/50 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 hover:text-slate-900 dark:hover:text-white font-bold text-xs sm:text-sm transition-all font-sans">
-                                                    {userRole === 'fan' ? (match.isComplete ? 'View' : 'Watch Live') : (match.isComplete ? 'View' : 'Score')}
-                                                </button>
-                                                
-                                                {userRole === 'admin' && (
-                                                    <div className="flex gap-2">
-                                                        <button onClick={() => setMoveMatchModal({ matchId: match.id, currentLeague: match.league })} className="px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-transparent text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-900/20 font-bold text-xs sm:text-sm transition-all font-sans" title="Move to another league">Move</button>
-                                                        <button onClick={() => handleDeleteMatch(match.id)} className="px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-transparent text-red-500 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 hover:border-red-400 dark:hover:border-red-500/50 font-bold text-xs sm:text-sm transition-all font-sans">Del</button>
-                                                    </div>
-                                                )}
+
+                                                {/* Right Section: Action Buttons */}
+                                                <div className="flex items-center gap-2 w-full lg:w-auto justify-end shrink-0 pt-2 lg:pt-0 border-t lg:border-t-0 border-slate-200/60 dark:border-slate-800">
+                                                    <button 
+                                                        onClick={() => handleOpenMatchStats(match)} 
+                                                        className="flex-1 lg:flex-none text-center px-3 py-1.5 sm:py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800/50 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 hover:border-blue-400 dark:hover:border-blue-500/50 font-bold text-xs sm:text-sm transition-all font-sans cursor-pointer whitespace-nowrap shadow-sm"
+                                                    >
+                                                        Stats
+                                                    </button>
+                                                    
+                                                    <button 
+                                                        onClick={() => {
+                                                            if (!match.isComplete && userRole !== 'fan') {
+                                                                safeStorage.setItem('dugout_active_match_id', match.id);
+                                                            }
+                                                            setState({ ...state, view: 'scoring', currentMatchId: match.id });
+                                                        }} 
+                                                        className="flex-1 lg:flex-none text-center px-3 py-1.5 sm:py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800/50 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 hover:text-slate-900 dark:hover:white font-bold text-xs sm:text-sm transition-all font-sans cursor-pointer whitespace-nowrap shadow-sm"
+                                                    >
+                                                        {userRole === 'fan' ? (match.isComplete ? 'View' : 'Watch Live') : (match.isComplete ? 'View' : 'Score')}
+                                                    </button>
+                                                    
+                                                    {userRole === 'admin' && (
+                                                        <div className="flex gap-2 shrink-0">
+                                                            <button 
+                                                                onClick={() => setMoveMatchModal({ matchId: match.id, currentLeague: match.league })} 
+                                                                className="px-3 py-1.5 sm:py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800/50 text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-900/20 font-bold text-xs sm:text-sm transition-all font-sans cursor-pointer shadow-sm" 
+                                                                title="Move to another league"
+                                                            >
+                                                                Move
+                                                            </button>
+                                                            <button 
+                                                                onClick={() => handleDeleteMatch(match.id)} 
+                                                                className="px-3 py-1.5 sm:py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800/50 text-red-500 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 hover:border-red-400 dark:hover:border-red-500/50 font-bold text-xs sm:text-sm transition-all font-sans cursor-pointer shadow-sm"
+                                                            >
+                                                                Del
+                                                            </button>
+                                                        </div>
+                                                    )}
                                                 </div>
                                             </div>
                                         );
@@ -1365,6 +1424,7 @@ const App: React.FC = () => {
                                             <thead className="bg-slate-100 dark:bg-slate-950 text-slate-500 dark:text-slate-400 font-bold text-xs uppercase border-b border-slate-200 dark:border-slate-800 sticky top-0 z-10">
                                                 <tr>
                                                     {renderSortHeader('Player', 'name', seasonSort, setSeasonSort, 'text-left', 'px-2 sm:px-6')}
+                                                    <th className="px-2 sm:px-4 py-2 sm:py-3 text-left font-bold text-xs text-slate-500 uppercase">Team</th>
                                                     {renderSortHeader('Pts', 'totalPoints', seasonSort, setSeasonSort)}
                                                     {renderSortHeader('4s', 'hits4', seasonSort, setSeasonSort, 'text-right', 'text-rose-600 dark:text-rose-500')}
                                                     {renderSortHeader('3s', 'hits3', seasonSort, setSeasonSort, 'text-right', 'text-amber-600 dark:text-amber-500')}
@@ -1374,7 +1434,7 @@ const App: React.FC = () => {
                                                 </tr>
                                             </thead>
                                             <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-slate-600 dark:text-slate-300">
-                                                {performSort(seasonStats, seasonSort).map(stat => (
+                                                {performSort(seasonStatsWithTeam, seasonSort).map(stat => (
                                                     <tr key={stat.playerId} className="hover:bg-white/50 dark:hover:bg-slate-800/50 transition-colors">
                                                         <td className="px-2 sm:px-6 py-2 sm:py-3 font-bold text-slate-900 dark:text-white font-sans text-xs sm:text-base">
                                                             <button
@@ -1386,6 +1446,9 @@ const App: React.FC = () => {
                                                                 {stat.name}
                                                             </button>
                                                         </td>
+                                                        <td className="px-2 sm:px-4 py-2 sm:py-3 font-semibold text-blue-700 dark:text-blue-400 font-sans text-xs sm:text-sm">
+                                                            {stat.teamName || '—'}
+                                                        </td>
                                                         <td className="px-1 sm:px-4 py-2 sm:py-3 text-right font-sans tabular-nums font-bold text-sm sm:text-lg text-slate-900 dark:text-white">{stat.totalPoints}</td>
                                                         <td className="px-1 sm:px-4 py-2 sm:py-3 text-right font-sans tabular-nums text-[10px] sm:text-sm">{stat.hits4}</td>
                                                         <td className="px-1 sm:px-4 py-2 sm:py-3 text-right font-sans tabular-nums text-[10px] sm:text-sm">{stat.hits3}</td>
@@ -1395,7 +1458,7 @@ const App: React.FC = () => {
                                                     </tr>
                                                 ))}
                                                 {seasonStats.length === 0 && (
-                                                  <tr><td colSpan={7} className="p-8 text-center text-slate-500 italic">No player stats recorded yet.</td></tr>
+                                                  <tr><td colSpan={8} className="p-8 text-center text-slate-500 italic">No player stats recorded yet.</td></tr>
                                                 )}
                                             </tbody>
                                         </table>
@@ -1501,13 +1564,29 @@ const App: React.FC = () => {
             document.body
         )}
 
-        {statsModalMatch && createPortal(
+        {statsModalMatch && (() => {
+            const homeT = teams.find(t => t.id === statsModalMatch.homeTeamId);
+            const awayT = teams.find(t => t.id === statsModalMatch.awayTeamId);
+            const homeName = homeT?.name || 'Home Team';
+            const awayName = awayT?.name || 'Away Team';
+
+            return createPortal(
             <div className="fixed inset-0 z-[150] flex items-center justify-center bg-black/80 backdrop-blur-sm animate-in fade-in duration-200" onClick={() => setStatsModalMatch(null)}>
                 <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl w-full max-w-3xl max-h-[90vh] overflow-hidden flex flex-col transform scale-100 animate-in zoom-in-95 duration-200 font-sans border border-slate-200 dark:border-slate-700" onClick={e => e.stopPropagation()}>
-                    <div className="p-6 border-b border-slate-200 dark:border-slate-800 flex justify-between items-center bg-slate-50 dark:bg-slate-950">
+                    <div className="p-4 sm:p-6 border-b border-slate-200 dark:border-slate-800 flex justify-between items-start sm:items-center bg-slate-50 dark:bg-slate-950 gap-4">
                         <div>
-                            <h3 className="text-xl font-bold text-slate-800 dark:text-white font-sans">Match Statistics</h3>
-                            <p className="text-sm text-slate-500 dark:text-slate-400 font-sans">{new Date(statsModalMatch.date).toLocaleDateString()}</p>
+                            <div className="flex items-center gap-2 mb-1">
+                                <span className="text-[10px] sm:text-xs font-black uppercase tracking-wider text-blue-600 dark:text-blue-400">Match Statistics</span>
+                                <span className="text-slate-300 dark:text-slate-700">•</span>
+                                <span className="text-xs text-slate-500 dark:text-slate-400 font-sans">{new Date(statsModalMatch.date).toLocaleDateString()}</span>
+                            </div>
+                            <div className="flex flex-wrap items-center gap-2 text-sm sm:text-lg font-bold">
+                                <span className="text-blue-700 dark:text-blue-400">{awayName}</span>
+                                <span className="text-[10px] font-bold uppercase px-1.5 py-0.5 rounded bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300">Away</span>
+                                <span className="text-slate-400 text-xs sm:text-sm font-normal">vs</span>
+                                <span className="text-red-700 dark:text-red-400">{homeName}</span>
+                                <span className="text-[10px] font-bold uppercase px-1.5 py-0.5 rounded bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-300">Home</span>
+                            </div>
                         </div>
                         <button onClick={() => setStatsModalMatch(null)} className="text-slate-500 hover:text-slate-800 dark:hover:text-white font-bold text-xl transition-colors">&times;</button>
                     </div>
@@ -1516,6 +1595,7 @@ const App: React.FC = () => {
                             <thead className="bg-slate-100 dark:bg-slate-900 text-slate-500 dark:text-slate-400 uppercase font-bold text-xs sticky top-0 z-10 shadow-sm border-b border-slate-200 dark:border-slate-800">
                                 <tr>
                                     {renderSortHeader('Player', 'name', matchSort, setMatchSort, 'text-left', 'px-2 sm:px-6')}
+                                    <th className="px-2 sm:px-4 py-2 sm:py-3 text-left font-bold text-xs text-slate-500 uppercase">Team</th>
                                     {renderSortHeader('Pts', 'totalPoints', matchSort, setMatchSort)}
                                     {renderSortHeader('4s', 'hits4', matchSort, setMatchSort, 'text-right', 'text-rose-600 dark:text-rose-500')}
                                     {renderSortHeader('3s', 'hits3', matchSort, setMatchSort, 'text-right', 'text-amber-600 dark:text-amber-500')}
@@ -1525,26 +1605,37 @@ const App: React.FC = () => {
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-slate-600 dark:text-slate-300">
-                                {performSort(statsModalData, matchSort).map(stat => (
-                                    <tr key={stat.playerId} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
-                                        <td className="px-2 sm:px-6 py-2 sm:py-3 font-bold text-slate-900 dark:text-white font-sans text-xs sm:text-base">
-                                            <button
-                                                type="button"
-                                                onClick={() => setSelectedCareerPlayer(stat.name)}
-                                                className="text-left font-bold text-slate-900 dark:text-white hover:text-blue-600 dark:hover:text-blue-400 hover:underline cursor-pointer transition-colors"
-                                                title="View career batting record"
-                                            >
-                                                {stat.name}
-                                            </button>
-                                        </td>
-                                        <td className="px-1 sm:px-4 py-2 sm:py-3 text-right font-sans tabular-nums font-bold text-sm sm:text-lg text-slate-900 dark:text-white">{stat.totalPoints}</td>
-                                        <td className="px-1 sm:px-4 py-2 sm:py-3 text-right font-sans tabular-nums text-[10px] sm:text-sm">{stat.hits4}</td>
-                                        <td className="px-1 sm:px-4 py-2 sm:py-3 text-right font-sans tabular-nums text-[10px] sm:text-sm">{stat.hits3}</td>
-                                        <td className="px-1 sm:px-4 py-2 sm:py-3 text-right font-sans tabular-nums text-[10px] sm:text-sm">{stat.hits2}</td>
-                                        <td className="px-1 sm:px-4 py-2 sm:py-3 text-right font-sans tabular-nums text-[10px] sm:text-sm">{stat.hits1}</td>
-                                        <td className="px-1 sm:px-4 py-2 sm:py-3 text-right font-sans tabular-nums text-slate-500 text-[10px] sm:text-sm">{stat.pitchesSeen}</td>
-                                    </tr>
-                                ))}
+                                {performSort(statsModalData, matchSort).map(stat => {
+                                    const isAway = awayT && [...(awayT.players || []), ...(awayT.subs || [])].some(p => p.id === stat.playerId || p.name === stat.name);
+                                    const teamLabel = isAway ? awayName : homeName;
+                                    const teamColor = isAway ? 'text-blue-700 dark:text-blue-300 bg-blue-50 dark:bg-blue-900/30 border-blue-200 dark:border-blue-800' : 'text-red-700 dark:text-red-300 bg-red-50 dark:bg-red-900/30 border-red-200 dark:border-red-800';
+
+                                    return (
+                                        <tr key={stat.playerId} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
+                                            <td className="px-2 sm:px-6 py-2 sm:py-3 font-bold text-slate-900 dark:text-white font-sans text-xs sm:text-base">
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setSelectedCareerPlayer(stat.name)}
+                                                    className="text-left font-bold text-slate-900 dark:text-white hover:text-blue-600 dark:hover:text-blue-400 hover:underline cursor-pointer transition-colors"
+                                                    title="View career batting record"
+                                                >
+                                                    {stat.name}
+                                                </button>
+                                            </td>
+                                            <td className="px-2 sm:px-4 py-2 sm:py-3 font-semibold text-xs sm:text-sm">
+                                                <span className={`px-2 py-0.5 rounded border text-[11px] font-bold ${teamColor}`}>
+                                                    {teamLabel}
+                                                </span>
+                                            </td>
+                                            <td className="px-1 sm:px-4 py-2 sm:py-3 text-right font-sans tabular-nums font-bold text-sm sm:text-lg text-slate-900 dark:text-white">{stat.totalPoints}</td>
+                                            <td className="px-1 sm:px-4 py-2 sm:py-3 text-right font-sans tabular-nums text-[10px] sm:text-sm">{stat.hits4}</td>
+                                            <td className="px-1 sm:px-4 py-2 sm:py-3 text-right font-sans tabular-nums text-[10px] sm:text-sm">{stat.hits3}</td>
+                                            <td className="px-1 sm:px-4 py-2 sm:py-3 text-right font-sans tabular-nums text-[10px] sm:text-sm">{stat.hits2}</td>
+                                            <td className="px-1 sm:px-4 py-2 sm:py-3 text-right font-sans tabular-nums text-[10px] sm:text-sm">{stat.hits1}</td>
+                                            <td className="px-1 sm:px-4 py-2 sm:py-3 text-right font-sans tabular-nums text-slate-500 text-[10px] sm:text-sm">{stat.pitchesSeen}</td>
+                                        </tr>
+                                    );
+                                })}
                             </tbody>
                         </table>
                     </div>
@@ -1554,7 +1645,8 @@ const App: React.FC = () => {
                 </div>
             </div>,
             document.body
-        )}
+            );
+        })()}
 
         {showDashboardImport && state.currentLeague && (
             <RosterImportModal

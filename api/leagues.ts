@@ -31,10 +31,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         END IF;
       END $$;
 
+      DELETE FROM leagues WHERE season = '2025' AND id IN ('10u', '12u', 'Varsity');
+      DELETE FROM teams WHERE season = '2025' AND league IN ('10u', '12u', 'Varsity');
+      DELETE FROM matches WHERE season = '2025' AND league IN ('10u', '12u', 'Varsity');
+
       INSERT INTO leagues (id, season) VALUES
-        ('10u', '2025'),
-        ('12u', '2025'),
-        ('Varsity', '2025')
+        ('9U', '2025'),
+        ('11U', '2025')
       ON CONFLICT (id, season) DO NOTHING;
     `);
 

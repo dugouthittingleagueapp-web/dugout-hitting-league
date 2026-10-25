@@ -32,6 +32,7 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
   const [showExitConfirmModal, setShowExitConfirmModal] = useState(false);
   const [loading, setLoading] = useState(true);
   const [voiceEnabled, setVoiceEnabled] = useState(false);
+  const [voicePermissionError, setVoicePermissionError] = useState<string | null>(null);
   
   const [activeCell, setActiveCell] = useState<{ side: 'home' | 'away'; lineupIdx: number; pitchIdx: number; roundIdx?: number } | null>(null);
 
@@ -286,7 +287,7 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
         setActiveCell(null);
     } else {
         let nextCell = null;
-        if (!isEdit) {
+        if (activeCell) {
             if (pitchIdx < totalPitches - 1) nextCell = { side, lineupIdx, pitchIdx: pitchIdx + 1 };
         }
         setActiveCell(nextCell);
@@ -319,6 +320,13 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
     } catch (e) {}
     setShowFinishModal(false);
     onExit();
+  };
+
+  const handleToggleComplete = async () => {
+    if (!match || userRole !== 'admin') return;
+    const updated = { ...match, isComplete: !match.isComplete };
+    setMatch(updated);
+    await storage.updateMatch(updated);
   };
 
   const handleTieBreakerScore = async (roundIdx: number, side: 'home'|'away', pitchIdx: number, val: number) => {
@@ -373,8 +381,31 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
     return null;
   };
 
+  const getTargetDescription = () => {
+    const target = getFirstUnscoredCell();
+    if (!target) {
+      return `All pitches in Inning ${activeInningIdx + 1} scored. Click any pitch cell to edit with voice.`;
+    }
+    if (target.roundIdx !== undefined && match?.tieBreaker) {
+      const round = match.tieBreaker[target.roundIdx];
+      const team = target.side === 'home' ? teams.home : teams.away;
+      return `Extras R${round.roundNumber} • ${target.side === 'home' ? 'Home' : 'Away'} (${team?.name || ''}), Pitch #${target.pitchIdx + 1}`;
+    }
+    const currentIng = match?.innings[activeInningIdx];
+    if (currentIng) {
+      const team = target.side === 'home' ? teams.home : teams.away;
+      const teamData = target.side === 'home' ? currentIng.home : currentIng.away;
+      const playerScore = teamData.playerScores[target.lineupIdx];
+      const player = [...(team?.players || []), ...(team?.subs || [])].find(p => p.id === playerScore?.playerId);
+      const pName = player ? formatName(player) : (playerScore ? `Batter #${target.lineupIdx + 1}` : '');
+      const teamLabel = target.side === 'home' ? 'Home' : 'Away';
+      return `Inning ${currentIng.number} • ${teamLabel} (${pName}), Pitch #${target.pitchIdx + 1}`;
+    }
+    return null;
+  };
+
   const handleVoiceScore = (val: number) => {
-    if (isReadOnly || match?.isComplete) return;
+    if (isReadOnly || (match?.isComplete && userRole !== 'admin')) return;
     const target = getFirstUnscoredCell();
     if (!target) return;
     if (target.roundIdx !== undefined) {
@@ -385,7 +416,7 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
   };
 
   const handleVoiceUndo = () => {
-    if (isReadOnly || match?.isComplete) return;
+    if (isReadOnly || (match?.isComplete && userRole !== 'admin')) return;
     if (activeCell) {
       handleUndo(activeCell.side, activeCell.lineupIdx, activeCell.pitchIdx, activeCell.roundIdx);
       return;
@@ -429,8 +460,42 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
     }
   };
 
-  const { isListening, lastHeard, supported: voiceSupported } = useVoiceScoring({
-    enabled: voiceEnabled && !isReadOnly && userRole !== 'fan' && !match?.isComplete,
+  const handleToggleVoice = async () => {
+    if (voiceEnabled) {
+      setVoiceEnabled(false);
+      setVoicePermissionError(null);
+      return;
+    }
+
+    const SpeechRecognitionClass = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (!SpeechRecognitionClass) {
+      setVoicePermissionError("Voice recognition is not supported in this browser. Please use Google Chrome, Microsoft Edge, or Safari.");
+      return;
+    }
+
+    // Explicitly prompt browser for microphone access
+    if (navigator?.mediaDevices?.getUserMedia) {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        stream.getTracks().forEach(track => track.stop());
+        setVoicePermissionError(null);
+        setVoiceEnabled(true);
+      } catch (err: any) {
+        console.warn("Microphone access request:", err);
+        if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
+          setVoicePermissionError("Microphone access was denied. Please allow microphone access in your browser settings to use hands-free voice scoring.");
+        } else {
+          setVoicePermissionError("Unable to access microphone: " + (err.message || "Please check mic permissions."));
+        }
+        return;
+      }
+    } else {
+      setVoiceEnabled(true);
+    }
+  };
+
+  const { isListening, lastHeard, supported: voiceSupported, error: voiceHookError } = useVoiceScoring({
+    enabled: voiceEnabled && !isReadOnly && userRole !== 'fan' && (!match?.isComplete || userRole === 'admin'),
     onScore: handleVoiceScore,
     onUndo: handleVoiceUndo
   });
@@ -541,7 +606,7 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
         : 'bg-blue-100 dark:bg-blue-950 text-blue-900 dark:text-blue-100 border-blue-200 dark:border-blue-900';
     
     const isTwoPlayerGhostMode = inningData.playerScores.length === 2 && inningData.playerScores[0].pitches.length >= 15;
-    const canEdit = !isReadOnly && !match.isComplete;
+    const canEdit = !isReadOnly && (!match.isComplete || userRole === 'admin');
 
     const findPlayer = (id: string) => [...team.players, ...(team.subs || [])].find(p => p.id === id);
 
@@ -697,14 +762,30 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
             <div className="text-center flex-1 min-w-0"><div className="text-[10px] uppercase font-bold text-slate-500">Home</div><div className="text-xl font-bold text-red-700 truncate">{teams.home.name}</div><div className="text-2xl font-sans tabular-nums font-bold dark:text-white">{homeTotal}</div></div>
           </div>
           <div className="flex items-center gap-2 shrink-0">
-            {isReadOnly && <div className="text-red-600 px-3 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-wider animate-pulse">LIVE</div>}
-            {!isReadOnly && userRole !== 'fan' && !match.isComplete && (
+            {match.isComplete ? (
+              <div className="flex items-center gap-1.5">
+                <span className="text-[10px] font-black uppercase px-2 py-1 rounded bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border border-slate-300 dark:border-slate-700">FINAL</span>
+                {userRole === 'admin' && (
+                  <button 
+                    onClick={handleToggleComplete}
+                    className="text-[10px] sm:text-xs font-bold px-2.5 py-1.5 rounded-lg border border-amber-300 dark:border-amber-700/60 bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-400 hover:bg-amber-100 dark:hover:bg-amber-900/40 transition-colors cursor-pointer whitespace-nowrap shadow-sm"
+                    title="Re-open game to live scoring"
+                  >
+                    Re-open Game
+                  </button>
+                )}
+              </div>
+            ) : (
+              isReadOnly && <div className="text-red-600 px-3 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-wider animate-pulse">LIVE</div>
+            )}
+            
+            {!isReadOnly && userRole !== 'fan' && (!match.isComplete || userRole === 'admin') && (
               <button
                 type="button"
-                onClick={() => setVoiceEnabled(prev => !prev)}
-                className={`flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-lg border font-bold text-xs font-sans transition-all ${
+                onClick={handleToggleVoice}
+                className={`flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-xl border font-bold text-xs sm:text-sm font-sans transition-all cursor-pointer shadow-sm ${
                   voiceEnabled
-                    ? 'bg-emerald-600 border-emerald-500 text-white shadow-sm'
+                    ? 'bg-emerald-600 hover:bg-emerald-500 border-emerald-400 text-white shadow-emerald-500/20 ring-2 ring-emerald-400/50'
                     : 'bg-white dark:bg-slate-800 border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700'
                 }`}
                 title={
@@ -712,19 +793,73 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
                     ? 'Speech recognition not supported in this browser'
                     : voiceEnabled 
                       ? 'Hands-free voice scoring is ON. Speak 0, 1, 2, 3, 4, or Undo' 
-                      : 'Toggle hands-free voice scoring ON'
+                      : 'Toggle hands-free voice scoring ON (requests microphone access)'
                 }
               >
-                <span className={`w-2 h-2 rounded-full ${voiceEnabled ? 'bg-white animate-pulse' : 'bg-slate-400'}`} />
-                <span>Voice: {voiceEnabled ? 'ON' : 'OFF'}</span>
+                {/* Microphone SVG icon */}
+                <svg className={`w-4 h-4 shrink-0 ${voiceEnabled ? 'text-white animate-pulse' : 'text-slate-500 dark:text-slate-400'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.2} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
+                </svg>
+                <span className="hidden xs:inline">Voice:</span>
+                <span className={`px-1.5 py-0.5 rounded text-[10px] sm:text-xs font-black uppercase ${voiceEnabled ? 'bg-white/20 text-white' : 'bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300'}`}>
+                  {voiceEnabled ? 'ON' : 'OFF'}
+                </span>
                 {voiceEnabled && lastHeard && (
-                  <span className="text-[10px] bg-emerald-700/60 px-1.5 py-0.5 rounded text-emerald-100">{lastHeard}</span>
+                  <span className="text-[10px] bg-emerald-800/80 px-1.5 py-0.5 rounded text-emerald-100 font-bold hidden md:inline">
+                    {lastHeard}
+                  </span>
                 )}
               </button>
             )}
-            <button onClick={handleExitRequest} className="text-sm font-bold text-slate-500 bg-slate-100 dark:bg-slate-800 dark:text-slate-300 py-2 px-3 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors">Exit</button>
+            <button onClick={handleExitRequest} className="text-sm font-bold text-slate-500 bg-slate-100 dark:bg-slate-800 dark:text-slate-300 py-1.5 sm:py-2 px-3 rounded-xl hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors cursor-pointer">Exit</button>
           </div>
         </div>
+
+        {/* Voice Scoring Heads-Up Display (HUD) */}
+        {voiceEnabled && (
+          <div className="bg-emerald-600/95 dark:bg-emerald-950/95 border-t border-b border-emerald-500/50 text-white px-4 py-2.5 flex flex-wrap items-center justify-between gap-3 text-xs sm:text-sm font-sans shadow-md backdrop-blur-md">
+            <div className="flex items-center gap-2 min-w-0">
+              <span className="flex h-3 w-3 relative shrink-0">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-300 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-3 w-3 bg-white"></span>
+              </span>
+              <span className="font-bold shrink-0">🎙️ Voice Scoring Active</span>
+              <span className="hidden sm:inline text-emerald-300">|</span>
+              <span className="text-emerald-100 text-xs hidden sm:inline truncate">
+                Say: <strong className="text-white">"0"</strong>, <strong className="text-white">"1"</strong>, <strong className="text-white">"2"</strong>, <strong className="text-white">"3"</strong>, <strong className="text-white">"4"</strong>, or <strong className="text-white">"Undo"</strong>
+              </span>
+            </div>
+            <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
+              <span className="bg-emerald-800/80 px-2.5 py-1 rounded-lg text-xs font-semibold text-emerald-100 border border-emerald-400/30">
+                {getTargetDescription()}
+              </span>
+              {lastHeard && (
+                <span className="bg-white text-emerald-900 px-2.5 py-1 rounded-lg text-xs font-black shadow-sm flex items-center gap-1">
+                  Heard: {lastHeard}
+                </span>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Voice Permission Error Banner */}
+        {(voicePermissionError || voiceHookError) && (
+          <div className="bg-amber-600/95 dark:bg-amber-900/95 text-white px-4 py-2.5 flex items-center justify-between gap-3 text-xs sm:text-sm font-sans shadow-md border-t border-b border-amber-700">
+            <div className="flex items-center gap-2 min-w-0">
+              <svg className="w-5 h-5 shrink-0 text-amber-200" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+              </svg>
+              <span>{voicePermissionError || voiceHookError}</span>
+            </div>
+            <button 
+              onClick={() => setVoicePermissionError(null)} 
+              className="text-xs bg-black/20 hover:bg-black/40 px-2.5 py-1 rounded font-bold cursor-pointer shrink-0"
+            >
+              Dismiss
+            </button>
+          </div>
+        )}
+
         <div className="flex overflow-x-auto scrollbar-hide border-t touch-auto">
             {match.innings.map((ing, idx) => (
                 <button key={ing.number} onClick={() => setActiveInningIdx(idx)} className={`flex-1 py-3 text-xs font-bold uppercase tracking-wider border-b-2 transition-colors min-w-[80px] ${idx === activeInningIdx ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-400'}`}>Inning {ing.number}</button>

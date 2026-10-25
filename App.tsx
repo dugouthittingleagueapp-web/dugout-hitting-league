@@ -1349,7 +1349,7 @@ const App: React.FC = () => {
                                                         }} 
                                                         className="flex-1 lg:flex-none text-center px-3 py-1.5 sm:py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800/50 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 hover:text-slate-900 dark:hover:white font-bold text-xs sm:text-sm transition-all font-sans cursor-pointer whitespace-nowrap shadow-sm"
                                                     >
-                                                        {userRole === 'fan' ? (match.isComplete ? 'View' : 'Watch Live') : (match.isComplete ? 'View' : 'Score')}
+                                                        {userRole === 'admin' ? (match.isComplete ? 'Score / Edit' : 'Score') : (match.isComplete ? 'View' : (userRole === 'fan' ? 'Watch Live' : 'Score'))}
                                                     </button>
                                                     
                                                     {userRole === 'admin' && (

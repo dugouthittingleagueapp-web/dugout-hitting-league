@@ -42,6 +42,7 @@ export const useVoiceScoring = ({ enabled, onScore, onUndo }: VoiceScoringOption
   const [isListening, setIsListening] = useState(false);
   const [lastHeard, setLastHeard] = useState<string | null>(null);
   const [supported, setSupported] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const recognitionRef = useRef<any>(null);
   const enabledRef = useRef(enabled);
   const onScoreRef = useRef(onScore);
@@ -105,6 +106,7 @@ export const useVoiceScoring = ({ enabled, onScore, onUndo }: VoiceScoringOption
 
     recognition.onstart = () => {
       setIsListening(true);
+      setError(null);
     };
 
     recognition.onend = () => {
@@ -119,7 +121,10 @@ export const useVoiceScoring = ({ enabled, onScore, onUndo }: VoiceScoringOption
 
     recognition.onerror = (event: any) => {
       if (event.error === 'not-allowed') {
-        console.warn('Microphone permission denied for voice scoring');
+        setError('Microphone access was denied. Please allow microphone permissions in your browser.');
+        setIsListening(false);
+      } else if (event.error === 'audio-capture') {
+        setError('No microphone was detected on this device.');
         setIsListening(false);
       }
     };
@@ -136,6 +141,7 @@ export const useVoiceScoring = ({ enabled, onScore, onUndo }: VoiceScoringOption
     recognitionRef.current = recognition;
 
     if (enabled) {
+      setError(null);
       try {
         recognition.start();
       } catch (e) {}
@@ -153,6 +159,7 @@ export const useVoiceScoring = ({ enabled, onScore, onUndo }: VoiceScoringOption
   return {
     isListening,
     lastHeard,
-    supported
+    supported,
+    error
   };
 };

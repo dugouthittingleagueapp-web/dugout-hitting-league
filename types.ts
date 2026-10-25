@@ -3,6 +3,7 @@ export type AgeGroup = string;
 
 export interface League {
   id: string;
+  season?: string;
   created_at?: string;
 }
 

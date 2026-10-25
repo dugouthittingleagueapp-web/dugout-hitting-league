@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import { Match, Inning, Team, TieBreakerRound, Player } from '../types';
 import * as storage from '../services/storageService';
 import { ScoreInput } from './ScoreInput';
-import { useVoiceScoring } from '../hooks/useVoiceScoring';
+import { useVoiceScoring, triggerHaptic } from '../hooks/useVoiceScoring';
 
 interface ScoreboardProps {
   matchId: string;
@@ -286,9 +286,18 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
         }
         setActiveCell(null);
     } else {
-        let nextCell = null;
+        let nextCell: { side: 'home' | 'away'; lineupIdx: number; pitchIdx: number; roundIdx?: number } | null = null;
         if (activeCell) {
-            if (pitchIdx < totalPitches - 1) nextCell = { side, lineupIdx, pitchIdx: pitchIdx + 1 };
+            if (pitchIdx < totalPitches - 1) {
+                nextCell = { side, lineupIdx, pitchIdx: pitchIdx + 1 };
+            } else if (lineupIdx < curTeamData.playerScores.length - 1) {
+                nextCell = { side, lineupIdx: lineupIdx + 1, pitchIdx: 0 };
+            } else if (side === 'away') {
+                nextCell = { side: 'home', lineupIdx: 0, pitchIdx: 0 };
+            } else if (activeInningIdx < 5) {
+                setActiveInningIdx(prev => prev + 1);
+                nextCell = { side: 'away', lineupIdx: 0, pitchIdx: 0 };
+            }
         }
         setActiveCell(nextCell);
 
@@ -369,14 +378,36 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
       return null;
     }
     const currentIng = match?.innings[activeInningIdx];
-    if (!currentIng) return null;
-    for (let l = 0; l < currentIng.away.playerScores.length; l++) {
-      const pIdx = currentIng.away.playerScores[l].pitches.findIndex(p => p.points === null);
-      if (pIdx !== -1) return { side: 'away' as const, lineupIdx: l, pitchIdx: pIdx };
+    if (currentIng) {
+      for (let l = 0; l < currentIng.away.playerScores.length; l++) {
+        const pIdx = currentIng.away.playerScores[l].pitches.findIndex(p => p.points === null);
+        if (pIdx !== -1) return { side: 'away' as const, lineupIdx: l, pitchIdx: pIdx };
+      }
+      for (let l = 0; l < currentIng.home.playerScores.length; l++) {
+        const pIdx = currentIng.home.playerScores[l].pitches.findIndex(p => p.points === null);
+        if (pIdx !== -1) return { side: 'home' as const, lineupIdx: l, pitchIdx: pIdx };
+      }
     }
-    for (let l = 0; l < currentIng.home.playerScores.length; l++) {
-      const pIdx = currentIng.home.playerScores[l].pitches.findIndex(p => p.points === null);
-      if (pIdx !== -1) return { side: 'home' as const, lineupIdx: l, pitchIdx: pIdx };
+    // Search remaining regulation innings so hands-free scoring never stalls at end of an inning
+    if (match) {
+      for (let i = activeInningIdx + 1; i < 6; i++) {
+        const ing = match.innings[i];
+        if (!ing) continue;
+        for (let l = 0; l < ing.away.playerScores.length; l++) {
+          const pIdx = ing.away.playerScores[l].pitches.findIndex(p => p.points === null);
+          if (pIdx !== -1) {
+            setActiveInningIdx(i);
+            return { side: 'away' as const, lineupIdx: l, pitchIdx: pIdx };
+          }
+        }
+        for (let l = 0; l < ing.home.playerScores.length; l++) {
+          const pIdx = ing.home.playerScores[l].pitches.findIndex(p => p.points === null);
+          if (pIdx !== -1) {
+            setActiveInningIdx(i);
+            return { side: 'home' as const, lineupIdx: l, pitchIdx: pIdx };
+          }
+        }
+      }
     }
     return null;
   };
@@ -643,7 +674,7 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
                         {visiblePitches.map((pitch: any, idx: number) => {
                             const realIdx = pitchStartIndex + idx;
                             return (
-                                <ScoreInput key={realIdx} pitchNumber={isGhostRow ? pitchStartIndex+idx+1 : realIdx+1} value={pitch.points} pitchesRemaining={pitchesLeft} readOnly={isReadOnly || (match.isComplete && userRole !== 'admin')} isEditing={activeCell?.side === side && activeCell.lineupIdx === lineupIdx && activeCell.pitchIdx === realIdx} onOpen={() => setActiveCell({ side, lineupIdx, pitchIdx: realIdx })} onClose={() => setActiveCell(null)} onChange={(val) => handleScoreUpdate(side, lineupIdx, realIdx, val)} onUndo={realIdx > 0 ? () => handleUndo(side, lineupIdx, realIdx) : undefined} />
+                                <ScoreInput key={realIdx} pitchNumber={isGhostRow ? pitchStartIndex+idx+1 : realIdx+1} value={pitch.points} pitchesRemaining={pitchesLeft} readOnly={isReadOnly || (match.isComplete && userRole !== 'admin')} isEditing={activeCell?.side === side && activeCell.lineupIdx === lineupIdx && activeCell.pitchIdx === realIdx} onOpen={() => setActiveCell({ side, lineupIdx, pitchIdx: realIdx })} onClose={() => setActiveCell(null)} onChange={(val) => handleScoreUpdate(side, lineupIdx, realIdx, val)} onUndo={realIdx > 0 ? () => handleUndo(side, lineupIdx, realIdx) : undefined} voiceEnabled={voiceEnabled} onToggleVoice={handleToggleVoice} lastHeard={lastHeard} />
                             );
                         })}
                     </div>
@@ -673,10 +704,10 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
                         </td>
                         <td className="px-0.5 sm:px-2 py-1 sm:py-2"><div className="flex w-full landscape:justify-between items-center gap-1 sm:gap-2 justify-start overflow-x-auto scrollbar-hide py-1 touch-auto">
                                 {inningData.playerScores[0].pitches.slice(10, 15).map((pitch, idx) => (
-                                    <ScoreInput key={`p1-${10+idx}`} pitchNumber={11+idx} value={pitch.points} readOnly={isReadOnly || (match.isComplete && userRole !== 'admin')} isEditing={activeCell?.side === side && activeCell.lineupIdx === 0 && activeCell.pitchIdx === 10+idx} onOpen={() => setActiveCell({ side, lineupIdx: 0, pitchIdx: 10+idx })} onClose={() => setActiveCell(null)} onChange={(val) => handleScoreUpdate(side, 0, 10+idx, val)} onUndo={() => handleUndo(side, 0, 10+idx)} />
+                                    <ScoreInput key={`p1-${10+idx}`} pitchNumber={11+idx} value={pitch.points} readOnly={isReadOnly || (match.isComplete && userRole !== 'admin')} isEditing={activeCell?.side === side && activeCell.lineupIdx === 0 && activeCell.pitchIdx === 10+idx} onOpen={() => setActiveCell({ side, lineupIdx: 0, pitchIdx: 10+idx })} onClose={() => setActiveCell(null)} onChange={(val) => handleScoreUpdate(side, 0, 10+idx, val)} onUndo={() => handleUndo(side, 0, 10+idx)} voiceEnabled={voiceEnabled} onToggleVoice={handleToggleVoice} lastHeard={lastHeard} />
                                 ))}<div className="w-px h-10 sm:h-14 bg-slate-300 dark:bg-slate-700 mx-1"></div>
                                 {inningData.playerScores[1].pitches.slice(10, 15).map((pitch, idx) => (
-                                    <ScoreInput key={`p2-${10+idx}`} pitchNumber={11+idx} value={pitch.points} readOnly={isReadOnly || (match.isComplete && userRole !== 'admin')} isEditing={activeCell?.side === side && activeCell.lineupIdx === 1 && activeCell.pitchIdx === 10+idx} onOpen={() => setActiveCell({ side, lineupIdx: 1, pitchIdx: 10+idx })} onClose={() => setActiveCell(null)} onChange={(val) => handleScoreUpdate(side, 1, 10+idx, val)} onUndo={() => handleUndo(side, 1, 10+idx)} />
+                                    <ScoreInput key={`p2-${10+idx}`} pitchNumber={11+idx} value={pitch.points} readOnly={isReadOnly || (match.isComplete && userRole !== 'admin')} isEditing={activeCell?.side === side && activeCell.lineupIdx === 1 && activeCell.pitchIdx === 10+idx} onOpen={() => setActiveCell({ side, lineupIdx: 1, pitchIdx: 10+idx })} onClose={() => setActiveCell(null)} onChange={(val) => handleScoreUpdate(side, 1, 10+idx, val)} onUndo={() => handleUndo(side, 1, 10+idx)} voiceEnabled={voiceEnabled} onToggleVoice={handleToggleVoice} lastHeard={lastHeard} />
                                 ))}</div></td>
                         <td className="px-1 sm:px-3 py-1 sm:py-2 text-center align-middle border-l border-slate-200 dark:border-slate-700 bg-slate-50/30 dark:bg-slate-900/30">
                              <div className="text-sm sm:text-base font-sans tabular-nums font-bold text-slate-800 dark:text-slate-200 w-5 sm:w-8">{inningData.playerScores[0].pitches.slice(10, 15).reduce((s,p)=>s+(p.points||0),0) + inningData.playerScores[1].pitches.slice(10, 15).reduce((s,p)=>s+(p.points||0),0)}</div>
@@ -720,7 +751,7 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
                                         );
                                     })()}
                                 </td>
-                                <td className="px-2 py-3"><div className="flex gap-2">{round.awayScores.map((s, pI) => (<ScoreInput key={pI} pitchNumber={pI+1} value={s} readOnly={isReadOnly || (match.isComplete && userRole !== 'admin')} isEditing={activeCell?.side === 'away' && activeCell?.roundIdx === idx && activeCell?.pitchIdx === pI} onOpen={() => setActiveCell({ side: 'away', lineupIdx: 0, pitchIdx: pI, roundIdx: idx })} onClose={() => setActiveCell(null)} onChange={v => handleTieBreakerScore(idx, 'away', pI, v)} onUndo={() => handleUndo('away', 0, pI, idx)} />))}</div></td>
+                                <td className="px-2 py-3"><div className="flex gap-2">{round.awayScores.map((s, pI) => (<ScoreInput key={pI} pitchNumber={pI+1} value={s} readOnly={isReadOnly || (match.isComplete && userRole !== 'admin')} isEditing={activeCell?.side === 'away' && activeCell?.roundIdx === idx && activeCell?.pitchIdx === pI} onOpen={() => setActiveCell({ side: 'away', lineupIdx: 0, pitchIdx: pI, roundIdx: idx })} onClose={() => setActiveCell(null)} onChange={v => handleTieBreakerScore(idx, 'away', pI, v)} onUndo={() => handleUndo('away', 0, pI, idx)} voiceEnabled={voiceEnabled} onToggleVoice={handleToggleVoice} lastHeard={lastHeard} />))}</div></td>
                                 <td className="px-4 py-3 font-bold text-xl text-center tabular-nums">{aS}</td>
                             </tr>
                             <tr className="bg-red-50/10">
@@ -741,7 +772,7 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
                                         );
                                     })()}
                                 </td>
-                                <td className="px-2 py-3"><div className="flex gap-2">{round.homeScores.map((s, pI) => (<ScoreInput key={pI} pitchNumber={pI+1} value={s} readOnly={isReadOnly || (match.isComplete && userRole !== 'admin')} isEditing={activeCell?.side === 'home' && activeCell?.roundIdx === idx && activeCell?.pitchIdx === pI} onOpen={() => setActiveCell({ side: 'home', lineupIdx: 0, pitchIdx: pI, roundIdx: idx })} onClose={() => setActiveCell(null)} onChange={v => handleTieBreakerScore(idx, 'home', pI, v)} onUndo={() => handleUndo('home', 0, pI, idx)} />))}</div></td>
+                                <td className="px-2 py-3"><div className="flex gap-2">{round.homeScores.map((s, pI) => (<ScoreInput key={pI} pitchNumber={pI+1} value={s} readOnly={isReadOnly || (match.isComplete && userRole !== 'admin')} isEditing={activeCell?.side === 'home' && activeCell?.roundIdx === idx && activeCell?.pitchIdx === pI} onOpen={() => setActiveCell({ side: 'home', lineupIdx: 0, pitchIdx: pI, roundIdx: idx })} onClose={() => setActiveCell(null)} onChange={v => handleTieBreakerScore(idx, 'home', pI, v)} onUndo={() => handleUndo('home', 0, pI, idx)} voiceEnabled={voiceEnabled} onToggleVoice={handleToggleVoice} lastHeard={lastHeard} />))}</div></td>
                                 <td className="px-4 py-3 font-bold text-xl text-center tabular-nums">{hS}</td>
                             </tr>
                          </tbody></table></div>

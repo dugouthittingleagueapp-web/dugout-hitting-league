@@ -7,14 +7,12 @@ interface VoiceScoringOptions {
 }
 
 // Universal Haptic / Vibration feedback
-export const triggerHaptic = (type: 'score' | 'homerun' | 'undo' | 'toggle' | 'tap' = 'score') => {
+export const triggerHaptic = (type: 'score' | 'undo' | 'toggle' | 'tap' = 'score') => {
   try {
     if (typeof window !== 'undefined' && 'vibrate' in navigator) {
       switch (type) {
-        case 'homerun':
-          navigator.vibrate([70, 50, 70, 50, 140]);
-          break;
         case 'score':
+          // Uniform tactile feedback for ALL scores 0-4
           navigator.vibrate(80);
           break;
         case 'undo':
@@ -29,30 +27,38 @@ export const triggerHaptic = (type: 'score' | 'homerun' | 'undo' | 'toggle' | 't
       }
     }
   } catch (e) {
-    // Vibration may be disallowed or unavailable on some desktop browsers
+    // Vibration may be unavailable or disallowed on some browsers
   }
 };
 
 // Gentle audio chime confirmation using Web Audio API
 let sharedAudioCtx: AudioContext | null = null;
 
-const playChime = (frequency: number = 587.33, type: OscillatorType = 'sine', duration: number = 0.12) => {
+export const unlockAudio = () => {
   try {
     if (typeof window === 'undefined') return;
     const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
-    if (!AudioContextClass) return;
-    if (!sharedAudioCtx || sharedAudioCtx.state === 'closed') {
+    if (AudioContextClass && (!sharedAudioCtx || sharedAudioCtx.state === 'closed')) {
       sharedAudioCtx = new AudioContextClass();
     }
-    if (sharedAudioCtx.state === 'suspended') {
+    if (sharedAudioCtx && sharedAudioCtx.state === 'suspended') {
       sharedAudioCtx.resume().catch(() => {});
     }
+  } catch (e) {}
+};
+
+export const playChime = (frequency: number = 587.33, type: OscillatorType = 'sine', duration: number = 0.12) => {
+  try {
+    if (typeof window === 'undefined') return;
+    unlockAudio();
+    if (!sharedAudioCtx) return;
+
     const osc = sharedAudioCtx.createOscillator();
     const gain = sharedAudioCtx.createGain();
     
     osc.type = type;
     osc.frequency.setValueAtTime(frequency, sharedAudioCtx.currentTime);
-    gain.gain.setValueAtTime(0.08, sharedAudioCtx.currentTime);
+    gain.gain.setValueAtTime(0.09, sharedAudioCtx.currentTime);
     gain.gain.exponentialRampToValueAtTime(0.001, sharedAudioCtx.currentTime + duration);
 
     osc.connect(gain);
@@ -76,8 +82,7 @@ export const useVoiceScoring = ({ enabled, onScore, onUndo }: VoiceScoringOption
   const onScoreRef = useRef(onScore);
   const onUndoRef = useRef(onUndo);
   const lastScoreTimeRef = useRef<number>(0);
-  const isStartingRef = useRef(false);
-  const isActiveRef = useRef(false);
+  const restartTimerRef = useRef<any>(null);
 
   useEffect(() => {
     enabledRef.current = enabled;
@@ -96,7 +101,7 @@ export const useVoiceScoring = ({ enabled, onScore, onUndo }: VoiceScoringOption
     if (!clean) return;
 
     // Check for "undo" command
-    if (clean.includes('undo') || clean.includes('back') || clean.includes('cancel')) {
+    if (/\b(undo|back|cancel|scratch|oops)\b/.test(clean)) {
       const now = Date.now();
       if (now - lastScoreTimeRef.current < 400) return;
       lastScoreTimeRef.current = now;
@@ -108,14 +113,20 @@ export const useVoiceScoring = ({ enabled, onScore, onUndo }: VoiceScoringOption
       return;
     }
 
-    // Number matching (strictly numbers 0, 1, 2, 3, 4)
+    // Number matching (0, 1, 2, 3, 4) with common homophones and baseball terms
     let matchedScore: number | null = null;
 
-    if (/\b(0|zero|miss|out|nothing|strike)\b/.test(clean)) matchedScore = 0;
-    else if (/\b(1|one|single)\b/.test(clean)) matchedScore = 1;
-    else if (/\b(2|two|double|to|too)\b/.test(clean)) matchedScore = 2;
-    else if (/\b(3|three|triple)\b/.test(clean)) matchedScore = 3;
-    else if (/\b(4|four|homer|home run|quad)\b/.test(clean)) matchedScore = 4;
+    if (/\b(0|zero|miss|out|nothing|strike|oh|ball|none|take)\b/.test(clean)) {
+      matchedScore = 0;
+    } else if (/\b(1|one|won|single|first|juan)\b/.test(clean)) {
+      matchedScore = 1;
+    } else if (/\b(2|two|to|too|double|second|tu)\b/.test(clean)) {
+      matchedScore = 2;
+    } else if (/\b(3|three|tree|free|triple|third)\b/.test(clean)) {
+      matchedScore = 3;
+    } else if (/\b(4|four|for|fore|homer|home run|homerun|quad|fourth|ford)\b/.test(clean)) {
+      matchedScore = 4;
+    }
 
     if (matchedScore !== null) {
       const now = Date.now();
@@ -123,10 +134,9 @@ export const useVoiceScoring = ({ enabled, onScore, onUndo }: VoiceScoringOption
       lastScoreTimeRef.current = now;
 
       setLastHeard(`${matchedScore} pts`);
-      // Haptic vibration feedback
-      triggerHaptic(matchedScore === 4 ? 'homerun' : 'score');
-      // Upbeat confirmation chime
-      playChime(matchedScore === 0 ? 350 : 500 + matchedScore * 100, 'sine', 0.12);
+      // EXACT SAME FEEDBACK REGARDLESS OF HIT RESULT (0-4):
+      triggerHaptic('score');
+      playChime(587.33, 'sine', 0.12);
       onScoreRef.current(matchedScore);
     }
   }, []);
@@ -139,18 +149,35 @@ export const useVoiceScoring = ({ enabled, onScore, onUndo }: VoiceScoringOption
     }
 
     let isCleanedUp = false;
-    let restartTimeout: any = null;
 
-    const startRecognition = () => {
+    const handleRestart = () => {
       if (isCleanedUp || !enabledRef.current) return;
-      if (isActiveRef.current || isStartingRef.current) return;
+      clearTimeout(restartTimerRef.current);
+      restartTimerRef.current = setTimeout(() => {
+        if (isCleanedUp || !enabledRef.current) return;
+        try {
+          if (recognitionRef.current) {
+            recognitionRef.current.start();
+          }
+        } catch (err: any) {
+          // If already started (InvalidStateError), ignore. Otherwise re-initialize
+          if (err?.name !== 'InvalidStateError') {
+            setupRecognition();
+          }
+        }
+      }, 250);
+    };
 
-      isStartingRef.current = true;
+    const setupRecognition = () => {
+      if (isCleanedUp || !enabledRef.current) return;
 
       try {
-        // Clean up any stale previous instance
         if (recognitionRef.current) {
           try {
+            recognitionRef.current.onstart = null;
+            recognitionRef.current.onend = null;
+            recognitionRef.current.onerror = null;
+            recognitionRef.current.onresult = null;
             recognitionRef.current.abort();
           } catch (e) {}
           recognitionRef.current = null;
@@ -160,45 +187,36 @@ export const useVoiceScoring = ({ enabled, onScore, onUndo }: VoiceScoringOption
         recognition.continuous = true;
         recognition.interimResults = false;
         recognition.lang = 'en-US';
-        recognition.maxAlternatives = 1;
+        recognition.maxAlternatives = 2;
 
         recognition.onstart = () => {
-          isStartingRef.current = false;
-          isActiveRef.current = true;
+          if (isCleanedUp) return;
           setIsListening(true);
           setError(null);
         };
 
         recognition.onend = () => {
-          isStartingRef.current = false;
-          isActiveRef.current = false;
+          if (isCleanedUp) return;
           setIsListening(false);
-
-          // Bulletproof restart: schedule after brief timeout to avoid DOMException in Chrome
-          if (!isCleanedUp && enabledRef.current) {
-            clearTimeout(restartTimeout);
-            restartTimeout = setTimeout(() => {
-              startRecognition();
-            }, 150);
-          }
+          // Auto restart when recognition ends naturally or due to pause
+          handleRestart();
         };
 
         recognition.onerror = (event: any) => {
-          isStartingRef.current = false;
+          if (isCleanedUp) return;
           const err = event.error;
           if (err === 'not-allowed') {
-            setError('Microphone access was denied. Please allow microphone permissions in your browser.');
-            isActiveRef.current = false;
+            setError('Microphone access was denied. Please allow microphone permissions in your browser address bar.');
             setIsListening(false);
           } else if (err === 'audio-capture') {
             setError('No microphone detected on this device.');
-            isActiveRef.current = false;
             setIsListening(false);
           }
           // 'no-speech', 'network', 'aborted' are transient; onend will restart
         };
 
         recognition.onresult = (event: any) => {
+          if (isCleanedUp) return;
           if (!event.results) return;
           for (let i = event.resultIndex; i < event.results.length; ++i) {
             const res = event.results[i];
@@ -210,49 +228,42 @@ export const useVoiceScoring = ({ enabled, onScore, onUndo }: VoiceScoringOption
 
         recognitionRef.current = recognition;
         recognition.start();
-      } catch (e) {
-        isStartingRef.current = false;
-        isActiveRef.current = false;
-        // Retry shortly if start was blocked by audio subsystem transition
-        if (!isCleanedUp && enabledRef.current) {
-          clearTimeout(restartTimeout);
-          restartTimeout = setTimeout(() => {
-            startRecognition();
-          }, 300);
+      } catch (err: any) {
+        setIsListening(false);
+        if (err?.name !== 'InvalidStateError') {
+          handleRestart();
         }
       }
     };
 
     if (enabled) {
       setError(null);
-      startRecognition();
+      setupRecognition();
     } else {
-      isActiveRef.current = false;
-      isStartingRef.current = false;
       setIsListening(false);
+      clearTimeout(restartTimerRef.current);
       if (recognitionRef.current) {
         try {
+          recognitionRef.current.onstart = null;
+          recognitionRef.current.onend = null;
+          recognitionRef.current.onerror = null;
+          recognitionRef.current.onresult = null;
           recognitionRef.current.stop();
         } catch (e) {}
         recognitionRef.current = null;
       }
     }
 
-    // Watchdog timer: every 1200ms, ensure active listening if enabled
-    const watchdog = setInterval(() => {
-      if (enabledRef.current && !isCleanedUp && !isActiveRef.current && !isStartingRef.current) {
-        startRecognition();
-      }
-    }, 1200);
-
     return () => {
       isCleanedUp = true;
-      clearInterval(watchdog);
-      clearTimeout(restartTimeout);
-      isActiveRef.current = false;
-      isStartingRef.current = false;
+      clearTimeout(restartTimerRef.current);
+      setIsListening(false);
       if (recognitionRef.current) {
         try {
+          recognitionRef.current.onstart = null;
+          recognitionRef.current.onend = null;
+          recognitionRef.current.onerror = null;
+          recognitionRef.current.onresult = null;
           recognitionRef.current.abort();
         } catch (e) {}
         recognitionRef.current = null;

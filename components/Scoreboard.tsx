@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import { Match, Inning, Team, TieBreakerRound, Player } from '../types';
 import * as storage from '../services/storageService';
 import { ScoreInput } from './ScoreInput';
-import { useVoiceScoring, triggerHaptic } from '../hooks/useVoiceScoring';
+import { useVoiceScoring, triggerHaptic, unlockAudio } from '../hooks/useVoiceScoring';
 
 interface ScoreboardProps {
   matchId: string;
@@ -258,23 +258,29 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
       await storage.updateMatch(newMatch).catch(err => console.error("Undo failed", err));
   };
 
-  const handleScoreUpdate = async (side: 'home' | 'away', lineupIdx: number, pitchIdx: number, val: number) => {
+  const handleScoreUpdate = async (
+    side: 'home' | 'away', 
+    lineupIdx: number, 
+    pitchIdx: number, 
+    val: number,
+    targetInningIdx: number = activeInningIdx
+  ) => {
     if (isReadOnly || !match) return;
-    const inning = match.innings?.[activeInningIdx];
+    const inning = match.innings?.[targetInningIdx];
     if (!inning) return;
     const teamData = side === 'home' ? inning.home : inning.away;
     if (!teamData?.playerScores?.[lineupIdx]?.pitches?.[pitchIdx]) return;
     const existingValue = teamData.playerScores[lineupIdx].pitches[pitchIdx].points;
     const isEdit = existingValue !== null;
     const newMatch: Match = JSON.parse(JSON.stringify(match));
-    const curInning = newMatch.innings[activeInningIdx];
+    const curInning = newMatch.innings[targetInningIdx];
     const curTeamData = side === 'home' ? curInning.home : curInning.away;
     curTeamData.playerScores[lineupIdx].pitches[pitchIdx].points = val;
     setMatch(newMatch); 
     
     // Automated Completion Flow Check
     const totalPitches = teamData.playerScores[lineupIdx].pitches.length;
-    const isLastPitchOfRegulation = activeInningIdx === 5 && side === 'home' && lineupIdx === teamData.playerScores.length - 1 && pitchIdx === totalPitches - 1;
+    const isLastPitchOfRegulation = targetInningIdx === 5 && side === 'home' && lineupIdx === teamData.playerScores.length - 1 && pitchIdx === totalPitches - 1;
 
     if (isLastPitchOfRegulation && !isEdit) {
         const hT = calculateTeamGameTotal('home', newMatch);
@@ -294,15 +300,15 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
                 nextCell = { side, lineupIdx: lineupIdx + 1, pitchIdx: 0 };
             } else if (side === 'away') {
                 nextCell = { side: 'home', lineupIdx: 0, pitchIdx: 0 };
-            } else if (activeInningIdx < 5) {
+            } else if (targetInningIdx < 5) {
                 setActiveInningIdx(prev => prev + 1);
                 nextCell = { side: 'away', lineupIdx: 0, pitchIdx: 0 };
             }
         }
         setActiveCell(nextCell);
 
-        if (!isEdit && activeInningIdx < 5 && !match.isComplete) {
-            const curIng = newMatch.innings[activeInningIdx];
+        if (!isEdit && targetInningIdx < 5 && !match.isComplete) {
+            const curIng = newMatch.innings[targetInningIdx];
             if (curIng.home.playerScores.every(p => p.pitches.every(pt => pt.points !== null)) && 
                 curIng.away.playerScores.every(p => p.pitches.every(pt => pt.points !== null))) {
                  setTimeout(() => { setActiveInningIdx(p => (p < 5 ? p + 1 : p)); setActiveCell(null); }, 700);
@@ -366,26 +372,26 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
       await storage.updateMatch(newMatch);
   };
 
-  const getFirstUnscoredCell = () => {
-    if (activeCell) return activeCell;
+  const getFirstUnscoredCell = (): { side: 'home' | 'away'; lineupIdx: number; pitchIdx: number; roundIdx?: number; inningIdx?: number } | null => {
+    if (activeCell) return { ...activeCell, inningIdx: activeCell.roundIdx !== undefined ? 6 : activeInningIdx };
     if (activeInningIdx === 6 && match?.tieBreaker && match.tieBreaker.length > 0) {
       const roundIdx = match.tieBreaker.length - 1;
       const round = match.tieBreaker[roundIdx];
       const aIdx = round.awayScores.findIndex(s => s === null);
-      if (aIdx !== -1) return { side: 'away' as const, lineupIdx: 0, pitchIdx: aIdx, roundIdx };
+      if (aIdx !== -1) return { side: 'away' as const, lineupIdx: 0, pitchIdx: aIdx, roundIdx, inningIdx: 6 };
       const hIdx = round.homeScores.findIndex(s => s === null);
-      if (hIdx !== -1) return { side: 'home' as const, lineupIdx: 0, pitchIdx: hIdx, roundIdx };
+      if (hIdx !== -1) return { side: 'home' as const, lineupIdx: 0, pitchIdx: hIdx, roundIdx, inningIdx: 6 };
       return null;
     }
     const currentIng = match?.innings[activeInningIdx];
     if (currentIng) {
       for (let l = 0; l < currentIng.away.playerScores.length; l++) {
         const pIdx = currentIng.away.playerScores[l].pitches.findIndex(p => p.points === null);
-        if (pIdx !== -1) return { side: 'away' as const, lineupIdx: l, pitchIdx: pIdx };
+        if (pIdx !== -1) return { side: 'away' as const, lineupIdx: l, pitchIdx: pIdx, inningIdx: activeInningIdx };
       }
       for (let l = 0; l < currentIng.home.playerScores.length; l++) {
         const pIdx = currentIng.home.playerScores[l].pitches.findIndex(p => p.points === null);
-        if (pIdx !== -1) return { side: 'home' as const, lineupIdx: l, pitchIdx: pIdx };
+        if (pIdx !== -1) return { side: 'home' as const, lineupIdx: l, pitchIdx: pIdx, inningIdx: activeInningIdx };
       }
     }
     // Search remaining regulation innings so hands-free scoring never stalls at end of an inning
@@ -396,15 +402,13 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
         for (let l = 0; l < ing.away.playerScores.length; l++) {
           const pIdx = ing.away.playerScores[l].pitches.findIndex(p => p.points === null);
           if (pIdx !== -1) {
-            setActiveInningIdx(i);
-            return { side: 'away' as const, lineupIdx: l, pitchIdx: pIdx };
+            return { side: 'away' as const, lineupIdx: l, pitchIdx: pIdx, inningIdx: i };
           }
         }
         for (let l = 0; l < ing.home.playerScores.length; l++) {
           const pIdx = ing.home.playerScores[l].pitches.findIndex(p => p.points === null);
           if (pIdx !== -1) {
-            setActiveInningIdx(i);
-            return { side: 'home' as const, lineupIdx: l, pitchIdx: pIdx };
+            return { side: 'home' as const, lineupIdx: l, pitchIdx: pIdx, inningIdx: i };
           }
         }
       }
@@ -415,14 +419,15 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
   const getTargetDescription = () => {
     const target = getFirstUnscoredCell();
     if (!target) {
-      return `All pitches in Inning ${activeInningIdx + 1} scored. Click any pitch cell to edit with voice.`;
+      return `All pitches scored. Click any pitch cell to edit with voice.`;
     }
     if (target.roundIdx !== undefined && match?.tieBreaker) {
       const round = match.tieBreaker[target.roundIdx];
       const team = target.side === 'home' ? teams.home : teams.away;
       return `Extras R${round.roundNumber} • ${target.side === 'home' ? 'Home' : 'Away'} (${team?.name || ''}), Pitch #${target.pitchIdx + 1}`;
     }
-    const currentIng = match?.innings[activeInningIdx];
+    const targetInningIdx = target.inningIdx ?? activeInningIdx;
+    const currentIng = match?.innings[targetInningIdx];
     if (currentIng) {
       const team = target.side === 'home' ? teams.home : teams.away;
       const teamData = target.side === 'home' ? currentIng.home : currentIng.away;
@@ -440,9 +445,14 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
     const target = getFirstUnscoredCell();
     if (!target) return;
     if (target.roundIdx !== undefined) {
+      if (activeInningIdx !== 6) setActiveInningIdx(6);
       handleTieBreakerScore(target.roundIdx, target.side, target.pitchIdx, val);
     } else {
-      handleScoreUpdate(target.side, target.lineupIdx, target.pitchIdx, val);
+      const targetInning = target.inningIdx ?? activeInningIdx;
+      if (targetInning !== activeInningIdx) {
+        setActiveInningIdx(targetInning);
+      }
+      handleScoreUpdate(target.side, target.lineupIdx, target.pitchIdx, val, targetInning);
     }
   };
 
@@ -491,7 +501,9 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
     }
   };
 
-  const handleToggleVoice = async () => {
+  const handleToggleVoice = () => {
+    triggerHaptic('toggle');
+    unlockAudio();
     if (voiceEnabled) {
       setVoiceEnabled(false);
       setVoicePermissionError(null);
@@ -504,25 +516,8 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
       return;
     }
 
-    // Explicitly prompt browser for microphone access
-    if (navigator?.mediaDevices?.getUserMedia) {
-      try {
-        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-        stream.getTracks().forEach(track => track.stop());
-        setVoicePermissionError(null);
-        setVoiceEnabled(true);
-      } catch (err: any) {
-        console.warn("Microphone access request:", err);
-        if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
-          setVoicePermissionError("Microphone access was denied. Please allow microphone access in your browser settings to use hands-free voice scoring.");
-        } else {
-          setVoicePermissionError("Unable to access microphone: " + (err.message || "Please check mic permissions."));
-        }
-        return;
-      }
-    } else {
-      setVoiceEnabled(true);
-    }
+    setVoicePermissionError(null);
+    setVoiceEnabled(true);
   };
 
   const { isListening, lastHeard, supported: voiceSupported, error: voiceHookError } = useVoiceScoring({

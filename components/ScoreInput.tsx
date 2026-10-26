@@ -58,7 +58,7 @@ export const ScoreInput: React.FC<ScoreInputProps> = ({
   }, [isEditing]);
 
   const handleSelect = (score: number) => {
-    triggerHaptic(score === 4 ? 'homerun' : 'score');
+    triggerHaptic('score');
     if (value !== null) {
       setLocalValue(score);
     } else {

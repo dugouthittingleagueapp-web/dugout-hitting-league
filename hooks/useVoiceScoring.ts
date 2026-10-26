@@ -95,7 +95,7 @@ export const parseVoiceTranscript = (rawTranscript: string): VoiceCommand | null
   if (!clean) return null;
 
   // 1. Check for UNDO commands (including common speech engine misrecognitions like "and do", "on do")
-  const undoRegex = /\b(undo|un do|and do|on do|in do|take back|scratch|cancel|oops|delete|erase|mistake|wrong|remove|go back|back)\b/;
+  const undoRegex = /\b(undo|un do|and do|on do|in do|take back|scratch|scratch that|cancel|oops|delete|erase|mistake|wrong|remove|go back|back)\b/;
   const undoMatch = clean.match(undoRegex);
   if (undoMatch) {
     return {
@@ -107,80 +107,89 @@ export const parseVoiceTranscript = (rawTranscript: string): VoiceCommand | null
 
   // 2. Multi-word phrases with specific baseball scoring meanings
   // 4 Points: Home run variations
-  const fourPhraseRegex = /\b(home run|homerun|grand slam|four bagger|four points|4 points|big fly|moon shot|moonshot|over the fence|out of the park)\b/;
+  const fourPhraseRegex = /\b(home run|homerun|grand slam|four bagger|4 bagger|four points|4 points|4 point|four point|point four|point 4|big fly|moon shot|moonshot|over the fence|over the wall|out of the park|score 4|score four|pitch 4|pitch four|number 4|number four)\b/;
   const fourPhraseMatch = clean.match(fourPhraseRegex);
   if (fourPhraseMatch) {
     return { type: 'score', score: 4, raw: rawTranscript, matchedWord: fourPhraseMatch[0] };
   }
 
   // 3 Points: Triple variations
-  const threePhraseRegex = /\b(three points|3 points|third base|3 bagger|three bagger)\b/;
+  const threePhraseRegex = /\b(three points|3 points|3 point|three point|point three|point 3|third base|3 bagger|three bagger|score 3|score three|pitch 3|pitch three|number 3|number three)\b/;
   const threePhraseMatch = clean.match(threePhraseRegex);
   if (threePhraseMatch) {
     return { type: 'score', score: 3, raw: rawTranscript, matchedWord: threePhraseMatch[0] };
   }
 
   // 2 Points: Double variations
-  const twoPhraseRegex = /\b(two points|2 points|second base|two bagger|2 bagger)\b/;
+  const twoPhraseRegex = /\b(two points|2 points|2 point|two point|point two|point 2|second base|two bagger|2 bagger|score 2|score two|pitch 2|pitch two|number 2|number two)\b/;
   const twoPhraseMatch = clean.match(twoPhraseRegex);
   if (twoPhraseMatch) {
     return { type: 'score', score: 2, raw: rawTranscript, matchedWord: twoPhraseMatch[0] };
   }
 
   // 1 Point: Single variations
-  const onePhraseRegex = /\b(one point|1 point|base hit|basehit|single hit|first base)\b/;
+  const onePhraseRegex = /\b(one point|1 point|1 point|one points|point one|point 1|base hit|basehit|single hit|first base|score 1|score one|pitch 1|pitch one|number 1|number one)\b/;
   const onePhraseMatch = clean.match(onePhraseRegex);
   if (onePhraseMatch) {
     return { type: 'score', score: 1, raw: rawTranscript, matchedWord: onePhraseMatch[0] };
   }
 
-  // 0 Points: Out / Strike / Miss / Foul multi-word variations (checked early to prevent partial collisions with digits)
-  const zeroPhraseRegex = /\b(zero points|0 points|swing and miss|foul ball|ground out|fly out|pop out|line out|no hit|struck out|strike out|strike one|strike two|strike three|called strike)\b/;
+  // 0 Points: Out / Strike / Miss / Foul multi-word variations (checked early so "strike three" correctly scores 0)
+  const zeroPhraseRegex = /\b(zero points|0 points|0 point|zero point|point zero|point 0|swing and miss|foul ball|foul tip|foul out|fouled out|ground out|fly out|pop out|line out|no hit|struck out|strike out|strike one|strike 1|strike two|strike 2|strike three|strike 3|called strike|score 0|score zero|pitch 0|pitch zero|number 0|number zero)\b/;
   const zeroPhraseMatch = clean.match(zeroPhraseRegex);
   if (zeroPhraseMatch) {
     return { type: 'score', score: 0, raw: rawTranscript, matchedWord: zeroPhraseMatch[0] };
   }
 
-  // 3. Single words & digits:
-  // Out / Strike / Miss terms take priority so "strike" or "miss" is never misread as another digit
-  const zeroRegex = /\b(0|zero|hero|cero|sierra|out|miss|missed|strike|whiff|foul|fouled|strikeout|struck|grounder|ball|take|nothing|none|nil|zip|nada|zilch|donut|oh|owe)\b/;
+  // 3. Single words, digits & ordinals:
+  // Out / Strike / Miss / Foul / Ball
+  const zeroRegex = /\b(0|zero|hero|cero|sierra|out|outs|miss|missed|strike|strikes|whiff|whiffs|foul|fouled|strikeout|struck|grounder|ball|take|nothing|none|nil|zip|nada|zilch|donut|oh|owe)\b/;
   const zeroMatch = clean.match(zeroRegex);
   if (zeroMatch) {
     return { type: 'score', score: 0, raw: rawTranscript, matchedWord: zeroMatch[0] };
   }
 
-  // Score 4: (including common homophones like "for", "fore", "fort", "ford")
-  const fourRegex = /\b(4|four|for|fore|fourth|ford|fort|pour|homer|dinger|bomb|blast|slam|quad|jack|yard|gone)\b/;
+  // Score 4: (including common homophones and engine outputs like "4", "4th", "four", "for", "fore", "fourth", "forth", "ford", "fort", "fall", "full", "pour")
+  const fourRegex = /\b(4|4th|four|for|fore|fourth|forth|ford|fort|fall|full|pour|pore|floor|door|far|fur|homer|homers|dinger|dingers|bomb|bombs|blast|blasts|slam|slams|quad|quads|quadruple|jack|jacks|yard|gone|hr|iv)\b/;
   const fourMatch = clean.match(fourRegex);
   if (fourMatch) {
     return { type: 'score', score: 4, raw: rawTranscript, matchedWord: fourMatch[0] };
   }
 
-  // Score 3: (including common homophones like "tree", "free")
-  const threeRegex = /\b(3|three|triple|triples|tree|free|thee|third|tripp)\b/;
+  // Score 3: (including common homophones like "3", "3rd", "three", "tree", "free", "third", "trey", "tray", "thee")
+  const threeRegex = /\b(3|3rd|three|triple|triples|tree|free|third|tripp|trey|tray|tri|thee)\b/;
   const threeMatch = clean.match(threeRegex);
   if (threeMatch) {
     return { type: 'score', score: 3, raw: rawTranscript, matchedWord: threeMatch[0] };
   }
 
-  // Score 2: (including common homophones like "tu", "due", "dew", "deuce")
-  const twoRegex = /\b(2|two|double|doubles|second|deuce|tu|due|dew|pair)\b/;
+  // Score 2: (including common homophones like "2", "2nd", "two", "second", "deuce", "tu", "due", "dew")
+  const twoRegex = /\b(2|2nd|two|double|doubles|second|deuce|tu|due|dew|pair)\b/;
   const twoMatch = clean.match(twoRegex);
   if (twoMatch) {
     return { type: 'score', score: 2, raw: rawTranscript, matchedWord: twoMatch[0] };
   }
 
-  // Score 1: (including common homophones like "won", "juan", "wan")
-  const oneRegex = /\b(1|one|single|singles|won|juan|wan|first|hit)\b/;
+  // Score 1: (including common homophones like "1", "1st", "one", "won", "juan", "wan")
+  const oneRegex = /\b(1|1st|one|single|singles|won|juan|wan|first|hit)\b/;
   const oneMatch = clean.match(oneRegex);
   if (oneMatch) {
     return { type: 'score', score: 1, raw: rawTranscript, matchedWord: oneMatch[0] };
   }
 
   // Standalone homophones for 2 ("to", "too"):
-  // Spoken "two" is frequently transcribed as isolated "to" or "too" by speech engines
   if (/^(to|too)$/.test(clean) || /\b(to|too)\b/.test(clean)) {
     return { type: 'score', score: 2, raw: rawTranscript, matchedWord: clean };
+  }
+
+  // Standalone single-word common acoustic slips when pronouncing "three"
+  if (/^(the|see|sea|tea|tee)$/.test(clean)) {
+    return { type: 'score', score: 3, raw: rawTranscript, matchedWord: clean };
+  }
+
+  // Standalone "h r" abbreviation for home run
+  if (/^h\s*r$/.test(clean)) {
+    return { type: 'score', score: 4, raw: rawTranscript, matchedWord: clean };
   }
 
   return null;
@@ -269,6 +278,16 @@ export const useVoiceScoring = ({ enabled, onScore, onUndo }: VoiceScoringOption
         recognition.lang = 'en-US';
         // Check top 5 alternatives to catch misheard homophones immediately
         recognition.maxAlternatives = 5;
+
+        const SpeechGrammarListClass = (window as any).SpeechGrammarList || (window as any).webkitSpeechGrammarList;
+        if (SpeechGrammarListClass) {
+          try {
+            const grammar = '#JSGF V1.0; grammar dugout; public <score> = 0 | 1 | 2 | 3 | 4 | zero | one | two | three | four | for | fore | out | miss | strike | foul ball | single | double | triple | home run | homerun | homer | dinger | bomb | blast | undo ;';
+            const speechRecognitionList = new SpeechGrammarListClass();
+            speechRecognitionList.addFromString(grammar, 1);
+            recognition.grammars = speechRecognitionList;
+          } catch (e) {}
+        }
 
         recognition.onstart = () => {
           if (isCleanedUp) return;

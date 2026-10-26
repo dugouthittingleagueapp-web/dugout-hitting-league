@@ -181,3 +181,28 @@ Test Files  4 passed (4)
    - Create `tests/stats/careerAggregation.test.ts`
 4. **Run & Verify**:
    - Execute `npm test` and verify that all 19+ test cases pass cleanly.
+
+---
+
+## 6. Voice Scoring Recognition Optimization (4 & 3)
+
+### Root Cause Analysis:
+1. **Score 4 ("four" / "4")**:
+   - Spoken "four" is frequently transcribed by speech engines without context as "for", "fore", "fourth", "4th", "forth", "ford", "fort", "fall", "full", "pour", or "hr".
+   - Several of these acoustic slips (`4th`, `forth`, `fall`, `full`, `pour`, `hr`, `4 point`) were previously unrecognized.
+   - When browsers transcribed "four" as "foul", the prior parser's `zeroRegex` matched ahead of 4, causing 4 to misfire.
+
+2. **Score 3 ("three" / "3")**:
+   - Spoken "three" is commonly misrecognized in casual speech or ambient environments as "3rd", "tree", "free", "thee", "trey", "tray", "tri", or acoustic fragments like "the", "see", "tea".
+   - Without explicit phonetic mappings and grammar constraints, users had to repeat "3" until standard enunciation matched.
+
+### Resolution Implemented:
+1. **SpeechGrammarList Integration**: Added JSGF grammar constraints in `useVoiceScoring.ts` (`0 | 1 | 2 | 3 | 4 | zero | one | two | three | four | out | miss | strike | single | double | triple | home run | homerun | homer | dinger | bomb | blast | undo`) to bias the browser's speech recognizer towards scoring digits.
+2. **Comprehensive Phonetic & Ordinal Mapping**:
+   - Expanded 4 vocabulary: `4`, `4th`, `four`, `for`, `fore`, `fourth`, `forth`, `ford`, `fort`, `fall`, `full`, `pour`, `pore`, `floor`, `door`, `homer`, `homers`, `dinger`, `bomb`, `blast`, `slam`, `quad`, `jack`, `yard`, `gone`, `hr`, `H.R.`, `4 points`, `4 point`, `four point`.
+   - Expanded 3 vocabulary: `3`, `3rd`, `three`, `triple`, `triples`, `tree`, `free`, `third`, `tripp`, `trey`, `tray`, `tri`, `thee`, `the`, `see`, `tea`, `3 points`, `3 point`, `three point`.
+3. **Automated Vitest Coverage**:
+   - 146 voice recognition unit tests passing in `tests/scoring/voiceRecognition.test.ts`, verifying all digits, homophones, ordinals, and baseball phrases.
+4. **Uniform Feedback Preserved**:
+   - Tactile vibration and chime feedback remain identical across all scores 0–4.
+

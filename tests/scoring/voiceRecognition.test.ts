@@ -61,9 +61,11 @@ describe('Voice Scoring Vocabulary & Phonetic Parser', () => {
 
   describe('Score 3 matching', () => {
     const threePhrases = [
-      '3', 'three', 'triple', 'triples', 'third', 'third base',
-      'tree', 'free', 'three points', '3 points',
-      'That is a triple', 'he got three', 'scored three'
+      '3', 'three', 'triple', 'triples', 'third', '3rd', 'third base',
+      'tree', 'free', 'trey', 'tray', 'tri', 'thee',
+      'the', 'see', 'tea',
+      'three points', '3 points', '3 point', 'three point',
+      'That is a triple', 'he got three', 'scored three', 'pitch 3'
     ];
 
     threePhrases.forEach(phrase => {
@@ -78,11 +80,13 @@ describe('Voice Scoring Vocabulary & Phonetic Parser', () => {
 
   describe('Score 4 matching', () => {
     const fourPhrases = [
-      '4', 'four', 'for', 'fore', 'fourth', 'ford', 'fort',
-      'homer', 'home run', 'homerun', 'dinger', 'bomb', 'blast',
-      'grand slam', 'four bagger', 'moonshot', 'big fly', 'yard',
-      'four points', '4 points', 'over the fence',
-      'That is a home run', 'huge bomb', 'blast to center'
+      '4', 'four', 'for', 'fore', 'fourth', '4th', 'forth', 'ford', 'fort',
+      'fall', 'full', 'pour', 'floor', 'door',
+      'homer', 'homers', 'home run', 'homerun', 'dinger', 'bomb', 'blast',
+      'grand slam', 'four bagger', '4 bagger', 'moonshot', 'big fly', 'yard',
+      'four points', '4 points', '4 point', 'four point', 'over the fence',
+      'hr', 'HR', 'H.R.',
+      'That is a home run', 'huge bomb', 'blast to center', 'pitch 4'
     ];
 
     fourPhrases.forEach(phrase => {

@@ -3,7 +3,6 @@ import { createPortal } from 'react-dom';
 import { Match, Inning, Team, TieBreakerRound, Player } from '../types';
 import * as storage from '../services/storageService';
 import { ScoreInput } from './ScoreInput';
-import { useVoiceScoring, triggerHaptic, unlockAudio } from '../hooks/useVoiceScoring';
 
 interface ScoreboardProps {
   matchId: string;
@@ -31,8 +30,6 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
   const [showFinishModal, setShowFinishModal] = useState(false);
   const [showExitConfirmModal, setShowExitConfirmModal] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [voiceEnabled, setVoiceEnabled] = useState(false);
-  const [voicePermissionError, setVoicePermissionError] = useState<string | null>(null);
   
   const [activeCell, setActiveCell] = useState<{ side: 'home' | 'away'; lineupIdx: number; pitchIdx: number; roundIdx?: number } | null>(null);
 
@@ -372,159 +369,6 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
       await storage.updateMatch(newMatch);
   };
 
-  const getFirstUnscoredCell = (): { side: 'home' | 'away'; lineupIdx: number; pitchIdx: number; roundIdx?: number; inningIdx?: number } | null => {
-    if (activeCell) return { ...activeCell, inningIdx: activeCell.roundIdx !== undefined ? 6 : activeInningIdx };
-    if (activeInningIdx === 6 && match?.tieBreaker && match.tieBreaker.length > 0) {
-      const roundIdx = match.tieBreaker.length - 1;
-      const round = match.tieBreaker[roundIdx];
-      const aIdx = round.awayScores.findIndex(s => s === null);
-      if (aIdx !== -1) return { side: 'away' as const, lineupIdx: 0, pitchIdx: aIdx, roundIdx, inningIdx: 6 };
-      const hIdx = round.homeScores.findIndex(s => s === null);
-      if (hIdx !== -1) return { side: 'home' as const, lineupIdx: 0, pitchIdx: hIdx, roundIdx, inningIdx: 6 };
-      return null;
-    }
-    const currentIng = match?.innings[activeInningIdx];
-    if (currentIng) {
-      for (let l = 0; l < currentIng.away.playerScores.length; l++) {
-        const pIdx = currentIng.away.playerScores[l].pitches.findIndex(p => p.points === null);
-        if (pIdx !== -1) return { side: 'away' as const, lineupIdx: l, pitchIdx: pIdx, inningIdx: activeInningIdx };
-      }
-      for (let l = 0; l < currentIng.home.playerScores.length; l++) {
-        const pIdx = currentIng.home.playerScores[l].pitches.findIndex(p => p.points === null);
-        if (pIdx !== -1) return { side: 'home' as const, lineupIdx: l, pitchIdx: pIdx, inningIdx: activeInningIdx };
-      }
-    }
-    // Search remaining regulation innings so hands-free scoring never stalls at end of an inning
-    if (match) {
-      for (let i = activeInningIdx + 1; i < 6; i++) {
-        const ing = match.innings[i];
-        if (!ing) continue;
-        for (let l = 0; l < ing.away.playerScores.length; l++) {
-          const pIdx = ing.away.playerScores[l].pitches.findIndex(p => p.points === null);
-          if (pIdx !== -1) {
-            return { side: 'away' as const, lineupIdx: l, pitchIdx: pIdx, inningIdx: i };
-          }
-        }
-        for (let l = 0; l < ing.home.playerScores.length; l++) {
-          const pIdx = ing.home.playerScores[l].pitches.findIndex(p => p.points === null);
-          if (pIdx !== -1) {
-            return { side: 'home' as const, lineupIdx: l, pitchIdx: pIdx, inningIdx: i };
-          }
-        }
-      }
-    }
-    return null;
-  };
-
-  const getTargetDescription = () => {
-    const target = getFirstUnscoredCell();
-    if (!target) {
-      return `All pitches scored. Click any pitch cell to edit with voice.`;
-    }
-    if (target.roundIdx !== undefined && match?.tieBreaker) {
-      const round = match.tieBreaker[target.roundIdx];
-      const team = target.side === 'home' ? teams.home : teams.away;
-      return `Extras R${round.roundNumber} • ${target.side === 'home' ? 'Home' : 'Away'} (${team?.name || ''}), Pitch #${target.pitchIdx + 1}`;
-    }
-    const targetInningIdx = target.inningIdx ?? activeInningIdx;
-    const currentIng = match?.innings[targetInningIdx];
-    if (currentIng) {
-      const team = target.side === 'home' ? teams.home : teams.away;
-      const teamData = target.side === 'home' ? currentIng.home : currentIng.away;
-      const playerScore = teamData.playerScores[target.lineupIdx];
-      const player = [...(team?.players || []), ...(team?.subs || [])].find(p => p.id === playerScore?.playerId);
-      const pName = player ? formatName(player) : (playerScore ? `Batter #${target.lineupIdx + 1}` : '');
-      const teamLabel = target.side === 'home' ? 'Home' : 'Away';
-      return `Inning ${currentIng.number} • ${teamLabel} (${pName}), Pitch #${target.pitchIdx + 1}`;
-    }
-    return null;
-  };
-
-  const handleVoiceScore = (val: number) => {
-    if (isReadOnly || (match?.isComplete && userRole !== 'admin')) return;
-    const target = getFirstUnscoredCell();
-    if (!target) return;
-    if (target.roundIdx !== undefined) {
-      if (activeInningIdx !== 6) setActiveInningIdx(6);
-      handleTieBreakerScore(target.roundIdx, target.side, target.pitchIdx, val);
-    } else {
-      const targetInning = target.inningIdx ?? activeInningIdx;
-      if (targetInning !== activeInningIdx) {
-        setActiveInningIdx(targetInning);
-      }
-      handleScoreUpdate(target.side, target.lineupIdx, target.pitchIdx, val, targetInning);
-    }
-  };
-
-  const handleVoiceUndo = () => {
-    if (isReadOnly || (match?.isComplete && userRole !== 'admin')) return;
-    if (activeCell) {
-      handleUndo(activeCell.side, activeCell.lineupIdx, activeCell.pitchIdx, activeCell.roundIdx);
-      return;
-    }
-    if (activeInningIdx === 6 && match?.tieBreaker && match.tieBreaker.length > 0) {
-      const roundIdx = match.tieBreaker.length - 1;
-      const round = match.tieBreaker[roundIdx];
-      for (let p = round.homeScores.length - 1; p >= 0; p--) {
-        if (round.homeScores[p] !== null) {
-          handleUndo('home', 0, p + 1, roundIdx);
-          return;
-        }
-      }
-      for (let p = round.awayScores.length - 1; p >= 0; p--) {
-        if (round.awayScores[p] !== null) {
-          handleUndo('away', 0, p + 1, roundIdx);
-          return;
-        }
-      }
-      return;
-    }
-    const currentIng = match?.innings[activeInningIdx];
-    if (!currentIng) return;
-    for (let l = currentIng.home.playerScores.length - 1; l >= 0; l--) {
-      const pitches = currentIng.home.playerScores[l].pitches;
-      for (let p = pitches.length - 1; p >= 0; p--) {
-        if (pitches[p].points !== null) {
-          handleUndo('home', l, p + 1);
-          return;
-        }
-      }
-    }
-    for (let l = currentIng.away.playerScores.length - 1; l >= 0; l--) {
-      const pitches = currentIng.away.playerScores[l].pitches;
-      for (let p = pitches.length - 1; p >= 0; p--) {
-        if (pitches[p].points !== null) {
-          handleUndo('away', l, p + 1);
-          return;
-        }
-      }
-    }
-  };
-
-  const handleToggleVoice = () => {
-    triggerHaptic('toggle');
-    unlockAudio();
-    if (voiceEnabled) {
-      setVoiceEnabled(false);
-      setVoicePermissionError(null);
-      return;
-    }
-
-    const SpeechRecognitionClass = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-    if (!SpeechRecognitionClass) {
-      setVoicePermissionError("Voice recognition is not supported in this browser. Please use Google Chrome, Microsoft Edge, or Safari.");
-      return;
-    }
-
-    setVoicePermissionError(null);
-    setVoiceEnabled(true);
-  };
-
-  const { isListening, lastHeard, supported: voiceSupported, error: voiceHookError } = useVoiceScoring({
-    enabled: voiceEnabled && !isReadOnly && userRole !== 'fan' && (!match?.isComplete || userRole === 'admin'),
-    onScore: handleVoiceScore,
-    onUndo: handleVoiceUndo
-  });
 
   if (loading) return <div className="flex items-center justify-center h-screen text-slate-400 font-bold font-sans">Loading Match Data...</div>;
   if (!match || !teams.home || !teams.away) {
@@ -669,7 +513,7 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
                         {visiblePitches.map((pitch: any, idx: number) => {
                             const realIdx = pitchStartIndex + idx;
                             return (
-                                <ScoreInput key={realIdx} pitchNumber={isGhostRow ? pitchStartIndex+idx+1 : realIdx+1} value={pitch.points} pitchesRemaining={pitchesLeft} readOnly={isReadOnly || (match.isComplete && userRole !== 'admin')} isEditing={activeCell?.side === side && activeCell.lineupIdx === lineupIdx && activeCell.pitchIdx === realIdx} onOpen={() => setActiveCell({ side, lineupIdx, pitchIdx: realIdx })} onClose={() => setActiveCell(null)} onChange={(val) => handleScoreUpdate(side, lineupIdx, realIdx, val)} onUndo={realIdx > 0 ? () => handleUndo(side, lineupIdx, realIdx) : undefined} voiceEnabled={voiceEnabled} onToggleVoice={handleToggleVoice} lastHeard={lastHeard} />
+                                <ScoreInput key={realIdx} pitchNumber={isGhostRow ? pitchStartIndex+idx+1 : realIdx+1} value={pitch.points} pitchesRemaining={pitchesLeft} readOnly={isReadOnly || (match.isComplete && userRole !== 'admin')} isEditing={activeCell?.side === side && activeCell.lineupIdx === lineupIdx && activeCell.pitchIdx === realIdx} onOpen={() => setActiveCell({ side, lineupIdx, pitchIdx: realIdx })} onClose={() => setActiveCell(null)} onChange={(val) => handleScoreUpdate(side, lineupIdx, realIdx, val)} onUndo={realIdx > 0 ? () => handleUndo(side, lineupIdx, realIdx) : undefined} />
                             );
                         })}
                     </div>
@@ -699,10 +543,10 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
                         </td>
                         <td className="px-0.5 sm:px-2 py-1 sm:py-2"><div className="flex w-full landscape:justify-between items-center gap-1 sm:gap-2 justify-start overflow-x-auto scrollbar-hide py-1 touch-auto">
                                 {inningData.playerScores[0].pitches.slice(10, 15).map((pitch, idx) => (
-                                    <ScoreInput key={`p1-${10+idx}`} pitchNumber={11+idx} value={pitch.points} readOnly={isReadOnly || (match.isComplete && userRole !== 'admin')} isEditing={activeCell?.side === side && activeCell.lineupIdx === 0 && activeCell.pitchIdx === 10+idx} onOpen={() => setActiveCell({ side, lineupIdx: 0, pitchIdx: 10+idx })} onClose={() => setActiveCell(null)} onChange={(val) => handleScoreUpdate(side, 0, 10+idx, val)} onUndo={() => handleUndo(side, 0, 10+idx)} voiceEnabled={voiceEnabled} onToggleVoice={handleToggleVoice} lastHeard={lastHeard} />
+                                    <ScoreInput key={`p1-${10+idx}`} pitchNumber={11+idx} value={pitch.points} readOnly={isReadOnly || (match.isComplete && userRole !== 'admin')} isEditing={activeCell?.side === side && activeCell.lineupIdx === 0 && activeCell.pitchIdx === 10+idx} onOpen={() => setActiveCell({ side, lineupIdx: 0, pitchIdx: 10+idx })} onClose={() => setActiveCell(null)} onChange={(val) => handleScoreUpdate(side, 0, 10+idx, val)} onUndo={() => handleUndo(side, 0, 10+idx)} />
                                 ))}<div className="w-px h-10 sm:h-14 bg-slate-300 dark:bg-slate-700 mx-1"></div>
                                 {inningData.playerScores[1].pitches.slice(10, 15).map((pitch, idx) => (
-                                    <ScoreInput key={`p2-${10+idx}`} pitchNumber={11+idx} value={pitch.points} readOnly={isReadOnly || (match.isComplete && userRole !== 'admin')} isEditing={activeCell?.side === side && activeCell.lineupIdx === 1 && activeCell.pitchIdx === 10+idx} onOpen={() => setActiveCell({ side, lineupIdx: 1, pitchIdx: 10+idx })} onClose={() => setActiveCell(null)} onChange={(val) => handleScoreUpdate(side, 1, 10+idx, val)} onUndo={() => handleUndo(side, 1, 10+idx)} voiceEnabled={voiceEnabled} onToggleVoice={handleToggleVoice} lastHeard={lastHeard} />
+                                    <ScoreInput key={`p2-${10+idx}`} pitchNumber={11+idx} value={pitch.points} readOnly={isReadOnly || (match.isComplete && userRole !== 'admin')} isEditing={activeCell?.side === side && activeCell.lineupIdx === 1 && activeCell.pitchIdx === 10+idx} onOpen={() => setActiveCell({ side, lineupIdx: 1, pitchIdx: 10+idx })} onClose={() => setActiveCell(null)} onChange={(val) => handleScoreUpdate(side, 1, 10+idx, val)} onUndo={() => handleUndo(side, 1, 10+idx)} />
                                 ))}</div></td>
                         <td className="px-1 sm:px-3 py-1 sm:py-2 text-center align-middle border-l border-slate-200 dark:border-slate-700 bg-slate-50/30 dark:bg-slate-900/30">
                              <div className="text-sm sm:text-base font-sans tabular-nums font-bold text-slate-800 dark:text-slate-200 w-5 sm:w-8">{inningData.playerScores[0].pitches.slice(10, 15).reduce((s,p)=>s+(p.points||0),0) + inningData.playerScores[1].pitches.slice(10, 15).reduce((s,p)=>s+(p.points||0),0)}</div>
@@ -746,7 +590,7 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
                                         );
                                     })()}
                                 </td>
-                                <td className="px-2 py-3"><div className="flex gap-2">{round.awayScores.map((s, pI) => (<ScoreInput key={pI} pitchNumber={pI+1} value={s} readOnly={isReadOnly || (match.isComplete && userRole !== 'admin')} isEditing={activeCell?.side === 'away' && activeCell?.roundIdx === idx && activeCell?.pitchIdx === pI} onOpen={() => setActiveCell({ side: 'away', lineupIdx: 0, pitchIdx: pI, roundIdx: idx })} onClose={() => setActiveCell(null)} onChange={v => handleTieBreakerScore(idx, 'away', pI, v)} onUndo={() => handleUndo('away', 0, pI, idx)} voiceEnabled={voiceEnabled} onToggleVoice={handleToggleVoice} lastHeard={lastHeard} />))}</div></td>
+                                <td className="px-2 py-3"><div className="flex gap-2">{round.awayScores.map((s, pI) => (<ScoreInput key={pI} pitchNumber={pI+1} value={s} readOnly={isReadOnly || (match.isComplete && userRole !== 'admin')} isEditing={activeCell?.side === 'away' && activeCell?.roundIdx === idx && activeCell?.pitchIdx === pI} onOpen={() => setActiveCell({ side: 'away', lineupIdx: 0, pitchIdx: pI, roundIdx: idx })} onClose={() => setActiveCell(null)} onChange={v => handleTieBreakerScore(idx, 'away', pI, v)} onUndo={() => handleUndo('away', 0, pI, idx)} />))}</div></td>
                                 <td className="px-4 py-3 font-bold text-xl text-center tabular-nums">{aS}</td>
                             </tr>
                             <tr className="bg-red-50/10">
@@ -759,15 +603,14 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
                                                 onClick={() => onPlayerClick(pName)}
                                                 className="font-bold text-slate-900 dark:text-white hover:text-red-600 dark:hover:text-red-400 hover:underline cursor-pointer text-left transition-colors"
                                                 title="View career batting record"
-                                            >
-                                                {pName}
-                                            </button>
+                                                children={pName}
+                                            />
                                         ) : (
                                             <span className="font-bold">{pName}</span>
                                         );
                                     })()}
                                 </td>
-                                <td className="px-2 py-3"><div className="flex gap-2">{round.homeScores.map((s, pI) => (<ScoreInput key={pI} pitchNumber={pI+1} value={s} readOnly={isReadOnly || (match.isComplete && userRole !== 'admin')} isEditing={activeCell?.side === 'home' && activeCell?.roundIdx === idx && activeCell?.pitchIdx === pI} onOpen={() => setActiveCell({ side: 'home', lineupIdx: 0, pitchIdx: pI, roundIdx: idx })} onClose={() => setActiveCell(null)} onChange={v => handleTieBreakerScore(idx, 'home', pI, v)} onUndo={() => handleUndo('home', 0, pI, idx)} voiceEnabled={voiceEnabled} onToggleVoice={handleToggleVoice} lastHeard={lastHeard} />))}</div></td>
+                                <td className="px-2 py-3"><div className="flex gap-2">{round.homeScores.map((s, pI) => (<ScoreInput key={pI} pitchNumber={pI+1} value={s} readOnly={isReadOnly || (match.isComplete && userRole !== 'admin')} isEditing={activeCell?.side === 'home' && activeCell?.roundIdx === idx && activeCell?.pitchIdx === pI} onOpen={() => setActiveCell({ side: 'home', lineupIdx: 0, pitchIdx: pI, roundIdx: idx })} onClose={() => setActiveCell(null)} onChange={v => handleTieBreakerScore(idx, 'home', pI, v)} onUndo={() => handleUndo('home', 0, pI, idx)} />))}</div></td>
                                 <td className="px-4 py-3 font-bold text-xl text-center tabular-nums">{hS}</td>
                             </tr>
                          </tbody></table></div>
@@ -805,86 +648,9 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
               isReadOnly && <div className="text-red-600 px-3 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-wider animate-pulse">LIVE</div>
             )}
             
-            {!isReadOnly && userRole !== 'fan' && (!match.isComplete || userRole === 'admin') && (
-              <button
-                type="button"
-                onClick={handleToggleVoice}
-                className={`flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-xl border font-bold text-xs sm:text-sm font-sans transition-all cursor-pointer shadow-sm ${
-                  voiceEnabled
-                    ? 'bg-emerald-600 hover:bg-emerald-500 border-emerald-400 text-white shadow-emerald-500/20 ring-2 ring-emerald-400/50'
-                    : 'bg-white dark:bg-slate-800 border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700'
-                }`}
-                title={
-                  !voiceSupported 
-                    ? 'Speech recognition not supported in this browser'
-                    : voiceEnabled 
-                      ? 'Hands-free voice scoring is ON. Speak 0, 1, 2, 3, 4, or Undo' 
-                      : 'Toggle hands-free voice scoring ON (requests microphone access)'
-                }
-              >
-                {/* Microphone SVG icon */}
-                <svg className={`w-4 h-4 shrink-0 ${voiceEnabled ? 'text-white animate-pulse' : 'text-slate-500 dark:text-slate-400'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.2} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
-                </svg>
-                <span className="hidden xs:inline">Voice:</span>
-                <span className={`px-1.5 py-0.5 rounded text-[10px] sm:text-xs font-black uppercase ${voiceEnabled ? 'bg-white/20 text-white' : 'bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300'}`}>
-                  {voiceEnabled ? 'ON' : 'OFF'}
-                </span>
-                {voiceEnabled && lastHeard && (
-                  <span className="text-[10px] bg-emerald-800/80 px-1.5 py-0.5 rounded text-emerald-100 font-bold hidden md:inline">
-                    {lastHeard}
-                  </span>
-                )}
-              </button>
-            )}
             <button onClick={handleExitRequest} className="text-sm font-bold text-slate-500 bg-slate-100 dark:bg-slate-800 dark:text-slate-300 py-1.5 sm:py-2 px-3 rounded-xl hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors cursor-pointer">Exit</button>
           </div>
         </div>
-
-        {/* Voice Scoring Heads-Up Display (HUD) */}
-        {voiceEnabled && (
-          <div className="bg-emerald-600/95 dark:bg-emerald-950/95 border-t border-b border-emerald-500/50 text-white px-4 py-2.5 flex flex-wrap items-center justify-between gap-3 text-xs sm:text-sm font-sans shadow-md backdrop-blur-md">
-            <div className="flex items-center gap-2 min-w-0">
-              <span className="flex h-3 w-3 relative shrink-0">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-300 opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-3 w-3 bg-white"></span>
-              </span>
-              <span className="font-bold shrink-0">🎙️ Voice Scoring Active</span>
-              <span className="hidden sm:inline text-emerald-300">|</span>
-              <span className="text-emerald-100 text-xs hidden sm:inline truncate">
-                Say: <strong className="text-white">"0" / Out</strong>, <strong className="text-white">"1" / Single</strong>, <strong className="text-white">"2" / Double</strong>, <strong className="text-white">"3" / Triple</strong>, <strong className="text-white">"4" / Homer</strong>, or <strong className="text-white">"Undo"</strong>
-              </span>
-            </div>
-            <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
-              <span className="bg-emerald-800/80 px-2.5 py-1 rounded-lg text-xs font-semibold text-emerald-100 border border-emerald-400/30">
-                {getTargetDescription()}
-              </span>
-              {lastHeard && (
-                <span className="bg-white text-emerald-900 px-2.5 py-1 rounded-lg text-xs font-black shadow-sm flex items-center gap-1 animate-in fade-in zoom-in-95 duration-150">
-                  🎙️ Heard: {lastHeard}
-                </span>
-              )}
-            </div>
-          </div>
-        )}
-
-        {/* Voice Permission Error Banner */}
-        {(voicePermissionError || voiceHookError) && (
-          <div className="bg-amber-600/95 dark:bg-amber-900/95 text-white px-4 py-2.5 flex items-center justify-between gap-3 text-xs sm:text-sm font-sans shadow-md border-t border-b border-amber-700">
-            <div className="flex items-center gap-2 min-w-0">
-              <svg className="w-5 h-5 shrink-0 text-amber-200" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-              </svg>
-              <span>{voicePermissionError || voiceHookError}</span>
-            </div>
-            <button 
-              onClick={() => setVoicePermissionError(null)} 
-              className="text-xs bg-black/20 hover:bg-black/40 px-2.5 py-1 rounded font-bold cursor-pointer shrink-0"
-            >
-              Dismiss
-            </button>
-          </div>
-        )}
 
         <div className="flex overflow-x-auto scrollbar-hide border-t touch-auto">
             {match.innings.map((ing, idx) => (

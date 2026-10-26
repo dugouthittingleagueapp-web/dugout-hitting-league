@@ -1,6 +1,6 @@
 {
-  "summary":  "Automated test suite using Vitest for core umpire scoring logic, ghost mode (3v2), tiebreakers, undo, and player/team aggregations.",
-  "updatedAt":  "2026-10-24T21:53:21.213136855Z",
+  "summary":  "Voice recognition feature completely removed from the application, including speech hooks, mic UI toggles, speech parsers, and associated voice tests. Tactile haptic touch feedback remains cleanly preserved in utils/feedback.ts for fast, manual tap scoring.",
+  "updatedAt":  "2026-10-26T16:36:42.813743048Z",
   "requestFeedback":  true,
   "userFacing":  true
 }

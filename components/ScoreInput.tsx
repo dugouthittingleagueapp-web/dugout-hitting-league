@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { triggerHaptic } from '../hooks/useVoiceScoring';
+import { triggerHaptic } from '../utils/feedback';
 
 interface ScoreInputProps {
   pitchNumber: number;
@@ -12,9 +12,6 @@ interface ScoreInputProps {
   isEditing: boolean;
   onOpen: () => void;
   onClose: () => void;
-  voiceEnabled?: boolean;
-  onToggleVoice?: () => void;
-  lastHeard?: string | null;
 }
 
 export const ScoreInput: React.FC<ScoreInputProps> = ({ 
@@ -26,10 +23,7 @@ export const ScoreInput: React.FC<ScoreInputProps> = ({
   readOnly = false, 
   isEditing, 
   onOpen, 
-  onClose,
-  voiceEnabled = false,
-  onToggleVoice,
-  lastHeard
+  onClose
 }) => {
   const [localValue, setLocalValue] = useState<number | null>(value);
 
@@ -134,28 +128,6 @@ export const ScoreInput: React.FC<ScoreInputProps> = ({
                          <div className="bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 text-xs sm:text-sm font-bold px-3 py-1 rounded-full font-sans">
                            Pitch #{pitchNumber}
                          </div>
-
-                         {/* Mic toggle directly inside scoring modal */}
-                         {onToggleVoice && !readOnly && (
-                           <button
-                             type="button"
-                             onClick={() => {
-                               triggerHaptic('toggle');
-                               onToggleVoice();
-                             }}
-                             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl border font-bold text-xs font-sans transition-all cursor-pointer shadow-sm ${
-                               voiceEnabled
-                                 ? 'bg-emerald-600 hover:bg-emerald-500 border-emerald-400 text-white shadow-emerald-500/20 ring-2 ring-emerald-400/50'
-                                 : 'bg-slate-100 dark:bg-slate-800 border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
-                             }`}
-                             title="Toggle Voice Scoring ON/OFF"
-                           >
-                             <svg className={`w-4 h-4 shrink-0 ${voiceEnabled ? 'text-white animate-pulse' : 'text-slate-500 dark:text-slate-400'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.2} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
-                             </svg>
-                             <span>Voice: <strong className="uppercase">{voiceEnabled ? 'ON' : 'OFF'}</strong></span>
-                           </button>
-                         )}
                     </div>
 
                     <div className="text-center">
@@ -164,21 +136,6 @@ export const ScoreInput: React.FC<ScoreInputProps> = ({
                           <p className="text-slate-500 dark:text-slate-400 font-bold text-sm sm:text-base font-sans">{pitchesRemaining} Pitches Left</p>
                       )}
                     </div>
-
-                    {/* In-modal Voice feedback indicator */}
-                    {voiceEnabled && (
-                      <div className="mt-3 bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-300 dark:border-emerald-800/80 rounded-xl px-3 py-2 text-xs text-emerald-800 dark:text-emerald-200 flex items-center justify-between gap-2 shadow-inner">
-                        <div className="flex items-center gap-1.5 min-w-0">
-                          <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping shrink-0" />
-                          <span className="truncate">Speak score (<strong>0–4</strong>) or <strong>"Undo"</strong></span>
-                        </div>
-                        {lastHeard && (
-                          <span className="bg-emerald-600 text-white px-2 py-0.5 rounded-md font-black text-xs shrink-0 shadow-sm animate-bounce">
-                            🎙️ {lastHeard}
-                          </span>
-                        )}
-                      </div>
-                    )}
                 </div>
                 
                 <div className="grid grid-cols-5 gap-2 sm:gap-3 mb-6">

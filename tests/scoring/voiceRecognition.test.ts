@@ -4,12 +4,14 @@ import { parseVoiceTranscript } from '../../hooks/useVoiceScoring';
 describe('Voice Scoring Vocabulary & Phonetic Parser', () => {
   describe('Score 0 matching', () => {
     const zeroPhrases = [
-      '0', 'zero', 'hero', 'cero', 'sierra',
+      '0', 'zero', 'zeros', 'zeroes', 'o', 'oh', 'owe', 'no', 'nope', 'not',
+      'hero', 'cero', 'xero', 'zro', 'zee', 'zed', 'sero', 'cerro', 'euro', 'arrow', 'row',
       'out', 'miss', 'missed', 'strike', 'whiff',
-      'foul', 'foul ball', 'ground out', 'fly out', 'pop out', 'line out',
-      'struck out', 'swing and miss', 'ball', 'take',
-      'nothing', 'zip', 'nada', 'zilch', 'donut', 'oh',
-      'strike one', 'strike two', 'strike three',
+      'foul', 'foul ball', 'foul tip', 'foul out',
+      'ground out', 'ground ball', 'fly out', 'fly ball', 'pop out', 'pop up', 'pop fly', 'line out',
+      'struck out', 'swing and miss', 'swung and missed', 'ball', 'take',
+      'nothing', 'none', 'nil', 'null', 'zip', 'nada', 'zilch', 'donut', 'duck', 'blank',
+      'strike one', 'strike two', 'strike three', 'ball one', 'ball four',
       'That was an out', 'he missed it', 'ground out to third'
     ];
 
@@ -80,12 +82,14 @@ describe('Voice Scoring Vocabulary & Phonetic Parser', () => {
 
   describe('Score 4 matching', () => {
     const fourPhrases = [
-      '4', 'four', 'for', 'fore', 'fourth', '4th', 'forth', 'ford', 'fort',
-      'fall', 'full', 'pour', 'floor', 'door',
+      '4', 'four', 'for', 'fore', 'fourth', '4th', 'forth', 'ford', 'fort', 'forward',
+      'poor', 'pour', 'pore', 'floor', 'door', 'thor', 'core', 'cor',
+      'fall', 'full', 'form', 'from',
       'homer', 'homers', 'home run', 'homerun', 'dinger', 'bomb', 'blast',
-      'grand slam', 'four bagger', '4 bagger', 'moonshot', 'big fly', 'yard',
+      'grand slam', 'four bagger', '4 bagger', 'moonshot', 'big fly', 'yard', 'gone',
       'four points', '4 points', '4 point', 'four point', 'over the fence',
-      'hr', 'HR', 'H.R.',
+      'hr', 'HR', 'H.R.', 'iv',
+      'or', 'our', 'hour', 'chore', 'shore', 'store', 'more', 'war',
       'That is a home run', 'huge bomb', 'blast to center', 'pitch 4'
     ];
 
@@ -123,6 +127,10 @@ describe('Voice Scoring Vocabulary & Phonetic Parser', () => {
       expect(parseVoiceTranscript('OUT???')?.score).toBe(0);
       expect(parseVoiceTranscript('Home Run!')?.score).toBe(4);
       expect(parseVoiceTranscript('Undo.')?.type).toBe('undo');
+      expect(parseVoiceTranscript('O')?.score).toBe(0);
+      expect(parseVoiceTranscript('0.')?.score).toBe(0);
+      expect(parseVoiceTranscript('4.')?.score).toBe(4);
+      expect(parseVoiceTranscript('Four.')?.score).toBe(4);
     });
   });
 });

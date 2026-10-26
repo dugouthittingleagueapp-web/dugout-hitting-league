@@ -380,6 +380,11 @@ function devApiPlugin(): Plugin {
 
 export default defineConfig({
   plugins: [react(), devApiPlugin()],
+  server: {
+    port: 3000,
+    host: '0.0.0.0',
+    strictPort: true,
+  },
   define: {
     'process.env.API_KEY': JSON.stringify(process.env.API_KEY),
   },

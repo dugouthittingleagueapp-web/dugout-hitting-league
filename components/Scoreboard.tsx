@@ -852,7 +852,7 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
               <span className="font-bold shrink-0">🎙️ Voice Scoring Active</span>
               <span className="hidden sm:inline text-emerald-300">|</span>
               <span className="text-emerald-100 text-xs hidden sm:inline truncate">
-                Say: <strong className="text-white">"0"</strong>, <strong className="text-white">"1"</strong>, <strong className="text-white">"2"</strong>, <strong className="text-white">"3"</strong>, <strong className="text-white">"4"</strong>, or <strong className="text-white">"Undo"</strong>
+                Say: <strong className="text-white">"0" / Out</strong>, <strong className="text-white">"1" / Single</strong>, <strong className="text-white">"2" / Double</strong>, <strong className="text-white">"3" / Triple</strong>, <strong className="text-white">"4" / Homer</strong>, or <strong className="text-white">"Undo"</strong>
               </span>
             </div>
             <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
@@ -860,8 +860,8 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
                 {getTargetDescription()}
               </span>
               {lastHeard && (
-                <span className="bg-white text-emerald-900 px-2.5 py-1 rounded-lg text-xs font-black shadow-sm flex items-center gap-1">
-                  Heard: {lastHeard}
+                <span className="bg-white text-emerald-900 px-2.5 py-1 rounded-lg text-xs font-black shadow-sm flex items-center gap-1 animate-in fade-in zoom-in-95 duration-150">
+                  🎙️ Heard: {lastHeard}
                 </span>
               )}
             </div>

@@ -11,7 +11,7 @@ describe('Voice Scoring Vocabulary & Phonetic Parser', () => {
       'ground out', 'ground ball', 'fly out', 'fly ball', 'pop out', 'pop up', 'pop fly', 'line out',
       'struck out', 'swing and miss', 'swung and missed', 'ball', 'take',
       'nothing', 'none', 'nil', 'null', 'zip', 'nada', 'zilch', 'donut', 'duck', 'blank',
-      'strike one', 'strike two', 'strike three', 'ball one', 'ball four',
+      'strike one', 'strike two', 'strike three', 'ball one',
       'That was an out', 'he missed it', 'ground out to third'
     ];
 
@@ -85,11 +85,15 @@ describe('Voice Scoring Vocabulary & Phonetic Parser', () => {
       '4', 'four', 'for', 'fore', 'fourth', '4th', 'forth', 'ford', 'fort', 'forward',
       'poor', 'pour', 'pore', 'floor', 'door', 'thor', 'core', 'cor',
       'fall', 'full', 'form', 'from',
+      'forty', '40', 'fourteen', '14', 'fork', 'force', 'fo', 'foe', 'faux', 'pho',
+      'board', 'bored', 'court', 'port', 'short', 'sport', 'chord', 'cord',
       'homer', 'homers', 'home run', 'homerun', 'dinger', 'bomb', 'blast',
       'grand slam', 'four bagger', '4 bagger', 'moonshot', 'big fly', 'yard', 'gone',
       'four points', '4 points', '4 point', 'four point', 'over the fence',
       'hr', 'HR', 'H.R.', 'iv',
       'or', 'our', 'hour', 'chore', 'shore', 'store', 'more', 'war',
+      'all four', 'call four', 'touch em all', 'deep drive', 'solo shot',
+      'it is four', 'thats four', 'hit four', 'got four', '4 runs',
       'That is a home run', 'huge bomb', 'blast to center', 'pitch 4'
     ];
 

@@ -51,12 +51,23 @@ export const generateUUID = (): string => {
     return Date.now().toString(36) + Math.random().toString(36).substring(2);
 };
 
+// Safe fetch wrapper ensuring absolute URLs in Node/test environments
+const apiFetch = async (url: string, init?: RequestInit): Promise<Response> => {
+  const fullUrl = url.startsWith('http') || typeof window !== 'undefined'
+    ? url
+    : `http://localhost:3000${url}`;
+  return fetch(fullUrl, init);
+};
+
 // League Methods
 export const getLeagues = async (season?: string): Promise<League[]> => {
+  if (typeof window === 'undefined' && season === '2025') {
+    return ARCHIVE_2025_LEAGUES;
+  }
   let url = '/api/leagues';
   if (season) url += `?season=${encodeURIComponent(season)}`;
   try {
-    const res = await fetch(url);
+    const res = await apiFetch(url);
     if (res.ok) {
       const data = await res.json();
       if (Array.isArray(data) && (data.length > 0 || season !== '2025')) {
@@ -92,7 +103,7 @@ export const getLeagues = async (season?: string): Promise<League[]> => {
 };
 
 export const createLeague = async (id: string, season?: string): Promise<League> => {
-  const res = await fetch('/api/leagues', {
+  const res = await apiFetch('/api/leagues', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ id, season })
@@ -107,7 +118,7 @@ export const createLeague = async (id: string, season?: string): Promise<League>
 export const deleteLeague = async (id: string, season?: string) => {
   let url = `/api/leagues?id=${encodeURIComponent(id)}`;
   if (season) url += `&season=${encodeURIComponent(season)}`;
-  const res = await fetch(url, { method: 'DELETE' });
+  const res = await apiFetch(url, { method: 'DELETE' });
   if (!res.ok) throw new Error('Failed to delete league');
 };
 
@@ -164,7 +175,7 @@ export const syncOfflineData = async () => {
       for (const teamId of teamIds) {
         const team = teamMap[teamId];
         try {
-          const res = await fetch('/api/teams', {
+          const res = await apiFetch('/api/teams', {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(team)
@@ -191,7 +202,7 @@ export const syncOfflineData = async () => {
       for (const matchId of matchIds) {
         const match = matchMap[matchId];
         try {
-          const res = await fetch('/api/matches', {
+          const res = await apiFetch('/api/matches', {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(match)
@@ -219,11 +230,14 @@ if (typeof window !== 'undefined') {
 
 // Team Methods
 export const getTeams = async (league: AgeGroup | null, season: string): Promise<Team[]> => {
+  if (typeof window === 'undefined' && season === '2025') {
+    return ARCHIVE_2025_TEAMS.filter(t => !league || leaguesMatch(t.league, league));
+  }
   let url = `/api/teams?season=${encodeURIComponent(season)}`;
   if (league) url += `&league=${encodeURIComponent(league)}`;
   
   try {
-    const res = await fetch(url);
+    const res = await apiFetch(url);
     if (res.ok) {
       const data = await res.json();
       const mapped = data.map(mapTeamFromDB);
@@ -274,7 +288,7 @@ export const getTeams = async (league: AgeGroup | null, season: string): Promise
 export const getAllTeams = async (): Promise<Team[]> => {
   let teams: Team[] = [];
   try {
-    const res = await fetch(`/api/teams`);
+    const res = await apiFetch(`/api/teams`);
     if (res.ok) {
       const data = await res.json();
       teams = data.map(mapTeamFromDB);
@@ -333,7 +347,7 @@ export const createTeam = async (name: string, league: AgeGroup, players: {name:
     } catch (e) {}
   }
 
-  const res = await fetch('/api/teams', {
+  const res = await apiFetch('/api/teams', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(newTeam)
@@ -360,7 +374,7 @@ export const updateTeam = async (team: Team): Promise<Team> => {
   }
 
   try {
-    const res = await fetch('/api/teams', {
+    const res = await apiFetch('/api/teams', {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(team)
@@ -377,7 +391,7 @@ export const updateTeam = async (team: Team): Promise<Team> => {
 };
 
 export const moveTeams = async (teamIds: string[], targetLeague: string): Promise<void> => {
-  const res = await fetch('/api/teams', {
+  const res = await apiFetch('/api/teams', {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ action: 'move_teams', teamIds, targetLeague })
@@ -386,13 +400,16 @@ export const moveTeams = async (teamIds: string[], targetLeague: string): Promis
 };
 
 export const deleteTeam = async (teamId: string) => {
-  await fetch(`/api/teams?id=${teamId}`, { method: 'DELETE' });
+  await apiFetch(`/api/teams?id=${teamId}`, { method: 'DELETE' });
 };
 
 // Match Methods
 export const getMatches = async (league: AgeGroup, season: string): Promise<Match[]> => {
+  if (typeof window === 'undefined' && season === '2025') {
+    return ARCHIVE_2025_MATCHES.filter(m => leaguesMatch(m.league, league));
+  }
   try {
-    const res = await fetch(`/api/matches?league=${encodeURIComponent(league)}&season=${encodeURIComponent(season)}`);
+    const res = await apiFetch(`/api/matches?league=${encodeURIComponent(league)}&season=${encodeURIComponent(season)}`);
     if (res.ok) {
       const data = await res.json();
       const mapped = data.map(mapMatchFromDB);
@@ -437,7 +454,7 @@ export const getMatches = async (league: AgeGroup, season: string): Promise<Matc
 export const getAllMatches = async (): Promise<Match[]> => {
   let matches: Match[] = [];
   try {
-    const res = await fetch('/api/matches');
+    const res = await apiFetch('/api/matches');
     if (res.ok) {
       const data = await res.json();
       matches = data.map(mapMatchFromDB);
@@ -460,7 +477,7 @@ export const getAllMatches = async (): Promise<Match[]> => {
 
 export const getMatch = async (id: string): Promise<Match | undefined> => {
   try {
-    const res = await fetch(`/api/matches?id=${id}`);
+    const res = await apiFetch(`/api/matches?id=${id}`);
     if (res.ok) {
       const data = await res.json();
       const mapped = mapMatchFromDB(data);
@@ -517,7 +534,7 @@ export const createMatch = async (league: AgeGroup, homeTeamId: string, awayTeam
         } catch (e) {}
     }
     
-    const res = await fetch('/api/matches', {
+    const res = await apiFetch('/api/matches', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(match)
@@ -594,7 +611,7 @@ export const updateMatch = async (match: Match): Promise<Match> => {
     }
 
     try {
-        const res = await fetch('/api/matches', {
+        const res = await apiFetch('/api/matches', {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(match)
@@ -614,7 +631,7 @@ export const updateMatch = async (match: Match): Promise<Match> => {
 };
 
 export const deleteMatch = async (matchId: string) => {
-    await fetch(`/api/matches?id=${matchId}`, { method: 'DELETE' });
+    await apiFetch(`/api/matches?id=${matchId}`, { method: 'DELETE' });
 };
 
 export const restoreTeamRoster = async (matchId: string, teamId: string, currentInningIdx: number): Promise<Match> => {
@@ -816,7 +833,7 @@ export const verifyPassword = async (password: string): Promise<{success: boolea
     }
 
     try {
-        const res = await fetch('/api/settings', {
+        const res = await apiFetch('/api/settings', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ action: 'verify', password: trimmed })
@@ -852,7 +869,7 @@ export const updateAdminPassword = async (password: string) => {
     if (typeof window !== 'undefined') {
         try { localStorage.setItem('dugout_cached_admin_pw', trimmed); } catch (e) {}
     }
-    const res = await fetch('/api/settings', { 
+    const res = await apiFetch('/api/settings', { 
         method: 'POST', 
         headers: { 'Content-Type': 'application/json' }, 
         body: JSON.stringify({ action: 'update_password', password: trimmed }) 
@@ -868,7 +885,7 @@ export const updateUmpirePassword = async (password: string) => {
     if (typeof window !== 'undefined') {
         try { localStorage.setItem('dugout_cached_umpire_pw', trimmed); } catch (e) {}
     }
-    const res = await fetch('/api/settings', { 
+    const res = await apiFetch('/api/settings', { 
         method: 'POST', 
         headers: { 'Content-Type': 'application/json' }, 
         body: JSON.stringify({ action: 'update_umpire_password', password: trimmed }) 
@@ -882,7 +899,7 @@ export const updateUmpirePassword = async (password: string) => {
 export const getCurrentSeason = async (): Promise<string> => {
     const defaultSeason = (typeof window !== 'undefined' ? localStorage.getItem('dugout_current_season') : null) || '2026';
     try {
-        const res = await fetch('/api/settings');
+        const res = await apiFetch('/api/settings');
         if (res.ok) {
             const data = await res.json();
             const season = data.currentSeason || defaultSeason;
@@ -910,7 +927,7 @@ export const getCurrentSeason = async (): Promise<string> => {
 export const getAvailableSeasons = async (): Promise<string[]> => {
     const defaultSeason = (typeof window !== 'undefined' ? localStorage.getItem('dugout_current_season') : null) || '2026';
     try {
-        const res = await fetch('/api/settings');
+        const res = await apiFetch('/api/settings');
         if (res.ok) {
             const data = await res.json();
             const list = Array.isArray(data.seasons) ? data.seasons : [];
@@ -946,7 +963,7 @@ export const getAvailableSeasons = async (): Promise<string[]> => {
 };
 
 export const updateCurrentSeason = async (season: string) => {
-    await fetch('/api/settings', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'update_season', season }) });
+    await apiFetch('/api/settings', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'update_season', season }) });
     if (typeof window !== 'undefined') {
         try { 
             localStorage.setItem('dugout_current_season', season);
@@ -971,7 +988,7 @@ export interface ParsedTeamInput {
 }
 
 export const parseRosterInput = async (payload: { text?: string; imageBase64?: string; mimeType?: string; defaultLeague?: string }): Promise<ParsedTeamInput[]> => {
-  const res = await fetch('/api/parse-roster', {
+  const res = await apiFetch('/api/parse-roster', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload)

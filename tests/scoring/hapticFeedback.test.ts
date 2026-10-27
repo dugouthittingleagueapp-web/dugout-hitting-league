@@ -56,4 +56,10 @@ describe('Vibration Feedback for Score Inputs', () => {
 
     expect(() => triggerHaptic('score')).not.toThrow();
   });
+
+  it('safely invokes fallback click when navigator.vibrate returns false (e.g. Firefox)', () => {
+    vibrateMock.mockReturnValue(false);
+    expect(() => triggerHaptic('score')).not.toThrow();
+    expect(vibrateMock).toHaveBeenCalled();
+  });
 });

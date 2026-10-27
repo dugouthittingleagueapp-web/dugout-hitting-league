@@ -200,14 +200,20 @@ export const Navbar: React.FC<NavbarProps> = ({
                         </button>
                         
                         {showLeagueMenu && (
-                            <div className="absolute top-full left-0 mt-2 bg-white dark:bg-slate-900 text-slate-900 dark:text-white rounded-xl shadow-xl py-2 w-48 border border-slate-200 dark:border-slate-800 z-[1001] overflow-hidden animate-in slide-in-from-top-2 fade-in duration-200">
+                            <div className="absolute top-full left-0 mt-2 bg-white dark:bg-slate-900 text-slate-900 dark:text-white rounded-xl shadow-xl py-2 w-64 sm:w-72 max-w-[90vw] border border-slate-200 dark:border-slate-800 z-[1001] overflow-hidden animate-in slide-in-from-top-2 fade-in duration-200">
                                 <div className="px-4 py-2 text-[10px] uppercase font-black text-slate-400 dark:text-slate-500 border-b border-slate-200 dark:border-slate-800 mb-1 tracking-wider">Switch League</div>
-                                {sortedLeagues.map(l => (
-                                    <button key={l.id} onClick={() => { onSelectLeague(l.id); setShowLeagueMenu(false); }} className={`w-full text-left px-4 py-3 text-sm font-bold hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors font-sans flex justify-between items-center ${currentLeague === l.id ? 'text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20' : 'text-slate-700 dark:text-slate-300'}`}>
-                                        {l.id}
-                                        {currentLeague === l.id && <span className="text-blue-600 dark:text-blue-400">●</span>}
-                                    </button>
-                                ))}
+                                <div className="flex flex-col max-h-72 overflow-y-auto">
+                                    {sortedLeagues.map(l => {
+                                        const len = l.id.length;
+                                        const fontClass = len <= 10 ? 'text-sm' : len <= 18 ? 'text-xs' : 'text-[11px]';
+                                        return (
+                                            <button key={l.id} onClick={() => { onSelectLeague(l.id); setShowLeagueMenu(false); }} className={`w-full text-left px-4 py-3 font-bold hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors font-sans flex justify-between items-center gap-2 ${fontClass} ${currentLeague === l.id ? 'text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20' : 'text-slate-700 dark:text-slate-300'}`}>
+                                                <span className="break-words leading-tight flex-1">{l.id}</span>
+                                                {currentLeague === l.id && <span className="text-blue-600 dark:text-blue-400 shrink-0">●</span>}
+                                            </button>
+                                        );
+                                    })}
+                                </div>
                             </div>
                         )}
                     </div>
@@ -273,16 +279,20 @@ export const Navbar: React.FC<NavbarProps> = ({
                         <div>
                             <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">Leagues</h3>
                             <div className="space-y-2">
-                                {sortedLeagues.map(l => (
-                                    <button 
-                                        key={l.id} 
-                                        onClick={() => { onSelectLeague(l.id); setMenuOpen(false); }} 
-                                        className={`w-full text-left p-3 rounded-xl font-bold flex justify-between items-center transition-colors ${currentLeague === l.id ? 'bg-blue-600 text-white shadow-lg shadow-blue-900/20' : 'bg-slate-100 dark:bg-slate-900 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-800'}`}
-                                    >
-                                        {l.id}
-                                        {currentLeague === l.id && <span className="text-white">●</span>}
-                                    </button>
-                                ))}
+                                {sortedLeagues.map(l => {
+                                    const len = l.id.length;
+                                    const fontClass = len <= 10 ? 'text-sm' : len <= 18 ? 'text-xs' : 'text-[11px]';
+                                    return (
+                                        <button 
+                                            key={l.id} 
+                                            onClick={() => { onSelectLeague(l.id); setMenuOpen(false); }} 
+                                            className={`w-full text-left p-3 rounded-xl font-bold flex justify-between items-center gap-2 transition-colors ${fontClass} ${currentLeague === l.id ? 'bg-blue-600 text-white shadow-lg shadow-blue-900/20' : 'bg-slate-100 dark:bg-slate-900 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-800'}`}
+                                        >
+                                            <span className="break-words leading-tight flex-1">{l.id}</span>
+                                            {currentLeague === l.id && <span className="text-white shrink-0">●</span>}
+                                        </button>
+                                    );
+                                })}
                             </div>
                         </div>
 

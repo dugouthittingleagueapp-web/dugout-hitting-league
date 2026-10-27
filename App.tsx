@@ -997,33 +997,57 @@ const App: React.FC = () => {
                                 )}
                             </div>
                         ) : (
-                            <div className="flex flex-wrap justify-center gap-4 w-full max-w-5xl px-4 pb-8">
-                            {leagues.sort((a, b) => a.id.localeCompare(b.id, undefined, { numeric: true, sensitivity: 'base' })).map(league => (
-                                <button key={league.id} onClick={() => handleSelectLeague(league.id)} className="group relative bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800 p-0.5 rounded-xl shadow-xl dark:shadow-2xl transition-all duration-300 hover:-translate-y-1 hover:shadow-blue-500/20 dark:hover:shadow-blue-900/20 text-left w-32 sm:w-36 flex flex-col border border-slate-200 dark:border-slate-800 hover:border-blue-400 dark:hover:border-blue-500/50">
-                                    <div className="absolute inset-0 bg-gradient-to-b from-blue-400/0 to-blue-600/0 dark:from-blue-600/0 dark:to-blue-900/0 group-hover:to-blue-100/50 dark:group-hover:to-blue-900/20 rounded-xl transition-all duration-500"></div>
-                                    
-                                    <div className="h-full w-full rounded-lg p-3 flex flex-col justify-between relative overflow-hidden min-h-[100px]">
-                                        <div className="absolute -top-2 -right-2 text-slate-200 dark:text-slate-800/40 group-hover:text-blue-100 dark:group-hover:text-blue-600/10 transition-all duration-700 rotate-[15deg] scale-125">
-                                            <svg width="60" height="60" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1" strokeLinecap="round" strokeLinejoin="round">
-                                                <circle cx="12" cy="12" r="10" />
-                                                <path d="M6 4.5C8.5 7.5 9 10.5 9 12s-.5 4.5-3 7.5" />
-                                                <path d="M18 4.5C15.5 7.5 15 10.5 15 12s.5 4.5 3 7.5" />
-                                            </svg>
-                                        </div>
+                            <div className="flex flex-col gap-3 sm:gap-4 w-full max-w-sm sm:max-w-md mx-auto px-4 pb-8">
+                            {leagues.sort((a, b) => a.id.localeCompare(b.id, undefined, { numeric: true, sensitivity: 'base' })).map(league => {
+                                const len = league.id.length;
+                                const titleSizeClass = 
+                                    len <= 6 ? 'text-2xl sm:text-3xl' :
+                                    len <= 12 ? 'text-xl sm:text-2xl' :
+                                    len <= 18 ? 'text-lg sm:text-xl' :
+                                    'text-base sm:text-lg';
+
+                                return (
+                                    <button 
+                                        key={league.id} 
+                                        type="button"
+                                        onClick={() => handleSelectLeague(league.id)} 
+                                        className="group relative bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800/90 p-1 rounded-2xl shadow-lg dark:shadow-2xl transition-all duration-300 hover:-translate-y-0.5 active:scale-[0.99] hover:shadow-blue-500/20 dark:hover:shadow-blue-900/20 text-left w-full border border-slate-200 dark:border-slate-800 hover:border-blue-400 dark:hover:border-blue-500/50 cursor-pointer overflow-hidden"
+                                    >
+                                        <div className="absolute inset-0 bg-gradient-to-r from-blue-400/0 via-blue-600/0 to-blue-100/30 dark:to-blue-900/20 group-hover:to-blue-100/50 dark:group-hover:to-blue-900/30 rounded-2xl transition-all duration-500 pointer-events-none"></div>
                                         
-                                        <div className="relative z-10">
-                                            <div className="flex justify-between items-start">
-                                                <span className="inline-block px-1 py-0.5 rounded bg-slate-100 dark:bg-slate-950 text-slate-500 dark:text-slate-400 text-[8px] font-bold uppercase tracking-wider border border-slate-200 dark:border-slate-800 group-hover:border-blue-400 group-hover:text-blue-500 transition-colors">{state.season}</span>
-                                                <span className="w-1.5 h-1.5 rounded-full bg-blue-500 shadow-[0_0_8px_#3b82f6]"></span>
+                                        <div className="relative z-10 w-full p-4 sm:p-5 flex items-center justify-between gap-3 min-h-[72px] sm:min-h-[80px]">
+                                            {/* Decorative baseball watermark */}
+                                            <div className="absolute -top-3 right-10 text-slate-100 dark:text-slate-800/30 group-hover:text-blue-100 dark:group-hover:text-blue-600/10 transition-all duration-700 rotate-[15deg] scale-125 pointer-events-none">
+                                                <svg width="72" height="72" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1" strokeLinecap="round" strokeLinejoin="round">
+                                                    <circle cx="12" cy="12" r="10" />
+                                                    <path d="M6 4.5C8.5 7.5 9 10.5 9 12s-.5 4.5-3 7.5" />
+                                                    <path d="M18 4.5C15.5 7.5 15 10.5 15 12s.5 4.5 3 7.5" />
+                                                </svg>
+                                            </div>
+                                            
+                                            {/* Left Column: Tag and dynamically sized League Name */}
+                                            <div className="flex-1 min-w-0 pr-2">
+                                                <div className="flex items-center gap-2 mb-1.5">
+                                                    <span className="inline-block px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-950 text-slate-500 dark:text-slate-400 text-[9px] sm:text-[10px] font-bold uppercase tracking-wider border border-slate-200 dark:border-slate-800 group-hover:border-blue-400 group-hover:text-blue-500 transition-colors">
+                                                        {state.season} Season
+                                                    </span>
+                                                    <span className="w-1.5 h-1.5 rounded-full bg-blue-500 shadow-[0_0_8px_#3b82f6]"></span>
+                                                </div>
+                                                <h3 className={`${titleSizeClass} font-black text-slate-900 dark:text-white uppercase italic leading-tight group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors drop-shadow-sm break-words`}>
+                                                    {league.id}
+                                                </h3>
+                                            </div>
+
+                                            {/* Right Action Arrow Indicator */}
+                                            <div className="shrink-0 flex items-center justify-center w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-slate-100 dark:bg-slate-800/80 text-slate-400 group-hover:bg-blue-600 group-hover:text-white transition-all shadow-sm">
+                                                <svg className="w-5 h-5 group-hover:translate-x-0.5 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M9 5l7 7-7 7" />
+                                                </svg>
                                             </div>
                                         </div>
-                                        
-                                        <div className="relative z-10 mt-4 text-center">
-                                            <h3 className="text-xl sm:text-2xl font-black text-slate-800 dark:text-white uppercase italic leading-none mb-0.5 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors drop-shadow-sm truncate">{league.id}</h3>
-                                        </div>
-                                    </div>
-                                </button>
-                            ))}
+                                    </button>
+                                );
+                            })}
                             </div>
                         )}
 

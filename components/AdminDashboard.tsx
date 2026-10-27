@@ -377,20 +377,33 @@ export const AdminDashboard: React.FC<{
                     <label className="block text-[11px] sm:text-xs font-bold text-slate-500 dark:text-slate-400 uppercase mb-2 font-sans">
                         Existing Divisions ({selectedSeason} Season)
                     </label>
-                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 sm:gap-3">
-                        {leagues.map(l => (
-                            <div key={l.id} className="flex justify-between items-center p-2.5 sm:p-3 bg-slate-50 dark:bg-slate-950 rounded-xl border border-slate-200 dark:border-slate-800">
-                                <span className="font-bold text-slate-800 dark:text-white font-sans text-xs sm:text-sm truncate">{l.id}</span>
-                                <button 
-                                    onClick={() => handleDeleteLeague(l.id)}
-                                    className="text-red-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 p-1.5 rounded-lg transition-colors cursor-pointer shrink-0"
-                                    title="Delete Division"
-                                >
-                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
-                                </button>
-                            </div>
-                        ))}
-                        {leagues.length === 0 && <div className="col-span-full text-xs text-slate-400 italic font-sans py-2">No divisions found for {selectedSeason}. Create one above or import rosters.</div>}
+                    <div className="flex flex-col gap-2.5 w-full">
+                        {leagues.map(l => {
+                            const len = l.id.length;
+                            const dynamicFontClass = 
+                                len <= 8 ? 'text-sm sm:text-base' :
+                                len <= 16 ? 'text-xs sm:text-sm' :
+                                'text-[11px] sm:text-xs';
+
+                            return (
+                                <div key={l.id} className="flex justify-between items-center p-3 sm:p-3.5 bg-slate-50 dark:bg-slate-950 rounded-xl border border-slate-200 dark:border-slate-800 gap-3 shadow-xs">
+                                    <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                                        <span className="w-2 h-2 rounded-full bg-blue-500 shrink-0 shadow-[0_0_6px_#3b82f6]"></span>
+                                        <span className={`font-bold text-slate-800 dark:text-white font-sans ${dynamicFontClass} break-words leading-snug`}>
+                                            {l.id}
+                                        </span>
+                                    </div>
+                                    <button 
+                                        onClick={() => handleDeleteLeague(l.id)}
+                                        className="text-red-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 p-2 rounded-lg transition-colors cursor-pointer shrink-0"
+                                        title={`Delete ${l.id} Division`}
+                                    >
+                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                                    </button>
+                                </div>
+                            );
+                        })}
+                        {leagues.length === 0 && <div className="text-xs text-slate-400 italic font-sans py-2">No divisions found for {selectedSeason}. Create one above or import rosters.</div>}
                     </div>
                 </div>
             </div>

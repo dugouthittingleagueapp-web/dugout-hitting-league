@@ -1,18 +1,31 @@
 // Tactile haptic feedback utility for touch scoring
 
+let lastHapticTimestamp = 0;
+
+export const resetHapticThrottle = () => {
+  lastHapticTimestamp = 0;
+};
+
 export const triggerHaptic = (type: 'score' | 'undo' | 'toggle' | 'tap' = 'score') => {
+  const now = Date.now();
+  // Prevent duplicate vibrations if both pointerdown and click fire rapidly (<80ms)
+  if (lastHapticTimestamp > 0 && now >= lastHapticTimestamp && now - lastHapticTimestamp < 80) {
+    return;
+  }
+  lastHapticTimestamp = now;
+
   try {
-    if (typeof window !== 'undefined' && 'vibrate' in navigator) {
+    if (typeof navigator !== 'undefined' && typeof navigator.vibrate === 'function') {
       switch (type) {
         case 'score':
-          // Tactile feedback for scores 0-4
-          navigator.vibrate(80);
+          // Uniform tactile vibration feedback for all score input buttons (0-4)
+          navigator.vibrate(60);
           break;
         case 'undo':
-          navigator.vibrate([50, 70, 50]);
+          navigator.vibrate([40, 60, 40]);
           break;
         case 'toggle':
-          navigator.vibrate(40);
+          navigator.vibrate(35);
           break;
         case 'tap':
           navigator.vibrate(25);
@@ -20,7 +33,8 @@ export const triggerHaptic = (type: 'score' | 'undo' | 'toggle' | 'tap' = 'score
       }
     }
   } catch (e) {
-    // Vibration may be unavailable or disallowed on some devices/browsers
+    // Vibration may be unavailable, unsupported, or disallowed on some devices/browsers
   }
 };
+
 

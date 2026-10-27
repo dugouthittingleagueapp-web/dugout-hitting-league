@@ -144,7 +144,10 @@ export const ScoreInput: React.FC<ScoreInputProps> = ({
                         return (
                           <button 
                             key={score} 
+                            type="button"
+                            onPointerDown={() => triggerHaptic('score')}
                             onClick={() => handleSelect(score)} 
+                            aria-label={`Score ${score}`}
                             aria-pressed={isSelected} 
                             className={`h-20 sm:h-32 w-full rounded-xl text-3xl sm:text-4xl font-bold flex items-center justify-center transition-all active:scale-95 font-sans cursor-pointer ${getValueColor(score)} ${isSelected ? 'ring-4 ring-offset-2 ring-blue-400 dark:ring-offset-slate-900 shadow-lg scale-105' : 'hover:brightness-95 shadow-sm'}`}
                           >

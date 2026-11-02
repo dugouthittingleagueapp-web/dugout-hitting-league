@@ -393,6 +393,16 @@ export default defineConfig({
     host: '0.0.0.0',
     strictPort: true,
   },
+  build: {
+    chunkSizeWarningLimit: 1500,
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          vendor: ['react', 'react-dom'],
+        },
+      },
+    },
+  },
   define: {
     'process.env.API_KEY': JSON.stringify(process.env.API_KEY),
   },

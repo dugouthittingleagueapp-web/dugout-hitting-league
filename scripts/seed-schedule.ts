@@ -27,10 +27,22 @@ async function main() {
   console.log('⚾ DUGOUT HITTING LEAGUE - SCHEDULE SEEDER & IMPORTER ⚾');
   console.log('======================================================\n');
 
-  // 1. Locate CSV file
-  const customPath = process.argv[2];
-  const defaultPath = path.resolve(process.cwd(), 'public/assets/aistudio/schedule_export_20261102_121804_62b9d935.csv');
-  const targetCsvPath = customPath ? path.resolve(process.cwd(), customPath) : defaultPath;
+  // 1. Locate CSV file & Target League argument
+  const arg1 = process.argv[2];
+  const arg2 = process.argv[3];
+  
+  let targetCsvPath = path.resolve(process.cwd(), 'public/assets/aistudio/schedule_export_20261102_121804_62b9d935.csv');
+  let targetLeagueArg: string | undefined = undefined;
+
+  if (arg1) {
+    if (arg1.endsWith('.csv') || fs.existsSync(path.resolve(process.cwd(), arg1))) {
+      targetCsvPath = path.resolve(process.cwd(), arg1);
+      targetLeagueArg = arg2;
+    } else {
+      // First argument is the target league name (e.g., npm run seed:schedule "9U - Mondays")
+      targetLeagueArg = arg1;
+    }
+  }
 
   if (!fs.existsSync(targetCsvPath)) {
     console.error(`❌ Error: CSV schedule file not found at: ${targetCsvPath}`);
@@ -38,10 +50,15 @@ async function main() {
   }
 
   console.log(`📄 Loading CSV file from: ${targetCsvPath}`);
+  if (targetLeagueArg) {
+    console.log(`🎯 Directing schedule import to existing league: "${targetLeagueArg}"`);
+  }
   const csvContent = fs.readFileSync(targetCsvPath, 'utf-8');
 
   // 2. Parse CSV
-  const { games, errors: parseErrors } = parseScheduleCsv(csvContent);
+  const { games, errors: parseErrors } = parseScheduleCsv(csvContent, {
+    targetLeague: targetLeagueArg
+  });
   if (parseErrors.length > 0) {
     console.warn('⚠️ Warnings during CSV parsing:');
     parseErrors.forEach(err => console.warn(`   - ${err}`));
@@ -56,8 +73,8 @@ async function main() {
 
   // Target Season & League
   const targetSeason = games[0].season || '2026';
-  const targetLeague = games[0].group || '9U 3v3';
-  console.log(`🎯 Target Season: ${targetSeason} | Primary Division: ${targetLeague}`);
+  const targetLeague = games[0].group;
+  console.log(`🎯 Target Season: ${targetSeason} | Destination League Division: "${targetLeague}"`);
 
   // 3. Load or Connect to Storage
   const dbJsonPath = path.resolve(process.cwd(), '.data/db.json');

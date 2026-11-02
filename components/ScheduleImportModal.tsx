@@ -24,6 +24,8 @@ export const ScheduleImportModal: React.FC<ScheduleImportModalProps> = ({
   const [csvText, setCsvText] = useState('');
   const [targetSeason, setTargetSeason] = useState(currentSeason || '2026');
   const [targetLeague, setTargetLeague] = useState('');
+  const [isCustomLeague, setIsCustomLeague] = useState(false);
+  const [customLeagueInput, setCustomLeagueInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [loadingSample, setLoadingSample] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -66,7 +68,14 @@ export const ScheduleImportModal: React.FC<ScheduleImportModalProps> = ({
     setImportSummary(null);
     setErrorMessage(null);
     setLoading(false);
+    setIsCustomLeague(false);
+    setCustomLeagueInput('');
     if (fileInputRef.current) fileInputRef.current.value = '';
+  };
+
+  const getEffectiveTargetLeague = (selected: string, isCustom: boolean, customVal: string) => {
+    if (isCustom) return customVal.trim();
+    return selected.trim();
   };
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -77,7 +86,8 @@ export const ScheduleImportModal: React.FC<ScheduleImportModalProps> = ({
     reader.onload = (event) => {
       const content = event.target?.result as string;
       setCsvText(content);
-      processPreview(content);
+      const effLeague = getEffectiveTargetLeague(targetLeague, isCustomLeague, customLeagueInput);
+      processPreview(content, effLeague, targetSeason);
     };
     reader.onerror = () => {
       setErrorMessage('Failed to read schedule CSV file');
@@ -93,7 +103,8 @@ export const ScheduleImportModal: React.FC<ScheduleImportModalProps> = ({
       if (!res.ok) throw new Error('Sample CSV schedule file not found at /assets/aistudio/...');
       const content = await res.text();
       setCsvText(content);
-      processPreview(content);
+      const effLeague = getEffectiveTargetLeague(targetLeague, isCustomLeague, customLeagueInput);
+      processPreview(content, effLeague, targetSeason);
     } catch (err: any) {
       setErrorMessage('Failed to load premade schedule: ' + err.message);
     } finally {
@@ -101,13 +112,16 @@ export const ScheduleImportModal: React.FC<ScheduleImportModalProps> = ({
     }
   };
 
-  const processPreview = (rawContent: string) => {
+  const processPreview = (rawContent: string, selectedLeague?: string, seasonToUse?: string) => {
     setErrorMessage(null);
     setImportSummary(null);
 
+    const activeTargetLeague = selectedLeague !== undefined ? selectedLeague : getEffectiveTargetLeague(targetLeague, isCustomLeague, customLeagueInput);
+    const activeTargetSeason = seasonToUse || targetSeason;
+
     const { games, errors } = parseScheduleCsv(rawContent, {
-      defaultLeague: targetLeague || undefined,
-      defaultSeason: targetSeason
+      targetLeague: activeTargetLeague || undefined,
+      defaultSeason: activeTargetSeason
     });
 
     if (errors.length > 0 && games.length === 0) {
@@ -116,7 +130,7 @@ export const ScheduleImportModal: React.FC<ScheduleImportModalProps> = ({
       return;
     }
 
-    // Check duplicate status for each game preview row
+    // Check duplicate status for each game preview row in the resolved destination league
     const dupIndices = new Set<number>();
     games.forEach((game, idx) => {
       const homeTeam = existingTeamsList.find(
@@ -139,14 +153,39 @@ export const ScheduleImportModal: React.FC<ScheduleImportModalProps> = ({
     setPreviewDuplicates(dupIndices);
   };
 
+  const handleLeagueSelectChange = (val: string) => {
+    if (val === '__custom__') {
+      setIsCustomLeague(true);
+      setTargetLeague('');
+      if (csvText) {
+        processPreview(csvText, customLeagueInput.trim(), targetSeason);
+      }
+    } else {
+      setIsCustomLeague(false);
+      setTargetLeague(val);
+      if (csvText) {
+        processPreview(csvText, val.trim(), targetSeason);
+      }
+    }
+  };
+
+  const handleCustomLeagueInputChange = (val: string) => {
+    setCustomLeagueInput(val);
+    if (csvText) {
+      processPreview(csvText, val.trim(), targetSeason);
+    }
+  };
+
   const handleExecuteImport = async () => {
     if (!csvText.trim()) return;
     setLoading(true);
     setErrorMessage(null);
 
+    const effLeague = getEffectiveTargetLeague(targetLeague, isCustomLeague, customLeagueInput);
+
     try {
       const summary = await storage.importScheduleFromCsv(csvText, {
-        defaultLeague: targetLeague || undefined,
+        targetLeague: effLeague || undefined,
         defaultSeason: targetSeason
       });
 
@@ -222,17 +261,48 @@ export const ScheduleImportModal: React.FC<ScheduleImportModalProps> = ({
             </div>
 
             <div>
-              <label className="block text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase mb-1 font-sans">
-                Default Division / Group (Optional)
-              </label>
-              <select
-                value={targetLeague}
-                onChange={(e) => setTargetLeague(e.target.value)}
-                className="w-full p-2 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-slate-800 dark:text-white rounded-lg text-xs sm:text-sm font-bold font-sans cursor-pointer"
-              >
-                <option value="">Auto-detect from CSV Group column</option>
-                {availableLeagues.map(l => <option key={l.id} value={l.id}>{l.id}</option>)}
-              </select>
+              <div className="flex items-center justify-between mb-1">
+                <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 uppercase font-sans">
+                  Apply Schedule To League
+                </label>
+                {(targetLeague || (isCustomLeague && customLeagueInput.trim())) && (
+                  <span className="text-[10px] font-black text-blue-600 dark:text-blue-400 bg-blue-100 dark:bg-blue-900/40 px-1.5 py-0.5 rounded font-sans uppercase">
+                    DIRECTED
+                  </span>
+                )}
+              </div>
+              
+              <div className="space-y-1.5">
+                <select
+                  value={isCustomLeague ? '__custom__' : targetLeague}
+                  onChange={(e) => handleLeagueSelectChange(e.target.value)}
+                  className="w-full p-2 bg-white dark:bg-slate-900 border border-blue-400 dark:border-blue-600 text-slate-900 dark:text-white rounded-lg text-xs sm:text-sm font-bold font-sans cursor-pointer focus:ring-2 focus:ring-blue-500 shadow-sm"
+                >
+                  <option value="">Auto-detect from CSV (uses CSV "Group" column)</option>
+                  <optgroup label="Direct Import To Your Existing Leagues">
+                    {availableLeagues.map(l => (
+                      <option key={l.id} value={l.id}>
+                        {l.id} (Existing League)
+                      </option>
+                    ))}
+                  </optgroup>
+                  <option value="__custom__">+ Enter Custom League / Division Name...</option>
+                </select>
+
+                {isCustomLeague && (
+                  <input
+                    type="text"
+                    value={customLeagueInput}
+                    onChange={(e) => handleCustomLeagueInputChange(e.target.value)}
+                    placeholder="Enter custom league name (e.g. 9U - Mondays)"
+                    autoFocus
+                    className="w-full p-2 bg-white dark:bg-slate-900 border border-blue-500 text-slate-900 dark:text-white rounded-lg text-xs sm:text-sm font-bold font-sans outline-none ring-2 ring-blue-400/50"
+                  />
+                )}
+              </div>
+              <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-1 font-sans">
+                Select your created league to route all games directly into it, regardless of the internal name in your CSV.
+              </p>
             </div>
           </div>
 
@@ -395,9 +465,16 @@ export const ScheduleImportModal: React.FC<ScheduleImportModalProps> = ({
                             {game.location}
                           </td>
                           <td className="p-2 sm:p-2.5 whitespace-nowrap">
-                            <span className="bg-slate-200 dark:bg-slate-800 px-1.5 py-0.5 rounded text-[10px] font-bold">
-                              {game.group}
-                            </span>
+                            <div className="flex flex-col">
+                              <span className="bg-blue-100 dark:bg-blue-900/40 text-blue-800 dark:text-blue-300 px-2 py-0.5 rounded text-[11px] font-bold inline-block w-fit">
+                                {game.group}
+                              </span>
+                              {game.csvGroup && game.csvGroup !== game.group && (
+                                <span className="text-[10px] text-slate-400 dark:text-slate-500 mt-0.5 font-medium">
+                                  mapped from "{game.csvGroup}"
+                                </span>
+                              )}
+                            </div>
                           </td>
                           <td className="p-2 sm:p-2.5 font-bold text-red-600 dark:text-red-400">
                             {game.homeTeamName}

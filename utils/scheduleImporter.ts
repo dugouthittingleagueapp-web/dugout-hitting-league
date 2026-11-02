@@ -157,7 +157,7 @@ export const findColumnIndices = (headers: string[]): ColumnIndices => {
  */
 export const parseScheduleCsv = (
   csvContent: string,
-  options?: { defaultLeague?: string; defaultSeason?: string }
+  options?: { targetLeague?: string; defaultLeague?: string; defaultSeason?: string }
 ): { games: ScheduledGameRecord[]; errors: string[] } => {
   const rows = parseCSV(csvContent);
   if (rows.length < 2) {
@@ -204,7 +204,11 @@ export const parseScheduleCsv = (
     const startTime = indices.startTime !== -1 ? row[indices.startTime]?.trim() : '6:00 pm';
     const endTime = indices.endTime !== -1 ? row[indices.endTime]?.trim() : '7:00 pm';
     const location = indices.location !== -1 ? row[indices.location]?.trim() : 'The Dugout';
-    const group = (indices.group !== -1 ? row[indices.group]?.trim() : '') || options?.defaultLeague || '9U 3v3';
+    const csvGroup = indices.group !== -1 ? row[indices.group]?.trim() : '';
+    // If user explicitly directed the schedule to an existing app league, prioritize targetLeague
+    const group = (options?.targetLeague && options.targetLeague.trim()) 
+      ? options.targetLeague.trim() 
+      : (csvGroup || options?.defaultLeague || '9U 3v3');
     const notes = indices.notes !== -1 ? row[indices.notes]?.trim() : undefined;
 
     const scheduledIsoDate = combineDateAndTime(date, startTime);
@@ -216,6 +220,7 @@ export const parseScheduleCsv = (
       endTime,
       location,
       group,
+      csvGroup: csvGroup || undefined,
       homeTeamName,
       awayTeamName,
       notes,

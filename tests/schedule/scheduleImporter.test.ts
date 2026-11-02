@@ -82,6 +82,19 @@ describe('Schedule Importer Utility', () => {
       expect(games[0].scheduledIsoDate).toBeDefined();
     });
 
+    it('directs schedule games to the selected existing league regardless of internal CSV group name', () => {
+      // CSV internal group is "9U 3v3", user directs it to app league "9U - Mondays"
+      const { games } = parseScheduleCsv(sampleCsv, {
+        targetLeague: '9U - Mondays',
+        defaultSeason: '2026',
+      });
+      expect(games).toHaveLength(4);
+      games.forEach(g => {
+        expect(g.group).toBe('9U - Mondays');
+        expect(g.csvGroup).toBe('9U 3v3');
+      });
+    });
+
     it('returns error when essential headers are missing', () => {
       const badCsv = 'HeaderA,HeaderB\nValA,ValB';
       const { games, errors } = parseScheduleCsv(badCsv);

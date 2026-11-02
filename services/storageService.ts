@@ -1310,7 +1310,7 @@ export const getPlayerCareerStats = async (playerIdentifier: string): Promise<Pl
  */
 export const importScheduleFromCsv = async (
   csvContent: string,
-  options?: { defaultLeague?: string; defaultSeason?: string }
+  options?: { targetLeague?: string; defaultLeague?: string; defaultSeason?: string }
 ): Promise<ScheduleImportSummary> => {
   const { games, errors } = parseScheduleCsv(csvContent, options);
   if (games.length === 0) {

@@ -1,6 +1,7 @@
 
-import { AgeGroup, Match, Team, Inning, PlayerInningScore, League, PlayerStats, Player, PlayerSeasonStatRow, PlayerCareerSummary } from '../types';
+import { AgeGroup, Match, Team, Inning, PlayerInningScore, League, PlayerStats, Player, PlayerSeasonStatRow, PlayerCareerSummary, ScheduledGameRecord, ScheduleImportSummary } from '../types';
 import { ARCHIVE_2025_LEAGUES, ARCHIVE_2025_TEAMS, ARCHIVE_2025_MATCHES } from './archive2025Data';
+import { parseScheduleCsv, isDuplicateMatch } from '../utils/scheduleImporter';
 
 export const normalizeLeague = (league?: string | null): string => {
   return (league || '').trim().toLowerCase();
@@ -29,7 +30,11 @@ const mapMatchFromDB = (dbMatch: any): Match => {
     isComplete: dbMatch.is_complete !== undefined ? dbMatch.is_complete : (dbMatch.isComplete ?? false),
     innings: typeof dbMatch.innings === 'string' ? JSON.parse(dbMatch.innings) : dbMatch.innings,
     season: inferredSeason,
-    tieBreaker: dbMatch.tie_breaker ? (typeof dbMatch.tie_breaker === 'string' ? JSON.parse(dbMatch.tie_breaker) : dbMatch.tie_breaker) : (dbMatch.tieBreaker || undefined)
+    tieBreaker: dbMatch.tie_breaker ? (typeof dbMatch.tie_breaker === 'string' ? JSON.parse(dbMatch.tie_breaker) : dbMatch.tie_breaker) : (dbMatch.tieBreaker || undefined),
+    location: dbMatch.location || undefined,
+    startTime: dbMatch.start_time || dbMatch.startTime || undefined,
+    endTime: dbMatch.end_time || dbMatch.endTime || undefined,
+    notes: dbMatch.notes || undefined
   };
 };
 
@@ -543,6 +548,56 @@ export const createMatch = async (league: AgeGroup, homeTeamId: string, awayTeam
     if (!res.ok) throw new Error('Failed to create match');
     const data = await res.json();
     return mapMatchFromDB(data);
+};
+
+export const createScheduledMatch = async (params: {
+  league: AgeGroup;
+  homeTeamId: string;
+  awayTeamId: string;
+  homePlayerIds: string[];
+  awayPlayerIds: string[];
+  season: string;
+  date: string;
+  location?: string;
+  startTime?: string;
+  endTime?: string;
+  notes?: string;
+}): Promise<Match> => {
+  const innings: Inning[] = [];
+  for (let i = 1; i <= 6; i++) {
+    innings.push(createEmptyInning(i, params.homePlayerIds, params.awayPlayerIds));
+  }
+
+  const match: Match = {
+    id: generateUUID(),
+    league: params.league,
+    homeTeamId: params.homeTeamId,
+    awayTeamId: params.awayTeamId,
+    date: params.date,
+    isComplete: false,
+    innings,
+    season: params.season,
+    location: params.location,
+    startTime: params.startTime,
+    endTime: params.endTime,
+    notes: params.notes,
+  };
+
+  if (typeof window !== 'undefined') {
+    try {
+      localStorage.setItem(`dugout_match_${match.id}`, JSON.stringify(match));
+    } catch (e) {}
+  }
+
+  const res = await apiFetch('/api/matches', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(match),
+  });
+
+  if (!res.ok) throw new Error('Failed to create scheduled match');
+  const data = await res.json();
+  return mapMatchFromDB(data);
 };
 
 export const createEmptyInning = (number: number, homeIds: string[], awayIds: string[]): Inning => {
@@ -1248,3 +1303,145 @@ export const getPlayerCareerStats = async (playerIdentifier: string): Promise<Pl
     }
   };
 };
+
+/**
+ * High-level schedule import service:
+ * Parses CSV, auto-creates leagues/teams, skips duplicate games, and provisions scheduled matches.
+ */
+export const importScheduleFromCsv = async (
+  csvContent: string,
+  options?: { defaultLeague?: string; defaultSeason?: string }
+): Promise<ScheduleImportSummary> => {
+  const { games, errors } = parseScheduleCsv(csvContent, options);
+  if (games.length === 0) {
+    return {
+      totalRows: 0,
+      createdMatches: 0,
+      skippedDuplicates: 0,
+      createdTeams: [],
+      createdLeagues: [],
+      errors,
+    };
+  }
+
+  const activeSeason = options?.defaultSeason || (await getCurrentSeason());
+  const existingLeagues = await getLeagues(activeSeason);
+  const existingTeams = await getAllTeams();
+  const existingMatches = await getAllMatches();
+
+  const createdLeaguesSet = new Set<string>();
+  const createdTeamsSet = new Set<string>();
+  let createdMatches = 0;
+  let skippedDuplicates = 0;
+
+  for (const game of games) {
+    const season = game.season || activeSeason;
+    const leagueName = game.group;
+
+    // 1. Ensure league division exists
+    const leagueFound = existingLeagues.some(
+      l => leaguesMatch(l.id, leagueName) && (l.season || activeSeason) === season
+    );
+    if (!leagueFound && !createdLeaguesSet.has(leagueName)) {
+      try {
+        await createLeague(leagueName, season);
+        existingLeagues.push({ id: leagueName, season, created_at: new Date().toISOString() });
+        createdLeaguesSet.add(leagueName);
+      } catch (err: any) {
+        errors.push(`Failed to create division "${leagueName}": ${err.message}`);
+      }
+    }
+
+    // 2. Resolve or create Home Team
+    let homeTeam = existingTeams.find(
+      t => t.name.trim().toLowerCase() === game.homeTeamName.trim().toLowerCase() &&
+           leaguesMatch(t.league, leagueName) &&
+           (t.season || activeSeason) === season
+    );
+    if (!homeTeam) {
+      try {
+        homeTeam = await createTeam(
+          game.homeTeamName.trim(),
+          leagueName,
+          [
+            { name: `${game.homeTeamName} Player 1` },
+            { name: `${game.homeTeamName} Player 2` },
+            { name: `${game.homeTeamName} Player 3` },
+          ],
+          season
+        );
+        existingTeams.push(homeTeam);
+        createdTeamsSet.add(game.homeTeamName.trim());
+      } catch (err: any) {
+        errors.push(`Failed to auto-create Home Team "${game.homeTeamName}": ${err.message}`);
+        continue;
+      }
+    }
+
+    // 3. Resolve or create Away Team
+    let awayTeam = existingTeams.find(
+      t => t.name.trim().toLowerCase() === game.awayTeamName.trim().toLowerCase() &&
+           leaguesMatch(t.league, leagueName) &&
+           (t.season || activeSeason) === season
+    );
+    if (!awayTeam) {
+      try {
+        awayTeam = await createTeam(
+          game.awayTeamName.trim(),
+          leagueName,
+          [
+            { name: `${game.awayTeamName} Player 1` },
+            { name: `${game.awayTeamName} Player 2` },
+            { name: `${game.awayTeamName} Player 3` },
+          ],
+          season
+        );
+        existingTeams.push(awayTeam);
+        createdTeamsSet.add(game.awayTeamName.trim());
+      } catch (err: any) {
+        errors.push(`Failed to auto-create Away Team "${game.awayTeamName}": ${err.message}`);
+        continue;
+      }
+    }
+
+    // 4. Duplicate check
+    const isDup = isDuplicateMatch(game, homeTeam.id, awayTeam.id, existingMatches);
+    if (isDup) {
+      skippedDuplicates++;
+      continue;
+    }
+
+    // 5. Create Scheduled Match
+    try {
+      const homePids = (homeTeam.players || []).slice(0, 3).map(p => p.id);
+      const awayPids = (awayTeam.players || []).slice(0, 3).map(p => p.id);
+      const created = await createScheduledMatch({
+        league: leagueName,
+        homeTeamId: homeTeam.id,
+        awayTeamId: awayTeam.id,
+        homePlayerIds: homePids,
+        awayPlayerIds: awayPids,
+        season,
+        date: game.scheduledIsoDate,
+        location: game.location,
+        startTime: game.startTime,
+        endTime: game.endTime,
+        notes: game.notes,
+      });
+      existingMatches.push(created);
+      createdMatches++;
+    } catch (err: any) {
+      errors.push(`Failed to schedule match ${game.homeTeamName} vs ${game.awayTeamName}: ${err.message}`);
+    }
+  }
+
+  return {
+    totalRows: games.length,
+    createdMatches,
+    skippedDuplicates,
+    createdTeams: Array.from(createdTeamsSet),
+    createdLeagues: Array.from(createdLeaguesSet),
+    errors,
+  };
+};
+

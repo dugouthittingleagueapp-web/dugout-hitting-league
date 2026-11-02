@@ -4,7 +4,7 @@ import pool from './db.js';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   try {
-    // Ensure table exists with season
+    // Ensure table exists with season and schedule columns
     await pool.query(`
       CREATE TABLE IF NOT EXISTS matches (
         id UUID PRIMARY KEY,
@@ -15,14 +15,30 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         is_complete BOOLEAN DEFAULT FALSE,
         innings JSONB NOT NULL,
         season TEXT NOT NULL DEFAULT TO_CHAR(CURRENT_DATE, 'YYYY'),
+        location TEXT,
+        start_time TEXT,
+        end_time TEXT,
+        notes TEXT,
         created_at TIMESTAMPTZ DEFAULT NOW()
       );
 
-      -- Safe migration for existing tables without 'season'
+      -- Safe migration for existing tables without new columns
       DO $$ 
       BEGIN 
         IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='matches' AND column_name='season') THEN 
           ALTER TABLE matches ADD COLUMN season TEXT NOT NULL DEFAULT TO_CHAR(CURRENT_DATE, 'YYYY'); 
+        END IF; 
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='matches' AND column_name='location') THEN 
+          ALTER TABLE matches ADD COLUMN location TEXT; 
+        END IF; 
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='matches' AND column_name='start_time') THEN 
+          ALTER TABLE matches ADD COLUMN start_time TEXT; 
+        END IF; 
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='matches' AND column_name='end_time') THEN 
+          ALTER TABLE matches ADD COLUMN end_time TEXT; 
+        END IF; 
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='matches' AND column_name='notes') THEN 
+          ALTER TABLE matches ADD COLUMN notes TEXT; 
         END IF; 
       END $$;
     `);
@@ -64,7 +80,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(200).json(rows);
     } 
     else if (req.method === 'POST') {
-      const { id, league, homeTeamId, awayTeamId, date, isComplete, innings, season } = req.body;
+      const { id, league, homeTeamId, awayTeamId, date, isComplete, innings, season, location, startTime, endTime, notes } = req.body;
       
       let matchSeason = season;
       if (!matchSeason) {
@@ -75,14 +91,31 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }
       if (!matchSeason) matchSeason = new Date().getFullYear().toString();
 
-      const query = `INSERT INTO matches (id, league, home_team_id, away_team_id, date, is_complete, innings, season) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *`;
-      const values = [id, league, homeTeamId, awayTeamId, date, isComplete, JSON.stringify(innings), matchSeason];
+      const query = `
+        INSERT INTO matches (id, league, home_team_id, away_team_id, date, is_complete, innings, season, location, start_time, end_time, notes) 
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12) 
+        RETURNING *
+      `;
+      const values = [
+        id, 
+        league, 
+        homeTeamId, 
+        awayTeamId, 
+        date, 
+        isComplete, 
+        JSON.stringify(innings), 
+        matchSeason,
+        location || null,
+        startTime || null,
+        endTime || null,
+        notes || null
+      ];
       const { rows } = await pool.query(query, values);
       return res.status(201).json(rows[0]);
     } 
     else if (req.method === 'PUT') {
       // We accept tieBreaker via the 'innings' field (merged in FE) or if passed as a prop we merge it here
-      const { id, isComplete, innings, tieBreaker, league } = req.body;
+      const { id, isComplete, innings, tieBreaker, league, location, startTime, endTime, notes } = req.body;
       
       // We need to ensure the column exists
       await pool.query(`
@@ -94,14 +127,31 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         END $$;
       `);
       
-      // Updated query to allow changing league (COALESCE keeps existing if undefined)
+      // Updated query to allow changing league and schedule fields
       const queryUpdate = `
         UPDATE matches 
-        SET is_complete = $2, innings = $3, tie_breaker = $4, league = COALESCE($5, league) 
+        SET is_complete = $2, 
+            innings = $3, 
+            tie_breaker = $4, 
+            league = COALESCE($5, league),
+            location = COALESCE($6, location),
+            start_time = COALESCE($7, start_time),
+            end_time = COALESCE($8, end_time),
+            notes = COALESCE($9, notes)
         WHERE id = $1 
         RETURNING *
       `;
-      const values = [id, isComplete, JSON.stringify(innings), tieBreaker ? JSON.stringify(tieBreaker) : null, league !== undefined ? league : null];
+      const values = [
+        id, 
+        isComplete, 
+        JSON.stringify(innings), 
+        tieBreaker ? JSON.stringify(tieBreaker) : null, 
+        league !== undefined ? league : null,
+        location !== undefined ? location : null,
+        startTime !== undefined ? startTime : null,
+        endTime !== undefined ? endTime : null,
+        notes !== undefined ? notes : null
+      ];
 
       const { rows } = await pool.query(queryUpdate, values);
       

@@ -61,6 +61,32 @@ export interface Match {
   isComplete: boolean;
   innings: Inning[];
   tieBreaker?: TieBreakerRound[];
+  location?: string;
+  startTime?: string;
+  endTime?: string;
+  notes?: string;
+}
+
+export interface ScheduledGameRecord {
+  date: string;
+  startTime: string;
+  endTime: string;
+  location: string;
+  group: string;
+  homeTeamName: string;
+  awayTeamName: string;
+  notes?: string;
+  scheduledIsoDate: string;
+  season: string;
+}
+
+export interface ScheduleImportSummary {
+  totalRows: number;
+  createdMatches: number;
+  skippedDuplicates: number;
+  createdTeams: string[];
+  createdLeagues: string[];
+  errors: string[];
 }
 
 export interface PlayerStats {

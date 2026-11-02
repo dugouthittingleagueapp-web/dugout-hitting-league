@@ -1353,7 +1353,41 @@ const App: React.FC = () => {
                                                             <div className="text-[8px] sm:text-[10px] font-bold uppercase tracking-wider text-blue-500/80">Away</div>
                                                         </div>
                                                     </div>
+
+                                                    {/* Scheduled Time & Tunnel / Venue Assignment */}
+                                                    {(match.startTime || match.location) && (
+                                                        <div className="hidden sm:flex flex-wrap items-center gap-2 text-[11px] text-slate-500 dark:text-slate-400 font-sans shrink-0 border-l border-slate-200 dark:border-slate-800 pl-3">
+                                                            {match.startTime && (
+                                                                <span className="inline-flex items-center gap-1 font-bold text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/40 px-2 py-0.5 rounded-md">
+                                                                    <svg className="w-3 h-3 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                                                                    {match.startTime}{match.endTime ? ` - ${match.endTime}` : ''}
+                                                                </span>
+                                                            )}
+                                                            {match.location && (
+                                                                <span className="inline-flex items-center gap-1 font-medium text-slate-600 dark:text-slate-400">
+                                                                    <svg className="w-3 h-3 text-rose-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+                                                                    {match.location}
+                                                                </span>
+                                                            )}
+                                                        </div>
+                                                    )}
                                                 </div>
+
+                                                {/* Mobile Schedule details row */}
+                                                {(match.startTime || match.location) && (
+                                                    <div className="flex sm:hidden items-center justify-between gap-2 text-[10px] text-slate-500 dark:text-slate-400 font-sans bg-slate-100/60 dark:bg-slate-800/40 px-2.5 py-1 rounded-lg">
+                                                        {match.startTime && (
+                                                            <span className="inline-flex items-center gap-1 font-bold text-blue-600 dark:text-blue-400">
+                                                                ⏰ {match.startTime}{match.endTime ? ` - ${match.endTime}` : ''}
+                                                            </span>
+                                                        )}
+                                                        {match.location && (
+                                                            <span className="inline-flex items-center gap-1 font-medium truncate">
+                                                                📍 {match.location}
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                )}
 
                                                 {/* Right Section: Action Buttons */}
                                                 <div className="flex items-center gap-2 w-full lg:w-auto justify-end shrink-0 pt-2 lg:pt-0 border-t lg:border-t-0 border-slate-200/60 dark:border-slate-800">

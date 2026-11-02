@@ -321,6 +321,10 @@ function devApiPlugin(): Plugin {
                 innings: match.innings || [],
                 season: match.season || activeSeason,
                 tie_breaker: match.tieBreaker || match.tie_breaker,
+                location: match.location || null,
+                start_time: match.startTime || match.start_time || null,
+                end_time: match.endTime || match.end_time || null,
+                notes: match.notes || null,
                 created_at: new Date().toISOString(),
               };
               db.matches.unshift(newMatch);
@@ -338,6 +342,10 @@ function devApiPlugin(): Plugin {
                   away_team_id: match.awayTeamId || match.away_team_id || db.matches[idx].away_team_id,
                   is_complete: match.isComplete !== undefined ? match.isComplete : db.matches[idx].is_complete,
                   tie_breaker: match.tieBreaker !== undefined ? match.tieBreaker : db.matches[idx].tie_breaker,
+                  location: match.location !== undefined ? match.location : db.matches[idx].location,
+                  start_time: (match.startTime || match.start_time) !== undefined ? (match.startTime || match.start_time) : db.matches[idx].start_time,
+                  end_time: (match.endTime || match.end_time) !== undefined ? (match.endTime || match.end_time) : db.matches[idx].end_time,
+                  notes: match.notes !== undefined ? match.notes : db.matches[idx].notes,
                 };
                 saveDb(db);
                 return sendJson(res, 200, db.matches[idx]);

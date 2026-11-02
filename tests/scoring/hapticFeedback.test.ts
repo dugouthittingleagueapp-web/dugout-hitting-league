@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { triggerHaptic, resetHapticThrottle } from '../../utils/feedback';
+import { triggerHaptic, resetHapticThrottle, playUmpireClickerSound, playHapticFallbackClick } from '../../utils/feedback';
 
-describe('Vibration Feedback for Score Inputs', () => {
+describe('Vibration and Umpire Clicker Feedback for Score Inputs', () => {
   let vibrateMock: ReturnType<typeof vi.fn>;
 
   beforeEach(() => {
@@ -47,7 +47,7 @@ describe('Vibration Feedback for Score Inputs', () => {
     expect(vibrateMock).toHaveBeenCalledTimes(2);
   });
 
-  it('safely handles environments without navigator.vibrate support without throwing', () => {
+  it('safely handles environments without navigator.vibrate support (e.g. iPhone) without throwing', () => {
     Object.defineProperty(navigator, 'vibrate', {
       value: undefined,
       writable: true,
@@ -62,4 +62,10 @@ describe('Vibration Feedback for Score Inputs', () => {
     expect(() => triggerHaptic('score')).not.toThrow();
     expect(vibrateMock).toHaveBeenCalled();
   });
+
+  it('safely executes playUmpireClickerSound directly without throwing in non-browser or muted environments', () => {
+    expect(() => playUmpireClickerSound()).not.toThrow();
+    expect(() => playHapticFallbackClick()).not.toThrow();
+  });
 });
+

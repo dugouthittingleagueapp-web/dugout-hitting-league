@@ -10,7 +10,8 @@
     "preview": "vite preview",
     "lint": "tsc --noEmit",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "seed:schedule": "tsx scripts/seed-schedule.ts"
   },
   "dependencies": {
     "@google/genai": "^2.30.0",
@@ -24,6 +25,7 @@
     "@types/react-dom": "^19.0.0",
     "@vercel/node": "^3.0.0",
     "@vitejs/plugin-react": "^4.2.1",
+    "tsx": "^4.23.15",
     "typescript": "^5.2.2",
     "vite": "^5.0.0",
     "vitest": "^1.6.1"

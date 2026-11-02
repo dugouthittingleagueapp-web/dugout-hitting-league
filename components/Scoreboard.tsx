@@ -526,7 +526,7 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
         <div className={`p-1.5 sm:p-3 rounded-t-lg border-b flex justify-between items-end shadow-sm ${headerClass}`}>
           <div className="flex items-center gap-2 sm:gap-3">
              <div><span className="text-[9px] sm:text-xs font-bold uppercase opacity-80 tracking-wider font-sans">{side === 'home' ? 'Home' : 'Away'}</span><h3 className="text-[9px] sm:text-xl font-black leading-tight font-sans whitespace-normal">{team.name}</h3></div>
-             {canEdit && <button onClick={() => setRosterSide(side)} className="bg-white/80 dark:bg-slate-800 hover:bg-white text-slate-600 dark:text-slate-300 px-2 py-1 rounded text-[10px] font-bold border border-slate-200 dark:border-slate-700 shadow-sm font-sans">Edit Roster</button>}
+             {canEdit && <button onClick={() => setRosterSide(side)} className="bg-white/80 dark:bg-slate-800 hover:bg-white text-slate-700 dark:text-slate-200 px-2.5 py-1 rounded-lg text-[10px] font-bold border border-slate-300 dark:border-slate-700 shadow-sm font-sans flex items-center gap-1 cursor-pointer"><span>⚾</span><span>Set Lineup</span></button>}
           </div>
           <div className="text-lg sm:text-2xl font-sans tabular-nums font-bold">{calculateTeamInningTotal(side, currentInning)} <span className="text-xs sm:text-sm font-normal opacity-60 font-sans">pts</span></div>
         </div>
@@ -670,26 +670,121 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
       {rosterSide && createPortal(
           <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/60 p-4" onClick={() => setRosterSide(null)}>
               <div className="bg-white dark:bg-slate-900 p-6 rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden flex flex-col max-h-[90vh]" onClick={e => e.stopPropagation()}>
-                  <h3 className="text-xl font-bold text-slate-800 dark:text-white mb-4">Edit Roster: {rosterSide === 'home' ? teams.home?.name : teams.away?.name}</h3>
-                  <div className="flex-1 overflow-y-auto space-y-3 mb-4 pr-1">
+                  <div className="mb-4">
+                      <h3 className="text-xl font-bold text-slate-800 dark:text-white">Set Batting Order & Lineup</h3>
+                      <p className="text-xs text-slate-500 dark:text-slate-400 font-sans mt-0.5">{rosterSide === 'home' ? teams.home?.name : teams.away?.name}</p>
+                  </div>
+
+                  <div className="flex-1 overflow-y-auto space-y-4 mb-4 pr-1">
                       {(() => {
                           const team = rosterSide === 'home' ? teams.home : teams.away;
                           const allPotential = [...(team?.players || []), ...(team?.subs || [])];
                           const lineup = currentInning[rosterSide!].playerScores.map(x => x.playerId);
+                          const bench = allPotential.filter(p => !lineup.includes(p.id));
 
-                          return allPotential.map(p => {
-                            const isIn = lineup.includes(p.id);
-                            return (
-                                <button key={p.id} onClick={() => {
-                                    const newList = isIn ? lineup.filter(id => id !== p.id) : [...lineup, p.id];
-                                    if (newList.length >= 2 && newList.length <= 3) saveRosterChange(rosterSide!, newList);
-                                    else alert("Must have 2 or 3 players.");
-                                }} className={`w-full flex justify-between items-center p-3 rounded-xl border-2 transition-all group ${isIn ? 'border-blue-500 bg-blue-50 hover:bg-blue-100 dark:bg-blue-900/20 dark:hover:bg-blue-900/40' : 'border-slate-100 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700'}`}>
-                                    <span className={`font-bold transition-colors text-sm ${isIn ? 'text-blue-900 dark:text-blue-100' : 'text-slate-600 dark:text-slate-400 group-hover:text-slate-900 dark:group-hover:text-slate-100'}`}>{formatName(p)}</span>
-                                    <span className={`text-[10px] font-bold font-sans tracking-wide transition-colors ${isIn ? 'text-red-600' : 'text-blue-600'}`}>{isIn ? 'Remove' : 'Add'}</span>
-                                </button>
-                            );
-                          });
+                          return (
+                              <div className="space-y-4">
+                                  <div>
+                                      <span className="text-[10px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400 block mb-2 font-sans">
+                                          Batting Order ({lineup.length} Batters)
+                                      </span>
+                                      <div className="space-y-2">
+                                          {lineup.map((pid, idx) => {
+                                              const player = allPotential.find(p => p.id === pid);
+                                              const slotLabel = idx === 0 ? '1st (Lead-off)' : idx === 1 ? '2nd' : '3rd';
+
+                                              return (
+                                                  <div key={pid} className="flex items-center justify-between p-2.5 rounded-xl border border-blue-200 dark:border-blue-900/60 bg-blue-50/50 dark:bg-blue-950/20 gap-2">
+                                                      <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                                                          <div className="w-6 h-6 rounded-lg bg-blue-600 text-white font-black text-xs flex items-center justify-center shrink-0">
+                                                              {idx + 1}
+                                                          </div>
+                                                          <div className="min-w-0 flex-1">
+                                                              <div className="text-[9px] font-bold text-blue-600 dark:text-blue-400 uppercase tracking-wider">{slotLabel}</div>
+                                                              <div className="font-bold text-sm text-slate-900 dark:text-white truncate">{player ? formatName(player) : 'Unknown'}</div>
+                                                          </div>
+                                                      </div>
+
+                                                      <div className="flex items-center gap-1 shrink-0">
+                                                          <button
+                                                              type="button"
+                                                              disabled={idx === 0}
+                                                              onClick={() => {
+                                                                  if (idx <= 0) return;
+                                                                  const copy = [...lineup];
+                                                                  const temp = copy[idx - 1];
+                                                                  copy[idx - 1] = copy[idx];
+                                                                  copy[idx] = temp;
+                                                                  saveRosterChange(rosterSide!, copy);
+                                                              }}
+                                                              title="Move up in batting order"
+                                                              className="p-1 rounded bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300 disabled:opacity-30 disabled:cursor-not-allowed hover:bg-slate-100 dark:hover:bg-slate-700"
+                                                          >
+                                                              ▲
+                                                          </button>
+                                                          <button
+                                                              type="button"
+                                                              disabled={idx === lineup.length - 1}
+                                                              onClick={() => {
+                                                                  if (idx >= lineup.length - 1) return;
+                                                                  const copy = [...lineup];
+                                                                  const temp = copy[idx + 1];
+                                                                  copy[idx + 1] = copy[idx];
+                                                                  copy[idx] = temp;
+                                                                  saveRosterChange(rosterSide!, copy);
+                                                              }}
+                                                              title="Move down in batting order"
+                                                              className="p-1 rounded bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300 disabled:opacity-30 disabled:cursor-not-allowed hover:bg-slate-100 dark:hover:bg-slate-700"
+                                                          >
+                                                              ▼
+                                                          </button>
+                                                          {lineup.length > 2 && (
+                                                              <button
+                                                                  type="button"
+                                                                  onClick={() => {
+                                                                      const copy = lineup.filter(id => id !== pid);
+                                                                      saveRosterChange(rosterSide!, copy);
+                                                                  }}
+                                                                  title="Remove from lineup (switch to Ghost Mode)"
+                                                                  className="p-1 rounded bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-800 text-red-600 dark:text-red-400 hover:bg-red-100 text-xs font-bold"
+                                                              >
+                                                                  ✕
+                                                              </button>
+                                                          )}
+                                                      </div>
+                                                  </div>
+                                              );
+                                          })}
+                                      </div>
+                                  </div>
+
+                                  {bench.length > 0 && (
+                                      <div>
+                                          <span className="text-[10px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400 block mb-2 font-sans">
+                                              Bench Players
+                                          </span>
+                                          <div className="space-y-1.5">
+                                              {bench.map(p => (
+                                                  <div key={p.id} className="flex items-center justify-between p-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50">
+                                                      <span className="font-bold text-xs text-slate-700 dark:text-slate-300 truncate">{formatName(p)}</span>
+                                                      {lineup.length < 3 && (
+                                                          <button
+                                                              type="button"
+                                                              onClick={() => {
+                                                                  saveRosterChange(rosterSide!, [...lineup, p.id]);
+                                                              }}
+                                                              className="px-2 py-1 rounded bg-blue-600 text-white text-[10px] font-bold hover:bg-blue-700"
+                                                          >
+                                                              + Put in Lineup
+                                                          </button>
+                                                      )}
+                                                  </div>
+                                              ))}
+                                          </div>
+                                      </div>
+                                  )}
+                              </div>
+                          );
                       })()}
                   </div>
                   <div className="border-t border-slate-200 dark:border-slate-800 pt-4 mb-4">

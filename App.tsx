@@ -8,6 +8,7 @@ import { AdminDashboard } from './components/AdminDashboard';
 import { MatchSetup } from './components/MatchSetup';
 import { RosterImportModal } from './components/RosterImportModal';
 import { PlayerCareerModal } from './components/PlayerCareerModal';
+import { SetLineupModal } from './components/SetLineupModal';
 import * as storage from './services/storageService';
 
 const INACTIVITY_LIMIT = 3 * 60 * 60 * 1000; // 3 hours
@@ -155,6 +156,9 @@ const App: React.FC = () => {
   // Match Stats Modal
   const [statsModalMatch, setStatsModalMatch] = useState<Match | null>(null);
   const [statsModalData, setStatsModalData] = useState<PlayerStats[]>([]);
+
+  // Set Lineup Modal
+  const [lineupModalMatch, setLineupModalMatch] = useState<Match | null>(null);
 
   // Move Match Modal
   const [moveMatchModal, setMoveMatchModal] = useState<{ matchId: string, currentLeague: string } | null>(null);
@@ -1319,84 +1323,78 @@ const App: React.FC = () => {
                                         const { home: homeScore, away: awayScore } = getMatchScores(match);
 
                                         return (
-                                            <div key={match.id} className="bg-white/60 dark:bg-slate-900/60 backdrop-blur-xl p-3 sm:p-5 rounded-xl shadow-md dark:shadow-sm border border-white/20 dark:border-slate-800 flex flex-col lg:flex-row justify-between items-stretch lg:items-center gap-3 sm:gap-4 hover:bg-white/80 dark:hover:bg-slate-800/50 transition-colors group">
-                                                {/* Left Section: Status & Matchup (Home v Away) */}
-                                                <div className="flex flex-1 items-center gap-2 sm:gap-4 min-w-0">
-                                                    <div className="shrink-0">
-                                                        <div className={`text-[8px] sm:text-[10px] font-black uppercase tracking-wider px-2 py-1 rounded font-sans border ${match.isComplete ? 'bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border-slate-300 dark:border-slate-700' : 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 border-green-500/30 animate-pulse'}`}>
+                                            <div key={match.id} className="bg-white/60 dark:bg-slate-900/60 backdrop-blur-xl p-3.5 sm:p-5 rounded-xl shadow-md dark:shadow-sm border border-white/20 dark:border-slate-800 flex flex-col lg:flex-row justify-between items-stretch lg:items-center gap-3 sm:gap-4 hover:bg-white/80 dark:hover:bg-slate-800/50 transition-colors group">
+                                                {/* Left Section: Match Info, Status & Matchup (Home v Away) */}
+                                                <div className="flex flex-col gap-2 min-w-0 flex-1">
+                                                    {/* Top subheader: Status Badge & Scheduled Time/Tunnel */}
+                                                    <div className="flex items-center gap-2.5 flex-wrap">
+                                                        <span className={`text-[9px] sm:text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded font-sans border shrink-0 ${match.isComplete ? 'bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border-slate-300 dark:border-slate-700' : 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 border-green-500/30 animate-pulse'}`}>
                                                             {match.isComplete ? 'FINAL' : 'LIVE'}
-                                                        </div>
+                                                        </span>
+
+                                                        {(match.startTime || match.location) && (
+                                                            <div className="flex items-center gap-2 text-[11px] text-slate-500 dark:text-slate-400 font-sans flex-wrap">
+                                                                {match.startTime && (
+                                                                    <span className="inline-flex items-center gap-1 font-bold text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/40 px-2 py-0.5 rounded-md">
+                                                                        <svg className="w-3 h-3 text-blue-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                                                                        {match.startTime}{match.endTime ? ` - ${match.endTime}` : ''}
+                                                                    </span>
+                                                                )}
+                                                                {match.location && (
+                                                                    <span className="inline-flex items-center gap-1 font-medium text-slate-600 dark:text-slate-400">
+                                                                        <svg className="w-3 h-3 text-rose-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+                                                                        {match.location}
+                                                                    </span>
+                                                                )}
+                                                            </div>
+                                                        )}
                                                     </div>
                                                     
                                                     {/* Home vs Away Matchup with centered score */}
-                                                    <div className="flex flex-1 items-center justify-between sm:justify-start gap-2 sm:gap-4 min-w-0">
+                                                    <div className="flex items-center justify-between sm:justify-start gap-3 sm:gap-4 min-w-0">
                                                         {/* Home Team (Left) */}
-                                                        <div className="flex-1 text-right sm:text-right min-w-0">
-                                                            <div className="text-xs sm:text-base md:text-lg font-bold text-red-700 dark:text-red-400 font-sans break-words whitespace-normal leading-tight">
+                                                        <div className="flex-1 text-right min-w-[110px] sm:min-w-[130px]">
+                                                            <div className="text-sm sm:text-base md:text-lg font-bold text-red-700 dark:text-red-400 font-sans break-normal whitespace-normal leading-snug">
                                                                 {homeName}
                                                             </div>
                                                             <div className="text-[8px] sm:text-[10px] font-bold uppercase tracking-wider text-red-500/80">Home</div>
                                                         </div>
                                                         
                                                         {/* Score Center (Home - Away) */}
-                                                        <div className="shrink-0 flex items-center justify-center gap-1.5 sm:gap-2 px-2 py-1 rounded-lg bg-slate-100/80 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700/60 min-w-[64px] sm:min-w-[80px]">
+                                                        <div className="shrink-0 flex items-center justify-center gap-1.5 sm:gap-2 px-2.5 py-1 rounded-lg bg-slate-100/80 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700/60 min-w-[64px] sm:min-w-[80px]">
                                                             <span className="text-base sm:text-2xl font-black text-slate-800 dark:text-white tabular-nums tracking-tight">{homeScore}</span>
                                                             <span className="text-slate-400 dark:text-slate-500 text-sm font-semibold">-</span>
                                                             <span className="text-base sm:text-2xl font-black text-slate-800 dark:text-white tabular-nums tracking-tight">{awayScore}</span>
                                                         </div>
 
                                                         {/* Away Team (Right) */}
-                                                        <div className="flex-1 text-left sm:text-left min-w-0">
-                                                            <div className="text-xs sm:text-base md:text-lg font-bold text-blue-700 dark:text-blue-400 font-sans break-words whitespace-normal leading-tight">
+                                                        <div className="flex-1 text-left min-w-[110px] sm:min-w-[130px]">
+                                                            <div className="text-sm sm:text-base md:text-lg font-bold text-blue-700 dark:text-blue-400 font-sans break-normal whitespace-normal leading-snug">
                                                                 {awayName}
                                                             </div>
                                                             <div className="text-[8px] sm:text-[10px] font-bold uppercase tracking-wider text-blue-500/80">Away</div>
                                                         </div>
                                                     </div>
-
-                                                    {/* Scheduled Time & Tunnel / Venue Assignment */}
-                                                    {(match.startTime || match.location) && (
-                                                        <div className="hidden sm:flex flex-wrap items-center gap-2 text-[11px] text-slate-500 dark:text-slate-400 font-sans shrink-0 border-l border-slate-200 dark:border-slate-800 pl-3">
-                                                            {match.startTime && (
-                                                                <span className="inline-flex items-center gap-1 font-bold text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/40 px-2 py-0.5 rounded-md">
-                                                                    <svg className="w-3 h-3 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                                                                    {match.startTime}{match.endTime ? ` - ${match.endTime}` : ''}
-                                                                </span>
-                                                            )}
-                                                            {match.location && (
-                                                                <span className="inline-flex items-center gap-1 font-medium text-slate-600 dark:text-slate-400">
-                                                                    <svg className="w-3 h-3 text-rose-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
-                                                                    {match.location}
-                                                                </span>
-                                                            )}
-                                                        </div>
-                                                    )}
                                                 </div>
-
-                                                {/* Mobile Schedule details row */}
-                                                {(match.startTime || match.location) && (
-                                                    <div className="flex sm:hidden items-center justify-between gap-2 text-[10px] text-slate-500 dark:text-slate-400 font-sans bg-slate-100/60 dark:bg-slate-800/40 px-2.5 py-1 rounded-lg">
-                                                        {match.startTime && (
-                                                            <span className="inline-flex items-center gap-1 font-bold text-blue-600 dark:text-blue-400">
-                                                                ⏰ {match.startTime}{match.endTime ? ` - ${match.endTime}` : ''}
-                                                            </span>
-                                                        )}
-                                                        {match.location && (
-                                                            <span className="inline-flex items-center gap-1 font-medium truncate">
-                                                                📍 {match.location}
-                                                            </span>
-                                                        )}
-                                                    </div>
-                                                )}
 
                                                 {/* Right Section: Action Buttons */}
                                                 <div className="flex items-center gap-2 w-full lg:w-auto justify-end shrink-0 pt-2 lg:pt-0 border-t lg:border-t-0 border-slate-200/60 dark:border-slate-800">
-                                                    <button 
-                                                        onClick={() => handleOpenMatchStats(match)} 
-                                                        className="flex-1 lg:flex-none text-center px-3 py-1.5 sm:py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800/50 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 hover:border-blue-400 dark:hover:border-blue-500/50 font-bold text-xs sm:text-sm transition-all font-sans cursor-pointer whitespace-nowrap shadow-sm"
-                                                    >
-                                                        Stats
-                                                    </button>
+                                                    {/* Set Lineup button for umpires/admins before game completion instead of stats button */}
+                                                    {userRole !== 'fan' && !match.isComplete ? (
+                                                        <button 
+                                                            onClick={() => setLineupModalMatch(match)} 
+                                                            className="flex-1 lg:flex-none text-center px-3 py-1.5 sm:py-2 rounded-lg border border-blue-500/40 bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 hover:bg-blue-100 dark:hover:bg-blue-900/40 hover:border-blue-400 font-bold text-xs sm:text-sm transition-all font-sans cursor-pointer whitespace-nowrap shadow-sm"
+                                                        >
+                                                            Set Lineup
+                                                        </button>
+                                                    ) : (
+                                                        <button 
+                                                            onClick={() => handleOpenMatchStats(match)} 
+                                                            className="flex-1 lg:flex-none text-center px-3 py-1.5 sm:py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800/50 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 hover:border-blue-400 dark:hover:border-blue-500/50 font-bold text-xs sm:text-sm transition-all font-sans cursor-pointer whitespace-nowrap shadow-sm"
+                                                        >
+                                                            Stats
+                                                        </button>
+                                                    )}
                                                     
                                                     <button 
                                                         onClick={() => {
@@ -1725,6 +1723,34 @@ const App: React.FC = () => {
             playerName={selectedCareerPlayer}
             onClose={() => setSelectedCareerPlayer(null)}
         />
+
+        {/* Set Lineup Modal for Umpires and Admins */}
+        {lineupModalMatch && (() => {
+            const homeT = teams.find(t => t.id === lineupModalMatch.homeTeamId);
+            const awayT = teams.find(t => t.id === lineupModalMatch.awayTeamId);
+            if (!homeT || !awayT) return null;
+
+            return (
+                <SetLineupModal
+                    match={lineupModalMatch}
+                    homeTeam={homeT}
+                    awayTeam={awayT}
+                    isOpen={!!lineupModalMatch}
+                    onClose={() => setLineupModalMatch(null)}
+                    onTeamUpdated={(updatedTeam) => {
+                        setTeams(prev => prev.map(t => t.id === updatedTeam.id ? updatedTeam : t));
+                    }}
+                    onSave={async (updatedMatch, andStartScoring) => {
+                        setMatches(prev => prev.map(m => m.id === updatedMatch.id ? updatedMatch : m));
+                        setLineupModalMatch(null);
+                        if (andStartScoring) {
+                            safeStorage.setItem('dugout_active_match_id', updatedMatch.id);
+                            setState({ ...state, view: 'scoring', currentMatchId: updatedMatch.id });
+                        }
+                    }}
+                />
+            );
+        })()}
     </div>
   );
 };

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { applyLineupToMatch, moveBatterUp, moveBatterDown } from '../../utils/lineupHelper';
+import { applyLineupToMatch, moveBatterUp, moveBatterDown, formatFullPlayerName } from '../../utils/lineupHelper';
 import { Match, Inning } from '../../types';
 
 describe('lineupHelper', () => {
@@ -107,4 +107,24 @@ describe('lineupHelper', () => {
       });
     });
   });
+
+  describe('formatFullPlayerName', () => {
+    it('formats first and last name in full', () => {
+      expect(formatFullPlayerName({ name: 'Charlie', lastName: 'Washington' })).toBe('Charlie Washington');
+    });
+
+    it('handles player with no last name', () => {
+      expect(formatFullPlayerName({ name: 'Babe' })).toBe('Babe');
+    });
+
+    it('avoids duplicating if name already includes last name', () => {
+      expect(formatFullPlayerName({ name: 'Derek Jeter', lastName: 'Jeter' })).toBe('Derek Jeter');
+    });
+
+    it('handles undefined or empty names safely', () => {
+      expect(formatFullPlayerName(undefined)).toBe('Unknown Player');
+      expect(formatFullPlayerName({ name: '' })).toBe('Unknown Player');
+    });
+  });
 });
+

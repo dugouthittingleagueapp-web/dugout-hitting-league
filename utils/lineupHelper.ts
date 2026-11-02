@@ -117,3 +117,19 @@ export const moveBatterDown = (playerIds: string[], index: number): string[] => 
   copy[index] = temp;
   return copy;
 };
+
+/**
+ * Formats a player's full name, guaranteeing that both first name and last name
+ * are shown in full without abbreviation, truncation, or duplicate surnames.
+ */
+export const formatFullPlayerName = (p?: { name?: string; lastName?: string }): string => {
+  if (!p) return 'Unknown Player';
+  const first = (p.name || '').trim();
+  const last = (p.lastName || '').trim();
+  if (!last) return first || 'Unknown Player';
+  if (!first) return last;
+  if (first.toLowerCase().endsWith(last.toLowerCase())) {
+    return first;
+  }
+  return `${first} ${last}`;
+};

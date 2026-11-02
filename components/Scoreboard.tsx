@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { Match, Inning, Team, TieBreakerRound, Player } from '../types';
 import * as storage from '../services/storageService';
 import { ScoreInput } from './ScoreInput';
+import { formatFullPlayerName } from '../utils/lineupHelper';
 
 interface ScoreboardProps {
   matchId: string;
@@ -691,7 +692,7 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
                                       <div className="space-y-2">
                                           {lineup.map((pid, idx) => {
                                               const player = allPotential.find(p => p.id === pid);
-                                              const slotLabel = idx === 0 ? '1st (Lead-off)' : idx === 1 ? '2nd' : '3rd';
+                                              const slotLabel = idx === 0 ? '1st Batter' : idx === 1 ? '2nd Batter' : '3rd Batter';
 
                                               return (
                                                   <div key={pid} className="flex items-center justify-between p-2.5 rounded-xl border border-blue-200 dark:border-blue-900/60 bg-blue-50/50 dark:bg-blue-950/20 gap-2">
@@ -701,7 +702,7 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
                                                           </div>
                                                           <div className="min-w-0 flex-1">
                                                               <div className="text-[9px] font-bold text-blue-600 dark:text-blue-400 uppercase tracking-wider">{slotLabel}</div>
-                                                              <div className="font-bold text-sm text-slate-900 dark:text-white truncate">{player ? formatName(player) : 'Unknown'}</div>
+                                                              <div className="font-bold text-sm text-slate-900 dark:text-white truncate">{player ? formatFullPlayerName(player) : 'Unknown'}</div>
                                                           </div>
                                                       </div>
 
@@ -766,7 +767,7 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
                                           <div className="space-y-1.5">
                                               {bench.map(p => (
                                                   <div key={p.id} className="flex items-center justify-between p-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50">
-                                                      <span className="font-bold text-xs text-slate-700 dark:text-slate-300 truncate">{formatName(p)}</span>
+                                                      <span className="font-bold text-xs text-slate-700 dark:text-slate-300 truncate">{formatFullPlayerName(p)}</span>
                                                       {lineup.length < 3 && (
                                                           <button
                                                               type="button"

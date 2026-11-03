@@ -2,6 +2,7 @@ import { defineConfig, Plugin } from 'vite';
 import react from '@vitejs/plugin-react';
 import fs from 'node:fs';
 import path from 'node:path';
+import { migrateCrushersInDbData } from './utils/crushersMigration';
 
 function devApiPlugin(): Plugin {
   const dbFile = path.resolve(process.cwd(), '.data', 'db.json');
@@ -54,6 +55,14 @@ function devApiPlugin(): Plugin {
             saveDb(parsed);
           }
         } catch (e) {}
+      }
+
+      // Auto-Repair: ensure any duplicate C-C-Crushers is merged into C-C-Crushers!
+      if (parsed.teams && parsed.teams.some((t: any) => t.name?.trim().toLowerCase() === 'c-c-crushers')) {
+        const cleanup = migrateCrushersInDbData(parsed);
+        if (cleanup.teamsMerged > 0 || cleanup.teamsRenamed > 0 || cleanup.matchesUpdated > 0) {
+          saveDb(parsed);
+        }
       }
 
       return parsed;
@@ -376,6 +385,12 @@ function devApiPlugin(): Plugin {
                 } as any
               );
             }
+          }
+
+          if (pathname === '/api/admin/fix-crushers' || pathname === '/api/fix-crushers') {
+            const cleanupResult = migrateCrushersInDbData(db);
+            saveDb(db);
+            return sendJson(res, 200, cleanupResult);
           }
 
           return sendJson(res, 404, { error: 'API route not found' });

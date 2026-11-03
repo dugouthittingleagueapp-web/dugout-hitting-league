@@ -11,7 +11,8 @@
     "lint": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
-    "seed:schedule": "tsx scripts/seed-schedule.ts"
+    "seed:schedule": "tsx scripts/seed-schedule.ts",
+    "fix:crushers": "tsx scripts/fix-crushers-team-name.ts"
   },
   "dependencies": {
     "@google/genai": "^2.30.0",

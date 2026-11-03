@@ -1,14 +1,13 @@
 
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import pool from './db.js';
-import { migrateCrushersInPostgres } from '../scripts/fix-crushers-team-name.js';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   try {
     // 1. Ensure table exists with season and subs columns
     await pool.query(`
       CREATE TABLE IF NOT EXISTS teams (
-        id UUID PRIMARY KEY,
+        id TEXT PRIMARY KEY,
         name TEXT NOT NULL,
         league TEXT NOT NULL,
         players JSONB NOT NULL,
@@ -19,20 +18,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     `);
     
     // 2. Safe independent migrations for existing tables
+    try {
+      await pool.query(`ALTER TABLE teams ALTER COLUMN id TYPE TEXT`);
+    } catch (e) {}
     await pool.query(`ALTER TABLE teams ADD COLUMN IF NOT EXISTS season TEXT NOT NULL DEFAULT TO_CHAR(CURRENT_DATE, 'YYYY')`);
     await pool.query(`ALTER TABLE teams ADD COLUMN IF NOT EXISTS subs JSONB DEFAULT '[]'`);
-
-    // 3. One-time auto-repair for C-C-Crushers -> C-C-Crushers! (full relational child-record and innings migration)
-    try {
-      const dupCheck = await pool.query(
-        "SELECT 1 FROM teams WHERE LOWER(TRIM(name)) = 'c-c-crushers' LIMIT 1"
-      );
-      if (dupCheck.rows.length > 0) {
-        await migrateCrushersInPostgres();
-      }
-    } catch (e) {
-      // Non-blocking auto-heal check
-    }
 
     if (req.method === 'GET') {
       const { league, season } = req.query;

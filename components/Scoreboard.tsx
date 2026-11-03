@@ -7,7 +7,7 @@ import { formatFullPlayerName, getMatchStatus } from '../utils/lineupHelper';
 
 interface ScoreboardProps {
   matchId: string;
-  onExit: () => void;
+  onExit: (options?: { endedPractice?: boolean; savedPractice?: boolean }) => void;
   isReadOnly?: boolean;
   userRole?: 'fan' | 'umpire' | 'admin';
   onPlayerClick?: (playerName: string) => void;
@@ -30,6 +30,7 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
   const [activeInningIdx, setActiveInningIdx] = useState(0); 
   const [showFinishModal, setShowFinishModal] = useState(false);
   const [showExitConfirmModal, setShowExitConfirmModal] = useState(false);
+  const [showPracticeExitModal, setShowPracticeExitModal] = useState(false);
   const [loading, setLoading] = useState(true);
   
   const [activeCell, setActiveCell] = useState<{ side: 'home' | 'away'; lineupIdx: number; pitchIdx: number; roundIdx?: number } | null>(null);
@@ -55,7 +56,11 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
   useEffect(() => {
       const handleBackAttempt = () => {
           if (!isReadOnly && userRole !== 'fan' && match && !match.isComplete) {
-              setShowExitConfirmModal(true);
+              if (match.isPractice || match.is_practice) {
+                  setShowPracticeExitModal(true);
+              } else {
+                  setShowExitConfirmModal(true);
+              }
           }
       };
       window.addEventListener('dugout:umpire-back-attempt', handleBackAttempt);
@@ -66,10 +71,41 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
 
   const handleExitRequest = () => {
       if (!isReadOnly && userRole !== 'fan' && match && !match.isComplete) {
-          setShowExitConfirmModal(true);
+          if (match.isPractice || match.is_practice) {
+              setShowPracticeExitModal(true);
+          } else {
+              setShowExitConfirmModal(true);
+          }
       } else {
           onExit();
       }
+  };
+
+  const handleSaveAndExitPractice = async () => {
+      if (match) {
+          await storage.updateMatch(match);
+      }
+      setShowPracticeExitModal(false);
+      onExit({ savedPractice: true });
+  };
+
+  const handleEndPracticeMatch = async () => {
+      if (match) {
+          const finishedMatch: Match = {
+              ...match,
+              isComplete: true,
+              status: 'FINAL'
+          };
+          setMatch(finishedMatch);
+          await storage.updateMatch(finishedMatch);
+      }
+      try {
+          if (typeof window !== 'undefined') {
+              localStorage.removeItem('dugout_active_match_id');
+          }
+      } catch (e) {}
+      setShowPracticeExitModal(false);
+      onExit({ endedPractice: true });
   };
 
   const formatName = (p: { name: string, lastName?: string } | undefined) => {
@@ -420,7 +456,7 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
     return (
       <div className="flex flex-col items-center justify-center min-h-[50vh] p-8 text-center font-sans">
         <p className="text-slate-600 dark:text-slate-300 font-bold mb-4">Unable to load match details or teams.</p>
-        <button onClick={onExit} className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-xl font-bold text-sm shadow-md transition-colors">
+        <button onClick={() => onExit()} className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-xl font-bold text-sm shadow-md transition-colors">
           Return to Dashboard
         </button>
       </div>
@@ -908,6 +944,71 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
                       <button onClick={() => setShowExitConfirmModal(false)} className="flex-1 py-3 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 rounded-xl font-bold font-sans hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors">Stay in Match</button>
                       <button onClick={() => { setShowExitConfirmModal(false); onExit(); }} className="flex-1 py-3 bg-red-600 hover:bg-red-700 text-white rounded-xl font-bold font-sans shadow-lg shadow-red-900/20 transition-colors">Exit</button>
                   </div>
+              </div>
+          </div>,
+          document.body
+      )}
+
+      {showPracticeExitModal && createPortal(
+          <div className="fixed inset-0 z-[130] flex items-center justify-center bg-slate-900/80 backdrop-blur-sm p-4 animate-in fade-in duration-150" onClick={() => setShowPracticeExitModal(false)}>
+              <div className="bg-white dark:bg-slate-900 p-6 sm:p-7 rounded-2xl shadow-2xl max-w-md w-full border border-slate-200 dark:border-slate-800 font-sans" onClick={e => e.stopPropagation()}>
+                  <div className="flex items-center gap-3 mb-4">
+                      <div className="w-12 h-12 rounded-2xl bg-amber-100 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400 flex items-center justify-center text-2xl shrink-0">
+                          🧪
+                      </div>
+                      <div>
+                          <h2 className="text-lg sm:text-xl font-black text-slate-900 dark:text-white leading-tight">Exit Practice Match</h2>
+                          <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Choose how to handle this practice session before leaving</p>
+                      </div>
+                  </div>
+
+                  <div className="space-y-3 mb-5">
+                      <button
+                          type="button"
+                          onClick={handleSaveAndExitPractice}
+                          className="w-full text-left p-3.5 sm:p-4 rounded-xl border-2 border-blue-200 dark:border-blue-900/60 bg-blue-50/60 dark:bg-blue-950/30 hover:bg-blue-100/70 dark:hover:bg-blue-900/50 transition-all flex items-start gap-3.5 group active:scale-[0.99] cursor-pointer"
+                      >
+                          <div className="w-10 h-10 rounded-xl bg-blue-600 text-white flex items-center justify-center shrink-0 text-xl font-bold shadow-md shadow-blue-600/20 group-hover:scale-105 transition-transform">
+                              💾
+                          </div>
+                          <div className="flex-1 min-w-0">
+                              <div className="flex items-center justify-between gap-2">
+                                  <span className="font-black text-sm text-slate-900 dark:text-white">Save & Exit</span>
+                                  <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-blue-200 dark:bg-blue-900 text-blue-800 dark:text-blue-200 shrink-0">Resume Later</span>
+                              </div>
+                              <p className="text-xs text-slate-600 dark:text-slate-400 mt-1 leading-relaxed">
+                                  Saves current inning, scores, batting order, and pitch counts so you can resume scoring later from the dashboard.
+                              </p>
+                          </div>
+                      </button>
+
+                      <button
+                          type="button"
+                          onClick={handleEndPracticeMatch}
+                          className="w-full text-left p-3.5 sm:p-4 rounded-xl border-2 border-rose-200 dark:border-rose-900/60 bg-rose-50/60 dark:bg-rose-950/30 hover:bg-rose-100/70 dark:hover:bg-rose-900/50 transition-all flex items-start gap-3.5 group active:scale-[0.99] cursor-pointer"
+                      >
+                          <div className="w-10 h-10 rounded-xl bg-rose-600 text-white flex items-center justify-center shrink-0 text-xl font-bold shadow-md shadow-rose-600/20 group-hover:scale-105 transition-transform">
+                              🏁
+                          </div>
+                          <div className="flex-1 min-w-0">
+                              <div className="flex items-center justify-between gap-2">
+                                  <span className="font-black text-sm text-slate-900 dark:text-white">End Match</span>
+                                  <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-rose-200 dark:bg-rose-900 text-rose-800 dark:text-rose-200 shrink-0">Complete & Clear</span>
+                              </div>
+                              <p className="text-xs text-slate-600 dark:text-slate-400 mt-1 leading-relaxed">
+                                  Marks the practice match as finished/archived, clears it from the active session banner, and discards temporary state.
+                              </p>
+                          </div>
+                      </button>
+                  </div>
+
+                  <button
+                      type="button"
+                      onClick={() => setShowPracticeExitModal(false)}
+                      className="w-full py-3 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-xl font-bold text-xs sm:text-sm transition-colors cursor-pointer"
+                  >
+                      Cancel — Stay in Practice Match
+                  </button>
               </div>
           </div>,
           document.body

@@ -113,7 +113,7 @@ const App: React.FC = () => {
   });
 
   // In-Progress Match Recovery State
-  const [resumeMatch, setResumeMatch] = useState<{ id: string; league: string; season: string; homeTeamName: string; awayTeamName: string; inningNumber: number } | null>(null);
+  const [resumeMatch, setResumeMatch] = useState<{ id: string; league: string; season: string; homeTeamName: string; awayTeamName: string; inningNumber: number; isPractice?: boolean } | null>(null);
   const [dismissedResumeId, setDismissedResumeId] = useState<string | null>(null);
 
   // Weekly State
@@ -330,7 +330,8 @@ const App: React.FC = () => {
                   season: existing.season,
                   homeTeamName: home ? home.name : 'Home Team',
                   awayTeamName: away ? away.name : 'Away Team',
-                  inningNumber: activeInning
+                  inningNumber: activeInning,
+                  isPractice: !!(existing.isPractice || existing.is_practice)
               });
           }
       } else {
@@ -355,7 +356,8 @@ const App: React.FC = () => {
                           season: m.season,
                           homeTeamName: home ? home.name : 'Home Team',
                           awayTeamName: away ? away.name : 'Away Team',
-                          inningNumber: activeInning
+                          inningNumber: activeInning,
+                          isPractice: !!(m.isPractice || m.is_practice)
                       });
                   });
               } else if (m && m.isComplete) {
@@ -381,6 +383,34 @@ const App: React.FC = () => {
   const handleDismissResumeMatch = () => {
       if (resumeMatch) {
           setDismissedResumeId(resumeMatch.id);
+      }
+  };
+
+  const handleScoreboardExit = (options?: { endedPractice?: boolean; savedPractice?: boolean }) => {
+      if (options?.endedPractice) {
+          safeStorage.removeItem('dugout_active_match_id');
+          setResumeMatch(null);
+          if (state.currentMatchId) {
+              setMatches(prev => prev.map(m => m.id === state.currentMatchId ? { ...m, isComplete: true, status: 'FINAL' as const } : m));
+          }
+      }
+      setState(s => ({ ...s, view: 'dashboard', currentMatchId: null }));
+  };
+
+  const handleEndPracticeBannerMatch = async () => {
+      if (!resumeMatch) return;
+      const matchId = resumeMatch.id;
+      safeStorage.removeItem('dugout_active_match_id');
+      setResumeMatch(null);
+      try {
+          const m = await storage.getMatch(matchId);
+          if (m) {
+              const finished = { ...m, isComplete: true, status: 'FINAL' as const };
+              await storage.updateMatch(finished);
+              setMatches(prev => prev.map(item => item.id === matchId ? finished : item));
+          }
+      } catch (e) {
+          console.error("Failed to end practice match from banner", e);
       }
   };
 
@@ -951,21 +981,36 @@ const App: React.FC = () => {
 
         {/* Active Match In-Progress Resume Prompt Banner */}
         {resumeMatch && state.view !== 'scoring' && (
-            <div className="bg-blue-600 text-white px-4 py-2.5 flex items-center justify-between text-xs font-bold font-sans z-[1100] relative shadow-md">
+            <div className={`${resumeMatch.isPractice ? 'bg-amber-600 text-white' : 'bg-blue-600 text-white'} px-4 py-2.5 flex items-center justify-between text-xs font-bold font-sans z-[1100] relative shadow-md transition-colors`}>
                 <div className="flex items-center gap-2 truncate pr-2">
-                    <span className="w-2.5 h-2.5 rounded-full bg-amber-400 animate-pulse shrink-0"></span>
-                    <span className="truncate">Active Match in Progress: {resumeMatch.awayTeamName} vs {resumeMatch.homeTeamName} (Inning {resumeMatch.inningNumber})</span>
+                    <span className={`w-2.5 h-2.5 rounded-full ${resumeMatch.isPractice ? 'bg-amber-200' : 'bg-amber-400'} animate-pulse shrink-0`}></span>
+                    <span className="truncate">
+                        {resumeMatch.isPractice ? (
+                            <>🧪 Paused Practice Match: {resumeMatch.awayTeamName} vs {resumeMatch.homeTeamName} (Inning {resumeMatch.inningNumber})</>
+                        ) : (
+                            <>Active Match in Progress: {resumeMatch.awayTeamName} vs {resumeMatch.homeTeamName} (Inning {resumeMatch.inningNumber})</>
+                        )}
+                    </span>
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
                     <button 
                         onClick={handleResumeActiveMatch} 
-                        className="px-3 py-1 bg-white hover:bg-blue-50 text-blue-700 rounded-lg text-xs font-bold transition-all shadow-sm active:scale-95"
+                        className={`px-3 py-1 bg-white ${resumeMatch.isPractice ? 'hover:bg-amber-50 text-amber-800' : 'hover:bg-blue-50 text-blue-700'} rounded-lg text-xs font-bold transition-all shadow-sm active:scale-95 cursor-pointer`}
                     >
-                        Resume Match
+                        {resumeMatch.isPractice ? 'Resume Practice' : 'Resume Match'}
                     </button>
+                    {resumeMatch.isPractice && (
+                        <button 
+                            onClick={handleEndPracticeBannerMatch} 
+                            className="px-2.5 py-1 bg-amber-700/80 hover:bg-amber-800 text-white rounded-lg text-xs font-bold transition-colors cursor-pointer"
+                            title="End and complete this practice match"
+                        >
+                            End Match
+                        </button>
+                    )}
                     <button 
                         onClick={handleDismissResumeMatch} 
-                        className="px-2 py-1 bg-blue-700/60 hover:bg-blue-700 text-white rounded-lg text-xs font-bold transition-colors"
+                        className={`px-2 py-1 ${resumeMatch.isPractice ? 'bg-amber-700/60 hover:bg-amber-700' : 'bg-blue-700/60 hover:bg-blue-700'} text-white rounded-lg text-xs font-bold transition-colors cursor-pointer`}
                         title="Dismiss banner"
                         aria-label="Dismiss banner"
                     >
@@ -1153,7 +1198,7 @@ const App: React.FC = () => {
             {/* SCORING VIEW */}
             {state.view === 'scoring' && state.currentMatchId && (
                 <div className="flex-1 bg-slate-100 dark:bg-slate-950 text-slate-800 dark:text-slate-200 w-full overflow-hidden">
-                    <Scoreboard matchId={state.currentMatchId} onExit={() => setState({ ...state, view: 'dashboard', currentMatchId: null })} isReadOnly={userRole === 'fan'} userRole={userRole} onPlayerClick={setSelectedCareerPlayer} />
+                    <Scoreboard matchId={state.currentMatchId} onExit={handleScoreboardExit} isReadOnly={userRole === 'fan'} userRole={userRole} onPlayerClick={setSelectedCareerPlayer} />
                 </div>
             )}
 

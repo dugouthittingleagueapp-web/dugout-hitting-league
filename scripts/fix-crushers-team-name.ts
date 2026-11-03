@@ -2,15 +2,15 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import pg from 'pg';
-import { Match, Team, Player, Inning } from '../types';
+import { Match, Team, Player, Inning } from '../types.js';
 
 import {
   migrateCrushersInDbData,
   isDuplicateCrushersName,
   isOfficialCrushersName,
   OFFICIAL_TEAM_NAME
-} from '../utils/crushersMigration';
-import type { MergeCrushersResult } from '../utils/crushersMigration';
+} from '../utils/crushersMigration.js';
+import type { MergeCrushersResult } from '../utils/crushersMigration.js';
 
 export {
   migrateCrushersInDbData,

@@ -47,8 +47,8 @@ export const PracticeSetupModal: React.FC<PracticeSetupModalProps> = ({
       let createdTeamsToRegister: Team[] | undefined = undefined;
 
       if (teamSource === 'dummy') {
-        const homeId = `practice-home-${storage.generateUUID().substring(0, 6)}`;
-        const awayId = `practice-away-${storage.generateUUID().substring(0, 6)}`;
+        const homeId = storage.generateUUID();
+        const awayId = storage.generateUUID();
 
         const awayBattersCount = rosterFormat === '3v2' ? 2 : (rosterFormat === '2v2' ? 2 : 3);
         const homeBattersCount = rosterFormat === '2v2' ? 2 : 3;

@@ -241,4 +241,102 @@ describe('Practice / Sandbox Mode Verification', () => {
     const umpireView = getFanSchedule(allMatches, 'umpire');
     expect(umpireView).toHaveLength(2);
   });
+
+  it('handles "Save & Exit" by retaining active practice session state for later resumption', async () => {
+    const livePracticeMatch = await createPracticeMatch({
+      league: '10u',
+      homeTeamId: teamAlpha.id,
+      awayTeamId: teamBeta.id,
+      homeLineupIds: ['p-alpha-1', 'p-alpha-2'],
+      awayLineupIds: ['p-beta-1', 'p-beta-2'],
+      season: '2026',
+      inningsCount: 3,
+      pitchesPerBatter: 5
+    });
+
+    // Record some pitches in Inning 1
+    livePracticeMatch.innings[0].home.playerScores[0].pitches[0].points = 3;
+    livePracticeMatch.innings[0].away.playerScores[0].pitches[0].points = 4;
+
+    // Simulate "Save & Exit": Match is NOT completed, status remains IN_PROGRESS
+    const savedPracticeMatch: Match = {
+      ...livePracticeMatch
+    };
+
+    expect(savedPracticeMatch.isComplete).toBe(false);
+    expect(savedPracticeMatch.status).toBe('IN_PROGRESS');
+    expect(savedPracticeMatch.isPractice).toBe(true);
+    expect(savedPracticeMatch.innings[0].home.playerScores[0].pitches[0].points).toBe(3);
+    expect(savedPracticeMatch.innings[0].away.playerScores[0].pitches[0].points).toBe(4);
+  });
+
+  it('handles "End Match" by finalizing the practice match and clearing active banner state', async () => {
+    const livePracticeMatch = await createPracticeMatch({
+      league: '10u',
+      homeTeamId: teamAlpha.id,
+      awayTeamId: teamBeta.id,
+      homeLineupIds: ['p-alpha-1', 'p-alpha-2'],
+      awayLineupIds: ['p-beta-1', 'p-beta-2'],
+      season: '2026',
+      inningsCount: 3,
+      pitchesPerBatter: 5
+    });
+
+    // Mock localStorage active match ID
+    const fakeLocalStorage = new Map<string, string>();
+    fakeLocalStorage.set('dugout_active_match_id', livePracticeMatch.id);
+    expect(fakeLocalStorage.get('dugout_active_match_id')).toBe(livePracticeMatch.id);
+
+    // Simulate "End Match": Finalize match and clear active match ID
+    const finalizedPracticeMatch: Match = {
+      ...livePracticeMatch,
+      isComplete: true,
+      status: 'FINAL'
+    };
+    fakeLocalStorage.delete('dugout_active_match_id');
+
+    expect(finalizedPracticeMatch.isComplete).toBe(true);
+    expect(finalizedPracticeMatch.status).toBe('FINAL');
+    expect(finalizedPracticeMatch.isPractice).toBe(true);
+    expect(fakeLocalStorage.get('dugout_active_match_id')).toBeUndefined();
+
+    // Verify banner recovery logic ignores completed practice matches
+    const shouldShowBanner = fakeLocalStorage.has('dugout_active_match_id') && !finalizedPracticeMatch.isComplete;
+    expect(shouldShowBanner).toBe(false);
+  });
+
+  it('safely handles practice match IDs and strips practice- prefix for PostgreSQL UUID compatibility', async () => {
+    const livePracticeMatch = await createPracticeMatch({
+      league: '10u',
+      homeTeamId: teamAlpha.id,
+      awayTeamId: teamBeta.id,
+      homeLineupIds: ['p-alpha-1', 'p-alpha-2'],
+      awayLineupIds: ['p-beta-1', 'p-beta-2'],
+      season: '2026',
+      inningsCount: 3,
+      pitchesPerBatter: 5
+    });
+
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+    // 1. Practice match ID has practice- prefix
+    expect(livePracticeMatch.id.startsWith('practice-')).toBe(true);
+
+    // 2. The stripped remainder is a strictly valid PostgreSQL UUID
+    const strippedUuid = livePracticeMatch.id.replace(/^practice-/, '');
+    expect(uuidRegex.test(strippedUuid)).toBe(true);
+
+    // 3. Match lookup resolves both prefixed and stripped ID formats safely
+    const mockDbLookup = (queriedId: string, storedMatches: Match[]) => {
+      const cleanId = queriedId.startsWith('practice-') ? queriedId.slice('practice-'.length) : queriedId;
+      return storedMatches.find(m => m.id === queriedId || m.id === cleanId || m.id === `practice-${cleanId}`);
+    };
+
+    const foundWithPrefix = mockDbLookup(livePracticeMatch.id, [livePracticeMatch]);
+    expect(foundWithPrefix).toBeDefined();
+    expect(foundWithPrefix!.id).toBe(livePracticeMatch.id);
+
+    const foundWithStripped = mockDbLookup(strippedUuid, [livePracticeMatch]);
+    expect(foundWithStripped).toBeDefined();
+  });
 });

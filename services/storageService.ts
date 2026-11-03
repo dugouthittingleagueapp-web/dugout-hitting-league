@@ -48,15 +48,19 @@ const formatName = (p: { name: string, lastName?: string }) =>
 // Robust UUID Generator that works in insecure contexts
 export const generateUUID = (): string => {
     // Try native crypto first if available and secure
-    if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+    if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
         try {
             return crypto.randomUUID();
         } catch (e) {
             // Fallback if crypto throws (e.g. insecure context)
         }
     }
-    // Fallback timestamp + random string generator
-    return Date.now().toString(36) + Math.random().toString(36).substring(2);
+    // Standard RFC4122 v4 UUID generator
+    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+        const r = (Math.random() * 16) | 0;
+        const v = c === 'x' ? r : (r & 0x3) | 0x8;
+        return v.toString(16);
+    });
 };
 
 // Safe fetch wrapper ensuring absolute URLs in Node/test environments

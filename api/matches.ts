@@ -1,16 +1,25 @@
-
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import pool from './db.js';
 
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+function cleanMatchId(id: any): { rawId: string; strippedId: string; isPracticePrefix: boolean; isStrippedUuid: boolean } {
+  const rawId = String(id || '').trim();
+  const isPracticePrefix = rawId.startsWith('practice-');
+  const strippedId = isPracticePrefix ? rawId.slice('practice-'.length).trim() : rawId;
+  const isStrippedUuid = UUID_REGEX.test(strippedId);
+  return { rawId, strippedId, isPracticePrefix, isStrippedUuid };
+}
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   try {
-    // 1. Ensure table exists with all standard columns
+    // 1. Ensure table exists with all standard columns (using TEXT for IDs to safely support practice & external sessions)
     await pool.query(`
       CREATE TABLE IF NOT EXISTS matches (
-        id UUID PRIMARY KEY,
+        id TEXT PRIMARY KEY,
         league TEXT NOT NULL,
-        home_team_id UUID REFERENCES teams(id) ON DELETE CASCADE,
-        away_team_id UUID REFERENCES teams(id) ON DELETE CASCADE,
+        home_team_id TEXT,
+        away_team_id TEXT,
         date TIMESTAMPTZ NOT NULL,
         is_complete BOOLEAN DEFAULT FALSE,
         innings JSONB NOT NULL,
@@ -27,6 +36,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     `);
 
     // 2. Safe independent migrations for existing tables
+    try {
+      await pool.query(`ALTER TABLE matches DROP CONSTRAINT IF EXISTS matches_home_team_id_fkey`);
+      await pool.query(`ALTER TABLE matches DROP CONSTRAINT IF EXISTS matches_away_team_id_fkey`);
+    } catch (e) {}
+    try {
+      await pool.query(`ALTER TABLE matches ALTER COLUMN id TYPE TEXT`);
+    } catch (e) {}
+    try {
+      await pool.query(`ALTER TABLE matches ALTER COLUMN home_team_id DROP NOT NULL`);
+      await pool.query(`ALTER TABLE matches ALTER COLUMN away_team_id DROP NOT NULL`);
+      await pool.query(`ALTER TABLE matches ALTER COLUMN home_team_id TYPE TEXT`);
+      await pool.query(`ALTER TABLE matches ALTER COLUMN away_team_id TYPE TEXT`);
+    } catch (e) {}
     await pool.query(`ALTER TABLE matches ADD COLUMN IF NOT EXISTS season TEXT NOT NULL DEFAULT TO_CHAR(CURRENT_DATE, 'YYYY')`);
     await pool.query(`ALTER TABLE matches ADD COLUMN IF NOT EXISTS location TEXT`);
     await pool.query(`ALTER TABLE matches ADD COLUMN IF NOT EXISTS start_time TEXT`);
@@ -39,9 +61,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (req.method === 'GET') {
       const { league, id, season } = req.query;
       if (id) {
-        const { rows } = await pool.query('SELECT * FROM matches WHERE id = $1', [id]);
+        const { rawId, strippedId } = cleanMatchId(id);
+        const { rows } = await pool.query(
+          'SELECT * FROM matches WHERE id::text = $1 OR id::text = $2 LIMIT 1',
+          [rawId, strippedId]
+        );
         if (rows.length === 0) return res.status(404).json({ error: 'Not found' });
-        return res.status(200).json(rows[0]);
+        const row = rows[0];
+        if (row.innings && typeof row.innings === 'string') row.innings = JSON.parse(row.innings);
+        if (row.tie_breaker && typeof row.tie_breaker === 'string') row.tieBreaker = JSON.parse(row.tie_breaker);
+        if (rawId.startsWith('practice-') && !String(row.id).startsWith('practice-')) {
+          row.id = rawId;
+        }
+        return res.status(200).json(row);
       }
 
       let query = 'SELECT * FROM matches';
@@ -70,7 +102,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       
       query += ' ORDER BY date DESC';
       const { rows } = await pool.query(query, params);
-      return res.status(200).json(rows);
+      const mappedRows = rows.map(row => {
+        if (row.innings && typeof row.innings === 'string') row.innings = JSON.parse(row.innings);
+        if (row.tie_breaker && typeof row.tie_breaker === 'string') row.tieBreaker = JSON.parse(row.tie_breaker);
+        if (row.is_practice && !String(row.id).startsWith('practice-')) {
+          row.id = `practice-${row.id}`;
+        }
+        return row;
+      });
+      return res.status(200).json(mappedRows);
     } 
     else if (req.method === 'POST') {
       const { id, league, homeTeamId, awayTeamId, date, isComplete, innings, season, location, startTime, endTime, notes, status, isPractice, is_practice } = req.body;
@@ -87,16 +127,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const matchStatus = status || (isComplete ? 'FINAL' : 'SCHEDULED');
       const matchIsPractice = isPractice ?? is_practice ?? false;
 
+      const { rawId, strippedId, isPracticePrefix, isStrippedUuid } = cleanMatchId(id);
+      // Strip 'practice-' prefix to a clean UUID for database storage if needed
+      const insertId = isPracticePrefix && isStrippedUuid ? strippedId : rawId;
+
       const query = `
         INSERT INTO matches (id, league, home_team_id, away_team_id, date, is_complete, innings, season, location, start_time, end_time, notes, status, is_practice) 
         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14) 
         RETURNING *
       `;
       const values = [
-        id, 
+        insertId, 
         league, 
-        homeTeamId, 
-        awayTeamId, 
+        homeTeamId || null, 
+        awayTeamId || null, 
         date, 
         isComplete ?? false, 
         JSON.stringify(innings), 
@@ -108,38 +152,63 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         matchStatus,
         matchIsPractice
       ];
-      const { rows } = await pool.query(query, values);
-      return res.status(201).json(rows[0]);
+
+      let row: any = null;
+      try {
+        const { rows } = await pool.query(query, values);
+        row = rows[0];
+      } catch (insertErr: any) {
+        // Fallback if Postgres table has strict UUID constraints on id or foreign keys
+        if (insertErr.message && (insertErr.message.includes('type uuid') || insertErr.message.includes('violates foreign key'))) {
+          const fallbackValues = [...values];
+          if (isStrippedUuid) fallbackValues[0] = strippedId;
+          if (fallbackValues[2] && !UUID_REGEX.test(String(fallbackValues[2]))) fallbackValues[2] = null;
+          if (fallbackValues[3] && !UUID_REGEX.test(String(fallbackValues[3]))) fallbackValues[3] = null;
+          const { rows } = await pool.query(query, fallbackValues);
+          row = rows[0];
+        } else {
+          throw insertErr;
+        }
+      }
+
+      if (row) {
+        if (row.innings && typeof row.innings === 'string') row.innings = JSON.parse(row.innings);
+        if (row.tie_breaker && typeof row.tie_breaker === 'string') row.tieBreaker = JSON.parse(row.tie_breaker);
+        if (isPracticePrefix && !String(row.id).startsWith('practice-')) {
+          row.id = rawId;
+        }
+      }
+      return res.status(201).json(row);
     } 
     else if (req.method === 'PUT') {
-      // We accept tieBreaker via the 'innings' field (merged in FE) or if passed as a prop we merge it here
       const { id, isComplete, innings, tieBreaker, league, location, startTime, endTime, notes, homeTeamId, awayTeamId, status, isPractice, is_practice } = req.body;
       
-      // Ensure tie_breaker column exists
+      const { rawId, strippedId, isPracticePrefix } = cleanMatchId(id);
+
       await pool.query(`ALTER TABLE matches ADD COLUMN IF NOT EXISTS tie_breaker JSONB`);
       
       const practiceFlag = isPractice !== undefined ? isPractice : (is_practice !== undefined ? is_practice : null);
 
-      // Updated query to allow changing league and schedule fields, swapping teams, status, and is_practice
       const queryUpdate = `
         UPDATE matches 
-        SET is_complete = COALESCE($2, is_complete), 
-            innings = COALESCE($3, innings), 
-            tie_breaker = $4, 
-            league = COALESCE($5, league),
-            location = COALESCE($6, location),
-            start_time = COALESCE($7, start_time),
-            end_time = COALESCE($8, end_time),
-            notes = COALESCE($9, notes),
-            home_team_id = COALESCE($10, home_team_id),
-            away_team_id = COALESCE($11, away_team_id),
-            status = COALESCE($12, status),
-            is_practice = COALESCE($13, is_practice)
-        WHERE id = $1 
+        SET is_complete = COALESCE($3, is_complete), 
+            innings = COALESCE($4, innings), 
+            tie_breaker = $5, 
+            league = COALESCE($6, league),
+            location = COALESCE($7, location),
+            start_time = COALESCE($8, start_time),
+            end_time = COALESCE($9, end_time),
+            notes = COALESCE($10, notes),
+            home_team_id = COALESCE($11, home_team_id),
+            away_team_id = COALESCE($12, away_team_id),
+            status = COALESCE($13, status),
+            is_practice = COALESCE($14, is_practice)
+        WHERE id::text = $1 OR id::text = $2
         RETURNING *
       `;
       const values = [
-        id, 
+        rawId,
+        strippedId,
         isComplete !== undefined ? isComplete : null, 
         innings ? JSON.stringify(innings) : null, 
         tieBreaker ? JSON.stringify(tieBreaker) : null, 
@@ -155,12 +224,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       ];
 
       const { rows } = await pool.query(queryUpdate, values);
-      
-      // Map back for response
       const row = rows[0];
-      if(row) {
-          row.innings = typeof row.innings === 'string' ? JSON.parse(row.innings) : row.innings;
-          if(row.tie_breaker) row.tieBreaker = typeof row.tie_breaker === 'string' ? JSON.parse(row.tie_breaker) : row.tie_breaker;
+      if (row) {
+        row.innings = typeof row.innings === 'string' ? JSON.parse(row.innings) : row.innings;
+        if (row.tie_breaker) row.tieBreaker = typeof row.tie_breaker === 'string' ? JSON.parse(row.tie_breaker) : row.tie_breaker;
+        if (isPracticePrefix && !String(row.id).startsWith('practice-')) {
+          row.id = rawId;
+        }
       }
       
       return res.status(200).json(row);
@@ -169,8 +239,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const { id } = req.query;
       if (!id) return res.status(400).json({ error: 'Missing ID' });
       
-      // Simple delete logic
-      await pool.query('DELETE FROM matches WHERE id = $1', [id]);
+      const { rawId, strippedId } = cleanMatchId(id);
+      await pool.query('DELETE FROM matches WHERE id::text = $1 OR id::text = $2', [rawId, strippedId]);
       
       return res.status(200).json({ success: true });
     }

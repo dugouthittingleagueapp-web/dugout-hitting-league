@@ -10,6 +10,7 @@ import { RosterImportModal } from './components/RosterImportModal';
 import { PlayerCareerModal } from './components/PlayerCareerModal';
 import { SetLineupModal } from './components/SetLineupModal';
 import { PracticeSetupModal } from './components/PracticeSetupModal';
+import { MatchStatsEditorModal } from './components/MatchStatsEditorModal';
 import * as storage from './services/storageService';
 import { getMatchStatus, findCurrentOrUpcomingWeekId } from './utils/lineupHelper';
 
@@ -164,6 +165,9 @@ const App: React.FC = () => {
 
   // Practice / Sandbox Mode Modal
   const [showPracticeModal, setShowPracticeModal] = useState(false);
+
+  // Match Stats Re-assignment Editor Modal
+  const [statEditorMatch, setStatEditorMatch] = useState<Match | null>(null);
 
   // Move Match Modal
   const [moveMatchModal, setMoveMatchModal] = useState<{ matchId: string, currentLeague: string } | null>(null);
@@ -1527,6 +1531,16 @@ const App: React.FC = () => {
                                                     
                                                     {userRole === 'admin' && (
                                                         <div className="flex gap-2 shrink-0">
+                                                            {matchStatus === 'FINAL' && (
+                                                                <button 
+                                                                    onClick={() => setStatEditorMatch(match)} 
+                                                                    className="px-2.5 py-1.5 sm:py-2 rounded-lg border border-amber-500/40 bg-amber-500/10 text-amber-600 dark:text-amber-400 hover:bg-amber-500/20 font-bold text-xs sm:text-sm transition-all font-sans cursor-pointer shadow-sm flex items-center gap-1" 
+                                                                    title="Fix / Re-assign match player stats"
+                                                                >
+                                                                    <span>🛠️</span>
+                                                                    <span className="hidden sm:inline">Fix Stats</span>
+                                                                </button>
+                                                            )}
                                                             <button 
                                                                 onClick={() => setMoveMatchModal({ matchId: match.id, currentLeague: match.league })} 
                                                                 className="px-3 py-1.5 sm:py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800/50 text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-900/20 font-bold text-xs sm:text-sm transition-all font-sans cursor-pointer shadow-sm" 
@@ -1812,8 +1826,22 @@ const App: React.FC = () => {
                             </tbody>
                         </table>
                     </div>
-                    <div className="p-4 border-t border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 flex justify-end">
-                        <button onClick={() => setStatsModalMatch(null)} className="px-6 py-2 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-600 dark:text-slate-300 font-bold rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 hover:text-slate-900 dark:hover:text-white font-sans transition-colors">Close</button>
+                    <div className="p-4 border-t border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 flex justify-between items-center gap-3">
+                        {userRole === 'admin' && (
+                            <button
+                                onClick={() => {
+                                    const m = statsModalMatch;
+                                    setStatsModalMatch(null);
+                                    setStatEditorMatch(m);
+                                }}
+                                className="px-4 py-2 bg-amber-600 hover:bg-amber-500 text-white font-bold rounded-lg text-xs sm:text-sm font-sans transition-colors flex items-center gap-1.5 cursor-pointer shadow-sm"
+                                title="Re-assign placeholder stats to official players"
+                            >
+                                <span>🛠️</span>
+                                <span>Fix / Re-assign Match Stats</span>
+                            </button>
+                        )}
+                        <button onClick={() => setStatsModalMatch(null)} className="px-6 py-2 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-600 dark:text-slate-300 font-bold rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 hover:text-slate-900 dark:hover:text-white font-sans transition-colors ml-auto">Close</button>
                     </div>
                 </div>
             </div>,
@@ -1878,6 +1906,21 @@ const App: React.FC = () => {
                 />
             );
         })()}
+        {/* Match Stats Re-assignment Editor Modal for Admins */}
+        {statEditorMatch && (
+            <MatchStatsEditorModal
+                match={statEditorMatch}
+                isOpen={!!statEditorMatch}
+                onClose={() => setStatEditorMatch(null)}
+                teams={teams}
+                onSuccess={(updatedMatch) => {
+                    setMatches(prev => prev.map(m => m.id === updatedMatch.id ? updatedMatch : m));
+                    if (state.currentLeague) {
+                        refreshDashboard(state.currentLeague, state.season, true);
+                    }
+                }}
+            />
+        )}
     </div>
   );
 };

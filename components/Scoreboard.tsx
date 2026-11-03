@@ -4,6 +4,7 @@ import { Match, Inning, Team, TieBreakerRound, Player } from '../types';
 import * as storage from '../services/storageService';
 import { ScoreInput } from './ScoreInput';
 import { formatFullPlayerName, getMatchStatus } from '../utils/lineupHelper';
+import { isPlaceholderPlayerName } from '../utils/statsEditorHelper.js';
 
 interface ScoreboardProps {
   matchId: string;
@@ -518,12 +519,17 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
   };
 
   const handleAddManualSub = async () => {
-    if (!newSubNameInput.trim() || !rosterSide) return;
+    const trimmed = newSubNameInput.trim();
+    if (!trimmed || !rosterSide) return;
+    if (isPlaceholderPlayerName(trimmed)) {
+        alert("Please enter the player's real name (e.g. Jack S.) rather than a generic placeholder like 'Sub' or 'Player 1' so their stats are recorded under their profile.");
+        return;
+    }
     const currentTeam = rosterSide === 'home' ? teams.home : teams.away;
     if (!currentTeam) return;
 
     setLoading(true);
-    const newPlayer: Player = { id: storage.generateUUID(), name: newSubNameInput.trim() };
+    const newPlayer: Player = { id: storage.generateUUID(), name: trimmed };
     const updatedTeam: Team = { 
         ...currentTeam, 
         subs: [...(currentTeam.subs || []), newPlayer] 
@@ -897,7 +903,7 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
                   <div className="border-t border-slate-200 dark:border-slate-800 pt-4 mb-4">
                       <label className="block text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">Register New Sub</label>
                       <div className="flex gap-2">
-                          <input type="text" value={newSubNameInput} onChange={e => setNewSubNameInput(e.target.value)} placeholder="Full Name" className="flex-1 bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none text-slate-900 dark:text-white font-sans" />
+                          <input type="text" value={newSubNameInput} onChange={e => setNewSubNameInput(e.target.value)} placeholder="Player's Real Name (e.g. Jack S.)" className="flex-1 bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none text-slate-900 dark:text-white font-sans" />
                           <button onClick={handleAddManualSub} disabled={!newSubNameInput.trim()} className="bg-blue-600 text-white font-bold px-3 py-2 rounded-lg text-xs font-sans disabled:opacity-50 transition-all hover:bg-blue-700">Add</button>
                       </div>
                   </div>

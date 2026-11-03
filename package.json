@@ -12,7 +12,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "seed:schedule": "tsx scripts/seed-schedule.ts",
-    "fix:crushers": "tsx scripts/fix-crushers-team-name.ts"
+    "fix:crushers": "tsx scripts/fix-crushers-team-name.ts",
+    "fix:stats": "tsx scripts/fix-last-night-stats.ts"
   },
   "dependencies": {
     "@google/genai": "^2.30.0",

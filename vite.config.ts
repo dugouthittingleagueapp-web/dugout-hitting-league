@@ -335,6 +335,7 @@ function devApiPlugin(): Plugin {
                 start_time: match.startTime || match.start_time || null,
                 end_time: match.endTime || match.end_time || null,
                 notes: match.notes || null,
+                is_practice: match.isPractice ?? match.is_practice ?? false,
                 created_at: new Date().toISOString(),
               };
               db.matches.unshift(newMatch);
@@ -357,6 +358,7 @@ function devApiPlugin(): Plugin {
                   start_time: (match.startTime || match.start_time) !== undefined ? (match.startTime || match.start_time) : db.matches[idx].start_time,
                   end_time: (match.endTime || match.end_time) !== undefined ? (match.endTime || match.end_time) : db.matches[idx].end_time,
                   notes: match.notes !== undefined ? match.notes : db.matches[idx].notes,
+                  is_practice: match.isPractice !== undefined ? match.isPractice : (match.is_practice !== undefined ? match.is_practice : db.matches[idx].is_practice),
                 };
                 saveDb(db);
                 return sendJson(res, 200, db.matches[idx]);

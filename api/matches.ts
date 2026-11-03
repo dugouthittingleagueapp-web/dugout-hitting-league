@@ -19,6 +19,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         start_time TEXT,
         end_time TEXT,
         notes TEXT,
+        is_practice BOOLEAN DEFAULT FALSE,
         created_at TIMESTAMPTZ DEFAULT NOW()
       );
 
@@ -42,6 +43,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         END IF; 
         IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='matches' AND column_name='status') THEN 
           ALTER TABLE matches ADD COLUMN status TEXT DEFAULT 'SCHEDULED'; 
+        END IF; 
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='matches' AND column_name='is_practice') THEN 
+          ALTER TABLE matches ADD COLUMN is_practice BOOLEAN DEFAULT FALSE; 
         END IF; 
       END $$;
     `);
@@ -83,7 +87,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(200).json(rows);
     } 
     else if (req.method === 'POST') {
-      const { id, league, homeTeamId, awayTeamId, date, isComplete, innings, season, location, startTime, endTime, notes, status } = req.body;
+      const { id, league, homeTeamId, awayTeamId, date, isComplete, innings, season, location, startTime, endTime, notes, status, isPractice, is_practice } = req.body;
       
       let matchSeason = season;
       if (!matchSeason) {
@@ -95,10 +99,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       if (!matchSeason) matchSeason = new Date().getFullYear().toString();
 
       const matchStatus = status || (isComplete ? 'FINAL' : 'SCHEDULED');
+      const matchIsPractice = isPractice ?? is_practice ?? false;
 
       const query = `
-        INSERT INTO matches (id, league, home_team_id, away_team_id, date, is_complete, innings, season, location, start_time, end_time, notes, status) 
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13) 
+        INSERT INTO matches (id, league, home_team_id, away_team_id, date, is_complete, innings, season, location, start_time, end_time, notes, status, is_practice) 
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14) 
         RETURNING *
       `;
       const values = [
@@ -114,14 +119,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         startTime || null,
         endTime || null,
         notes || null,
-        matchStatus
+        matchStatus,
+        matchIsPractice
       ];
       const { rows } = await pool.query(query, values);
       return res.status(201).json(rows[0]);
     } 
     else if (req.method === 'PUT') {
       // We accept tieBreaker via the 'innings' field (merged in FE) or if passed as a prop we merge it here
-      const { id, isComplete, innings, tieBreaker, league, location, startTime, endTime, notes, homeTeamId, awayTeamId, status } = req.body;
+      const { id, isComplete, innings, tieBreaker, league, location, startTime, endTime, notes, homeTeamId, awayTeamId, status, isPractice, is_practice } = req.body;
       
       // We need to ensure the column exists
       await pool.query(`
@@ -133,7 +139,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         END $$;
       `);
       
-      // Updated query to allow changing league and schedule fields, swapping teams, and status
+      const practiceFlag = isPractice !== undefined ? isPractice : (is_practice !== undefined ? is_practice : null);
+
+      // Updated query to allow changing league and schedule fields, swapping teams, status, and is_practice
       const queryUpdate = `
         UPDATE matches 
         SET is_complete = COALESCE($2, is_complete), 
@@ -146,7 +154,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             notes = COALESCE($9, notes),
             home_team_id = COALESCE($10, home_team_id),
             away_team_id = COALESCE($11, away_team_id),
-            status = COALESCE($12, status)
+            status = COALESCE($12, status),
+            is_practice = COALESCE($13, is_practice)
         WHERE id = $1 
         RETURNING *
       `;
@@ -162,7 +171,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         notes !== undefined ? notes : null,
         homeTeamId !== undefined ? homeTeamId : null,
         awayTeamId !== undefined ? awayTeamId : null,
-        status !== undefined ? status : (isComplete ? 'FINAL' : null)
+        status !== undefined ? status : (isComplete ? 'FINAL' : null),
+        practiceFlag
       ];
 
       const { rows } = await pool.query(queryUpdate, values);

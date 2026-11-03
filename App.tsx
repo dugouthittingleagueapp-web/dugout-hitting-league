@@ -9,6 +9,7 @@ import { MatchSetup } from './components/MatchSetup';
 import { RosterImportModal } from './components/RosterImportModal';
 import { PlayerCareerModal } from './components/PlayerCareerModal';
 import { SetLineupModal } from './components/SetLineupModal';
+import { PracticeSetupModal } from './components/PracticeSetupModal';
 import * as storage from './services/storageService';
 import { getMatchStatus, findCurrentOrUpcomingWeekId } from './utils/lineupHelper';
 
@@ -160,6 +161,9 @@ const App: React.FC = () => {
 
   // Set Lineup Modal
   const [lineupModalMatch, setLineupModalMatch] = useState<Match | null>(null);
+
+  // Practice / Sandbox Mode Modal
+  const [showPracticeModal, setShowPracticeModal] = useState(false);
 
   // Move Match Modal
   const [moveMatchModal, setMoveMatchModal] = useState<{ matchId: string, currentLeague: string } | null>(null);
@@ -386,6 +390,8 @@ const App: React.FC = () => {
       
       const weeksMap = new Map<string, Match[]>();
       matches.forEach(m => {
+          // Strictly exclude practice matches from fan schedule view
+          if (userRole === 'fan' && m.isPractice) return;
           if (m.league && !storage.leaguesMatch(m.league, state.currentLeague)) return;
           const key = getWeekKey(m.date);
           if (!weeksMap.has(key)) weeksMap.set(key, []);
@@ -400,7 +406,7 @@ const App: React.FC = () => {
           label: `Week ${index + 1}`,
           matches: weeksMap.get(key)!
       }));
-  }, [matches, state.currentLeague]);
+  }, [matches, state.currentLeague, userRole]);
 
   // Track league changes so schedule view auto-advances when switching leagues or on initial mount
   const lastLeagueRef = useRef<string | null>(null);
@@ -515,6 +521,20 @@ const App: React.FC = () => {
         setSelectedHomeId(''); setSelectedAwayId(''); setLoading(false);
         setState({ ...state, view: 'scoring', currentMatchId: newMatch.id });
     } catch (e) { alert("Error starting match: " + e); setLoading(false); }
+  };
+
+  const handleStartPractice = async (practiceMatch: Match, practiceTeams?: Team[]) => {
+      if (practiceTeams && practiceTeams.length > 0) {
+          setTeams(prev => {
+              const existingIds = new Set(prev.map(t => t.id));
+              const newTeams = practiceTeams.filter(t => !existingIds.has(t.id));
+              return [...prev, ...newTeams];
+          });
+      }
+      setMatches(prev => [practiceMatch, ...prev.filter(m => m.id !== practiceMatch.id)]);
+      safeStorage.setItem('dugout_active_match_id', practiceMatch.id);
+      setShowPracticeModal(false);
+      setState(s => ({ ...s, view: 'scoring', currentMatchId: practiceMatch.id }));
   };
 
   const handleDeleteMatch = async (matchId: string) => {
@@ -663,7 +683,7 @@ const App: React.FC = () => {
       const targetWeek = activeWeeks.find(w => w.id === leaderboardWeek);
       const targetMatches = targetWeek ? targetWeek.matches : [];
       
-      const relevantMatches = targetMatches.filter(m => m.isComplete);
+      const relevantMatches = targetMatches.filter(m => m.isComplete && !m.isPractice);
 
       // Track unique players by ID to ensure they only appear once with their best score
       const uniqueTotals = new Map<string, { name: string, team: string, score: number }>();
@@ -784,7 +804,7 @@ const App: React.FC = () => {
     });
 
     matches.forEach(m => {
-      if (!m.isComplete || (m.league && !storage.leaguesMatch(m.league, state.currentLeague))) return;
+      if (m.isPractice || !m.isComplete || (m.league && !storage.leaguesMatch(m.league, state.currentLeague))) return;
       
       const getScore = (innings: Inning[], side: 'home' | 'away', tb?: TieBreakerRound[]) => {
          let score = (innings || []).reduce((acc, ing) => {
@@ -835,7 +855,7 @@ const App: React.FC = () => {
       const aggStats = new Map<string, PlayerStats>();
       
       matches.forEach(m => {
-          if (!m.isComplete || (m.league && !storage.leaguesMatch(m.league, state.currentLeague))) return;
+          if (m.isPractice || !m.isComplete || (m.league && !storage.leaguesMatch(m.league, state.currentLeague))) return;
           const home = teams.find(t => t.id === m.homeTeamId);
           const away = teams.find(t => t.id === m.awayTeamId);
           if (!home || !away) return;
@@ -1096,6 +1116,7 @@ const App: React.FC = () => {
                     <AdminDashboard 
                         onBack={() => setState({ ...state, view: 'league_select' })} 
                         onBrowseArchive={(archiveSeason) => setState(s => ({ ...s, season: archiveSeason, view: 'league_select', currentLeague: null }))}
+                        onStartPractice={() => setShowPracticeModal(true)}
                         onSeasonUpdated={async () => {
                             const newActive = await storage.getCurrentSeason();
                             const seasonsList = await storage.getAvailableSeasons();
@@ -1213,6 +1234,24 @@ const App: React.FC = () => {
                                     )}
                                 </div>
                             )}
+
+                            {/* Practice / Sandbox Mode Box - Umpires & Admins */}
+                            <div className="bg-amber-500/10 dark:bg-amber-950/30 border border-amber-500/30 rounded-xl p-3 sm:p-4 shadow-sm">
+                                <div className="flex items-center gap-2 mb-2">
+                                    <span className="text-lg">🧪</span>
+                                    <div>
+                                        <h3 className="text-xs sm:text-sm font-black text-amber-700 dark:text-amber-400 font-sans uppercase tracking-wider">Practice / Sandbox</h3>
+                                        <p className="text-[10px] text-slate-500 dark:text-slate-400 font-sans">Test scoring and game setups without altering official stats</p>
+                                    </div>
+                                </div>
+                                <button
+                                    onClick={() => setShowPracticeModal(true)}
+                                    className="w-full py-2 px-3 bg-amber-500 hover:bg-amber-600 active:scale-95 text-slate-950 font-bold rounded-lg transition-all font-sans text-xs sm:text-sm shadow flex items-center justify-center gap-1.5 cursor-pointer"
+                                >
+                                    <span>🧪 Start Practice Match</span>
+                                </button>
+                            </div>
+
                             <div className="text-center">
                                 <span className="bg-white/50 dark:bg-slate-800 text-slate-600 dark:text-slate-400 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider font-sans border border-slate-200 dark:border-slate-700">Role: {userRole}</span>
                                 <button onClick={handleLogout} className="text-xs text-red-500 hover:text-red-400 ml-2 underline font-sans">Log Out</button>
@@ -1341,6 +1380,11 @@ const App: React.FC = () => {
                                                         {matchStatus === 'IN_PROGRESS' && (
                                                             <span className="text-[9px] sm:text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded font-sans border shrink-0 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 border-green-500/30 animate-pulse">
                                                                 LIVE
+                                                            </span>
+                                                        )}
+                                                        {match.isPractice && (
+                                                            <span className="text-[9px] sm:text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded font-sans border shrink-0 bg-amber-500/15 text-amber-600 dark:text-amber-400 border-amber-500/40">
+                                                                🧪 PRACTICE
                                                             </span>
                                                         )}
                                                         {matchStatus === 'SCHEDULED' && (
@@ -1750,6 +1794,16 @@ const App: React.FC = () => {
             isOpen={!!selectedCareerPlayer}
             playerName={selectedCareerPlayer}
             onClose={() => setSelectedCareerPlayer(null)}
+        />
+
+        {/* Practice / Sandbox Mode Setup Modal */}
+        <PracticeSetupModal
+            isOpen={showPracticeModal}
+            onClose={() => setShowPracticeModal(false)}
+            currentLeague={state.currentLeague || (leagues[0]?.id as AgeGroup) || '7-9'}
+            season={state.season}
+            teams={leagueTeams.length > 0 ? leagueTeams : teams}
+            onStartPractice={handleStartPractice}
         />
 
         {/* Set Lineup Modal for Umpires and Admins */}

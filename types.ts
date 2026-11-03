@@ -68,6 +68,8 @@ export interface Match {
   startTime?: string;
   endTime?: string;
   notes?: string;
+  isPractice?: boolean;
+  is_practice?: boolean;
 }
 
 export interface ScheduledGameRecord {

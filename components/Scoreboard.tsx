@@ -33,6 +33,7 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
   const [loading, setLoading] = useState(true);
   
   const [activeCell, setActiveCell] = useState<{ side: 'home' | 'away'; lineupIdx: number; pitchIdx: number; roundIdx?: number } | null>(null);
+  const [showResetConfirmModal, setShowResetConfirmModal] = useState(false);
 
   // Tie Breaker Setup State
   const [showTieBreakerSetup, setShowTieBreakerSetup] = useState(false);
@@ -229,6 +230,43 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
       await storage.updateMatch(updatedMatch);
       setShowTieBreakerSetup(false);
       setActiveInningIdx(6);
+  };
+
+  const confirmResetPracticeMatch = async () => {
+    if (!match) return;
+    const resetInnings = match.innings.map(ing => ({
+      ...ing,
+      home: {
+        ...ing.home,
+        playerScores: (ing.home?.playerScores || []).map(ps => ({
+          ...ps,
+          pitches: (ps.pitches || []).map(() => ({ points: null }))
+        }))
+      },
+      away: {
+        ...ing.away,
+        playerScores: (ing.away?.playerScores || []).map(ps => ({
+          ...ps,
+          pitches: (ps.pitches || []).map(() => ({ points: null }))
+        }))
+      }
+    }));
+
+    const resetMatch: Match = {
+      ...match,
+      isComplete: false,
+      status: 'IN_PROGRESS',
+      innings: resetInnings,
+      tieBreaker: []
+    };
+
+    setMatch(resetMatch);
+    setActiveInningIdx(0);
+    setActiveCell(null);
+    setShowFinishModal(false);
+    setShowTieBreakerSetup(false);
+    setShowResetConfirmModal(false);
+    await storage.updateMatch(resetMatch).catch(console.error);
   };
 
   const handleUndo = async (side: 'home' | 'away', lineupIdx: number, currentPitchIdx: number, roundIdx?: number) => {
@@ -630,6 +668,14 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
 
   return (
     <div className="min-h-full w-full overflow-x-hidden pb-20 font-sans">
+      {/* Practice / Sandbox Mode Sticky Top Banner */}
+      {match.isPractice && (
+        <div className="sticky top-0 z-[60] bg-amber-500 text-slate-950 px-3 py-2 text-center text-xs sm:text-sm font-black uppercase tracking-wider flex items-center justify-center gap-2 shadow-md border-b border-amber-600 font-sans">
+          <span className="text-sm sm:text-base">🧪</span>
+          <span>TEST / PRACTICE MODE — Stats will not be saved to official standings or leaderboards</span>
+          <span className="text-sm sm:text-base">🧪</span>
+        </div>
+      )}
       <header className="bg-white/80 dark:bg-slate-950/90 backdrop-blur-md border-b sticky top-0 z-[50] shadow-sm">
         <div className="max-w-7xl mx-auto px-4 py-3 flex justify-between items-center gap-4">
           <div className="flex gap-8 items-center flex-1 min-w-0">
@@ -657,6 +703,18 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
               ) : (
                 <div className="text-blue-600 dark:text-blue-400 font-bold px-2.5 py-1 rounded-md text-[10px] uppercase tracking-wider bg-blue-50 dark:bg-blue-950/40 border border-blue-500/30">SCHEDULED</div>
               )
+            )}
+            
+            {match.isPractice && !isReadOnly && (
+              <button 
+                type="button"
+                onClick={() => setShowResetConfirmModal(true)} 
+                className="text-[10px] sm:text-xs font-bold px-2.5 py-1.5 rounded-lg border border-rose-300 dark:border-rose-700/60 bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-400 hover:bg-rose-100 dark:hover:bg-rose-900/40 transition-colors cursor-pointer whitespace-nowrap shadow-sm flex items-center gap-1"
+                title="Reset all test pitches and restart practice match from Inning 1"
+              >
+                <span>🔄</span>
+                <span>Reset Match</span>
+              </button>
             )}
             
             <button onClick={handleExitRequest} className="text-sm font-bold text-slate-500 bg-slate-100 dark:bg-slate-800 dark:text-slate-300 py-1.5 sm:py-2 px-3 rounded-xl hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors cursor-pointer">Exit</button>
@@ -849,6 +907,24 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
                   <div className="flex gap-3">
                       <button onClick={() => setShowExitConfirmModal(false)} className="flex-1 py-3 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 rounded-xl font-bold font-sans hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors">Stay in Match</button>
                       <button onClick={() => { setShowExitConfirmModal(false); onExit(); }} className="flex-1 py-3 bg-red-600 hover:bg-red-700 text-white rounded-xl font-bold font-sans shadow-lg shadow-red-900/20 transition-colors">Exit</button>
+                  </div>
+              </div>
+          </div>,
+          document.body
+      )}
+      {showResetConfirmModal && createPortal(
+          <div className="fixed inset-0 z-[120] flex items-center justify-center bg-slate-900/80 backdrop-blur-sm p-4 animate-in fade-in duration-150" onClick={() => setShowResetConfirmModal(false)}>
+              <div className="bg-white dark:bg-slate-900 p-6 sm:p-7 rounded-2xl shadow-2xl max-w-sm w-full text-center border border-slate-200 dark:border-slate-800 font-sans" onClick={e => e.stopPropagation()}>
+                  <div className="w-12 h-12 rounded-full bg-rose-100 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400 flex items-center justify-center mx-auto mb-3">
+                      <span className="text-2xl">🔄</span>
+                  </div>
+                  <h2 className="text-xl font-bold text-slate-900 dark:text-white mb-2 font-sans">Reset Practice Match?</h2>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mb-6 font-sans leading-relaxed">
+                      This will reset all recorded pitches across all innings back to 0-0 in Inning 1 so you can immediately practice scoring again. Lineups and team rosters are kept.
+                  </p>
+                  <div className="flex gap-3">
+                      <button type="button" onClick={() => setShowResetConfirmModal(false)} className="flex-1 py-2.5 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 rounded-xl font-bold font-sans hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors">Cancel</button>
+                      <button type="button" onClick={confirmResetPracticeMatch} className="flex-1 py-2.5 bg-rose-600 hover:bg-rose-700 text-white rounded-xl font-bold font-sans shadow-lg shadow-rose-900/20 transition-colors">Yes, Reset Match</button>
                   </div>
               </div>
           </div>,

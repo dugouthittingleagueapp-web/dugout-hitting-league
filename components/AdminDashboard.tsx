@@ -9,7 +9,8 @@ export const AdminDashboard: React.FC<{
   onBack: () => void; 
   onBrowseArchive?: (season: string) => void;
   onSeasonUpdated?: () => void;
-}> = ({ onBack, onBrowseArchive, onSeasonUpdated }) => {
+  onStartPractice?: () => void;
+}> = ({ onBack, onBrowseArchive, onSeasonUpdated, onStartPractice }) => {
   const [data, setData] = useState('');
   const [loading, setLoading] = useState(false);
   const [newLeagueName, setNewLeagueName] = useState('');
@@ -264,7 +265,16 @@ export const AdminDashboard: React.FC<{
               <h2 className="text-xl sm:text-3xl font-black text-slate-900 dark:text-white font-sans tracking-tight">Admin Dashboard</h2>
               <p className="text-xs text-slate-500 dark:text-slate-400 font-sans mt-0.5">Manage divisions, seasons, rosters, and system security</p>
           </div>
-          <div className="flex items-center gap-2 self-start sm:self-auto">
+          <div className="flex items-center gap-2 self-start sm:self-auto flex-wrap">
+              {onStartPractice && (
+                  <button 
+                      onClick={onStartPractice} 
+                      className="px-3 py-1.5 sm:px-4 sm:py-2 bg-amber-500 hover:bg-amber-600 text-slate-950 rounded-lg text-xs sm:text-sm font-bold font-sans transition-colors cursor-pointer shadow-sm flex items-center gap-1.5"
+                  >
+                      <span>🧪</span>
+                      <span>Start Practice Match</span>
+                  </button>
+              )}
               <button 
                   onClick={() => setShowGuide(true)} 
                   className="px-3 py-1.5 sm:px-4 sm:py-2 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 hover:bg-blue-200 dark:hover:bg-blue-900/50 rounded-lg text-xs sm:text-sm font-bold font-sans transition-colors cursor-pointer"

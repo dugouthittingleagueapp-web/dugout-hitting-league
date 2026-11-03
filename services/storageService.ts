@@ -35,7 +35,9 @@ const mapMatchFromDB = (dbMatch: any): Match => {
     location: dbMatch.location || undefined,
     startTime: dbMatch.start_time || dbMatch.startTime || undefined,
     endTime: dbMatch.end_time || dbMatch.endTime || undefined,
-    notes: dbMatch.notes || undefined
+    notes: dbMatch.notes || undefined,
+    isPractice: dbMatch.is_practice !== undefined ? dbMatch.is_practice : (dbMatch.isPractice ?? false),
+    is_practice: dbMatch.is_practice !== undefined ? dbMatch.is_practice : (dbMatch.isPractice ?? false)
   };
 };
 
@@ -363,6 +365,35 @@ export const createTeam = async (name: string, league: AgeGroup, players: {name:
   return mapTeamFromDB(data);
 };
 
+export const saveTeam = async (team: Team): Promise<Team> => {
+  if (typeof window !== 'undefined') {
+    try {
+      localStorage.setItem(`dugout_team_${team.id}`, JSON.stringify(team));
+      const cached = localStorage.getItem('dugout_all_teams_cache');
+      if (cached) {
+        const list: Team[] = JSON.parse(cached);
+        const idx = list.findIndex(t => t.id === team.id);
+        if (idx !== -1) list[idx] = team;
+        else list.push(team);
+        localStorage.setItem('dugout_all_teams_cache', JSON.stringify(list));
+      }
+    } catch (e) {}
+  }
+
+  try {
+    const res = await apiFetch('/api/teams', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(team)
+    });
+    if (res.ok) {
+      const data = await res.json();
+      return mapTeamFromDB(data);
+    }
+  } catch (err) {}
+  return team;
+};
+
 export const updateTeam = async (team: Team): Promise<Team> => {
   // Update local cache immediately so offline roster substitutions persist
   if (typeof window !== 'undefined') {
@@ -602,7 +633,67 @@ export const createScheduledMatch = async (params: {
   return mapMatchFromDB(data);
 };
 
-export const createEmptyInning = (number: number, homeIds: string[], awayIds: string[]): Inning => {
+export const createPracticeMatch = async (params: {
+  league: AgeGroup;
+  homeTeamId: string;
+  awayTeamId: string;
+  homePlayerIds?: string[];
+  homeLineupIds?: string[];
+  awayPlayerIds?: string[];
+  awayLineupIds?: string[];
+  season: string;
+  notes?: string;
+  inningsCount?: number;
+  pitchesPerBatter?: number;
+}): Promise<Match> => {
+  const homeIds = params.homePlayerIds || params.homeLineupIds || [];
+  const awayIds = params.awayPlayerIds || params.awayLineupIds || [];
+  const count = params.inningsCount || 6;
+
+  const innings: Inning[] = [];
+  for (let i = 1; i <= count; i++) {
+    innings.push(createEmptyInning(i, homeIds, awayIds));
+  }
+
+  const match: Match = {
+    id: `practice-${generateUUID()}`,
+    league: params.league,
+    homeTeamId: params.homeTeamId,
+    awayTeamId: params.awayTeamId,
+    date: new Date().toISOString(),
+    isComplete: false,
+    status: 'IN_PROGRESS',
+    isPractice: true,
+    is_practice: true,
+    innings,
+    season: params.season,
+    notes: params.notes || 'TEST / PRACTICE MATCH - Stats excluded from official standings'
+  };
+
+  if (typeof window !== 'undefined') {
+    try {
+      localStorage.setItem(`dugout_match_${match.id}`, JSON.stringify(match));
+    } catch (e) {}
+  }
+
+  try {
+    const res = await apiFetch('/api/matches', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(match),
+    });
+
+    if (res.ok) {
+      const data = await res.json();
+      return mapMatchFromDB(data);
+    }
+  } catch (e) {
+    // In unit test or offline environment, return local match object
+  }
+  return match;
+};
+
+export const createEmptyInning = (number: number, homeIds: string[] = [], awayIds: string[] = []): Inning => {
     // LOGIC:
     // 3v3: 10 pitches each (30 vs 30)
     // 2v2: 10 pitches each (20 vs 20) - Standard scoring per user request
@@ -611,8 +702,11 @@ export const createEmptyInning = (number: number, homeIds: string[], awayIds: st
     let homePitches = 10;
     let awayPitches = 10;
 
-    const homeCount = homeIds.length;
-    const awayCount = awayIds.length;
+    const safeHomeIds = Array.isArray(homeIds) ? homeIds : [];
+    const safeAwayIds = Array.isArray(awayIds) ? awayIds : [];
+
+    const homeCount = safeHomeIds.length;
+    const awayCount = safeAwayIds.length;
 
     if (homeCount === 2 && awayCount === 3) {
         homePitches = 15; // Ghost Mode for Home
@@ -1123,7 +1217,7 @@ export const getPlayerCareerStats = async (playerIdentifier: string): Promise<Pl
   }>();
 
   allMatches.forEach(match => {
-    if (!match.isComplete) return;
+    if (!match.isComplete || match.isPractice) return;
 
     let playedSide: 'home' | 'away' | null = null;
     let playedTeamId = '';

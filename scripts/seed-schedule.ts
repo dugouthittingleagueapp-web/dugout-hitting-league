@@ -224,13 +224,16 @@ async function main() {
       });
       await client.connect();
 
-      // Ensure table schema
+      // Ensure table schema with separate queries
       await client.query(`
         CREATE TABLE IF NOT EXISTS leagues (
-          id TEXT PRIMARY KEY,
+          id TEXT NOT NULL,
           season TEXT NOT NULL DEFAULT '2026',
-          created_at TIMESTAMPTZ DEFAULT NOW()
-        );
+          created_at TIMESTAMPTZ DEFAULT NOW(),
+          PRIMARY KEY (id, season)
+        )
+      `);
+      await client.query(`
         CREATE TABLE IF NOT EXISTS teams (
           id UUID PRIMARY KEY,
           name TEXT NOT NULL,
@@ -239,7 +242,9 @@ async function main() {
           subs JSONB DEFAULT '[]',
           season TEXT NOT NULL DEFAULT '2026',
           created_at TIMESTAMPTZ DEFAULT NOW()
-        );
+        )
+      `);
+      await client.query(`
         CREATE TABLE IF NOT EXISTS matches (
           id UUID PRIMARY KEY,
           league TEXT NOT NULL,
@@ -253,8 +258,11 @@ async function main() {
           start_time TEXT,
           end_time TEXT,
           notes TEXT,
+          status TEXT DEFAULT 'SCHEDULED',
+          is_practice BOOLEAN DEFAULT FALSE,
+          tie_breaker JSONB,
           created_at TIMESTAMPTZ DEFAULT NOW()
-        );
+        )
       `);
 
       for (const league of db.leagues) {

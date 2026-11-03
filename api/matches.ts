@@ -4,7 +4,7 @@ import pool from './db.js';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   try {
-    // Ensure table exists with season and schedule columns
+    // 1. Ensure table exists with all standard columns
     await pool.query(`
       CREATE TABLE IF NOT EXISTS matches (
         id UUID PRIMARY KEY,
@@ -19,36 +19,22 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         start_time TEXT,
         end_time TEXT,
         notes TEXT,
+        status TEXT DEFAULT 'SCHEDULED',
         is_practice BOOLEAN DEFAULT FALSE,
+        tie_breaker JSONB,
         created_at TIMESTAMPTZ DEFAULT NOW()
-      );
-
-      -- Safe migration for existing tables without new columns
-      DO $$ 
-      BEGIN 
-        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='matches' AND column_name='season') THEN 
-          ALTER TABLE matches ADD COLUMN season TEXT NOT NULL DEFAULT TO_CHAR(CURRENT_DATE, 'YYYY'); 
-        END IF; 
-        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='matches' AND column_name='location') THEN 
-          ALTER TABLE matches ADD COLUMN location TEXT; 
-        END IF; 
-        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='matches' AND column_name='start_time') THEN 
-          ALTER TABLE matches ADD COLUMN start_time TEXT; 
-        END IF; 
-        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='matches' AND column_name='end_time') THEN 
-          ALTER TABLE matches ADD COLUMN end_time TEXT; 
-        END IF; 
-        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='matches' AND column_name='notes') THEN 
-          ALTER TABLE matches ADD COLUMN notes TEXT; 
-        END IF; 
-        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='matches' AND column_name='status') THEN 
-          ALTER TABLE matches ADD COLUMN status TEXT DEFAULT 'SCHEDULED'; 
-        END IF; 
-        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='matches' AND column_name='is_practice') THEN 
-          ALTER TABLE matches ADD COLUMN is_practice BOOLEAN DEFAULT FALSE; 
-        END IF; 
-      END $$;
+      )
     `);
+
+    // 2. Safe independent migrations for existing tables
+    await pool.query(`ALTER TABLE matches ADD COLUMN IF NOT EXISTS season TEXT NOT NULL DEFAULT TO_CHAR(CURRENT_DATE, 'YYYY')`);
+    await pool.query(`ALTER TABLE matches ADD COLUMN IF NOT EXISTS location TEXT`);
+    await pool.query(`ALTER TABLE matches ADD COLUMN IF NOT EXISTS start_time TEXT`);
+    await pool.query(`ALTER TABLE matches ADD COLUMN IF NOT EXISTS end_time TEXT`);
+    await pool.query(`ALTER TABLE matches ADD COLUMN IF NOT EXISTS notes TEXT`);
+    await pool.query(`ALTER TABLE matches ADD COLUMN IF NOT EXISTS status TEXT DEFAULT 'SCHEDULED'`);
+    await pool.query(`ALTER TABLE matches ADD COLUMN IF NOT EXISTS is_practice BOOLEAN DEFAULT FALSE`);
+    await pool.query(`ALTER TABLE matches ADD COLUMN IF NOT EXISTS tie_breaker JSONB`);
 
     if (req.method === 'GET') {
       const { league, id, season } = req.query;
@@ -129,15 +115,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       // We accept tieBreaker via the 'innings' field (merged in FE) or if passed as a prop we merge it here
       const { id, isComplete, innings, tieBreaker, league, location, startTime, endTime, notes, homeTeamId, awayTeamId, status, isPractice, is_practice } = req.body;
       
-      // We need to ensure the column exists
-      await pool.query(`
-        DO $$ 
-        BEGIN 
-          IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='matches' AND column_name='tie_breaker') THEN 
-            ALTER TABLE matches ADD COLUMN tie_breaker JSONB; 
-          END IF; 
-        END $$;
-      `);
+      // Ensure tie_breaker column exists
+      await pool.query(`ALTER TABLE matches ADD COLUMN IF NOT EXISTS tie_breaker JSONB`);
       
       const practiceFlag = isPractice !== undefined ? isPractice : (is_practice !== undefined ? is_practice : null);
 

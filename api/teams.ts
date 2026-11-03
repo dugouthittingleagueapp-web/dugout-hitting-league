@@ -4,7 +4,7 @@ import pool from './db.js';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   try {
-    // Ensure table exists with season and subs columns
+    // 1. Ensure table exists with season and subs columns
     await pool.query(`
       CREATE TABLE IF NOT EXISTS teams (
         id UUID PRIMARY KEY,
@@ -14,24 +14,37 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         subs JSONB DEFAULT '[]',
         season TEXT NOT NULL DEFAULT TO_CHAR(CURRENT_DATE, 'YYYY'),
         created_at TIMESTAMPTZ DEFAULT NOW()
-      );
-      
-      -- Safe migration for existing tables without 'season'
-      DO $$ 
-      BEGIN 
-        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='teams' AND column_name='season') THEN 
-          ALTER TABLE teams ADD COLUMN season TEXT NOT NULL DEFAULT TO_CHAR(CURRENT_DATE, 'YYYY'); 
-        END IF; 
-      END $$;
-
-      -- Safe migration for existing tables without 'subs'
-      DO $$ 
-      BEGIN 
-        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='teams' AND column_name='subs') THEN 
-          ALTER TABLE teams ADD COLUMN subs JSONB DEFAULT '[]'; 
-        END IF; 
-      END $$;
+      )
     `);
+    
+    // 2. Safe independent migrations for existing tables
+    await pool.query(`ALTER TABLE teams ADD COLUMN IF NOT EXISTS season TEXT NOT NULL DEFAULT TO_CHAR(CURRENT_DATE, 'YYYY')`);
+    await pool.query(`ALTER TABLE teams ADD COLUMN IF NOT EXISTS subs JSONB DEFAULT '[]'`);
+
+    // 3. One-time auto-repair for C-C-Crushers -> C-C-Crushers! (strictly isolated to Crushers team records)
+    try {
+      const dupCheck = await pool.query(
+        "SELECT id, name, league, season FROM teams WHERE LOWER(TRIM(name)) = 'c-c-crushers'"
+      );
+      if (dupCheck.rows.length > 0) {
+        for (const dup of dupCheck.rows) {
+          const offCheck = await pool.query(
+            "SELECT id FROM teams WHERE LOWER(TRIM(name)) = 'c-c-crushers!' AND LOWER(TRIM(league)) = LOWER(TRIM($1)) LIMIT 1",
+            [dup.league]
+          );
+          if (offCheck.rows.length > 0) {
+            const primaryId = offCheck.rows[0].id;
+            await pool.query("UPDATE matches SET home_team_id = $1 WHERE home_team_id = $2", [primaryId, dup.id]);
+            await pool.query("UPDATE matches SET away_team_id = $1 WHERE away_team_id = $2", [primaryId, dup.id]);
+            await pool.query("DELETE FROM teams WHERE id = $1", [dup.id]);
+          } else {
+            await pool.query("UPDATE teams SET name = 'C-C-Crushers!' WHERE id = $1", [dup.id]);
+          }
+        }
+      }
+    } catch (e) {
+      // Non-blocking auto-heal check
+    }
 
     if (req.method === 'GET') {
       const { league, season } = req.query;

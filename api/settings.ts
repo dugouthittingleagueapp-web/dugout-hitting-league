@@ -12,15 +12,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       )
     `);
 
-    // 2. Ensure default values exist
+    // 2. Ensure default values exist (executed as separate sequential queries)
     // Admin default: 'admin'
     // Umpire default: 'umpire'
     const defaultYear = new Date().getFullYear().toString();
-    await pool.query(`
-      INSERT INTO app_settings (key, value) VALUES ('admin_password', 'admin') ON CONFLICT (key) DO NOTHING;
-      INSERT INTO app_settings (key, value) VALUES ('umpire_password', 'umpire') ON CONFLICT (key) DO NOTHING;
-      INSERT INTO app_settings (key, value) VALUES ('current_season', $1) ON CONFLICT (key) DO NOTHING;
-    `, [defaultYear]);
+    await pool.query(
+      "INSERT INTO app_settings (key, value) VALUES ('admin_password', 'admin') ON CONFLICT (key) DO NOTHING"
+    );
+    await pool.query(
+      "INSERT INTO app_settings (key, value) VALUES ('umpire_password', 'umpire') ON CONFLICT (key) DO NOTHING"
+    );
+    await pool.query(
+      "INSERT INTO app_settings (key, value) VALUES ('current_season', $1) ON CONFLICT (key) DO NOTHING",
+      [defaultYear]
+    );
 
     if (req.method === 'GET') {
         // Return all public settings (exclude passwords)

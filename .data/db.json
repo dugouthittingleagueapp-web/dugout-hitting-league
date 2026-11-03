@@ -756,6 +756,960 @@
   ],
   "matches": [
     {
+      "id": "practice-6134b513-369f-47a2-b552-9c199c36d086",
+      "league": "10u",
+      "home_team_id": "team-alpha",
+      "away_team_id": "team-beta",
+      "date": "2026-11-03T18:26:29.331Z",
+      "is_complete": false,
+      "status": "IN_PROGRESS",
+      "innings": [
+        {
+          "number": 1,
+          "home": {
+            "teamId": "home",
+            "playerScores": [
+              {
+                "playerId": "p-alpha-1",
+                "pitches": [
+                  {
+                    "points": null
+                  },
+                  {
+                    "points": null
+                  },
+                  {
+                    "points": null
+                  },
+                  {
+                    "points": null
+                  },
+                  {
+                    "points": null
+                  },
+                  {
+                    "points": null
+                  },
+                  {
+                    "points": null
+                  },
+                  {
+                    "points": null
+                  },
+                  {
+                    "points": null
+                  },
+                  {
+                    "points": null
+                  }
+                ]
+              },
+              {
+                "playerId": "p-alpha-2",
+                "pitches": [
+                  {
+                    "points": null
+                  },
+                  {
+                    "points": null
+                  },
+                  {
+                    "points": null
+                  },
+                  {
+                    "points": null
+                  },
+                  {
+                    "points": null
+                  },
+                  {
+                    "points": null
+                  },
+                  {
+                    "points": null
+                  },
+                  {
+                    "points": null
+                  },
+                  {
+                    "points": null
+                  },
+                  {
+                    "points": null
+                  }
+                ]
+              }
+            ]
+          },
+          "away": {
+            "teamId": "away",
+            "playerScores": [
+              {
+                "playerId": "p-beta-1",
+                "pitches": [
+                  {
+                    "points": null
+                  },
+                  {
+                    "points": null
+                  },
+                  {
+                    "points": null
+                  },
+                  {
+                    "points": null
+                  },
+                  {
+                    "points": null
+                  },
+                  {
+                    "points": null
+                  },
+                  {
+                    "points": null
+                  },
+                  {
+                    "points": null
+                  },
+                  {
+                    "points": null
+                  },
+                  {
+                    "points": null
+                  }
+                ]
+              },
+              {
+                "playerId": "p-beta-2",
+                "pitches": [
+                  {
+                    "points": null
+                  },
+                  {
+                    "points": null
+                  },
+                  {
+                    "points": null
+                  },
+                  {
+                    "points": null
+                  },
+                  {
+                    "points": null
+                  },
+                  {
+                    "points": null
+                  },
+                  {
+                    "points": null
+                  },
+                  {
+                    "points": null
+                  },
+                  {
+                    "points": null
+                  },
+                  {
+                    "points": null
+                  }
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "number": 2,
+          "home": {
+            "teamId": "home",
+            "playerScores": [
+              {
+                "playerId": "p-alpha-1",
+                "pitches": [
+                  {
+                    "points": null
+                  },
+                  {
+                    "points": null
+                  },
+                  {
+                    "points": null
+                  },
+                  {
+                    "points": null
+                  },
+                  {
+                    "points": null
+                  },
+                  {
+                    "points": null
+                  },
+                  {
+                    "points": null
+                  },
+                  {
+                    "points": null
+                  },
+                  {
+                    "points": null
+                  },
+                  {
+                    "points": null
+                  }
+                ]
+              },
+              {
+                "playerId": "p-alpha-2",
+                "pitches": [
+                  {
+                    "points": null
+                  },
+                  {
+                    "points": null
+                  },
+                  {
+                    "points": null
+                  },
+                  {
+                    "points": null
+                  },
+                  {
+                    "points": null
+                  },
+                  {
+                    "points": null
+                  },
+                  {
+                    "points": null
+                  },
+                  {
+                    "points": null
+                  },
+                  {
+                    "points": null
+                  },
+                  {
+                    "points": null
+                  }
+                ]
+              }
+            ]
+          },
+          "away": {
+            "teamId": "away",
+            "playerScores": [
+              {
+                "playerId": "p-beta-1",
+                "pitches": [
+                  {
+                    "points": null
+                  },
+                  {
+                    "points": null
+                  },
+                  {
+                    "points": null
+                  },
+                  {
+                    "points": null
+                  },
+                  {
+                    "points": null
+                  },
+                  {
+                    "points": null
+                  },
+                  {
+                    "points": null
+                  },
+                  {
+                    "points": null
+                  },
+                  {
+                    "points": null
+                  },
+                  {
+                    "points": null
+                  }
+                ]
+              },
+              {
+                "playerId": "p-beta-2",
+                "pitches": [
+                  {
+                    "points": null
+                  },
+                  {
+                    "points": null
+                  },
+                  {
+                    "points": null
+                  },
+                  {
+                    "points": null
+                  },
+                  {
+                    "points": null
+                  },
+                  {
+                    "points": null
+                  },
+                  {
+                    "points": null
+                  },
+                  {
+                    "points": null
+                  },
+                  {
+                    "points": null
+                  },
+                  {
+                    "points": null
+                  }
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "number": 3,
+          "home": {
+            "teamId": "home",
+            "playerScores": [
+              {
+                "playerId": "p-alpha-1",
+                "pitches": [
+                  {
+                    "points": null
+                  },
+                  {
+                    "points": null
+                  },
+                  {
+                    "points": null
+                  },
+                  {
+                    "points": null
+                  },
+                  {
+                    "points": null
+                  },
+                  {
+                    "points": null
+                  },
+                  {
+                    "points": null
+                  },
+                  {
+                    "points": null
+                  },
+                  {
+                    "points": null
+                  },
+                  {
+                    "points": null
+                  }
+                ]
+              },
+              {
+                "playerId": "p-alpha-2",
+                "pitches": [
+                  {
+                    "points": null
+                  },
+                  {
+                    "points": null
+                  },
+                  {
+                    "points": null
+                  },
+                  {
+                    "points": null
+                  },
+                  {
+                    "points": null
+                  },
+                  {
+                    "points": null
+                  },
+                  {
+                    "points": null
+                  },
+                  {
+                    "points": null
+                  },
+                  {
+                    "points": null
+                  },
+                  {
+                    "points": null
+                  }
+                ]
+              }
+            ]
+          },
+          "away": {
+            "teamId": "away",
+            "playerScores": [
+              {
+                "playerId": "p-beta-1",
+                "pitches": [
+                  {
+                    "points": null
+                  },
+                  {
+                    "points": null
+                  },
+                  {
+                    "points": null
+                  },
+                  {
+                    "points": null
+                  },
+                  {
+                    "points": null
+                  },
+                  {
+                    "points": null
+                  },
+                  {
+                    "points": null
+                  },
+                  {
+                    "points": null
+                  },
+                  {
+                    "points": null
+                  },
+                  {
+                    "points": null
+                  }
+                ]
+              },
+              {
+                "playerId": "p-beta-2",
+                "pitches": [
+                  {
+                    "points": null
+                  },
+                  {
+                    "points": null
+                  },
+                  {
+                    "points": null
+                  },
+                  {
+                    "points": null
+                  },
+                  {
+                    "points": null
+                  },
+                  {
+                    "points": null
+                  },
+                  {
+                    "points": null
+                  },
+                  {
+                    "points": null
+                  },
+                  {
+                    "points": null
+                  },
+                  {
+                    "points": null
+                  }
+                ]
+              }
+            ]
+          }
+        }
+      ],
+      "season": "2026",
+      "location": null,
+      "start_time": null,
+      "end_time": null,
+      "notes": "TEST / PRACTICE MATCH - Stats excluded from official standings",
+      "is_practice": true,
+      "created_at": "2026-11-03T18:26:29.373Z"
+    },
+    {
+      "id": "practice-ed407f81-91c4-4a72-a944-4b3d3567106b",
+      "league": "10u",
+      "home_team_id": "team-alpha",
+      "away_team_id": "team-beta",
+      "date": "2026-11-03T18:23:20.603Z",
+      "is_complete": false,
+      "status": "IN_PROGRESS",
+      "innings": [
+        {
+          "number": 1,
+          "home": {
+            "teamId": "home",
+            "playerScores": [
+              {
+                "playerId": "p-alpha-1",
+                "pitches": [
+                  {
+                    "points": null
+                  },
+                  {
+                    "points": null
+                  },
+                  {
+                    "points": null
+                  },
+                  {
+                    "points": null
+                  },
+                  {
+                    "points": null
+                  },
+                  {
+                    "points": null
+                  },
+                  {
+                    "points": null
+                  },
+                  {
+                    "points": null
+                  },
+                  {
+                    "points": null
+                  },
+                  {
+                    "points": null
+                  }
+                ]
+              },
+              {
+                "playerId": "p-alpha-2",
+                "pitches": [
+                  {
+                    "points": null
+                  },
+                  {
+                    "points": null
+                  },
+                  {
+                    "points": null
+                  },
+                  {
+                    "points": null
+                  },
+                  {
+                    "points": null
+                  },
+                  {
+                    "points": null
+                  },
+                  {
+                    "points": null
+                  },
+                  {
+                    "points": null
+                  },
+                  {
+                    "points": null
+                  },
+                  {
+                    "points": null
+                  }
+                ]
+              }
+            ]
+          },
+          "away": {
+            "teamId": "away",
+            "playerScores": [
+              {
+                "playerId": "p-beta-1",
+                "pitches": [
+                  {
+                    "points": null
+                  },
+                  {
+                    "points": null
+                  },
+                  {
+                    "points": null
+                  },
+                  {
+                    "points": null
+                  },
+                  {
+                    "points": null
+                  },
+                  {
+                    "points": null
+                  },
+                  {
+                    "points": null
+                  },
+                  {
+                    "points": null
+                  },
+                  {
+                    "points": null
+                  },
+                  {
+                    "points": null
+                  }
+                ]
+              },
+              {
+                "playerId": "p-beta-2",
+                "pitches": [
+                  {
+                    "points": null
+                  },
+                  {
+                    "points": null
+                  },
+                  {
+                    "points": null
+                  },
+                  {
+                    "points": null
+                  },
+                  {
+                    "points": null
+                  },
+                  {
+                    "points": null
+                  },
+                  {
+                    "points": null
+                  },
+                  {
+                    "points": null
+                  },
+                  {
+                    "points": null
+                  },
+                  {
+                    "points": null
+                  }
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "number": 2,
+          "home": {
+            "teamId": "home",
+            "playerScores": [
+              {
+                "playerId": "p-alpha-1",
+                "pitches": [
+                  {
+                    "points": null
+                  },
+                  {
+                    "points": null
+                  },
+                  {
+                    "points": null
+                  },
+                  {
+                    "points": null
+                  },
+                  {
+                    "points": null
+                  },
+                  {
+                    "points": null
+                  },
+                  {
+                    "points": null
+                  },
+                  {
+                    "points": null
+                  },
+                  {
+                    "points": null
+                  },
+                  {
+                    "points": null
+                  }
+                ]
+              },
+              {
+                "playerId": "p-alpha-2",
+                "pitches": [
+                  {
+                    "points": null
+                  },
+                  {
+                    "points": null
+                  },
+                  {
+                    "points": null
+                  },
+                  {
+                    "points": null
+                  },
+                  {
+                    "points": null
+                  },
+                  {
+                    "points": null
+                  },
+                  {
+                    "points": null
+                  },
+                  {
+                    "points": null
+                  },
+                  {
+                    "points": null
+                  },
+                  {
+                    "points": null
+                  }
+                ]
+              }
+            ]
+          },
+          "away": {
+            "teamId": "away",
+            "playerScores": [
+              {
+                "playerId": "p-beta-1",
+                "pitches": [
+                  {
+                    "points": null
+                  },
+                  {
+                    "points": null
+                  },
+                  {
+                    "points": null
+                  },
+                  {
+                    "points": null
+                  },
+                  {
+                    "points": null
+                  },
+                  {
+                    "points": null
+                  },
+                  {
+                    "points": null
+                  },
+                  {
+                    "points": null
+                  },
+                  {
+                    "points": null
+                  },
+                  {
+                    "points": null
+                  }
+                ]
+              },
+              {
+                "playerId": "p-beta-2",
+                "pitches": [
+                  {
+                    "points": null
+                  },
+                  {
+                    "points": null
+                  },
+                  {
+                    "points": null
+                  },
+                  {
+                    "points": null
+                  },
+                  {
+                    "points": null
+                  },
+                  {
+                    "points": null
+                  },
+                  {
+                    "points": null
+                  },
+                  {
+                    "points": null
+                  },
+                  {
+                    "points": null
+                  },
+                  {
+                    "points": null
+                  }
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "number": 3,
+          "home": {
+            "teamId": "home",
+            "playerScores": [
+              {
+                "playerId": "p-alpha-1",
+                "pitches": [
+                  {
+                    "points": null
+                  },
+                  {
+                    "points": null
+                  },
+                  {
+                    "points": null
+                  },
+                  {
+                    "points": null
+                  },
+                  {
+                    "points": null
+                  },
+                  {
+                    "points": null
+                  },
+                  {
+                    "points": null
+                  },
+                  {
+                    "points": null
+                  },
+                  {
+                    "points": null
+                  },
+                  {
+                    "points": null
+                  }
+                ]
+              },
+              {
+                "playerId": "p-alpha-2",
+                "pitches": [
+                  {
+                    "points": null
+                  },
+                  {
+                    "points": null
+                  },
+                  {
+                    "points": null
+                  },
+                  {
+                    "points": null
+                  },
+                  {
+                    "points": null
+                  },
+                  {
+                    "points": null
+                  },
+                  {
+                    "points": null
+                  },
+                  {
+                    "points": null
+                  },
+                  {
+                    "points": null
+                  },
+                  {
+                    "points": null
+                  }
+                ]
+              }
+            ]
+          },
+          "away": {
+            "teamId": "away",
+            "playerScores": [
+              {
+                "playerId": "p-beta-1",
+                "pitches": [
+                  {
+                    "points": null
+                  },
+                  {
+                    "points": null
+                  },
+                  {
+                    "points": null
+                  },
+                  {
+                    "points": null
+                  },
+                  {
+                    "points": null
+                  },
+                  {
+                    "points": null
+                  },
+                  {
+                    "points": null
+                  },
+                  {
+                    "points": null
+                  },
+                  {
+                    "points": null
+                  },
+                  {
+                    "points": null
+                  }
+                ]
+              },
+              {
+                "playerId": "p-beta-2",
+                "pitches": [
+                  {
+                    "points": null
+                  },
+                  {
+                    "points": null
+                  },
+                  {
+                    "points": null
+                  },
+                  {
+                    "points": null
+                  },
+                  {
+                    "points": null
+                  },
+                  {
+                    "points": null
+                  },
+                  {
+                    "points": null
+                  },
+                  {
+                    "points": null
+                  },
+                  {
+                    "points": null
+                  },
+                  {
+                    "points": null
+                  }
+                ]
+              }
+            ]
+          }
+        }
+      ],
+      "season": "2026",
+      "location": null,
+      "start_time": null,
+      "end_time": null,
+      "notes": "TEST / PRACTICE MATCH - Stats excluded from official standings",
+      "is_practice": true,
+      "created_at": "2026-11-03T18:23:20.646Z"
+    },
+    {
       "id": "practice-7b7480e1-9fa3-48fb-b5d6-b873d85e05a0",
       "league": "10u",
       "home_team_id": "team-alpha",

@@ -62,7 +62,7 @@ export async function migrateCrushersInPostgres(connString?: string): Promise<Me
 
       // 1. Find all duplicate and official teams
       const { rows: crushersTeams } = await client.query(
-        `SELECT id, name, league, season, players, subs FROM teams WHERE LOWER(TRIM(name)) IN ('c-c-crushers', 'c-c-crushers!');`
+        `SELECT id, name, league, season, players, subs FROM teams WHERE LOWER(TRIM(name)) IN ('c-c-crushers', 'c-c-crushers!')`
       );
 
       const duplicates = crushersTeams.filter(t => isDuplicateCrushersName(t.name));
@@ -77,25 +77,53 @@ export async function migrateCrushersInPostgres(connString?: string): Promise<Me
         if (primary) {
           result.details.push(`[PG] Merging team ${dup.name} (${dup.id}) into ${primary.name} (${primary.id})`);
 
-          // Update matches Home and Away references first (avoids ON DELETE CASCADE deletion!)
-          const homeRes = await client.query(
-            `UPDATE matches SET home_team_id = $1 WHERE home_team_id = $2;`,
+          // Step 1: Update finalized games Home and Away references
+          const homeFinalRes = await client.query(
+            `UPDATE matches SET home_team_id = $1 WHERE home_team_id = $2 AND is_complete = true`,
             [primary.id, dup.id]
           );
-          const awayRes = await client.query(
-            `UPDATE matches SET away_team_id = $1 WHERE away_team_id = $2;`,
+          const awayFinalRes = await client.query(
+            `UPDATE matches SET away_team_id = $1 WHERE away_team_id = $2 AND is_complete = true`,
             [primary.id, dup.id]
           );
+          const finalCount = (homeFinalRes.rowCount || 0) + (awayFinalRes.rowCount || 0);
+          result.finalizedMatchesUpdated += finalCount;
 
-          result.matchesUpdated += (homeRes.rowCount || 0) + (awayRes.rowCount || 0);
+          // Step 2: Update scheduled matches / future schedule
+          const homeSchedRes = await client.query(
+            `UPDATE matches SET home_team_id = $1 WHERE home_team_id = $2 AND (is_complete = false OR is_complete IS NULL)`,
+            [primary.id, dup.id]
+          );
+          const awaySchedRes = await client.query(
+            `UPDATE matches SET away_team_id = $1 WHERE away_team_id = $2 AND (is_complete = false OR is_complete IS NULL)`,
+            [primary.id, dup.id]
+          );
+          const schedCount = (homeSchedRes.rowCount || 0) + (awaySchedRes.rowCount || 0);
+          result.scheduledMatchesUpdated += schedCount;
+          result.matchesUpdated += (finalCount + schedCount);
 
-          // Delete duplicate record
-          await client.query(`DELETE FROM teams WHERE id = $1;`, [dup.id]);
+          // Step 3: Merge any roster entries from duplicate into official team
+          const primaryPlayers = typeof primary.players === 'string' ? JSON.parse(primary.players) : (primary.players || []);
+          const dupPlayers = typeof dup.players === 'string' ? JSON.parse(dup.players) : (dup.players || []);
+          const existingNames = new Set(primaryPlayers.map((p: any) => (p.name || '').trim().toLowerCase()));
+          const newPlayers = dupPlayers.filter((p: any) => !existingNames.has((p.name || '').trim().toLowerCase()));
+
+          if (newPlayers.length > 0) {
+            const mergedPlayers = [...primaryPlayers, ...newPlayers];
+            await client.query(
+              `UPDATE teams SET players = $1 WHERE id = $2`,
+              [JSON.stringify(mergedPlayers), primary.id]
+            );
+            result.playersMigrated += newPlayers.length;
+          }
+
+          // Step 4: Delete duplicate team record
+          await client.query(`DELETE FROM teams WHERE id = $1`, [dup.id]);
           result.teamsMerged++;
         } else {
           // Simply rename
           await client.query(
-            `UPDATE teams SET name = $1 WHERE id = $2;`,
+            `UPDATE teams SET name = $1 WHERE id = $2`,
             [OFFICIAL_TEAM_NAME, dup.id]
           );
           result.teamsRenamed++;

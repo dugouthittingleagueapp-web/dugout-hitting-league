@@ -11,13 +11,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         season TEXT NOT NULL DEFAULT TO_CHAR(CURRENT_DATE, 'YYYY'),
         created_at TIMESTAMPTZ DEFAULT NOW(),
         PRIMARY KEY (id, season)
-      );
+      )
+    `);
+
+    // 2. Safe column migration for legacy tables
+    await pool.query(`ALTER TABLE leagues ADD COLUMN IF NOT EXISTS season TEXT NOT NULL DEFAULT TO_CHAR(CURRENT_DATE, 'YYYY')`);
+
+    // 3. Composite primary key upgrade for legacy single-column pkey
+    await pool.query(`
       DO $$
       BEGIN
-        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='leagues' AND column_name='season') THEN
-          ALTER TABLE leagues ADD COLUMN season TEXT NOT NULL DEFAULT TO_CHAR(CURRENT_DATE, 'YYYY');
-        END IF;
-
         IF EXISTS (
           SELECT 1 FROM information_schema.table_constraints 
           WHERE table_name = 'leagues' AND constraint_type = 'PRIMARY KEY'
@@ -30,15 +33,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           END IF;
         END IF;
       END $$;
+    `);
 
-      DELETE FROM leagues WHERE season = '2025' AND id IN ('10u', '12u', 'Varsity');
-      DELETE FROM teams WHERE season = '2025' AND league IN ('10u', '12u', 'Varsity');
-      DELETE FROM matches WHERE season = '2025' AND league IN ('10u', '12u', 'Varsity');
+    // 4. Archive cleanup and initial seed rows executed as separate queries
+    await pool.query("DELETE FROM leagues WHERE season = '2025' AND id IN ('10u', '12u', 'Varsity')");
+    await pool.query("DELETE FROM teams WHERE season = '2025' AND league IN ('10u', '12u', 'Varsity')");
+    await pool.query("DELETE FROM matches WHERE season = '2025' AND league IN ('10u', '12u', 'Varsity')");
 
+    await pool.query(`
       INSERT INTO leagues (id, season) VALUES
         ('9U', '2025'),
         ('11U', '2025')
-      ON CONFLICT (id, season) DO NOTHING;
+      ON CONFLICT (id, season) DO NOTHING
     `);
 
     if (req.method === 'GET') {

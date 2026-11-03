@@ -1,6 +1,7 @@
 
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import pool from './db.js';
+import { migrateCrushersInPostgres } from '../scripts/fix-crushers-team-name.js';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   try {
@@ -21,26 +22,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     await pool.query(`ALTER TABLE teams ADD COLUMN IF NOT EXISTS season TEXT NOT NULL DEFAULT TO_CHAR(CURRENT_DATE, 'YYYY')`);
     await pool.query(`ALTER TABLE teams ADD COLUMN IF NOT EXISTS subs JSONB DEFAULT '[]'`);
 
-    // 3. One-time auto-repair for C-C-Crushers -> C-C-Crushers! (strictly isolated to Crushers team records)
+    // 3. One-time auto-repair for C-C-Crushers -> C-C-Crushers! (full relational child-record and innings migration)
     try {
       const dupCheck = await pool.query(
-        "SELECT id, name, league, season FROM teams WHERE LOWER(TRIM(name)) = 'c-c-crushers'"
+        "SELECT 1 FROM teams WHERE LOWER(TRIM(name)) = 'c-c-crushers' LIMIT 1"
       );
       if (dupCheck.rows.length > 0) {
-        for (const dup of dupCheck.rows) {
-          const offCheck = await pool.query(
-            "SELECT id FROM teams WHERE LOWER(TRIM(name)) = 'c-c-crushers!' AND LOWER(TRIM(league)) = LOWER(TRIM($1)) LIMIT 1",
-            [dup.league]
-          );
-          if (offCheck.rows.length > 0) {
-            const primaryId = offCheck.rows[0].id;
-            await pool.query("UPDATE matches SET home_team_id = $1 WHERE home_team_id = $2", [primaryId, dup.id]);
-            await pool.query("UPDATE matches SET away_team_id = $1 WHERE away_team_id = $2", [primaryId, dup.id]);
-            await pool.query("DELETE FROM teams WHERE id = $1", [dup.id]);
-          } else {
-            await pool.query("UPDATE teams SET name = 'C-C-Crushers!' WHERE id = $1", [dup.id]);
-          }
-        }
+        await migrateCrushersInPostgres();
       }
     } catch (e) {
       // Non-blocking auto-heal check

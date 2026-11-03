@@ -6,6 +6,7 @@ import {
   OFFICIAL_TEAM_NAME
 } from '../../utils/crushersMigration';
 import { Match, Team, Inning } from '../../types';
+import { calculateMatchStats } from '../../services/storageService';
 
 describe('Crushers Migration & Team Merge', () => {
   const createMockInning = (number: number, homePid: string, awayPid: string, points = 3): Inning => ({
@@ -136,7 +137,21 @@ describe('Crushers Migration & Team Merge', () => {
     expect(migratedLastNight?.awayTeamId).toBe(officialTeam.id);
     expect(migratedLastNight?.isComplete).toBe(true);
 
-    // 5. Future scheduled game should point to official team ID
+    // 5. Inning box scores and tie-breaker must point to official team player IDs
+    const jackInRoster = primary?.players.find(p => p.name === 'Jack Robinson');
+    expect(jackInRoster).toBeDefined();
+    // Jack's player ID should be the one in the inning box score
+    expect(migratedLastNight?.innings[0].away.playerScores[0].playerId).toBe(jackInRoster!.id);
+    expect(migratedLastNight?.tieBreaker?.[0].awayPlayerId).toBe(jackInRoster!.id);
+
+    // 6. Match stats calculation should associate hits/points to players under C-C-Crushers!
+    const stats = calculateMatchStats(migratedLastNight!, opponentTeam, primary!);
+    const jackStats = stats.find(s => s.playerId === jackInRoster!.id);
+    expect(jackStats).toBeDefined();
+    expect(jackStats!.name).toContain('Jack');
+    expect(jackStats!.totalPoints).toBeGreaterThan(0);
+
+    // 7. Future scheduled game should point to official team ID
     const migratedFuture = db.matches.find(m => m.id === 'match-future-week');
     expect(migratedFuture?.homeTeamId).toBe(officialTeam.id);
     expect(migratedFuture?.awayTeamId).toBe(opponentTeam.id);

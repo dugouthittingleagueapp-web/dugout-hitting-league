@@ -77,51 +77,193 @@ export async function migrateCrushersInPostgres(connString?: string): Promise<Me
         if (primary) {
           result.details.push(`[PG] Merging team ${dup.name} (${dup.id}) into ${primary.name} (${primary.id})`);
 
-          // Step 1: Update finalized games Home and Away references
-          const homeFinalRes = await client.query(
-            `UPDATE matches SET home_team_id = $1 WHERE home_team_id = $2 AND is_complete = true`,
-            [primary.id, dup.id]
-          );
-          const awayFinalRes = await client.query(
-            `UPDATE matches SET away_team_id = $1 WHERE away_team_id = $2 AND is_complete = true`,
-            [primary.id, dup.id]
-          );
-          const finalCount = (homeFinalRes.rowCount || 0) + (awayFinalRes.rowCount || 0);
-          result.finalizedMatchesUpdated += finalCount;
-
-          // Step 2: Update scheduled matches / future schedule
-          const homeSchedRes = await client.query(
-            `UPDATE matches SET home_team_id = $1 WHERE home_team_id = $2 AND (is_complete = false OR is_complete IS NULL)`,
-            [primary.id, dup.id]
-          );
-          const awaySchedRes = await client.query(
-            `UPDATE matches SET away_team_id = $1 WHERE away_team_id = $2 AND (is_complete = false OR is_complete IS NULL)`,
-            [primary.id, dup.id]
-          );
-          const schedCount = (homeSchedRes.rowCount || 0) + (awaySchedRes.rowCount || 0);
-          result.scheduledMatchesUpdated += schedCount;
-          result.matchesUpdated += (finalCount + schedCount);
-
-          // Step 3: Merge any roster entries from duplicate into official team
+          // 1. Build Player Mapping & Merge Rosters
+          const playerMap = new Map<string, string>(); // dupPlayerId -> primaryPlayerId
           const primaryPlayers = typeof primary.players === 'string' ? JSON.parse(primary.players) : (primary.players || []);
           const dupPlayers = typeof dup.players === 'string' ? JSON.parse(dup.players) : (dup.players || []);
-          const existingNames = new Set(primaryPlayers.map((p: any) => (p.name || '').trim().toLowerCase()));
-          const newPlayers = dupPlayers.filter((p: any) => !existingNames.has((p.name || '').trim().toLowerCase()));
+          const primarySubs = typeof primary.subs === 'string' ? JSON.parse(primary.subs) : (primary.subs || []);
+          const dupSubs = typeof dup.subs === 'string' ? JSON.parse(dup.subs) : (dup.subs || []);
 
-          if (newPlayers.length > 0) {
-            const mergedPlayers = [...primaryPlayers, ...newPlayers];
-            await client.query(
-              `UPDATE teams SET players = $1 WHERE id = $2`,
-              [JSON.stringify(mergedPlayers), primary.id]
-            );
-            result.playersMigrated += newPlayers.length;
+          const allDupPlayers = [...dupPlayers, ...dupSubs];
+
+          for (const dp of allDupPlayers) {
+            const dpCleanName = (dp.name || '').trim().toLowerCase();
+            const existingPrimary =
+              primaryPlayers.find((p: any) => (p.name || '').trim().toLowerCase() === dpCleanName) ||
+              primarySubs.find((p: any) => (p.name || '').trim().toLowerCase() === dpCleanName);
+
+            if (existingPrimary) {
+              playerMap.set(dp.id, existingPrimary.id);
+            } else {
+              // Replace placeholder player if present
+              const placeholderIdx = primaryPlayers.findIndex(
+                (p: any) => p.name?.includes('Player ') && !dp.name?.includes('Player ')
+              );
+              if (placeholderIdx !== -1) {
+                primaryPlayers[placeholderIdx].name = dp.name;
+                if (dp.lastName) primaryPlayers[placeholderIdx].lastName = dp.lastName;
+                playerMap.set(dp.id, primaryPlayers[placeholderIdx].id);
+              } else {
+                primaryPlayers.push({ ...dp });
+                playerMap.set(dp.id, dp.id);
+                result.playersMigrated++;
+              }
+            }
           }
 
-          // Step 4: Delete duplicate team record
+          // Update primary team's roster in teams table
+          await client.query(
+            `UPDATE teams SET players = $1, subs = $2 WHERE id = $3`,
+            [JSON.stringify(primaryPlayers), JSON.stringify(primarySubs), primary.id]
+          );
+
+          // 2. Relational Child-Record Migrations (if separate tables exist in database)
+          const { rows: tableChecks } = await client.query(`
+            SELECT table_name 
+            FROM information_schema.tables 
+            WHERE table_schema = 'public' 
+              AND table_name IN ('players', 'team_rosters', 'rosters', 'player_stats', 'box_scores')
+          `);
+          const existingTables = new Set(tableChecks.map(r => r.table_name));
+
+          // A. Migrate relational 'players' table
+          if (existingTables.has('players')) {
+            const { rows: dupRelPlayers } = await client.query(
+              `SELECT id, name FROM players WHERE team_id = $1`,
+              [dup.id]
+            );
+            for (const rp of dupRelPlayers) {
+              const cleanRpName = (rp.name || '').trim().toLowerCase();
+              const { rows: primaryRelPlayers } = await client.query(
+                `SELECT id FROM players WHERE team_id = $1 AND LOWER(TRIM(name)) = $2 LIMIT 1`,
+                [primary.id, cleanRpName]
+              );
+              if (primaryRelPlayers.length > 0) {
+                // Map to existing player and remove duplicate row
+                playerMap.set(rp.id, primaryRelPlayers[0].id);
+                await client.query(`DELETE FROM players WHERE id = $1`, [rp.id]);
+              } else {
+                // Re-point player to official team
+                await client.query(`UPDATE players SET team_id = $1 WHERE id = $2`, [primary.id, rp.id]);
+                if (!playerMap.has(rp.id)) playerMap.set(rp.id, rp.id);
+              }
+            }
+          }
+
+          // B. Migrate relational roster junction tables
+          if (existingTables.has('team_rosters')) {
+            await client.query(
+              `UPDATE team_rosters SET team_id = $1 WHERE team_id = $2 AND player_id NOT IN (SELECT player_id FROM team_rosters WHERE team_id = $1)`,
+              [primary.id, dup.id]
+            );
+            await client.query(`DELETE FROM team_rosters WHERE team_id = $1`, [dup.id]);
+          }
+          if (existingTables.has('rosters')) {
+            await client.query(
+              `UPDATE rosters SET team_id = $1 WHERE team_id = $2 AND player_id NOT IN (SELECT player_id FROM rosters WHERE team_id = $1)`,
+              [primary.id, dup.id]
+            );
+            await client.query(`DELETE FROM rosters WHERE team_id = $1`, [dup.id]);
+          }
+
+          // C. Migrate relational player_stats / box_scores tables
+          if (existingTables.has('player_stats')) {
+            await client.query(`UPDATE player_stats SET team_id = $1 WHERE team_id = $2`, [primary.id, dup.id]);
+            for (const [dupPid, primaryPid] of playerMap.entries()) {
+              if (dupPid !== primaryPid) {
+                await client.query(`UPDATE player_stats SET player_id = $1 WHERE player_id = $2`, [primaryPid, dupPid]);
+              }
+            }
+          }
+          if (existingTables.has('box_scores')) {
+            await client.query(`UPDATE box_scores SET team_id = $1 WHERE team_id = $2`, [primary.id, dup.id]);
+            for (const [dupPid, primaryPid] of playerMap.entries()) {
+              if (dupPid !== primaryPid) {
+                await client.query(`UPDATE box_scores SET player_id = $1 WHERE player_id = $2`, [primaryPid, dupPid]);
+              }
+            }
+          }
+
+          // 3. Migrate Matches (Team IDs, Innings Box Scores, and Player Stats)
+          const { rows: relatedMatches } = await client.query(
+            `SELECT id, home_team_id, away_team_id, is_complete, innings, tie_breaker 
+             FROM matches 
+             WHERE home_team_id IN ($1, $2) OR away_team_id IN ($1, $2)`,
+            [primary.id, dup.id]
+          );
+
+          for (const match of relatedMatches) {
+            let matchChanged = false;
+            let newHomeId = match.home_team_id;
+            let newAwayId = match.away_team_id;
+
+            if (match.home_team_id === dup.id) {
+              newHomeId = primary.id;
+              matchChanged = true;
+            }
+            if (match.away_team_id === dup.id) {
+              newAwayId = primary.id;
+              matchChanged = true;
+            }
+
+            // Remap innings box scores and player IDs
+            let matchInnings = typeof match.innings === 'string' ? JSON.parse(match.innings) : (match.innings || []);
+            if (Array.isArray(matchInnings)) {
+              for (const ing of matchInnings) {
+                ['home', 'away'].forEach(side => {
+                  const teamSide = (ing as any)[side];
+                  if (teamSide) {
+                    if (teamSide.teamId === dup.id) {
+                      teamSide.teamId = primary.id;
+                      matchChanged = true;
+                    }
+                    if (Array.isArray(teamSide.playerScores)) {
+                      for (const ps of teamSide.playerScores) {
+                        if (playerMap.has(ps.playerId)) {
+                          ps.playerId = playerMap.get(ps.playerId);
+                          matchChanged = true;
+                        }
+                      }
+                    }
+                  }
+                });
+              }
+            }
+
+            // Remap tie breaker player IDs
+            let matchTieBreaker = match.tie_breaker ? (typeof match.tie_breaker === 'string' ? JSON.parse(match.tie_breaker) : match.tie_breaker) : null;
+            if (Array.isArray(matchTieBreaker)) {
+              for (const tb of matchTieBreaker) {
+                if (playerMap.has(tb.homePlayerId)) {
+                  tb.homePlayerId = playerMap.get(tb.homePlayerId);
+                  matchChanged = true;
+                }
+                if (playerMap.has(tb.awayPlayerId)) {
+                  tb.awayPlayerId = playerMap.get(tb.awayPlayerId);
+                  matchChanged = true;
+                }
+              }
+            }
+
+            if (matchChanged) {
+              await client.query(
+                `UPDATE matches SET home_team_id = $1, away_team_id = $2, innings = $3, tie_breaker = $4 WHERE id = $5`,
+                [newHomeId, newAwayId, JSON.stringify(matchInnings), matchTieBreaker ? JSON.stringify(matchTieBreaker) : null, match.id]
+              );
+              result.matchesUpdated++;
+              if (match.is_complete) {
+                result.finalizedMatchesUpdated++;
+              } else {
+                result.scheduledMatchesUpdated++;
+              }
+            }
+          }
+
+          // 4. Delete Duplicate Team Record
           await client.query(`DELETE FROM teams WHERE id = $1`, [dup.id]);
           result.teamsMerged++;
         } else {
-          // Simply rename
+          // Simply rename if no official record exists yet
           await client.query(
             `UPDATE teams SET name = $1 WHERE id = $2`,
             [OFFICIAL_TEAM_NAME, dup.id]

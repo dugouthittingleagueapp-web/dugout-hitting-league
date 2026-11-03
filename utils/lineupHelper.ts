@@ -1,4 +1,4 @@
-import { Match, Inning, PlayerInningScore } from '../types';
+import { Match, Inning, PlayerInningScore, MatchStatus } from '../types';
 
 /**
  * Re-orders and applies new home and away batting orders to all innings of a match.
@@ -133,3 +133,107 @@ export const formatFullPlayerName = (p?: { name?: string; lastName?: string }): 
   }
   return `${first} ${last}`;
 };
+
+/**
+ * Returns the effective lifecycle status of a match:
+ * - 'FINAL': match is complete
+ * - 'IN_PROGRESS': actively being scored by an umpire (LIVE)
+ * - 'SCHEDULED': upcoming scheduled match that has not started
+ */
+export const getMatchStatus = (match: Match): MatchStatus => {
+  if (match.isComplete || match.status === 'FINAL') return 'FINAL';
+  if (match.status === 'IN_PROGRESS') return 'IN_PROGRESS';
+  if (match.status === 'SCHEDULED') return 'SCHEDULED';
+
+  // Fallback for legacy records: check if any pitches have been recorded
+  const hasRecordedPitches = (match.innings || []).some(ing =>
+    ing.home?.playerScores?.some(p => p.pitches?.some(pt => pt?.points !== null && pt?.points !== undefined)) ||
+    ing.away?.playerScores?.some(p => p.pitches?.some(pt => pt?.points !== null && pt?.points !== undefined))
+  );
+
+  return hasRecordedPitches ? 'IN_PROGRESS' : 'SCHEDULED';
+};
+
+/**
+ * Swaps Home and Away designations on a match record.
+ * Updates homeTeamId/awayTeamId, swaps the batting sides in each inning,
+ * and swaps tieBreaker assignments if present.
+ */
+export const swapHomeAndAway = (match: Match): Match => {
+  const newHomeTeamId = match.awayTeamId;
+  const newAwayTeamId = match.homeTeamId;
+
+  const swappedInnings: Inning[] = (match.innings || []).map(inning => ({
+    ...inning,
+    home: {
+      teamId: 'home',
+      playerScores: (inning.away?.playerScores || []).map(ps => ({
+        playerId: ps.playerId,
+        pitches: [...(ps.pitches || [])]
+      }))
+    },
+    away: {
+      teamId: 'away',
+      playerScores: (inning.home?.playerScores || []).map(ps => ({
+        playerId: ps.playerId,
+        pitches: [...(ps.pitches || [])]
+      }))
+    }
+  }));
+
+  const swappedTieBreaker = match.tieBreaker?.map(tb => ({
+    roundNumber: tb.roundNumber,
+    pitchLimit: tb.pitchLimit,
+    homePlayerId: tb.awayPlayerId,
+    awayPlayerId: tb.homePlayerId,
+    homeScores: [...tb.awayScores],
+    awayScores: [...tb.homeScores]
+  }));
+
+  return {
+    ...match,
+    homeTeamId: newHomeTeamId,
+    awayTeamId: newAwayTeamId,
+    innings: swappedInnings,
+    tieBreaker: swappedTieBreaker
+  };
+};
+
+/**
+ * Auto-advances schedule view to the current or closest upcoming week based on the system date.
+ */
+export const findCurrentOrUpcomingWeekId = (
+  weeks: { id: string; label: string; matches: Match[] }[],
+  currentDateStr: string = new Date().toISOString()
+): string => {
+  if (!weeks || weeks.length === 0) return '';
+
+  const d = new Date(currentDateStr);
+  d.setHours(0, 0, 0, 0);
+  d.setDate(d.getDate() + 4 - (d.getDay() || 7));
+  const yearStart = new Date(d.getFullYear(), 0, 1);
+  const weekNo = Math.ceil((((d.getTime() - yearStart.getTime()) / 86400000) + 1) / 7);
+  const currentWeekKey = `${d.getFullYear()}-W${String(weekNo).padStart(2, '0')}`;
+
+  // 1. Active in-progress week takes first precedence (games currently being scored)
+  const liveWeek = weeks.find(w => w.matches.some(m => getMatchStatus(m) === 'IN_PROGRESS'));
+  if (liveWeek) return liveWeek.id;
+
+  // 2. Exact match for current system calendar week
+  const exact = weeks.find(w => w.id === currentWeekKey);
+  if (exact) return exact.id;
+
+  // 3. Earliest upcoming week with scheduled games
+  const todayDay = currentDateStr.substring(0, 10);
+  const upcomingWeek = weeks.find(w =>
+    w.matches.some(m => !m.isComplete && m.date && m.date.substring(0, 10) >= todayDay)
+  );
+  if (upcomingWeek) return upcomingWeek.id;
+
+  // 4. Chronological fallback
+  const futureWeek = weeks.find(w => w.id > currentWeekKey);
+  if (futureWeek) return futureWeek.id;
+
+  return weeks[weeks.length - 1].id;
+};
+

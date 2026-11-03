@@ -51,6 +51,8 @@ export interface TieBreakerRound {
   awayScores: (number | null)[]; // Changed to allow null initialization
 }
 
+export type MatchStatus = 'SCHEDULED' | 'IN_PROGRESS' | 'FINAL';
+
 export interface Match {
   id: string;
   league: AgeGroup;
@@ -59,6 +61,7 @@ export interface Match {
   awayTeamId: string;
   date: string;
   isComplete: boolean;
+  status?: MatchStatus;
   innings: Inning[];
   tieBreaker?: TieBreakerRound[];
   location?: string;

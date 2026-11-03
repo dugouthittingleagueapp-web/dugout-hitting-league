@@ -28,6 +28,7 @@ const mapMatchFromDB = (dbMatch: any): Match => {
     awayTeamId: dbMatch.away_team_id || dbMatch.awayTeamId,
     date: dbMatch.date,
     isComplete: dbMatch.is_complete !== undefined ? dbMatch.is_complete : (dbMatch.isComplete ?? false),
+    status: dbMatch.status || undefined,
     innings: typeof dbMatch.innings === 'string' ? JSON.parse(dbMatch.innings) : dbMatch.innings,
     season: inferredSeason,
     tieBreaker: dbMatch.tie_breaker ? (typeof dbMatch.tie_breaker === 'string' ? JSON.parse(dbMatch.tie_breaker) : dbMatch.tie_breaker) : (dbMatch.tieBreaker || undefined),
@@ -520,13 +521,14 @@ export const createMatch = async (league: AgeGroup, homeTeamId: string, awayTeam
         innings.push(createEmptyInning(i, homePlayerIds, awayPlayerIds));
     }
 
-    const match = {
+    const match: Match = {
         id: generateUUID(),
         league,
         homeTeamId,
         awayTeamId,
         date: new Date().toISOString(),
         isComplete: false,
+        status: 'SCHEDULED',
         innings,
         season
     };
@@ -535,7 +537,6 @@ export const createMatch = async (league: AgeGroup, homeTeamId: string, awayTeam
     if (typeof window !== 'undefined') {
         try {
             localStorage.setItem(`dugout_match_${match.id}`, JSON.stringify(match));
-            localStorage.setItem('dugout_active_match_id', match.id);
         } catch (e) {}
     }
     
@@ -575,6 +576,7 @@ export const createScheduledMatch = async (params: {
     awayTeamId: params.awayTeamId,
     date: params.date,
     isComplete: false,
+    status: 'SCHEDULED',
     innings,
     season: params.season,
     location: params.location,
@@ -657,9 +659,9 @@ export const updateMatch = async (match: Match): Promise<Match> => {
     if (typeof window !== 'undefined') {
         try {
             localStorage.setItem(`dugout_match_${match.id}`, JSON.stringify(match));
-            if (!match.isComplete) {
+            if (!match.isComplete && match.status === 'IN_PROGRESS') {
                 localStorage.setItem('dugout_active_match_id', match.id);
-            } else {
+            } else if (match.isComplete) {
                 localStorage.removeItem('dugout_active_match_id');
             }
         } catch (e) {}

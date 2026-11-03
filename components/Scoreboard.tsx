@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import { Match, Inning, Team, TieBreakerRound, Player } from '../types';
 import * as storage from '../services/storageService';
 import { ScoreInput } from './ScoreInput';
-import { formatFullPlayerName } from '../utils/lineupHelper';
+import { formatFullPlayerName, getMatchStatus } from '../utils/lineupHelper';
 
 interface ScoreboardProps {
   matchId: string;
@@ -224,6 +224,7 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
       if (!updatedMatch.tieBreaker) updatedMatch.tieBreaker = [];
       updatedMatch.tieBreaker.push(newRound);
       updatedMatch.isComplete = false;
+      updatedMatch.status = 'IN_PROGRESS';
       setMatch(updatedMatch);
       await storage.updateMatch(updatedMatch);
       setShowTieBreakerSetup(false);
@@ -274,6 +275,9 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
     const curInning = newMatch.innings[targetInningIdx];
     const curTeamData = side === 'home' ? curInning.home : curInning.away;
     curTeamData.playerScores[lineupIdx].pitches[pitchIdx].points = val;
+    if (!newMatch.isComplete) {
+      newMatch.status = 'IN_PROGRESS';
+    }
     setMatch(newMatch); 
     
     // Automated Completion Flow Check
@@ -323,7 +327,7 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
         setShowTieBreakerSetup(true);
         return;
     }
-    const newMatch = { ...match, isComplete: true };
+    const newMatch: Match = { ...match, isComplete: true, status: 'FINAL' };
     setMatch(newMatch);
     await storage.updateMatch(newMatch);
     try {
@@ -335,7 +339,8 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
 
   const handleToggleComplete = async () => {
     if (!match || userRole !== 'admin') return;
-    const updated = { ...match, isComplete: !match.isComplete };
+    const nextIsComplete = !match.isComplete;
+    const updated: Match = { ...match, isComplete: nextIsComplete, status: nextIsComplete ? 'FINAL' : 'IN_PROGRESS' };
     setMatch(updated);
     await storage.updateMatch(updated);
   };
@@ -349,6 +354,9 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
       const existing = side === 'home' ? cur.homeScores[pitchIdx] : cur.awayScores[pitchIdx];
       const isEdit = existing !== null;
       if (side === 'home') cur.homeScores[pitchIdx] = val; else cur.awayScores[pitchIdx] = val;
+      if (!newMatch.isComplete) {
+        newMatch.status = 'IN_PROGRESS';
+      }
       setMatch(newMatch);
       
       // Auto-Completion for tie breakers
@@ -644,7 +652,11 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
                 )}
               </div>
             ) : (
-              isReadOnly && <div className="text-red-600 px-3 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-wider animate-pulse">LIVE</div>
+              getMatchStatus(match) === 'IN_PROGRESS' ? (
+                <div className="text-red-600 dark:text-red-400 font-black px-2.5 py-1 rounded-md text-[10px] uppercase tracking-wider bg-red-100 dark:bg-red-950/50 border border-red-500/30 animate-pulse">LIVE</div>
+              ) : (
+                <div className="text-blue-600 dark:text-blue-400 font-bold px-2.5 py-1 rounded-md text-[10px] uppercase tracking-wider bg-blue-50 dark:bg-blue-950/40 border border-blue-500/30">SCHEDULED</div>
+              )
             )}
             
             <button onClick={handleExitRequest} className="text-sm font-bold text-slate-500 bg-slate-100 dark:bg-slate-800 dark:text-slate-300 py-1.5 sm:py-2 px-3 rounded-xl hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors cursor-pointer">Exit</button>

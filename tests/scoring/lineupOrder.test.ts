@@ -1,5 +1,13 @@
 import { describe, it, expect } from 'vitest';
-import { applyLineupToMatch, moveBatterUp, moveBatterDown, formatFullPlayerName } from '../../utils/lineupHelper';
+import { 
+  applyLineupToMatch, 
+  moveBatterUp, 
+  moveBatterDown, 
+  formatFullPlayerName,
+  getMatchStatus,
+  swapHomeAndAway,
+  findCurrentOrUpcomingWeekId
+} from '../../utils/lineupHelper';
 import { Match, Inning } from '../../types';
 
 describe('lineupHelper', () => {
@@ -126,5 +134,76 @@ describe('lineupHelper', () => {
       expect(formatFullPlayerName({ name: '' })).toBe('Unknown Player');
     });
   });
+
+  describe('getMatchStatus', () => {
+    it('returns FINAL if match is marked complete', () => {
+      const match = createMockMatch(['h1', 'h2', 'h3'], ['a1', 'a2', 'a3']);
+      match.isComplete = true;
+      expect(getMatchStatus(match)).toBe('FINAL');
+    });
+
+    it('returns IN_PROGRESS if status is set to IN_PROGRESS', () => {
+      const match = createMockMatch(['h1', 'h2', 'h3'], ['a1', 'a2', 'a3']);
+      match.status = 'IN_PROGRESS';
+      expect(getMatchStatus(match)).toBe('IN_PROGRESS');
+    });
+
+    it('returns SCHEDULED if status is set to SCHEDULED', () => {
+      const match = createMockMatch(['h1', 'h2', 'h3'], ['a1', 'a2', 'a3']);
+      match.status = 'SCHEDULED';
+      expect(getMatchStatus(match)).toBe('SCHEDULED');
+    });
+
+    it('detects legacy unstarted vs started match when status is not present', () => {
+      const match = createMockMatch(['h1', 'h2', 'h3'], ['a1', 'a2', 'a3']);
+      // No status, no pitches
+      expect(getMatchStatus(match)).toBe('SCHEDULED');
+
+      // Record 1 pitch
+      match.innings[0].home.playerScores[0].pitches[0].points = 3;
+      expect(getMatchStatus(match)).toBe('IN_PROGRESS');
+    });
+  });
+
+  describe('swapHomeAndAway', () => {
+    it('swaps home and away team IDs and inning player scores', () => {
+      const match = createMockMatch(['h1', 'h2', 'h3'], ['a1', 'a2', 'a3']);
+      match.homeTeamId = 'team-red';
+      match.awayTeamId = 'team-blue';
+
+      const swapped = swapHomeAndAway(match);
+
+      expect(swapped.homeTeamId).toBe('team-blue');
+      expect(swapped.awayTeamId).toBe('team-red');
+
+      // First inning checks
+      expect(swapped.innings[0].home.playerScores.map(p => p.playerId)).toEqual(['a1', 'a2', 'a3']);
+      expect(swapped.innings[0].away.playerScores.map(p => p.playerId)).toEqual(['h1', 'h2', 'h3']);
+    });
+  });
+
+  describe('findCurrentOrUpcomingWeekId', () => {
+    it('selects active week if a match is IN_PROGRESS', () => {
+      const activeMatch = createMockMatch(['h1'], ['a1']);
+      activeMatch.status = 'IN_PROGRESS';
+
+      const weeks = [
+        { id: '2026-W40', label: 'Week 1', matches: [createMockMatch(['h1'], ['a1'])] },
+        { id: '2026-W41', label: 'Week 2', matches: [activeMatch] }
+      ];
+
+      expect(findCurrentOrUpcomingWeekId(weeks, '2026-10-01T00:00:00Z')).toBe('2026-W41');
+    });
+
+    it('returns current week if matches today', () => {
+      const weeks = [
+        { id: '2026-W45', label: 'Week 1', matches: [createMockMatch(['h1'], ['a1'])] },
+        { id: '2026-W46', label: 'Week 2', matches: [createMockMatch(['h1'], ['a1'])] }
+      ];
+      // 2026-11-03 is in 2026-W45
+      expect(findCurrentOrUpcomingWeekId(weeks, '2026-11-03T12:00:00Z')).toBe('2026-W45');
+    });
+  });
 });
+
 

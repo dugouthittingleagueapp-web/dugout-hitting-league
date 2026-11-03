@@ -40,6 +40,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='matches' AND column_name='notes') THEN 
           ALTER TABLE matches ADD COLUMN notes TEXT; 
         END IF; 
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='matches' AND column_name='status') THEN 
+          ALTER TABLE matches ADD COLUMN status TEXT DEFAULT 'SCHEDULED'; 
+        END IF; 
       END $$;
     `);
 
@@ -80,7 +83,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(200).json(rows);
     } 
     else if (req.method === 'POST') {
-      const { id, league, homeTeamId, awayTeamId, date, isComplete, innings, season, location, startTime, endTime, notes } = req.body;
+      const { id, league, homeTeamId, awayTeamId, date, isComplete, innings, season, location, startTime, endTime, notes, status } = req.body;
       
       let matchSeason = season;
       if (!matchSeason) {
@@ -91,9 +94,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }
       if (!matchSeason) matchSeason = new Date().getFullYear().toString();
 
+      const matchStatus = status || (isComplete ? 'FINAL' : 'SCHEDULED');
+
       const query = `
-        INSERT INTO matches (id, league, home_team_id, away_team_id, date, is_complete, innings, season, location, start_time, end_time, notes) 
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12) 
+        INSERT INTO matches (id, league, home_team_id, away_team_id, date, is_complete, innings, season, location, start_time, end_time, notes, status) 
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13) 
         RETURNING *
       `;
       const values = [
@@ -102,20 +107,21 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         homeTeamId, 
         awayTeamId, 
         date, 
-        isComplete, 
+        isComplete ?? false, 
         JSON.stringify(innings), 
         matchSeason,
         location || null,
         startTime || null,
         endTime || null,
-        notes || null
+        notes || null,
+        matchStatus
       ];
       const { rows } = await pool.query(query, values);
       return res.status(201).json(rows[0]);
     } 
     else if (req.method === 'PUT') {
       // We accept tieBreaker via the 'innings' field (merged in FE) or if passed as a prop we merge it here
-      const { id, isComplete, innings, tieBreaker, league, location, startTime, endTime, notes } = req.body;
+      const { id, isComplete, innings, tieBreaker, league, location, startTime, endTime, notes, homeTeamId, awayTeamId, status } = req.body;
       
       // We need to ensure the column exists
       await pool.query(`
@@ -127,30 +133,36 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         END $$;
       `);
       
-      // Updated query to allow changing league and schedule fields
+      // Updated query to allow changing league and schedule fields, swapping teams, and status
       const queryUpdate = `
         UPDATE matches 
-        SET is_complete = $2, 
-            innings = $3, 
+        SET is_complete = COALESCE($2, is_complete), 
+            innings = COALESCE($3, innings), 
             tie_breaker = $4, 
             league = COALESCE($5, league),
             location = COALESCE($6, location),
             start_time = COALESCE($7, start_time),
             end_time = COALESCE($8, end_time),
-            notes = COALESCE($9, notes)
+            notes = COALESCE($9, notes),
+            home_team_id = COALESCE($10, home_team_id),
+            away_team_id = COALESCE($11, away_team_id),
+            status = COALESCE($12, status)
         WHERE id = $1 
         RETURNING *
       `;
       const values = [
         id, 
-        isComplete, 
-        JSON.stringify(innings), 
+        isComplete !== undefined ? isComplete : null, 
+        innings ? JSON.stringify(innings) : null, 
         tieBreaker ? JSON.stringify(tieBreaker) : null, 
         league !== undefined ? league : null,
         location !== undefined ? location : null,
         startTime !== undefined ? startTime : null,
         endTime !== undefined ? endTime : null,
-        notes !== undefined ? notes : null
+        notes !== undefined ? notes : null,
+        homeTeamId !== undefined ? homeTeamId : null,
+        awayTeamId !== undefined ? awayTeamId : null,
+        status !== undefined ? status : (isComplete ? 'FINAL' : null)
       ];
 
       const { rows } = await pool.query(queryUpdate, values);

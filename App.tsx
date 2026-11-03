@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { AgeGroup, AppState, Match, Team, Player, League, PlayerStats, Inning, TieBreakerRound } from './types';
 import { Navbar } from './components/Navbar';
@@ -10,6 +10,7 @@ import { RosterImportModal } from './components/RosterImportModal';
 import { PlayerCareerModal } from './components/PlayerCareerModal';
 import { SetLineupModal } from './components/SetLineupModal';
 import * as storage from './services/storageService';
+import { getMatchStatus, findCurrentOrUpcomingWeekId } from './utils/lineupHelper';
 
 const INACTIVITY_LIMIT = 3 * 60 * 60 * 1000; // 3 hours
 
@@ -283,14 +284,14 @@ const App: React.FC = () => {
     }
   }, [state.currentLeague, state.view, state.season, refreshDashboard]);
 
-  // Live Polling
+  // Live Polling (paused while umpire is setting up lineup to prevent state overwriting)
   useEffect(() => {
-    if (state.view !== 'dashboard' || !state.currentLeague) return;
+    if (state.view !== 'dashboard' || !state.currentLeague || lineupModalMatch) return;
     const interval = setInterval(() => {
         refreshDashboard(state.currentLeague!, state.season, true);
     }, 5000);
     return () => clearInterval(interval);
-  }, [state.view, state.currentLeague, state.season, refreshDashboard]);
+  }, [state.view, state.currentLeague, state.season, refreshDashboard, lineupModalMatch]);
 
   // Active Match Recovery Detection (Prompt to resume if device refreshed or returned)
   useEffect(() => {
@@ -401,30 +402,33 @@ const App: React.FC = () => {
       }));
   }, [matches, state.currentLeague]);
 
-  // Determine current week on load/update
+  // Track league changes so schedule view auto-advances when switching leagues or on initial mount
+  const lastLeagueRef = useRef<string | null>(null);
+
+  // Auto-advance schedule and leaderboard week based on system date and active games
   useEffect(() => {
       if (activeWeeks.length > 0) {
-          const currentKey = getWeekKey(new Date().toISOString());
-          
-          // Helper to safely set state if not set or if invalid
-          const resolveWeek = (currentVal: string, setter: (v: string) => void) => {
-             // If currently selected week is valid, keep it.
-             if (currentVal && activeWeeks.find(w => w.id === currentVal)) return;
+          const autoWeekId = findCurrentOrUpcomingWeekId(activeWeeks);
+          const leagueChanged = lastLeagueRef.current !== state.currentLeague;
+          lastLeagueRef.current = state.currentLeague;
 
-             // Otherwise, try to select "Current Week" (Today)
-             const matchToday = activeWeeks.find(w => w.id === currentKey);
-             if (matchToday) {
-                 setter(currentKey);
-             } else {
-                 // Fallback to the latest week
-                 setter(activeWeeks[activeWeeks.length - 1].id);
-             }
+          // Helper to safely select week: auto-advance if league changed, or if current selection is invalid / unset
+          const resolveWeek = (currentVal: string, setter: (v: string) => void) => {
+              if (!leagueChanged && currentVal && activeWeeks.find(w => w.id === currentVal)) {
+                  return;
+              }
+
+              if (autoWeekId) {
+                  setter(autoWeekId);
+              } else if (activeWeeks[0]) {
+                  setter(activeWeeks[0].id);
+              }
           };
 
           resolveWeek(matchListWeek, setMatchListWeek);
           resolveWeek(leaderboardWeek, setLeaderboardWeek);
       }
-  }, [activeWeeks]); // Intentionally exclude matchListWeek/leaderboardWeek from deps to avoid reset loops
+  }, [activeWeeks, state.currentLeague]); // Auto-advances when weeks load or when switching leagues
 
   const handleLogout = useCallback(() => {
       setUserRole('fan');
@@ -1321,6 +1325,7 @@ const App: React.FC = () => {
                                         const awayName = away?.name || 'Away Team';
                                         
                                         const { home: homeScore, away: awayScore } = getMatchScores(match);
+                                        const matchStatus = getMatchStatus(match);
 
                                         return (
                                             <div key={match.id} className="bg-white/60 dark:bg-slate-900/60 backdrop-blur-xl p-3.5 sm:p-5 rounded-xl shadow-md dark:shadow-sm border border-white/20 dark:border-slate-800 flex flex-col lg:flex-row justify-between items-stretch lg:items-center gap-3 sm:gap-4 hover:bg-white/80 dark:hover:bg-slate-800/50 transition-colors group">
@@ -1328,9 +1333,21 @@ const App: React.FC = () => {
                                                 <div className="flex flex-col gap-2 min-w-0 flex-1">
                                                     {/* Top subheader: Status Badge & Scheduled Time/Tunnel */}
                                                     <div className="flex items-center gap-2.5 flex-wrap">
-                                                        <span className={`text-[9px] sm:text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded font-sans border shrink-0 ${match.isComplete ? 'bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border-slate-300 dark:border-slate-700' : 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 border-green-500/30 animate-pulse'}`}>
-                                                            {match.isComplete ? 'FINAL' : 'LIVE'}
-                                                        </span>
+                                                        {matchStatus === 'FINAL' && (
+                                                            <span className="text-[9px] sm:text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded font-sans border shrink-0 bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border-slate-300 dark:border-slate-700">
+                                                                FINAL
+                                                            </span>
+                                                        )}
+                                                        {matchStatus === 'IN_PROGRESS' && (
+                                                            <span className="text-[9px] sm:text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded font-sans border shrink-0 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 border-green-500/30 animate-pulse">
+                                                                LIVE
+                                                            </span>
+                                                        )}
+                                                        {matchStatus === 'SCHEDULED' && (
+                                                            <span className="text-[9px] sm:text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded font-sans border shrink-0 bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-400 border-blue-300 dark:border-blue-800/50">
+                                                                SCHEDULED
+                                                            </span>
+                                                        )}
 
                                                         {(match.startTime || match.location) && (
                                                             <div className="flex items-center gap-2 text-[11px] text-slate-500 dark:text-slate-400 font-sans flex-wrap">
@@ -1397,15 +1414,26 @@ const App: React.FC = () => {
                                                     )}
                                                     
                                                     <button 
-                                                        onClick={() => {
+                                                        onClick={async () => {
                                                             if (!match.isComplete && userRole !== 'fan') {
                                                                 safeStorage.setItem('dugout_active_match_id', match.id);
+                                                                if (matchStatus === 'SCHEDULED') {
+                                                                    const updatedMatch = { ...match, status: 'IN_PROGRESS' as const };
+                                                                    await storage.updateMatch(updatedMatch).catch(console.error);
+                                                                    setMatches(prev => prev.map(m => m.id === match.id ? updatedMatch : m));
+                                                                }
                                                             }
                                                             setState({ ...state, view: 'scoring', currentMatchId: match.id });
                                                         }} 
                                                         className="flex-1 lg:flex-none text-center px-3 py-1.5 sm:py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800/50 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 hover:text-slate-900 dark:hover:white font-bold text-xs sm:text-sm transition-all font-sans cursor-pointer whitespace-nowrap shadow-sm"
                                                     >
-                                                        {userRole === 'admin' ? (match.isComplete ? 'Score / Edit' : 'Score') : (match.isComplete ? 'View' : (userRole === 'fan' ? 'Watch Live' : 'Score'))}
+                                                        {matchStatus === 'FINAL' 
+                                                            ? (userRole === 'admin' ? 'Score / Edit' : 'View') 
+                                                            : (matchStatus === 'IN_PROGRESS' 
+                                                                ? (userRole === 'fan' ? 'Watch Live' : 'Score') 
+                                                                : (userRole === 'fan' ? 'Preview' : 'Start Game')
+                                                            )
+                                                        }
                                                     </button>
                                                     
                                                     {userRole === 'admin' && (

@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { Match, Team, Player } from '../types';
-import { applyLineupToMatch, moveBatterUp, moveBatterDown, formatFullPlayerName } from '../utils/lineupHelper';
+import { applyLineupToMatch, moveBatterUp, moveBatterDown, formatFullPlayerName, swapHomeAndAway } from '../utils/lineupHelper';
 import * as storage from '../services/storageService';
 
 interface SetLineupModalProps {
@@ -24,6 +24,7 @@ export const SetLineupModal: React.FC<SetLineupModalProps> = ({
   onTeamUpdated
 }) => {
   const [activeSide, setActiveSide] = useState<'away' | 'home'>('away'); // Away bats first
+  const [workingMatch, setWorkingMatch] = useState<Match>(match);
   const [homeTeam, setHomeTeam] = useState<Team>(initialHomeTeam);
   const [awayTeam, setAwayTeam] = useState<Team>(initialAwayTeam);
 
@@ -37,9 +38,24 @@ export const SetLineupModal: React.FC<SetLineupModalProps> = ({
   const [isSaving, setIsSaving] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  // Sync teams and lineups whenever modal opens or match changes
+  // Guards against polling/background re-fetches wiping active user edits
+  const prevIsOpenRef = useRef(false);
+  const lastMatchIdRef = useRef<string | null>(null);
+
+  // Initialize once per modal session or when target match ID actually changes
   useEffect(() => {
-    if (!isOpen) return;
+    if (!isOpen) {
+      prevIsOpenRef.current = false;
+      return;
+    }
+
+    const isNewSession = !prevIsOpenRef.current || lastMatchIdRef.current !== match.id;
+    if (!isNewSession) return;
+
+    prevIsOpenRef.current = true;
+    lastMatchIdRef.current = match.id;
+
+    setWorkingMatch(match);
     setHomeTeam(initialHomeTeam);
     setAwayTeam(initialAwayTeam);
     setErrorMessage(null);
@@ -55,14 +71,14 @@ export const SetLineupModal: React.FC<SetLineupModalProps> = ({
 
     const defaultHome = matchHomeIds.length >= 2 
       ? matchHomeIds 
-      : (initialHomeTeam.players || []).slice(0, 3).map(p => p.id);
+      : (initialHomeTeam.players || []).map(p => p.id).slice(0, 3);
     const defaultAway = matchAwayIds.length >= 2 
       ? matchAwayIds 
-      : (initialAwayTeam.players || []).slice(0, 3).map(p => p.id);
+      : (initialAwayTeam.players || []).map(p => p.id).slice(0, 3);
 
     setHomeLineup(defaultHome);
     setAwayLineup(defaultAway);
-  }, [isOpen, match, initialHomeTeam, initialAwayTeam]);
+  }, [isOpen, match.id]);
 
   if (!isOpen) return null;
 
@@ -169,6 +185,25 @@ export const SetLineupModal: React.FC<SetLineupModalProps> = ({
     }
   };
 
+  // Swap Home and Away designations
+  const handleSwapHomeAway = () => {
+    setErrorMessage(null);
+    const swapped = swapHomeAndAway(workingMatch);
+    setWorkingMatch(swapped);
+
+    // Swap team objects
+    const prevHome = homeTeam;
+    const prevAway = awayTeam;
+    setHomeTeam(prevAway);
+    setAwayTeam(prevHome);
+
+    // Swap active lineups
+    const prevHomeLineup = homeLineup;
+    const prevAwayLineup = awayLineup;
+    setHomeLineup(prevAwayLineup);
+    setAwayLineup(prevHomeLineup);
+  };
+
   // Validation & Save
   const handleSave = async (andStartScoring = false) => {
     if (homeLineup.length < 2 || homeLineup.length > 3) {
@@ -185,7 +220,13 @@ export const SetLineupModal: React.FC<SetLineupModalProps> = ({
     setIsSaving(true);
     setErrorMessage(null);
     try {
-      const updatedMatch = applyLineupToMatch(match, homeLineup, awayLineup);
+      let updatedMatch = applyLineupToMatch(workingMatch, homeLineup, awayLineup);
+      if (andStartScoring) {
+        updatedMatch = {
+          ...updatedMatch,
+          status: 'IN_PROGRESS'
+        };
+      }
       await storage.updateMatch(updatedMatch);
       await onSave(updatedMatch, andStartScoring);
       onClose();
@@ -228,6 +269,27 @@ export const SetLineupModal: React.FC<SetLineupModalProps> = ({
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
             </svg>
+          </button>
+        </div>
+
+        {/* Swap Home & Away Designation Bar */}
+        <div className="flex items-center justify-between px-3 sm:px-4 py-2 bg-slate-50 dark:bg-slate-950/80 border-b border-slate-200 dark:border-slate-800 text-xs">
+          <div className="flex items-center gap-1.5 truncate min-w-0 mr-2">
+            <span className="text-slate-500 dark:text-slate-400 font-semibold text-[11px]">Matchup:</span>
+            <span className="text-blue-600 dark:text-blue-400 font-extrabold truncate">{awayTeam.name}</span>
+            <span className="text-slate-400 font-bold">@</span>
+            <span className="text-red-600 dark:text-red-400 font-extrabold truncate">{homeTeam.name}</span>
+          </div>
+          <button
+            type="button"
+            onClick={handleSwapHomeAway}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-100 font-bold text-xs shadow-sm transition-colors cursor-pointer shrink-0"
+            title="Swap Home and Away team designations"
+          >
+            <svg className="w-3.5 h-3.5 text-blue-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
+            </svg>
+            <span>Swap Home / Away</span>
           </button>
         </div>
 

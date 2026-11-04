@@ -131,10 +131,6 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
       });
   };
 
-  const handleSaveAndExitPractice = async () => {
-      await handleEndPracticeMatch();
-  };
-
   const handleEndPracticeMatch = async () => {
       if (match) {
           await storage.deleteMatch(match.id).catch(() => {});

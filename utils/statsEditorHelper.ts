@@ -1,4 +1,4 @@
-import { Match, Team, Player, Inning, TieBreakerRound } from '../types.js';
+import { Match, Team, Player } from '../types.js';
 
 /**
  * Checks if a player's name is a generic placeholder (e.g. "C-C-Crushers! Player 1", "Player 2", "Sub").

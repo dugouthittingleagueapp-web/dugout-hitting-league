@@ -91,10 +91,6 @@ export const SetLineupModal: React.FC<SetLineupModalProps> = ({
     ...(currentTeam.subs || [])
   ];
 
-  const getPlayer = (id: string): Player | undefined => {
-    return allTeamPlayers.find(p => p.id === id);
-  };
-
   const formatPlayerName = (p?: Player): string => {
     return formatFullPlayerName(p);
   };
@@ -353,7 +349,6 @@ export const SetLineupModal: React.FC<SetLineupModalProps> = ({
 
             <div className="space-y-2.5">
               {currentLineup.map((playerId, index) => {
-                const player = getPlayer(playerId);
                 const slotLabel = index === 0 ? '1st Batter' : index === 1 ? '2nd Batter' : '3rd Batter';
 
                 return (

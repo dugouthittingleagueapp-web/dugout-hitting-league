@@ -2,7 +2,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import pg from 'pg';
-import { Match, Team, Player, Inning } from '../types.js';
 
 import {
   migrateCrushersInDbData,

@@ -68,10 +68,6 @@ export const Navbar: React.FC<NavbarProps> = ({
       a.id.localeCompare(b.id, undefined, { numeric: true, sensitivity: 'base' })
   );
 
-  const seasonsList = Array.from(new Set([activeSeason, currentSeason, ...availableSeasons]))
-      .filter(Boolean)
-      .sort((a, b) => b.localeCompare(a, undefined, { numeric: true }));
-
   const isHomeScreen = !currentLeague;
   const isCurrentArchived = currentSeason !== activeSeason;
 

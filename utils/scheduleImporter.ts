@@ -1,5 +1,5 @@
-import { Match, Team, League, ScheduledGameRecord, ScheduleImportSummary, Inning } from '../types';
-import { generateUUID, createEmptyInning, leaguesMatch } from '../services/storageService';
+import { Match, Team, ScheduledGameRecord } from '../types';
+import { generateUUID, leaguesMatch } from '../services/storageService';
 import { sortMatchesChronologically } from './matchSort';
 
 /**
@@ -82,7 +82,6 @@ export const parseTimeString = (timeStr?: string): { hours: number; minutes: num
 export const combineDateAndTime = (dateStr: string, timeStr?: string): string => {
   const cleanDate = dateStr.trim();
   const { hours, minutes } = parseTimeString(timeStr);
-  const pad = (n: number) => n.toString().padStart(2, '0');
 
   // If date already contains full ISO string, keep or parse it
   if (cleanDate.includes('T')) {

@@ -13,8 +13,6 @@ if ((connString.startsWith('"') && connString.endsWith('"')) ||
   connString = connString.slice(1, -1);
 }
 
-console.log(`[DB] Initializing Pool. Connection String Length: ${connString.length}`);
-
 if (!connString) {
   console.error("[DB] CRITICAL: No DATABASE_URL found in environment variables.");
 }

@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { League, Team, Match, ScheduledGameRecord, ScheduleImportSummary } from '../types';
 import * as storage from '../services/storageService';
 import { parseScheduleCsv, isDuplicateMatch } from '../utils/scheduleImporter';
@@ -39,8 +39,6 @@ export const ScheduleImportModal: React.FC<ScheduleImportModalProps> = ({
   const [existingMatchesList, setExistingMatchesList] = useState<Match[]>([]);
   const [importSummary, setImportSummary] = useState<ScheduleImportSummary | null>(null);
 
-  const fileInputRef = useRef<HTMLInputElement>(null);
-
   useEffect(() => {
     if (isOpen) {
       setTargetSeason(currentSeason || '2026');
@@ -73,7 +71,6 @@ export const ScheduleImportModal: React.FC<ScheduleImportModalProps> = ({
     setLoading(false);
     setIsCustomLeague(false);
     setCustomLeagueInput('');
-    if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
   const getEffectiveTargetLeague = (selected: string, isCustom: boolean, customVal: string) => {
@@ -96,11 +93,6 @@ export const ScheduleImportModal: React.FC<ScheduleImportModalProps> = ({
       setErrorMessage('Failed to read schedule CSV file');
     };
     reader.readAsText(file);
-  };
-
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) handleFileSelect(file);
   };
 
   const handleLoadSampleSchedule = async () => {

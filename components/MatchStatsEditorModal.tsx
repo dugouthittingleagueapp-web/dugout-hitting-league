@@ -5,9 +5,7 @@ import * as storage from '../services/storageService.js';
 import {
   extractMatchPlayerSummary,
   remapMatchPlayerIds,
-  autoMapPlaceholdersToRoster,
-  isPlaceholderPlayerName,
-  MatchPlayerStatSummary
+  autoMapPlaceholdersToRoster
 } from '../utils/statsEditorHelper.js';
 
 interface MatchStatsEditorModalProps {

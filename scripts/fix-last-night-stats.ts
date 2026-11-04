@@ -2,8 +2,8 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import pg from 'pg';
-import { Match, Team, Player } from '../types.js';
-import { isPlaceholderPlayerName, remapMatchPlayerIds } from '../utils/statsEditorHelper.js';
+import { Team, Player } from '../types.js';
+import { remapMatchPlayerIds } from '../utils/statsEditorHelper.js';
 
 export interface FixLastNightStatsResult {
   success: boolean;
@@ -191,7 +191,7 @@ export async function fixLastNightStats(options: FixLastNightStatsOptions = {}):
           const hId = m.home_team_id || m.homeTeamId;
           const aId = m.away_team_id || m.awayTeamId;
           const date = m.date || '';
-          return date.startsWith('2026-11-02') && crushers && (hId === crushers.id || aId === crushers.id);
+          return date.startsWith('2026-11-02') && crushers && (hId === crushers.id || aId === crushers.id) && (!bright || hId === bright.id || aId === bright.id);
         });
 
         if (match && crushers) {

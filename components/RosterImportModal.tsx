@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { AgeGroup, Team } from '../types';
+import { AgeGroup } from '../types';
 import * as storage from '../services/storageService';
 import { FileDropzone } from './FileDropzone';
 
@@ -46,7 +46,6 @@ export const RosterImportModal: React.FC<RosterImportModalProps> = ({
 
   // Preview state
   const [previewTeams, setPreviewTeams] = useState<PreviewTeam[] | null>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
   const photoInputRef = useRef<HTMLInputElement>(null);
 
   React.useEffect(() => {
@@ -88,11 +87,6 @@ export const RosterImportModal: React.FC<RosterImportModalProps> = ({
       setErrorMessage('Failed to read CSV file');
     };
     reader.readAsText(file);
-  };
-
-  const handleCsvFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) handleCsvFileSelect(file);
   };
 
   const parseCsvContent = (content: string) => {

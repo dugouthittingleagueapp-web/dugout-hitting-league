@@ -1,5 +1,4 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import pool from './db.js';
 import { migrateCrushersInPostgres } from '../scripts/fix-crushers-team-name.js';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {

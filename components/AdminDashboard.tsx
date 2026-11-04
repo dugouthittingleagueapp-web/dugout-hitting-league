@@ -262,7 +262,14 @@ export const AdminDashboard: React.FC<{
       {/* Top Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-5 sm:mb-8">
           <div>
-              <h2 className="text-xl sm:text-3xl font-black text-slate-900 dark:text-white font-sans tracking-tight">Admin Dashboard</h2>
+              <div className="flex items-center gap-2">
+                <h2 className="text-xl sm:text-3xl font-black text-slate-900 dark:text-white font-sans tracking-tight">Admin Dashboard</h2>
+                {loading && (
+                  <span className="text-[10px] bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400 font-bold px-2 py-0.5 rounded-full animate-pulse">
+                    Syncing...
+                  </span>
+                )}
+              </div>
               <p className="text-xs text-slate-500 dark:text-slate-400 font-sans mt-0.5">Manage divisions, seasons, rosters, and system security</p>
           </div>
           <div className="flex items-center gap-2 self-start sm:self-auto flex-wrap">

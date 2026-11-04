@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { calculateMatchStats, createPracticeMatch } from '../services/storageService';
-import { Match, Team, Inning } from '../types';
+import { Match, Team } from '../types';
 
 describe('Practice Mode Verification', () => {
   const teamAlpha: Team = {

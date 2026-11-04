@@ -163,11 +163,14 @@ const App: React.FC = () => {
   // Set Lineup Modal
   const [lineupModalMatch, setLineupModalMatch] = useState<Match | null>(null);
 
-  // Practice / Sandbox Mode Modal
+  // Practice Mode Modal
   const [showPracticeModal, setShowPracticeModal] = useState(false);
 
   // Match Stats Re-assignment Editor Modal
   const [statEditorMatch, setStatEditorMatch] = useState<Match | null>(null);
+
+  // Success / Info Notification Toast Banner on Dashboard
+  const [dashboardToast, setDashboardToast] = useState<{ text: string; type: 'success' | 'info' } | null>(null);
 
   // Move Match Modal
   const [moveMatchModal, setMoveMatchModal] = useState<{ matchId: string, currentLeague: string } | null>(null);
@@ -390,13 +393,20 @@ const App: React.FC = () => {
       }
   };
 
-  const handleScoreboardExit = (options?: { endedPractice?: boolean; savedPractice?: boolean }) => {
-      if (options?.endedPractice) {
+  const handleScoreboardExit = (options?: { endedPractice?: boolean; savedPractice?: boolean; finalizedMatch?: boolean; message?: string }) => {
+      if (options?.endedPractice || options?.finalizedMatch) {
           safeStorage.removeItem('dugout_active_match_id');
           setResumeMatch(null);
           if (state.currentMatchId) {
               setMatches(prev => prev.map(m => m.id === state.currentMatchId ? { ...m, isComplete: true, status: 'FINAL' as const } : m));
           }
+          if (state.currentLeague) {
+              refreshDashboard(state.currentLeague, state.season, true);
+          }
+      }
+      if (options?.message) {
+          setDashboardToast({ text: options.message, type: 'success' });
+          setTimeout(() => setDashboardToast(null), 6000);
       }
       setState(s => ({ ...s, view: 'dashboard', currentMatchId: null }));
   };
@@ -1042,6 +1052,24 @@ const App: React.FC = () => {
         
         {/* Scrollable Main Content Area */}
         <main className="relative flex-1 w-full overflow-y-auto overflow-x-hidden scroll-touch">
+            {/* Dashboard Toast / Finalize Success Notification */}
+            {dashboardToast && (
+                <div className="bg-emerald-600 text-white px-4 py-3 flex items-center justify-between shadow-lg z-[1150] sticky top-0 animate-in fade-in slide-in-from-top-2 duration-200">
+                    <div className="flex items-center gap-2.5 font-bold text-xs sm:text-sm font-sans max-w-4xl mx-auto w-full">
+                        <span className="text-base sm:text-lg">✅</span>
+                        <span className="flex-1">{dashboardToast.text}</span>
+                        <button 
+                            type="button"
+                            onClick={() => setDashboardToast(null)}
+                            className="text-emerald-100 hover:text-white p-1 rounded-lg text-xs font-bold shrink-0 cursor-pointer"
+                            title="Dismiss notification"
+                        >
+                            ✕
+                        </button>
+                    </div>
+                </div>
+            )}
+
             {/* Fixed Header / Navbar - moved inside scrollable area so it scrolls away */}
             {state.view !== 'league_select' && <Navbar {...navbarProps} />}
 
@@ -1284,12 +1312,12 @@ const App: React.FC = () => {
                                 </div>
                             )}
 
-                            {/* Practice / Sandbox Mode Box - Umpires & Admins */}
+                            {/* Practice Mode Box - Umpires & Admins */}
                             <div className="bg-amber-500/10 dark:bg-amber-950/30 border border-amber-500/30 rounded-xl p-3 sm:p-4 shadow-sm">
                                 <div className="flex items-center gap-2 mb-2">
                                     <span className="text-lg">🧪</span>
                                     <div>
-                                        <h3 className="text-xs sm:text-sm font-black text-amber-700 dark:text-amber-400 font-sans uppercase tracking-wider">Practice / Sandbox</h3>
+                                        <h3 className="text-xs sm:text-sm font-black text-amber-700 dark:text-amber-400 font-sans uppercase tracking-wider">Practice Mode</h3>
                                         <p className="text-[10px] text-slate-500 dark:text-slate-400 font-sans">Test scoring and game setups without altering official stats</p>
                                     </div>
                                 </div>
@@ -1869,7 +1897,7 @@ const App: React.FC = () => {
             onClose={() => setSelectedCareerPlayer(null)}
         />
 
-        {/* Practice / Sandbox Mode Setup Modal */}
+        {/* Practice Mode Setup Modal */}
         <PracticeSetupModal
             isOpen={showPracticeModal}
             onClose={() => setShowPracticeModal(false)}

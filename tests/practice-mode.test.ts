@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { calculateMatchStats, createPracticeMatch } from '../services/storageService';
 import { Match, Team, Inning } from '../types';
 
-describe('Practice / Sandbox Mode Verification', () => {
+describe('Practice Mode Verification', () => {
   const teamAlpha: Team = {
     id: 'team-alpha',
     name: 'Alpha Wolves',

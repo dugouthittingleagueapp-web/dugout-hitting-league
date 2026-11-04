@@ -8,7 +8,7 @@ import { isPlaceholderPlayerName } from '../utils/statsEditorHelper.js';
 
 interface ScoreboardProps {
   matchId: string;
-  onExit: (options?: { endedPractice?: boolean; savedPractice?: boolean }) => void;
+  onExit: (options?: { endedPractice?: boolean; savedPractice?: boolean; finalizedMatch?: boolean; message?: string }) => void;
   isReadOnly?: boolean;
   userRole?: 'fan' | 'umpire' | 'admin';
   onPlayerClick?: (playerName: string) => void;
@@ -30,7 +30,8 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
   const [teams, setTeams] = useState<{ home?: Team, away?: Team }>({});
   const [activeInningIdx, setActiveInningIdx] = useState(0); 
   const [showFinishModal, setShowFinishModal] = useState(false);
-  const [showExitConfirmModal, setShowExitConfirmModal] = useState(false);
+  const [showExitMenuModal, setShowExitMenuModal] = useState(false);
+  const [confirmTieExit, setConfirmTieExit] = useState(false);
   const [showPracticeExitModal, setShowPracticeExitModal] = useState(false);
   const [loading, setLoading] = useState(true);
   
@@ -60,7 +61,8 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
               if (match.isPractice || match.is_practice) {
                   setShowPracticeExitModal(true);
               } else {
-                  setShowExitConfirmModal(true);
+                  setConfirmTieExit(false);
+                  setShowExitMenuModal(true);
               }
           }
       };
@@ -71,15 +73,58 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
   }, [isReadOnly, userRole, match]);
 
   const handleExitRequest = () => {
-      if (!isReadOnly && userRole !== 'fan' && match && !match.isComplete) {
+      if (!isReadOnly && userRole !== 'fan' && match) {
           if (match.isPractice || match.is_practice) {
               setShowPracticeExitModal(true);
           } else {
-              setShowExitConfirmModal(true);
+              setConfirmTieExit(false);
+              setShowExitMenuModal(true);
           }
       } else {
           onExit();
       }
+  };
+
+  const handleSaveAndExit = async () => {
+      if (match) {
+          await storage.updateMatch(match);
+      }
+      setShowExitMenuModal(false);
+      onExit({ savedPractice: false });
+  };
+
+  const handleExitAndFinalize = async (forceTie: boolean = false) => {
+      if (isReadOnly || !match) return;
+      const hT = calculateTeamGameTotal('home', match);
+      const aT = calculateTeamGameTotal('away', match);
+
+      if (hT === aT && !forceTie && (!match.tieBreaker || match.tieBreaker.length === 0)) {
+          setConfirmTieExit(true);
+          return;
+      }
+
+      const finalizedMatch: Match = {
+          ...match,
+          isComplete: true,
+          status: 'FINAL'
+      };
+      setMatch(finalizedMatch);
+      await storage.updateMatch(finalizedMatch);
+      try {
+          if (typeof window !== 'undefined') {
+              localStorage.removeItem('dugout_active_match_id');
+          }
+      } catch (e) {}
+      setShowExitMenuModal(false);
+      setConfirmTieExit(false);
+      setShowFinishModal(false);
+
+      const homeName = teams.home?.name || 'Home Team';
+      const awayName = teams.away?.name || 'Away Team';
+      onExit({
+          finalizedMatch: true,
+          message: `Match Finalized! Final Score: ${homeName} ${hT} - ${awayName} ${aT}. Official stats and standings recorded.`
+      });
   };
 
   const handleSaveAndExitPractice = async () => {
@@ -409,7 +454,12 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
         if (typeof window !== 'undefined') localStorage.removeItem('dugout_active_match_id');
     } catch (e) {}
     setShowFinishModal(false);
-    onExit();
+    const homeName = teams.home?.name || 'Home Team';
+    const awayName = teams.away?.name || 'Away Team';
+    onExit({
+        finalizedMatch: true,
+        message: `Match Finalized! Final Score: ${homeName} ${hT} - ${awayName} ${aT}. Standings and stats updated.`
+    });
   };
 
   const handleToggleComplete = async () => {
@@ -710,7 +760,7 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
 
   return (
     <div className="min-h-full w-full overflow-x-hidden pb-20 font-sans">
-      {/* Practice / Sandbox Mode Sticky Top Banner */}
+      {/* Practice Mode Sticky Top Banner */}
       {match.isPractice && (
         <div className="sticky top-0 z-[60] bg-amber-500 text-slate-950 px-3 py-2 text-center text-xs sm:text-sm font-black uppercase tracking-wider flex items-center justify-center gap-2 shadow-md border-b border-amber-600 font-sans">
           <span className="text-sm sm:text-base">🧪</span>
@@ -747,6 +797,20 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
               )
             )}
             
+            {/* Exit & Finalize Fast Action in Header */}
+            {!match.isPractice && !match.isComplete && !isReadOnly && userRole !== 'fan' && (
+              <button 
+                type="button"
+                onClick={() => handleExitAndFinalize(false)} 
+                className="text-[11px] sm:text-xs font-bold px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-lg sm:rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white transition-all cursor-pointer whitespace-nowrap shadow-sm flex items-center gap-1.5 active:scale-95"
+                title="Finalize match and record official results"
+              >
+                <span>🏁</span>
+                <span className="hidden sm:inline">Exit & Finalize</span>
+                <span className="sm:hidden">Finalize</span>
+              </button>
+            )}
+
             {match.isPractice && !isReadOnly && (
               <button 
                 type="button"
@@ -755,11 +819,20 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
                 title="Reset all test pitches and restart practice match from Inning 1"
               >
                 <span>🔄</span>
-                <span>Reset Match</span>
+                <span className="hidden sm:inline">Reset Match</span>
+                <span className="sm:hidden">Reset</span>
               </button>
             )}
             
-            <button onClick={handleExitRequest} className="text-sm font-bold text-slate-500 bg-slate-100 dark:bg-slate-800 dark:text-slate-300 py-1.5 sm:py-2 px-3 rounded-xl hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors cursor-pointer">Exit</button>
+            <button 
+              type="button"
+              onClick={handleExitRequest} 
+              className="text-xs sm:text-sm font-bold text-slate-700 dark:text-slate-200 bg-slate-100 dark:bg-slate-800 py-1.5 sm:py-2 px-3 rounded-lg sm:rounded-xl hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors cursor-pointer flex items-center gap-1 border border-slate-300 dark:border-slate-700 shadow-sm"
+              title="Exit options: Save & Exit or Exit & Finalize"
+            >
+              <span>Exit</span>
+              {!isReadOnly && userRole !== 'fan' && <span className="text-[10px] opacity-60">▾</span>}
+            </button>
           </div>
         </div>
 
@@ -938,18 +1011,114 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
           document.body
       )}
 
-      {showExitConfirmModal && createPortal(
-          <div className="fixed inset-0 z-[120] flex items-center justify-center bg-slate-900/80 backdrop-blur-sm p-4 animate-in fade-in duration-150" onClick={() => setShowExitConfirmModal(false)}>
-              <div className="bg-white dark:bg-slate-900 p-6 sm:p-8 rounded-2xl shadow-2xl max-w-sm w-full text-center border border-slate-200 dark:border-slate-800" onClick={e => e.stopPropagation()}>
-                  <div className="w-12 h-12 rounded-full bg-amber-100 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400 flex items-center justify-center mx-auto mb-3">
-                      <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
+      {/* Exit Game Options Modal (Dual Action: Save & Exit vs Exit & Finalize) */}
+      {showExitMenuModal && createPortal(
+          <div className="fixed inset-0 z-[120] flex items-center justify-center bg-slate-900/80 backdrop-blur-sm p-4 animate-in fade-in duration-150" onClick={() => setShowExitMenuModal(false)}>
+              <div className="bg-white dark:bg-slate-900 p-5 sm:p-7 rounded-2xl shadow-2xl max-w-md w-full border border-slate-200 dark:border-slate-800 font-sans" onClick={e => e.stopPropagation()}>
+                  
+                  {/* Header */}
+                  <div className="flex items-center gap-3 mb-4">
+                      <div className="w-12 h-12 rounded-2xl bg-blue-100 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 flex items-center justify-center text-2xl shrink-0">
+                          ⚾
+                      </div>
+                      <div className="flex-1 min-w-0">
+                          <div className="flex items-center justify-between gap-2">
+                              <h2 className="text-lg sm:text-xl font-black text-slate-900 dark:text-white leading-tight">Exit Game</h2>
+                              <span className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 shrink-0">
+                                  {match?.isComplete ? 'FINAL' : 'IN PROGRESS'}
+                              </span>
+                          </div>
+                          <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 truncate">
+                              {teams.away?.name || 'Away'} ({awayTotal}) vs {teams.home?.name || 'Home'} ({homeTotal})
+                          </p>
+                      </div>
                   </div>
-                  <h2 className="text-xl font-bold text-slate-900 dark:text-white mb-2 font-sans">Match Still in Progress</h2>
-                  <p className="text-sm text-slate-500 dark:text-slate-400 mb-6 font-sans">Are you sure you want to leave? Your recorded pitches are saved and you can return anytime.</p>
-                  <div className="flex gap-3">
-                      <button onClick={() => setShowExitConfirmModal(false)} className="flex-1 py-3 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 rounded-xl font-bold font-sans hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors">Stay in Match</button>
-                      <button onClick={() => { setShowExitConfirmModal(false); onExit(); }} className="flex-1 py-3 bg-red-600 hover:bg-red-700 text-white rounded-xl font-bold font-sans shadow-lg shadow-red-900/20 transition-colors">Exit</button>
-                  </div>
+
+                  {/* Tied Game Warning */}
+                  {confirmTieExit ? (
+                      <div className="mb-4 p-3.5 bg-amber-50 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-700/60 rounded-xl">
+                          <div className="flex items-center gap-2 text-amber-800 dark:text-amber-300 font-bold text-sm mb-1">
+                              <span>⚠️</span>
+                              <span>Game Is Tied ({homeTotal} - {awayTotal})</span>
+                          </div>
+                          <p className="text-xs text-amber-700 dark:text-amber-400 mb-3">
+                              Would you like to start a 1-pitch Tie-Breaker Extra Inning, or finalize the game as an official Tie?
+                          </p>
+                          <div className="flex gap-2">
+                              <button
+                                  type="button"
+                                  onClick={() => {
+                                      setShowExitMenuModal(false);
+                                      setConfirmTieExit(false);
+                                      setShowTieBreakerSetup(true);
+                                  }}
+                                  className="flex-1 py-2 px-3 bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs rounded-lg transition-colors cursor-pointer"
+                              >
+                                  Start Extras
+                              </button>
+                              <button
+                                  type="button"
+                                  onClick={() => handleExitAndFinalize(true)}
+                                  className="flex-1 py-2 px-3 bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 font-bold text-xs rounded-lg transition-colors cursor-pointer"
+                              >
+                                  Finalize as Tie
+                              </button>
+                          </div>
+                      </div>
+                  ) : (
+                      <div className="space-y-3 mb-5">
+                          {/* Option 1: Save & Exit */}
+                          <button
+                              type="button"
+                              onClick={handleSaveAndExit}
+                              className="w-full text-left p-3.5 sm:p-4 rounded-xl border-2 border-blue-200 dark:border-blue-900/60 bg-blue-50/60 dark:bg-blue-950/30 hover:bg-blue-100/70 dark:hover:bg-blue-900/50 transition-all flex items-start gap-3.5 group active:scale-[0.99] cursor-pointer"
+                          >
+                              <div className="w-10 h-10 rounded-xl bg-blue-600 text-white flex items-center justify-center shrink-0 text-xl font-bold shadow-md shadow-blue-600/20 group-hover:scale-105 transition-transform">
+                                  💾
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                  <div className="flex items-center justify-between gap-2">
+                                      <span className="font-black text-sm text-slate-900 dark:text-white">Save & Exit</span>
+                                      <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-blue-200 dark:bg-blue-900 text-blue-800 dark:text-blue-200 shrink-0">Resume Later</span>
+                                  </div>
+                                  <p className="text-xs text-slate-600 dark:text-slate-400 mt-1 leading-relaxed">
+                                      Saves all current pitches and scores. Keeps the game active so you can return and resume scoring later from the dashboard.
+                                  </p>
+                              </div>
+                          </button>
+
+                          {/* Option 2: Exit & Finalize */}
+                          <button
+                              type="button"
+                              onClick={() => handleExitAndFinalize(false)}
+                              className="w-full text-left p-3.5 sm:p-4 rounded-xl border-2 border-emerald-300 dark:border-emerald-800/80 bg-emerald-50/70 dark:bg-emerald-950/40 hover:bg-emerald-100/80 dark:hover:bg-emerald-900/60 transition-all flex items-start gap-3.5 group active:scale-[0.99] cursor-pointer"
+                          >
+                              <div className="w-10 h-10 rounded-xl bg-emerald-600 text-white flex items-center justify-center shrink-0 text-xl font-bold shadow-md shadow-emerald-600/20 group-hover:scale-105 transition-transform">
+                                  🏁
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                  <div className="flex items-center justify-between gap-2">
+                                      <span className="font-black text-sm text-slate-900 dark:text-white">Exit & Finalize</span>
+                                      <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-emerald-200 dark:bg-emerald-900 text-emerald-800 dark:text-emerald-200 shrink-0">Complete Match</span>
+                                  </div>
+                                  <p className="text-xs text-slate-600 dark:text-slate-400 mt-1 leading-relaxed">
+                                      Marks match as complete (FINAL), updates team standings and individual player stats, and clears the active session banner.
+                                  </p>
+                              </div>
+                          </button>
+                      </div>
+                  )}
+
+                  <button
+                      type="button"
+                      onClick={() => {
+                          setShowExitMenuModal(false);
+                          setConfirmTieExit(false);
+                      }}
+                      className="w-full py-3 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-xl font-bold text-xs sm:text-sm transition-colors cursor-pointer"
+                  >
+                      Cancel — Stay in Match
+                  </button>
               </div>
           </div>,
           document.body

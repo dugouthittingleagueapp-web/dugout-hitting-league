@@ -118,7 +118,7 @@ export const PracticeSetupModal: React.FC<PracticeSetupModalProps> = ({
         homePlayerIds,
         awayPlayerIds,
         season,
-        notes: `PRACTICE MATCH (${teamSource === 'dummy' ? 'Dummy Sandbox Teams' : 'League Teams'})`
+        notes: `PRACTICE MATCH (${teamSource === 'dummy' ? 'Dummy Practice Teams' : 'League Teams'})`
       });
 
       await onStartPractice(practiceMatch, createdTeamsToRegister);
@@ -147,10 +147,10 @@ export const PracticeSetupModal: React.FC<PracticeSetupModalProps> = ({
             <div>
               <div className="flex items-center gap-2">
                 <h2 className="text-lg sm:text-xl font-black text-slate-900 dark:text-white">
-                  Practice / Sandbox Mode
+                  Practice Match Setup
                 </h2>
                 <span className="text-[10px] font-black uppercase tracking-wider bg-amber-500 text-slate-950 px-2 py-0.5 rounded-full">
-                  Sandbox
+                  Practice Mode
                 </span>
               </div>
               <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">

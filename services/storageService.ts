@@ -2,6 +2,9 @@
 import { AgeGroup, Match, Team, Inning, PlayerInningScore, League, PlayerStats, Player, PlayerSeasonStatRow, PlayerCareerSummary, ScheduledGameRecord, ScheduleImportSummary } from '../types';
 import { ARCHIVE_2025_LEAGUES, ARCHIVE_2025_TEAMS, ARCHIVE_2025_MATCHES } from './archive2025Data';
 import { parseScheduleCsv, isDuplicateMatch } from '../utils/scheduleImporter';
+import { sortMatchesChronologically } from '../utils/matchSort';
+
+export { sortMatchesChronologically };
 
 export const normalizeLeague = (league?: string | null): string => {
   return (league || '').trim().toLowerCase();
@@ -447,13 +450,13 @@ export const deleteTeam = async (teamId: string) => {
 // Match Methods
 export const getMatches = async (league: AgeGroup, season: string): Promise<Match[]> => {
   if (typeof window === 'undefined' && season === '2025') {
-    return ARCHIVE_2025_MATCHES.filter(m => leaguesMatch(m.league, league));
+    return sortMatchesChronologically(ARCHIVE_2025_MATCHES.filter(m => leaguesMatch(m.league, league)));
   }
   try {
     const res = await apiFetch(`/api/matches?league=${encodeURIComponent(league)}&season=${encodeURIComponent(season)}`);
     if (res.ok) {
       const data = await res.json();
-      const mapped = data.map(mapMatchFromDB);
+      const mapped: Match[] = sortMatchesChronologically<Match>(data.map(mapMatchFromDB));
       if (mapped.length > 0 || season !== '2025') {
         if (typeof window !== 'undefined') {
           try {
@@ -473,14 +476,14 @@ export const getMatches = async (league: AgeGroup, season: string): Promise<Matc
       const cached = localStorage.getItem(`dugout_matches_${season}_${league}`);
       if (cached) {
         const parsed: Match[] = JSON.parse(cached);
-        if (parsed.length > 0 || season !== '2025') return parsed;
+        if (parsed.length > 0 || season !== '2025') return sortMatchesChronologically(parsed);
       }
     } catch (e) {}
   }
 
   // Guaranteed fallback for 2025 historical archive
   if (season === '2025') {
-    const fallback = ARCHIVE_2025_MATCHES.filter(m => leaguesMatch(m.league, league));
+    const fallback = sortMatchesChronologically(ARCHIVE_2025_MATCHES.filter(m => leaguesMatch(m.league, league)));
     if (typeof window !== 'undefined') {
       try {
         localStorage.setItem(`dugout_matches_2025_${league}`, JSON.stringify(fallback));
@@ -513,7 +516,7 @@ export const getAllMatches = async (): Promise<Match[]> => {
     }
   });
 
-  return matches;
+  return sortMatchesChronologically(matches);
 };
 
 export const getMatch = async (id: string): Promise<Match | undefined> => {

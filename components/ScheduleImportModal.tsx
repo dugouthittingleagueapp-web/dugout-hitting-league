@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { League, Team, Match, ScheduledGameRecord, ScheduleImportSummary } from '../types';
 import * as storage from '../services/storageService';
 import { parseScheduleCsv, isDuplicateMatch } from '../utils/scheduleImporter';
+import { FileDropzone } from './FileDropzone';
 
 interface ScheduleImportModalProps {
   isOpen: boolean;
@@ -29,6 +30,7 @@ export const ScheduleImportModal: React.FC<ScheduleImportModalProps> = ({
   const [loading, setLoading] = useState(false);
   const [loadingSample, setLoadingSample] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [selectedFileName, setSelectedFileName] = useState<string | null>(null);
 
   // Parsed preview state
   const [previewGames, setPreviewGames] = useState<ScheduledGameRecord[] | null>(null);
@@ -63,6 +65,7 @@ export const ScheduleImportModal: React.FC<ScheduleImportModalProps> = ({
 
   const handleReset = () => {
     setCsvText('');
+    setSelectedFileName(null);
     setPreviewGames(null);
     setPreviewDuplicates(new Set());
     setImportSummary(null);
@@ -78,10 +81,10 @@ export const ScheduleImportModal: React.FC<ScheduleImportModalProps> = ({
     return selected.trim();
   };
 
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
+  const handleFileSelect = (file: File) => {
     if (!file) return;
     setErrorMessage(null);
+    setSelectedFileName(file.name);
     const reader = new FileReader();
     reader.onload = (event) => {
       const content = event.target?.result as string;
@@ -95,6 +98,11 @@ export const ScheduleImportModal: React.FC<ScheduleImportModalProps> = ({
     reader.readAsText(file);
   };
 
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) handleFileSelect(file);
+  };
+
   const handleLoadSampleSchedule = async () => {
     setLoadingSample(true);
     setErrorMessage(null);
@@ -102,6 +110,7 @@ export const ScheduleImportModal: React.FC<ScheduleImportModalProps> = ({
       const res = await fetch('/assets/aistudio/schedule_export_20261102_121804_62b9d935.csv');
       if (!res.ok) throw new Error('Sample CSV schedule file not found at /assets/aistudio/...');
       const content = await res.text();
+      setSelectedFileName('schedule_export_20261102_121804.csv');
       setCsvText(content);
       const effLeague = getEffectiveTargetLeague(targetLeague, isCustomLeague, customLeagueInput);
       processPreview(content, effLeague, targetSeason);
@@ -343,27 +352,13 @@ export const ScheduleImportModal: React.FC<ScheduleImportModalProps> = ({
           </div>
 
           {activeTab === 'upload' ? (
-            <div
-              onClick={() => fileInputRef.current?.click()}
-              className="border-2 border-dashed border-slate-300 dark:border-slate-700 hover:border-blue-500 dark:hover:border-blue-500 rounded-2xl p-6 text-center cursor-pointer bg-slate-50/50 dark:bg-slate-950/50 transition-colors"
-            >
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept=".csv,text/csv"
-                onChange={handleFileUpload}
-                className="hidden"
-              />
-              <div className="w-12 h-12 mx-auto mb-2 text-slate-400 flex items-center justify-center bg-slate-100 dark:bg-slate-800 rounded-full">
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" /></svg>
-              </div>
-              <p className="text-sm font-bold text-slate-700 dark:text-slate-200 font-sans">
-                Click to browse or drag & drop schedule CSV
-              </p>
-              <p className="text-xs text-slate-500 dark:text-slate-400 font-sans mt-0.5">
-                Supports Date, Start Time, End Time, Location, Group, Home Team, Away Team
-              </p>
-            </div>
+            <FileDropzone
+              onFileSelect={handleFileSelect}
+              selectedFileName={selectedFileName}
+              title="Click to browse or drag & drop schedule CSV"
+              subtitle="Supports Date, Start Time, End Time, Location, Group, Home Team, Away Team"
+              activeTitle="Drop schedule CSV here"
+            />
           ) : (
             <div>
               <textarea

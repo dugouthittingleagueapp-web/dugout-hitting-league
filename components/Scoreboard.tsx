@@ -8,7 +8,7 @@ import { isPlaceholderPlayerName } from '../utils/statsEditorHelper.js';
 
 interface ScoreboardProps {
   matchId: string;
-  onExit: (options?: { endedPractice?: boolean; savedPractice?: boolean; finalizedMatch?: boolean; message?: string }) => void;
+  onExit: (options?: { endedPractice?: boolean; deletedPractice?: boolean; savedPractice?: boolean; finalizedMatch?: boolean; message?: string }) => void;
   isReadOnly?: boolean;
   userRole?: 'fan' | 'umpire' | 'admin';
   onPlayerClick?: (playerName: string) => void;
@@ -95,6 +95,10 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
 
   const handleExitAndFinalize = async (forceTie: boolean = false) => {
       if (isReadOnly || !match) return;
+      if (match.isPractice || match.is_practice) {
+          await handleEndPracticeMatch();
+          return;
+      }
       const hT = calculateTeamGameTotal('home', match);
       const aT = calculateTeamGameTotal('away', match);
 
@@ -128,22 +132,12 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
   };
 
   const handleSaveAndExitPractice = async () => {
-      if (match) {
-          await storage.updateMatch(match);
-      }
-      setShowPracticeExitModal(false);
-      onExit({ savedPractice: true });
+      await handleEndPracticeMatch();
   };
 
   const handleEndPracticeMatch = async () => {
       if (match) {
-          const finishedMatch: Match = {
-              ...match,
-              isComplete: true,
-              status: 'FINAL'
-          };
-          setMatch(finishedMatch);
-          await storage.updateMatch(finishedMatch);
+          await storage.deleteMatch(match.id).catch(() => {});
       }
       try {
           if (typeof window !== 'undefined') {
@@ -151,7 +145,7 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
           }
       } catch (e) {}
       setShowPracticeExitModal(false);
-      onExit({ endedPractice: true });
+      onExit({ deletedPractice: true, message: 'Practice match exited and auto-deleted.' });
   };
 
   const formatName = (p: { name: string, lastName?: string } | undefined) => {
@@ -440,6 +434,10 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
 
   const confirmCompleteGame = async () => {
     if (isReadOnly || !match) return;
+    if (match.isPractice || match.is_practice) {
+        await handleEndPracticeMatch();
+        return;
+    }
     const hT = calculateTeamGameTotal('home', match);
     const aT = calculateTeamGameTotal('away', match);
     if (hT === aT) {
@@ -564,7 +562,6 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
 
       setMatch(newMatch);
       await storage.updateMatch(newMatch);
-      setRosterSide(null);
       setLoading(false);
   };
 
@@ -980,7 +977,15 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
                           <button onClick={handleAddManualSub} disabled={!newSubNameInput.trim()} className="bg-blue-600 text-white font-bold px-3 py-2 rounded-lg text-xs font-sans disabled:opacity-50 transition-all hover:bg-blue-700">Add</button>
                       </div>
                   </div>
-                  <button onClick={() => setRosterSide(null)} className="w-full py-3 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 font-bold rounded-xl transition-colors hover:bg-slate-200 dark:hover:bg-slate-700 font-sans">Cancel</button>
+                  <div className="flex gap-2">
+                      <button 
+                          type="button" 
+                          onClick={() => setRosterSide(null)} 
+                          className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl transition-colors font-sans shadow-md cursor-pointer text-sm"
+                      >
+                          Done Editing Lineup
+                      </button>
+                  </div>
               </div>
           </div>,
           document.body
@@ -1133,45 +1138,26 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
                       </div>
                       <div>
                           <h2 className="text-lg sm:text-xl font-black text-slate-900 dark:text-white leading-tight">Exit Practice Match</h2>
-                          <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Choose how to handle this practice session before leaving</p>
+                          <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Practice matches auto-delete on exit so league records stay clean</p>
                       </div>
                   </div>
 
                   <div className="space-y-3 mb-5">
                       <button
                           type="button"
-                          onClick={handleSaveAndExitPractice}
-                          className="w-full text-left p-3.5 sm:p-4 rounded-xl border-2 border-blue-200 dark:border-blue-900/60 bg-blue-50/60 dark:bg-blue-950/30 hover:bg-blue-100/70 dark:hover:bg-blue-900/50 transition-all flex items-start gap-3.5 group active:scale-[0.99] cursor-pointer"
-                      >
-                          <div className="w-10 h-10 rounded-xl bg-blue-600 text-white flex items-center justify-center shrink-0 text-xl font-bold shadow-md shadow-blue-600/20 group-hover:scale-105 transition-transform">
-                              💾
-                          </div>
-                          <div className="flex-1 min-w-0">
-                              <div className="flex items-center justify-between gap-2">
-                                  <span className="font-black text-sm text-slate-900 dark:text-white">Save & Exit</span>
-                                  <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-blue-200 dark:bg-blue-900 text-blue-800 dark:text-blue-200 shrink-0">Resume Later</span>
-                              </div>
-                              <p className="text-xs text-slate-600 dark:text-slate-400 mt-1 leading-relaxed">
-                                  Saves current inning, scores, batting order, and pitch counts so you can resume scoring later from the dashboard.
-                              </p>
-                          </div>
-                      </button>
-
-                      <button
-                          type="button"
                           onClick={handleEndPracticeMatch}
-                          className="w-full text-left p-3.5 sm:p-4 rounded-xl border-2 border-rose-200 dark:border-rose-900/60 bg-rose-50/60 dark:bg-rose-950/30 hover:bg-rose-100/70 dark:hover:bg-rose-900/50 transition-all flex items-start gap-3.5 group active:scale-[0.99] cursor-pointer"
+                          className="w-full text-left p-3.5 sm:p-4 rounded-xl border-2 border-rose-300 dark:border-rose-900/60 bg-rose-50/70 dark:bg-rose-950/40 hover:bg-rose-100/80 dark:hover:bg-rose-900/60 transition-all flex items-start gap-3.5 group active:scale-[0.99] cursor-pointer"
                       >
                           <div className="w-10 h-10 rounded-xl bg-rose-600 text-white flex items-center justify-center shrink-0 text-xl font-bold shadow-md shadow-rose-600/20 group-hover:scale-105 transition-transform">
-                              🏁
+                              🗑️
                           </div>
                           <div className="flex-1 min-w-0">
                               <div className="flex items-center justify-between gap-2">
-                                  <span className="font-black text-sm text-slate-900 dark:text-white">End Match</span>
-                                  <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-rose-200 dark:bg-rose-900 text-rose-800 dark:text-rose-200 shrink-0">Complete & Clear</span>
+                                  <span className="font-black text-sm text-slate-900 dark:text-white">Exit & Delete Match</span>
+                                  <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-rose-200 dark:bg-rose-900 text-rose-800 dark:text-rose-200 shrink-0">Auto-Delete</span>
                               </div>
                               <p className="text-xs text-slate-600 dark:text-slate-400 mt-1 leading-relaxed">
-                                  Marks the practice match as finished/archived, clears it from the active session banner, and discards temporary state.
+                                  Automatically deletes this practice match from the database and dashboard, clearing the session completely.
                               </p>
                           </div>
                       </button>

@@ -100,7 +100,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         query += ' WHERE ' + conditions.join(' AND ');
       }
       
-      query += ' ORDER BY date DESC';
+      query += ' ORDER BY date ASC, start_time ASC, id ASC';
       const { rows } = await pool.query(query, params);
       const mappedRows = rows.map(row => {
         if (row.innings && typeof row.innings === 'string') row.innings = JSON.parse(row.innings);
@@ -110,6 +110,40 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         }
         return row;
       });
+
+      // Ensure strict chronological ascending order: date ASC, start_time ASC
+      const parseTimeToMinutes = (timeStr?: string | null, dateStr?: string | null): number => {
+        if (timeStr && typeof timeStr === 'string' && timeStr.trim().length > 0) {
+          const clean = timeStr.trim().toLowerCase();
+          const isPM = clean.includes('pm') || clean.includes('p.m.');
+          const isAM = clean.includes('am') || clean.includes('a.m.');
+          const numbersOnly = clean.replace(/[^\d:]/g, '');
+          const [hStr, mStr] = numbersOnly.split(':');
+          let hours = parseInt(hStr || '0', 10);
+          const minutes = parseInt(mStr || '0', 10);
+          if (isPM && hours < 12) hours += 12;
+          else if (isAM && hours === 12) hours = 0;
+          return hours * 60 + minutes;
+        }
+        if (dateStr && typeof dateStr === 'string' && dateStr.includes('T')) {
+          const timeMatch = dateStr.match(/T(\d{2}):(\d{2})/);
+          if (timeMatch) {
+            return parseInt(timeMatch[1], 10) * 60 + parseInt(timeMatch[2], 10);
+          }
+        }
+        return 18 * 60;
+      };
+
+      mappedRows.sort((a, b) => {
+        const dateA = String(a.date || '').slice(0, 10);
+        const dateB = String(b.date || '').slice(0, 10);
+        if (dateA !== dateB) return dateA.localeCompare(dateB);
+        const timeA = parseTimeToMinutes(a.start_time || a.startTime, a.date);
+        const timeB = parseTimeToMinutes(b.start_time || b.startTime, b.date);
+        if (timeA !== timeB) return timeA - timeB;
+        return String(a.id || '').localeCompare(String(b.id || ''));
+      });
+
       return res.status(200).json(mappedRows);
     } 
     else if (req.method === 'POST') {

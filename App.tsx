@@ -393,8 +393,19 @@ const App: React.FC = () => {
       }
   };
 
-  const handleScoreboardExit = (options?: { endedPractice?: boolean; savedPractice?: boolean; finalizedMatch?: boolean; message?: string }) => {
-      if (options?.endedPractice || options?.finalizedMatch) {
+  const handleScoreboardExit = async (options?: { endedPractice?: boolean; deletedPractice?: boolean; savedPractice?: boolean; finalizedMatch?: boolean; message?: string }) => {
+      if (options?.deletedPractice || options?.endedPractice) {
+          const exitingMatchId = state.currentMatchId;
+          safeStorage.removeItem('dugout_active_match_id');
+          setResumeMatch(null);
+          if (exitingMatchId) {
+              setMatches(prev => prev.filter(m => m.id !== exitingMatchId));
+              await storage.deleteMatch(exitingMatchId).catch(() => {});
+          }
+          if (state.currentLeague) {
+              refreshDashboard(state.currentLeague, state.season, true);
+          }
+      } else if (options?.finalizedMatch) {
           safeStorage.removeItem('dugout_active_match_id');
           setResumeMatch(null);
           if (state.currentMatchId) {
@@ -417,14 +428,12 @@ const App: React.FC = () => {
       safeStorage.removeItem('dugout_active_match_id');
       setResumeMatch(null);
       try {
-          const m = await storage.getMatch(matchId);
-          if (m) {
-              const finished = { ...m, isComplete: true, status: 'FINAL' as const };
-              await storage.updateMatch(finished);
-              setMatches(prev => prev.map(item => item.id === matchId ? finished : item));
-          }
+          await storage.deleteMatch(matchId);
+          setMatches(prev => prev.filter(item => item.id !== matchId));
+          setDashboardToast({ text: 'Practice match cleared and deleted.', type: 'info' });
+          setTimeout(() => setDashboardToast(null), 5000);
       } catch (e) {
-          console.error("Failed to end practice match from banner", e);
+          console.error("Failed to delete practice match from banner", e);
       }
   };
 
@@ -448,7 +457,7 @@ const App: React.FC = () => {
       return sortedKeys.map((key, index) => ({
           id: key,
           label: `Week ${index + 1}`,
-          matches: weeksMap.get(key)!
+          matches: storage.sortMatchesChronologically(weeksMap.get(key)!)
       }));
   }, [matches, state.currentLeague, userRole]);
 
@@ -567,14 +576,7 @@ const App: React.FC = () => {
     } catch (e) { alert("Error starting match: " + e); setLoading(false); }
   };
 
-  const handleStartPractice = async (practiceMatch: Match, practiceTeams?: Team[]) => {
-      if (practiceTeams && practiceTeams.length > 0) {
-          setTeams(prev => {
-              const existingIds = new Set(prev.map(t => t.id));
-              const newTeams = practiceTeams.filter(t => !existingIds.has(t.id));
-              return [...prev, ...newTeams];
-          });
-      }
+  const handleStartPractice = async (practiceMatch: Match) => {
       setMatches(prev => [practiceMatch, ...prev.filter(m => m.id !== practiceMatch.id)]);
       safeStorage.setItem('dugout_active_match_id', practiceMatch.id);
       setShowPracticeModal(false);
@@ -832,7 +834,7 @@ const App: React.FC = () => {
   const weeklyStats = useMemo(() => calculateWeeklyLeaders(), [calculateWeeklyLeaders]);
   const visibleMatches = useMemo(() => {
       const w = activeWeeks.find(w => w.id === matchListWeek);
-      return w ? w.matches : [];
+      return w ? storage.sortMatchesChronologically(w.matches) : [];
   }, [activeWeeks, matchListWeek]);
 
   const leagueTeams = teams.filter(t => storage.leaguesMatch(t.league, state.currentLeague));
@@ -1903,7 +1905,7 @@ const App: React.FC = () => {
             onClose={() => setShowPracticeModal(false)}
             currentLeague={state.currentLeague || (leagues[0]?.id as AgeGroup) || '7-9'}
             season={state.season}
-            teams={leagueTeams.length > 0 ? leagueTeams : teams}
+            teams={leagueTeams}
             onStartPractice={handleStartPractice}
         />
 

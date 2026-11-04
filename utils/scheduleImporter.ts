@@ -1,5 +1,6 @@
 import { Match, Team, League, ScheduledGameRecord, ScheduleImportSummary, Inning } from '../types';
 import { generateUUID, createEmptyInning, leaguesMatch } from '../services/storageService';
+import { sortMatchesChronologically } from './matchSort';
 
 /**
  * Robust CSV parser that correctly handles quoted values, embedded commas,
@@ -229,7 +230,7 @@ export const parseScheduleCsv = (
     });
   }
 
-  return { games, errors };
+  return { games: sortMatchesChronologically(games), errors };
 };
 
 /**

@@ -1,6 +1,7 @@
 import React, { useState, useRef } from 'react';
 import { AgeGroup, Team } from '../types';
 import * as storage from '../services/storageService';
+import { FileDropzone } from './FileDropzone';
 
 interface RosterImportModalProps {
   isOpen: boolean;
@@ -75,8 +76,7 @@ export const RosterImportModal: React.FC<RosterImportModalProps> = ({
   };
 
   // CSV Parsing
-  const handleCsvFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
+  const handleCsvFileSelect = (file: File) => {
     if (!file) return;
     setErrorMessage(null);
     const reader = new FileReader();
@@ -88,6 +88,11 @@ export const RosterImportModal: React.FC<RosterImportModalProps> = ({
       setErrorMessage('Failed to read CSV file');
     };
     reader.readAsText(file);
+  };
+
+  const handleCsvFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) handleCsvFileSelect(file);
   };
 
   const parseCsvContent = (content: string) => {
@@ -380,23 +385,13 @@ export const RosterImportModal: React.FC<RosterImportModalProps> = ({
                   <p className="text-xs text-slate-500 dark:text-slate-400">
                     Upload a spreadsheet exported from Excel or Google Sheets. Columns like <span className="font-bold">Team Name, First Name, Last Name</span> are auto-mapped.
                   </p>
-                  <input
-                    type="file"
-                    ref={fileInputRef}
-                    accept=".csv,.tsv,.txt"
-                    onChange={handleCsvFileUpload}
-                    className="hidden"
+                  <FileDropzone
+                    onFileSelect={handleCsvFileSelect}
+                    accept=".csv,.tsv,.txt,text/csv,text/tab-separated-values,text/plain"
+                    title="Click to choose or drag & drop CSV roster file"
+                    subtitle="Supports .csv, .tsv, or .txt"
+                    activeTitle="Drop roster file here"
                   />
-                  <div
-                    onClick={() => fileInputRef.current?.click()}
-                    className="border-2 border-dashed border-slate-300 dark:border-slate-700 rounded-2xl p-8 text-center cursor-pointer hover:border-blue-500 dark:hover:border-blue-500 transition-colors bg-slate-50/50 dark:bg-slate-950/20"
-                  >
-                    <div className="text-2xl mb-1">📄</div>
-                    <div className="text-xs font-bold text-slate-700 dark:text-slate-200">
-                      Click to choose CSV file
-                    </div>
-                    <div className="text-[10px] text-slate-400 mt-1">.csv, .tsv, or .txt</div>
-                  </div>
                 </div>
               )}
 

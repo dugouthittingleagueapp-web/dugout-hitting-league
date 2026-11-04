@@ -270,7 +270,7 @@ describe('Practice Mode Verification', () => {
     expect(savedPracticeMatch.innings[0].away.playerScores[0].pitches[0].points).toBe(4);
   });
 
-  it('handles "End Match" by finalizing the practice match and clearing active banner state', async () => {
+  it('handles exit by auto-deleting the practice match from matches list and clearing active banner state', async () => {
     const livePracticeMatch = await createPracticeMatch({
       league: '10u',
       homeTeamId: teamAlpha.id,
@@ -282,26 +282,22 @@ describe('Practice Mode Verification', () => {
       pitchesPerBatter: 5
     });
 
-    // Mock localStorage active match ID
+    let currentMatches: Match[] = [officialMatch, livePracticeMatch];
     const fakeLocalStorage = new Map<string, string>();
     fakeLocalStorage.set('dugout_active_match_id', livePracticeMatch.id);
     expect(fakeLocalStorage.get('dugout_active_match_id')).toBe(livePracticeMatch.id);
+    expect(currentMatches).toHaveLength(2);
 
-    // Simulate "End Match": Finalize match and clear active match ID
-    const finalizedPracticeMatch: Match = {
-      ...livePracticeMatch,
-      isComplete: true,
-      status: 'FINAL'
-    };
+    // Simulate Practice Match Exit: Auto-delete match from matches and clear active ID
     fakeLocalStorage.delete('dugout_active_match_id');
+    currentMatches = currentMatches.filter(m => m.id !== livePracticeMatch.id);
 
-    expect(finalizedPracticeMatch.isComplete).toBe(true);
-    expect(finalizedPracticeMatch.status).toBe('FINAL');
-    expect(finalizedPracticeMatch.isPractice).toBe(true);
+    expect(currentMatches).toHaveLength(1);
+    expect(currentMatches[0].id).toBe(officialMatch.id);
     expect(fakeLocalStorage.get('dugout_active_match_id')).toBeUndefined();
 
-    // Verify banner recovery logic ignores completed practice matches
-    const shouldShowBanner = fakeLocalStorage.has('dugout_active_match_id') && !finalizedPracticeMatch.isComplete;
+    // Verify active banner does not show
+    const shouldShowBanner = fakeLocalStorage.has('dugout_active_match_id');
     expect(shouldShowBanner).toBe(false);
   });
 

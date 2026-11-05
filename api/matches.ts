@@ -95,7 +95,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           params.push(season);
         }
       }
-      if (req.query.includePractice !== 'true') {
+      if (req.query.excludePractice === 'true') {
         conditions.push(`(is_practice IS FALSE OR is_practice IS NULL)`);
       }
       

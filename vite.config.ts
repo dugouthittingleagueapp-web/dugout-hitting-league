@@ -316,8 +316,7 @@ function devApiPlugin(): Plugin {
               if (query.season) {
                 matches = matches.filter((m: any) => (m.season || (m.date && m.date.startsWith('2026') ? '2026' : '2025')) === query.season);
               }
-              // Main active matches list strictly filters out practice matches unless explicitly requested
-              if (query.includePractice !== 'true') {
+              if (query.excludePractice === 'true') {
                 matches = matches.filter((m: any) => !m.is_practice && !m.isPractice);
               }
               return sendJson(res, 200, matches);

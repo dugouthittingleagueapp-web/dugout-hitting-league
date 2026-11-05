@@ -457,15 +457,8 @@ export const getMatches = async (league: AgeGroup, season: string): Promise<Matc
     if (res.ok) {
       const data = await res.json();
       const rawMapped: Match[] = data.map(mapMatchFromDB);
-      const activePracticeId = typeof window !== 'undefined' ? localStorage.getItem('dugout_active_match_id') : null;
-      // Filter out matches marked with is_practice / isPractice from the main active matches list,
-      // retaining only the currently active in-progress practice match session if one exists.
-      const mapped: Match[] = sortMatchesChronologically<Match>(
-        rawMapped.filter(m => {
-          if (!m.isPractice && !m.is_practice) return true;
-          return activePracticeId && (m.id === activePracticeId || m.id === activePracticeId.replace(/^practice-/, '') || `practice-${m.id}` === activePracticeId) && !m.isComplete;
-        })
-      );
+      // Practice matches are first-class citizens on the dashboard schedule view
+      const mapped: Match[] = sortMatchesChronologically<Match>(rawMapped);
       if (mapped.length > 0 || season !== '2025') {
         if (typeof window !== 'undefined') {
           try {
@@ -485,12 +478,7 @@ export const getMatches = async (league: AgeGroup, season: string): Promise<Matc
       const cached = localStorage.getItem(`dugout_matches_${season}_${league}`);
       if (cached) {
         const parsed: Match[] = JSON.parse(cached);
-        const activePracticeId = localStorage.getItem('dugout_active_match_id');
-        const filtered = parsed.filter(m => {
-          if (!m.isPractice && !m.is_practice) return true;
-          return activePracticeId && (m.id === activePracticeId || m.id === activePracticeId.replace(/^practice-/, '') || `practice-${m.id}` === activePracticeId) && !m.isComplete;
-        });
-        if (filtered.length > 0 || season !== '2025') return sortMatchesChronologically(filtered);
+        if (parsed.length > 0 || season !== '2025') return sortMatchesChronologically(parsed);
       }
     } catch (e) {}
   }

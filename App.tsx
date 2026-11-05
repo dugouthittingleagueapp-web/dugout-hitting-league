@@ -477,13 +477,6 @@ const App: React.FC = () => {
       
       const weeksMap = new Map<string, Match[]>();
       matches.forEach(m => {
-          // Strictly exclude practice matches from schedule view unless currently active and not complete
-          const isPractice = Boolean(m.isPractice || m.is_practice);
-          if (isPractice) {
-              const activeId = safeStorage.getItem('dugout_active_match_id');
-              const isActivePractice = activeId && (m.id === activeId || m.id === activeId.replace(/^practice-/, '') || `practice-${m.id}` === activeId) && !m.isComplete;
-              if (!isActivePractice || userRole === 'fan') return;
-          }
           if (m.league && !storage.leaguesMatch(m.league, state.currentLeague)) return;
           const key = getWeekKey(m.date);
           if (!weeksMap.has(key)) weeksMap.set(key, []);
@@ -1515,7 +1508,11 @@ const App: React.FC = () => {
                                         const matchStatus = getMatchStatus(match);
 
                                         return (
-                                            <div key={match.id} className="bg-white/60 dark:bg-slate-900/60 backdrop-blur-xl p-3.5 sm:p-5 rounded-xl shadow-md dark:shadow-sm border border-white/20 dark:border-slate-800 flex flex-col lg:flex-row justify-between items-stretch lg:items-center gap-3 sm:gap-4 hover:bg-white/80 dark:hover:bg-slate-800/50 transition-colors group">
+                                            <div key={match.id} className={`backdrop-blur-xl p-3.5 sm:p-5 rounded-xl shadow-md dark:shadow-sm border flex flex-col lg:flex-row justify-between items-stretch lg:items-center gap-3 sm:gap-4 transition-all group ${
+                                                (match.isPractice || match.is_practice) 
+                                                    ? 'bg-amber-500/[0.04] dark:bg-amber-500/[0.03] border-amber-400/50 dark:border-amber-500/40 hover:bg-amber-500/[0.07] ring-1 ring-amber-500/20' 
+                                                    : 'bg-white/60 dark:bg-slate-900/60 border-white/20 dark:border-slate-800 hover:bg-white/80 dark:hover:bg-slate-800/50'
+                                            }`}>
                                                 {/* Left Section: Match Info, Status & Matchup (Home v Away) */}
                                                 <div className="flex flex-col gap-2 min-w-0 flex-1">
                                                     {/* Top subheader: Status Badge & Scheduled Time/Tunnel */}
@@ -1530,9 +1527,10 @@ const App: React.FC = () => {
                                                                 LIVE
                                                             </span>
                                                         )}
-                                                        {match.isPractice && (
-                                                            <span className="text-[9px] sm:text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded font-sans border shrink-0 bg-amber-500/15 text-amber-600 dark:text-amber-400 border-amber-500/40">
-                                                                🧪 PRACTICE
+                                                        {(match.isPractice || match.is_practice) && (
+                                                            <span className="text-[9px] sm:text-[10px] font-black uppercase tracking-wider px-2.5 py-0.5 rounded font-sans border shrink-0 bg-amber-500/20 text-amber-700 dark:text-amber-300 border-amber-500/50 shadow-xs flex items-center gap-1 font-bold">
+                                                                <span>🧪</span>
+                                                                <span>PRACTICE</span>
                                                             </span>
                                                         )}
                                                         {matchStatus === 'SCHEDULED' && (
@@ -1628,7 +1626,7 @@ const App: React.FC = () => {
                                                         }
                                                     </button>
                                                     
-                                                    {userRole === 'admin' && (
+                                                    {userRole === 'admin' ? (
                                                         <div className="flex gap-2 shrink-0">
                                                             {matchStatus === 'FINAL' && (
                                                                 <button 
@@ -1654,6 +1652,16 @@ const App: React.FC = () => {
                                                                 Del
                                                             </button>
                                                         </div>
+                                                    ) : (
+                                                        (match.isPractice || match.is_practice) && userRole === 'umpire' && (
+                                                            <button 
+                                                                onClick={() => handleDeleteMatch(match.id)} 
+                                                                className="px-3 py-1.5 sm:py-2 rounded-lg border border-amber-400/50 dark:border-amber-700/60 bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 hover:bg-red-50 dark:hover:bg-red-950/40 hover:text-red-600 hover:border-red-400 font-bold text-xs sm:text-sm transition-all font-sans cursor-pointer shadow-sm shrink-0"
+                                                                title="Delete practice session"
+                                                            >
+                                                                Del Practice
+                                                            </button>
+                                                        )
                                                     )}
                                                 </div>
                                             </div>

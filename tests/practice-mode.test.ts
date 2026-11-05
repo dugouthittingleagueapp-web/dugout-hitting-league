@@ -422,11 +422,17 @@ describe('Practice Mode Verification', () => {
     expect(clientMatches).toHaveLength(1);
     expect(clientMatches[0].id).toBe(officialMatch.id);
 
-    // Dashboard query filter: main active matches list excludes practice matches
+    // Dashboard query: default dashboard schedule list includes practice matches alongside official games
     const allFetched: Match[] = [officialMatch, practiceGame];
-    const mainActiveList = allFetched.filter(m => !m.isPractice && !m.is_practice);
-    expect(mainActiveList).toHaveLength(1);
-    expect(mainActiveList[0].id).toBe(officialMatch.id);
+    const dashboardScheduleList = allFetched.filter(m => m.league === '10u');
+    expect(dashboardScheduleList).toHaveLength(2);
+    expect(dashboardScheduleList.some(m => m.id === practiceGame.id && (m.isPractice || m.is_practice))).toBe(true);
+    expect(dashboardScheduleList.some(m => m.id === officialMatch.id)).toBe(true);
+
+    // Delayed Deletion on Exit: once deleted on exit, it vanishes instantly from client array
+    const postExitMatches = dashboardScheduleList.filter(m => m.id !== practiceGame.id);
+    expect(postExitMatches).toHaveLength(1);
+    expect(postExitMatches[0].id).toBe(officialMatch.id);
   });
 
   describe('Security Guards Against Official Game Deletion', () => {

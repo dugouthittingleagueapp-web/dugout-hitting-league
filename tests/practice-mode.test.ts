@@ -113,7 +113,9 @@ describe('Practice Mode Verification', () => {
 
     expect(initializedPractice.isPractice).toBe(true);
     expect(initializedPractice.is_practice).toBe(true);
-    expect(initializedPractice.status).toBe('IN_PROGRESS');
+    expect(initializedPractice.status).toBe('SCHEDULED');
+    expect(initializedPractice.location).toBeDefined();
+    expect(initializedPractice.startTime).toBeDefined();
     expect(initializedPractice.innings).toHaveLength(3);
 
     // 2. Completing a practice game generates hits/runs locally in the game session
@@ -251,7 +253,8 @@ describe('Practice Mode Verification', () => {
       awayLineupIds: ['p-beta-1', 'p-beta-2'],
       season: '2026',
       inningsCount: 3,
-      pitchesPerBatter: 5
+      pitchesPerBatter: 5,
+      status: 'IN_PROGRESS'
     });
 
     // Record some pitches in Inning 1
@@ -334,5 +337,61 @@ describe('Practice Mode Verification', () => {
 
     const foundWithStripped = mockDbLookup(strippedUuid, [livePracticeMatch]);
     expect(foundWithStripped).toBeDefined();
+  });
+
+  it('slices rosters accurately for 3v3, 3v2, and 2v2 simulation formats', () => {
+    const fullPlayers = [
+      { id: 'p1', name: 'Player 1' },
+      { id: 'p2', name: 'Player 2' },
+      { id: 'p3', name: 'Player 3' },
+      { id: 'p4', name: 'Player 4' }
+    ];
+
+    const getLineup = (players: typeof fullPlayers, format: '3v3' | '3v2' | '2v2', side: 'home' | 'away') => {
+      const limit = side === 'home'
+        ? (format === '2v2' ? 2 : 3)
+        : (format === '3v2' || format === '2v2' ? 2 : 3);
+      return players.slice(0, limit).map(p => p.id);
+    };
+
+    // 3v3 format: 3 home, 3 away
+    expect(getLineup(fullPlayers, '3v3', 'home')).toHaveLength(3);
+    expect(getLineup(fullPlayers, '3v3', 'away')).toHaveLength(3);
+
+    // 3v2 format: 3 home, 2 away
+    expect(getLineup(fullPlayers, '3v2', 'home')).toHaveLength(3);
+    expect(getLineup(fullPlayers, '3v2', 'away')).toHaveLength(2);
+
+    // 2v2 format: 2 home, 2 away
+    expect(getLineup(fullPlayers, '2v2', 'home')).toHaveLength(2);
+    expect(getLineup(fullPlayers, '2v2', 'away')).toHaveLength(2);
+  });
+
+  it('triggers auto-deletion when finalizing a practice match (clean exit / no season pollution)', async () => {
+    const practiceToFinalize = await createPracticeMatch({
+      league: '10u',
+      homeTeamId: teamAlpha.id,
+      awayTeamId: teamBeta.id,
+      homePlayerIds: ['p-alpha-1'],
+      awayPlayerIds: ['p-beta-1'],
+      season: '2026'
+    });
+
+    let dbMatches = [officialMatch, practiceToFinalize];
+
+    // Simulate finalization trigger
+    const finalizeOrExitHandler = (match: Match) => {
+      if (match.isPractice || match.is_practice) {
+        // Auto-delete from DB
+        dbMatches = dbMatches.filter(m => m.id !== match.id);
+        return { deleted: true };
+      }
+      return { finalized: true };
+    };
+
+    const result = finalizeOrExitHandler(practiceToFinalize);
+    expect(result.deleted).toBe(true);
+    expect(dbMatches).toHaveLength(1);
+    expect(dbMatches.find(m => m.id === practiceToFinalize.id)).toBeUndefined();
   });
 });

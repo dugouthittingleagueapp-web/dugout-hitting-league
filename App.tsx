@@ -577,10 +577,21 @@ const App: React.FC = () => {
   };
 
   const handleStartPractice = async (practiceMatch: Match) => {
-      setMatches(prev => [practiceMatch, ...prev.filter(m => m.id !== practiceMatch.id)]);
+      setMatches(prev => storage.sortMatchesChronologically([practiceMatch, ...prev.filter(m => m.id !== practiceMatch.id)]));
       safeStorage.setItem('dugout_active_match_id', practiceMatch.id);
       setShowPracticeModal(false);
-      setState(s => ({ ...s, view: 'scoring', currentMatchId: practiceMatch.id }));
+      // Route generated practice match to dashboard/schedule flow just like a regular game
+      const weekKey = getWeekKey(practiceMatch.date);
+      setMatchListWeek(weekKey);
+      setState(s => ({
+          ...s,
+          view: 'dashboard',
+          currentLeague: practiceMatch.league || s.currentLeague,
+          dashboardTab: 'matches',
+          currentMatchId: null
+      }));
+      setDashboardToast({ text: 'Practice match ready on schedule! You can set lineups or start scoring now.', type: 'info' });
+      setTimeout(() => setDashboardToast(null), 6000);
   };
 
   const handleDeleteMatch = async (matchId: string) => {
@@ -1905,7 +1916,7 @@ const App: React.FC = () => {
             onClose={() => setShowPracticeModal(false)}
             currentLeague={state.currentLeague || (leagues[0]?.id as AgeGroup) || '7-9'}
             season={state.season}
-            teams={leagueTeams}
+            teams={leagueTeams.length > 0 ? leagueTeams : teams.filter(t => storage.leaguesMatch(t.league, state.currentLeague || (leagues[0]?.id as AgeGroup) || '7-9'))}
             onStartPractice={handleStartPractice}
         />
 

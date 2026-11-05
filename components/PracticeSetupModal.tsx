@@ -102,8 +102,8 @@ export const PracticeSetupModal: React.FC<PracticeSetupModalProps> = ({
         return;
       }
 
-      const homePlayerIds = (foundHome.players || []).slice(0, 3).map(p => p.id);
-      const awayPlayerIds = (foundAway.players || []).slice(0, rosterFormat === '3v2' ? 2 : 3).map(p => p.id);
+      const homePlayerIds = (foundHome.players || []).slice(0, rosterFormat === '2v2' ? 2 : 3).map(p => p.id);
+      const awayPlayerIds = (foundAway.players || []).slice(0, rosterFormat === '3v2' || rosterFormat === '2v2' ? 2 : 3).map(p => p.id);
 
       const practiceMatch = await storage.createPracticeMatch({
         league: currentLeague,

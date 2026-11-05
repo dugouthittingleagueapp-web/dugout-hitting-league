@@ -652,6 +652,9 @@ export const createPracticeMatch = async (params: {
   notes?: string;
   inningsCount?: number;
   pitchesPerBatter?: number;
+  location?: string;
+  startTime?: string;
+  status?: 'SCHEDULED' | 'IN_PROGRESS';
 }): Promise<Match> => {
   const homeIds = params.homePlayerIds || params.homeLineupIds || [];
   const awayIds = params.awayPlayerIds || params.awayLineupIds || [];
@@ -662,18 +665,31 @@ export const createPracticeMatch = async (params: {
     innings.push(createEmptyInning(i, homeIds, awayIds));
   }
 
+  const now = new Date();
+  const formatTime = (d: Date) => {
+    let hours = d.getHours();
+    const minutes = d.getMinutes();
+    const ampm = hours >= 12 ? 'pm' : 'am';
+    hours = hours % 12;
+    hours = hours ? hours : 12;
+    const strMinutes = minutes < 10 ? '0' + minutes : minutes;
+    return `${hours}:${strMinutes} ${ampm}`;
+  };
+
   const match: Match = {
     id: `practice-${generateUUID()}`,
     league: params.league,
     homeTeamId: params.homeTeamId,
     awayTeamId: params.awayTeamId,
-    date: new Date().toISOString(),
+    date: now.toISOString(),
     isComplete: false,
-    status: 'IN_PROGRESS',
+    status: params.status || 'SCHEDULED',
     isPractice: true,
     is_practice: true,
     innings,
     season: params.season,
+    location: params.location || 'The Dugout (Practice)',
+    startTime: params.startTime || formatTime(now),
     notes: params.notes || 'TEST / PRACTICE MATCH - Stats excluded from official standings'
   };
 
@@ -946,7 +962,7 @@ export const calculateMatchStats = (match: Match, homeTeam: Team, awayTeam: Team
 
 export const getTeamStats = async (team: Team, league: AgeGroup, season: string): Promise<PlayerStats[]> => {
     const matches = await getMatches(league, season);
-    const teamMatches = matches.filter(m => (m.homeTeamId === team.id || m.awayTeamId === team.id) && m.isComplete);
+    const teamMatches = matches.filter(m => (m.homeTeamId === team.id || m.awayTeamId === team.id) && m.isComplete && !m.isPractice && !m.is_practice);
     
     const allTeams = await getAllTeams();
 
@@ -1224,7 +1240,7 @@ export const getPlayerCareerStats = async (playerIdentifier: string): Promise<Pl
   }>();
 
   allMatches.forEach(match => {
-    if (!match.isComplete || match.isPractice) return;
+    if (!match.isComplete || match.isPractice || match.is_practice) return;
 
     let playedSide: 'home' | 'away' | null = null;
     let playedTeamId = '';

@@ -34,6 +34,7 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
   const [confirmTieExit, setConfirmTieExit] = useState(false);
   const [showPracticeExitModal, setShowPracticeExitModal] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [savingRoster, setSavingRoster] = useState(false);
   
   const [activeCell, setActiveCell] = useState<{ side: 'home' | 'away'; lineupIdx: number; pitchIdx: number; roundIdx?: number } | null>(null);
   const [showResetConfirmModal, setShowResetConfirmModal] = useState(false);
@@ -496,7 +497,7 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
   };
 
 
-  if (loading) return <div className="flex items-center justify-center h-screen text-slate-400 font-bold font-sans">Loading Match Data...</div>;
+  if (loading && (!match || !teams.home || !teams.away)) return <div className="flex items-center justify-center h-screen text-slate-400 font-bold font-sans">Loading Match Data...</div>;
   if (!match || !teams.home || !teams.away) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[50vh] p-8 text-center font-sans">
@@ -515,7 +516,7 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
 
   const saveRosterChange = async (side: 'home' | 'away', playerIds: string[]) => {
       if (isReadOnly || !match) return;
-      setLoading(true);
+      setSavingRoster(true);
       const newMatch = JSON.parse(JSON.stringify(match)); // Deep clone for safe mutation
       
       const updateInningStructure = (ing: Inning, hIds: string[], aIds: string[]): Inning => {
@@ -558,7 +559,7 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
 
       setMatch(newMatch);
       await storage.updateMatch(newMatch);
-      setLoading(false);
+      setSavingRoster(false);
   };
 
   const handleAddManualSub = async () => {
@@ -571,7 +572,7 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
     const currentTeam = rosterSide === 'home' ? teams.home : teams.away;
     if (!currentTeam) return;
 
-    setLoading(true);
+    setSavingRoster(true);
     const newPlayer: Player = { id: storage.generateUUID(), name: trimmed };
     const updatedTeam: Team = { 
         ...currentTeam, 
@@ -591,11 +592,11 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
         } else {
             alert("Roster limit reached (3 max). Player saved as sub.");
             setNewSubNameInput('');
-            setLoading(false);
+            setSavingRoster(false);
         }
     } catch (e) {
         alert("Failed to save sub");
-        setLoading(false);
+        setSavingRoster(false);
     }
   };
 
@@ -849,9 +850,16 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
       {rosterSide && createPortal(
           <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/60 p-4" onClick={() => setRosterSide(null)}>
               <div className="bg-white dark:bg-slate-900 p-6 rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden flex flex-col max-h-[90vh]" onClick={e => e.stopPropagation()}>
-                  <div className="mb-4">
-                      <h3 className="text-xl font-bold text-slate-800 dark:text-white">Set Batting Order & Lineup</h3>
-                      <p className="text-xs text-slate-500 dark:text-slate-400 font-sans mt-0.5">{rosterSide === 'home' ? teams.home?.name : teams.away?.name}</p>
+                  <div className="mb-4 flex items-center justify-between">
+                      <div>
+                          <h3 className="text-xl font-bold text-slate-800 dark:text-white">Set Batting Order & Lineup</h3>
+                          <p className="text-xs text-slate-500 dark:text-slate-400 font-sans mt-0.5">{rosterSide === 'home' ? teams.home?.name : teams.away?.name}</p>
+                      </div>
+                      {savingRoster && (
+                          <span className="text-[10px] font-bold text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/50 px-2 py-0.5 rounded-full animate-pulse">
+                              Updating...
+                          </span>
+                      )}
                   </div>
 
                   <div className="flex-1 overflow-y-auto space-y-4 mb-4 pr-1">

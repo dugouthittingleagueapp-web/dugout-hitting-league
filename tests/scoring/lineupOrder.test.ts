@@ -41,6 +41,7 @@ describe('lineupHelper', () => {
       awayTeamId: 'away-team',
       date: '2026-11-02T19:00:00.000Z',
       isComplete: false,
+      is_practice: false,
       innings
     };
   };

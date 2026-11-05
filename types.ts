@@ -69,7 +69,7 @@ export interface Match {
   endTime?: string;
   notes?: string;
   isPractice?: boolean;
-  is_practice?: boolean;
+  is_practice: boolean;
 }
 
 export interface ScheduledGameRecord {

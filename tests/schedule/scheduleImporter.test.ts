@@ -112,6 +112,7 @@ describe('Schedule Importer Utility', () => {
       awayTeamId: 'team-away',
       date: '2026-11-02T18:00:00.000Z',
       isComplete: false,
+      is_practice: false,
       innings: [],
     };
 

@@ -77,6 +77,7 @@ describe('Crushers Migration & Team Merge', () => {
       awayTeamId: duplicateTeam.id,
       isComplete: true,
       status: 'FINAL',
+      is_practice: false,
       innings: [
         createMockInning(1, 'p-opp-1', 'p-dup-1', 4),
         createMockInning(2, 'p-opp-1', 'p-dup-2', 3)
@@ -103,6 +104,7 @@ describe('Crushers Migration & Team Merge', () => {
       awayTeamId: opponentTeam.id,
       isComplete: false,
       status: 'SCHEDULED',
+      is_practice: false,
       innings: [createMockInning(1, 'p-dup-1', 'p-opp-1', 0)]
     };
 

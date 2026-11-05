@@ -78,6 +78,7 @@ describe('Core Umpire Inning Scoring', () => {
       awayTeamId: 't-away',
       date: new Date().toISOString(),
       isComplete: false,
+      is_practice: false,
       innings: [
         {
           number: 1,
@@ -136,6 +137,7 @@ describe('Core Umpire Inning Scoring', () => {
       awayTeamId: 't2',
       date: new Date().toISOString(),
       isComplete: false,
+      is_practice: false,
       innings: Array.from({ length: 6 }, (_, idx) => ({
         number: idx + 1,
         home: {

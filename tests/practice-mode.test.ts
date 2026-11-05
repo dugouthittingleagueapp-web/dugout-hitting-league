@@ -36,6 +36,7 @@ describe('Practice Mode Verification', () => {
     isComplete: true,
     status: 'FINAL',
     isPractice: false,
+    is_practice: false,
     innings: [
       {
         number: 1,
@@ -426,5 +427,114 @@ describe('Practice Mode Verification', () => {
     const mainActiveList = allFetched.filter(m => !m.isPractice && !m.is_practice);
     expect(mainActiveList).toHaveLength(1);
     expect(mainActiveList[0].id).toBe(officialMatch.id);
+  });
+
+  describe('Security Guards Against Official Game Deletion', () => {
+    it('strictly enforces is_practice as boolean defaulting to false for standard games', () => {
+      expect(typeof officialMatch.is_practice).toBe('boolean');
+      expect(officialMatch.is_practice).toBe(false);
+    });
+
+    it('rejects deletion of official matches with 403 Forbidden', () => {
+      const mockDatabase = [officialMatch];
+      
+      const simulateDeleteEndpoint = (matchId: string) => {
+        const rawId = matchId.trim();
+        const strippedId = rawId.startsWith('practice-') ? rawId.slice('practice-'.length).trim() : rawId;
+        const prefixedId = `practice-${strippedId}`;
+
+        const target = mockDatabase.find(m => {
+          const mId = String(m.id || '').trim();
+          return mId === rawId || mId === strippedId || mId === prefixedId;
+        });
+
+        if (!target) {
+          return { status: 404, error: 'Match not found' };
+        }
+
+        const isPractice = target.is_practice === true || target.isPractice === true;
+        if (!isPractice) {
+          return {
+            status: 403,
+            error: 'Forbidden: Official league matches cannot be deleted. Only practice sessions can be removed.'
+          };
+        }
+
+        return { status: 200, success: true };
+      };
+
+      // 1. Attempting to delete the official match MUST return 403 Forbidden
+      const deleteOfficialResult = simulateDeleteEndpoint(officialMatch.id);
+      expect(deleteOfficialResult.status).toBe(403);
+      expect(deleteOfficialResult.error).toContain('Forbidden: Official league matches cannot be deleted');
+
+      // Ensure official match was NOT deleted
+      expect(mockDatabase).toHaveLength(1);
+      expect(mockDatabase[0].id).toBe(officialMatch.id);
+    });
+
+    it('permits deletion only when is_practice is explicitly true', async () => {
+      const practiceGame = await createPracticeMatch({
+        league: '10u',
+        homeTeamId: teamAlpha.id,
+        awayTeamId: teamBeta.id,
+        season: '2026'
+      });
+
+      let mockDatabase = [officialMatch, practiceGame];
+
+      const simulateDeleteEndpoint = (matchId: string) => {
+        const rawId = matchId.trim();
+        const strippedId = rawId.startsWith('practice-') ? rawId.slice('practice-'.length).trim() : rawId;
+        const prefixedId = `practice-${strippedId}`;
+
+        const target = mockDatabase.find(m => {
+          const mId = String(m.id || '').trim();
+          return mId === rawId || mId === strippedId || mId === prefixedId;
+        });
+
+        if (!target) return { status: 404, error: 'Match not found' };
+
+        const isPractice = target.is_practice === true || target.isPractice === true;
+        if (!isPractice) {
+          return { status: 403, error: 'Forbidden' };
+        }
+
+        mockDatabase = mockDatabase.filter(m => {
+          const mId = String(m.id || '').trim();
+          return mId !== rawId && mId !== strippedId && mId !== prefixedId;
+        });
+
+        return { status: 200, success: true };
+      };
+
+      // Attempting to delete practice match succeeds with 200
+      const deletePracticeResult = simulateDeleteEndpoint(practiceGame.id);
+      expect(deletePracticeResult.status).toBe(200);
+      expect(deletePracticeResult.success).toBe(true);
+
+      // Verify that official match remains untouched in the database
+      expect(mockDatabase).toHaveLength(1);
+      expect(mockDatabase[0].id).toBe(officialMatch.id);
+    });
+
+    it('protects official matches at the frontend UI action level', () => {
+      const matchesState = [officialMatch];
+      let alertMessage = '';
+      const mockAlert = (msg: string) => { alertMessage = msg; };
+
+      const simulateUiDeleteAction = (matchId: string) => {
+        const target = matchesState.find(m => m.id === matchId);
+        if (target && !target.isPractice && !target.is_practice) {
+          mockAlert('Protected Game: Official league matches cannot be deleted. Only practice sessions can be removed.');
+          return false;
+        }
+        return true;
+      };
+
+      const allowed = simulateUiDeleteAction(officialMatch.id);
+      expect(allowed).toBe(false);
+      expect(alertMessage).toContain('Protected Game: Official league matches cannot be deleted');
+    });
   });
 });

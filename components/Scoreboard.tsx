@@ -133,16 +133,20 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
   };
 
   const handleEndPracticeMatch = async () => {
-      if (match) {
-          await storage.deleteMatch(match.id).catch(() => {});
+      if (!match || (!match.isPractice && !match.is_practice)) {
+          console.warn('[Scoreboard] Blocked attempt to delete non-practice match via practice cleanup.');
+          return;
       }
+      await storage.deleteMatch(match.id).catch((err) => {
+          console.error('[Scoreboard] Error deleting practice match:', err);
+      });
       try {
           if (typeof window !== 'undefined') {
               localStorage.removeItem('dugout_active_match_id');
           }
       } catch (e) {}
       setShowPracticeExitModal(false);
-      onExit({ deletedPractice: true, matchId: match?.id, message: 'Practice match exited and auto-deleted.' });
+      onExit({ deletedPractice: true, matchId: match.id, message: 'Practice match exited and auto-deleted.' });
   };
 
   const formatName = (p: { name: string, lastName?: string } | undefined) => {

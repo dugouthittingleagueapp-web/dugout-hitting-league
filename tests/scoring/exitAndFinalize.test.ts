@@ -34,6 +34,7 @@ describe('Exit & Finalize Match Functionality', () => {
     date: '2026-11-04T12:00:00Z',
     isComplete: false,
     status: 'IN_PROGRESS',
+    is_practice: false,
     innings: [
       {
         number: 1,

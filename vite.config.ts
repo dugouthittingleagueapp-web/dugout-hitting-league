@@ -375,6 +375,24 @@ function devApiPlugin(): Plugin {
               const rawId = String(id).trim();
               const strippedId = rawId.startsWith('practice-') ? rawId.slice('practice-'.length).trim() : rawId;
               const prefixedId = `practice-${strippedId}`;
+
+              const targetMatch = db.matches.find((m: any) => {
+                const mId = String(m.id || '').trim();
+                return mId === rawId || mId === strippedId || mId === prefixedId;
+              });
+
+              if (!targetMatch) {
+                return sendJson(res, 404, { error: 'Match not found' });
+              }
+
+              const isPracticeMatch = targetMatch.is_practice === true || targetMatch.isPractice === true;
+              if (!isPracticeMatch) {
+                console.warn(`[SECURITY WARNING] Attempted unauthorized deletion of official league match ID: ${targetMatch.id}. Rejecting with 403 Forbidden.`);
+                return sendJson(res, 403, { 
+                  error: 'Forbidden: Official league matches cannot be deleted. Only practice sessions can be removed.' 
+                });
+              }
+
               db.matches = db.matches.filter((m: any) => {
                 const mId = String(m.id || '').trim();
                 return mId !== rawId && mId !== strippedId && mId !== prefixedId;

@@ -277,6 +277,24 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       if (!id) return res.status(400).json({ error: 'Missing ID' });
       
       const { rawId, strippedId } = cleanMatchId(id);
+      
+      const checkRes = await pool.query(
+        'SELECT id, is_practice FROM matches WHERE id::text = $1 OR id::text = $2 OR id::text = $3 LIMIT 1',
+        [rawId, strippedId, `practice-${strippedId}`]
+      );
+      
+      if (checkRes.rows.length === 0) {
+        return res.status(404).json({ error: 'Match not found' });
+      }
+      
+      const targetMatch = checkRes.rows[0];
+      if (targetMatch.is_practice !== true) {
+        console.warn(`[SECURITY WARNING] Attempted unauthorized deletion of official league match ID: ${targetMatch.id}. Rejecting with 403 Forbidden.`);
+        return res.status(403).json({ 
+          error: 'Forbidden: Official league matches cannot be deleted. Only practice sessions can be removed.' 
+        });
+      }
+      
       await pool.query('DELETE FROM matches WHERE id::text = $1 OR id::text = $2 OR id::text = $3', [rawId, strippedId, `practice-${strippedId}`]);
       
       return res.status(200).json({ success: true });

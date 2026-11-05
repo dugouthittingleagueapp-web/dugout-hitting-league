@@ -54,6 +54,7 @@ describe('Player Statistics & Career Aggregations', () => {
       awayTeamId: teamB.id,
       date: '2025-10-06T18:00:00.000Z',
       isComplete: true,
+      is_practice: false,
       innings: [inning]
     };
 

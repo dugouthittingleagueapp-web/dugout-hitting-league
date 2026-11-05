@@ -58,6 +58,7 @@ describe('Chronological Match Sorting Utility', () => {
         startTime: '7:15 pm',
         innings: [],
         isComplete: false,
+        is_practice: false,
       };
 
       const matchEarly: Match = {
@@ -70,6 +71,7 @@ describe('Chronological Match Sorting Utility', () => {
         startTime: '6:00 pm',
         innings: [],
         isComplete: false,
+        is_practice: false,
       };
 
       // Input in reverse order (late then early)
@@ -93,6 +95,7 @@ describe('Chronological Match Sorting Utility', () => {
         startTime: '6:00 pm',
         innings: [],
         isComplete: false,
+        is_practice: false,
       };
       const gMorning: Match = {
         id: 'morning',
@@ -104,6 +107,7 @@ describe('Chronological Match Sorting Utility', () => {
         startTime: '10:00 am',
         innings: [],
         isComplete: false,
+        is_practice: false,
       };
       const gAfternoon: Match = {
         id: 'afternoon',
@@ -115,6 +119,7 @@ describe('Chronological Match Sorting Utility', () => {
         startTime: '1:30 pm',
         innings: [],
         isComplete: false,
+        is_practice: false,
       };
 
       const sorted = sortMatchesChronologically([gEvening, gMorning, gAfternoon]);
@@ -133,6 +138,7 @@ describe('Chronological Match Sorting Utility', () => {
         startTime: '6:00 pm',
         innings: [],
         isComplete: false,
+        is_practice: false,
       };
       const week1: Match = {
         id: 'w1',
@@ -144,6 +150,7 @@ describe('Chronological Match Sorting Utility', () => {
         startTime: '7:15 pm',
         innings: [],
         isComplete: false,
+        is_practice: false,
       };
       const week2: Match = {
         id: 'w2',
@@ -155,6 +162,7 @@ describe('Chronological Match Sorting Utility', () => {
         startTime: '6:00 pm',
         innings: [],
         isComplete: false,
+        is_practice: false,
       };
 
       const sorted = sortMatchesChronologically([week3, week1, week2]);
@@ -173,6 +181,7 @@ describe('Chronological Match Sorting Utility', () => {
         startTime: '6:00 pm',
         innings: [],
         isComplete: false,
+        is_practice: false,
       };
       const m2: Match = {
         id: 'match-a',
@@ -184,6 +193,7 @@ describe('Chronological Match Sorting Utility', () => {
         startTime: '6:00 pm',
         innings: [],
         isComplete: false,
+        is_practice: false,
       };
 
       const sorted = sortMatchesChronologically([m1, m2]);

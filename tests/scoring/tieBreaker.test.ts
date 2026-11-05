@@ -43,6 +43,7 @@ describe('Tie Breaker Mechanics & Progression', () => {
       awayTeamId: 't-away',
       date: new Date().toISOString(),
       isComplete: true,
+      is_practice: false,
       innings: [
         {
           number: 1,
@@ -91,6 +92,7 @@ describe('Tie Breaker Mechanics & Progression', () => {
       awayTeamId: 't-away',
       date: new Date().toISOString(),
       isComplete: true,
+      is_practice: false,
       innings: [
         {
           number: 1,

@@ -114,7 +114,7 @@ const App: React.FC = () => {
   });
 
   // In-Progress Match Recovery State
-  const [resumeMatch, setResumeMatch] = useState<{ id: string; league: string; season: string; homeTeamName: string; awayTeamName: string; inningNumber: number; isPractice?: boolean } | null>(null);
+  const [resumeMatch, setResumeMatch] = useState<{ id: string; league: string; season: string; homeTeamName: string; awayTeamName: string; inningNumber: number; isPractice?: boolean; is_practice?: boolean } | null>(null);
   const [dismissedResumeId, setDismissedResumeId] = useState<string | null>(null);
 
   // Weekly State
@@ -403,13 +403,23 @@ const App: React.FC = () => {
               const strippedId = rawId.startsWith('practice-') ? rawId.slice('practice-'.length).trim() : rawId;
               const prefixedId = `practice-${strippedId}`;
 
-              // Immediately remove from local matches state array for instant UI update
-              setMatches(prev => prev.filter(m => {
+              const target = matches.find(m => {
                   const mId = String(m.id || '').trim();
-                  return mId !== rawId && mId !== strippedId && mId !== prefixedId;
-              }));
+                  return mId === rawId || mId === strippedId || mId === prefixedId;
+              });
 
-              await storage.deleteMatch(targetMatchId).catch(console.error);
+              // Frontend Action Safety Guard: Only delete if target is verified practice session
+              if (target && !target.isPractice && !target.is_practice) {
+                  console.warn(`[handleScoreboardExit] Blocked deletion attempt on official match: ${targetMatchId}`);
+              } else {
+                  // Immediately remove from local matches state array for instant UI update
+                  setMatches(prev => prev.filter(m => {
+                      const mId = String(m.id || '').trim();
+                      return mId !== rawId && mId !== strippedId && mId !== prefixedId;
+                  }));
+
+                  await storage.deleteMatch(targetMatchId).catch(console.error);
+              }
           }
           if (state.currentLeague) {
               await refreshDashboard(state.currentLeague, state.season, true);
@@ -433,6 +443,11 @@ const App: React.FC = () => {
 
   const handleEndPracticeBannerMatch = async () => {
       if (!resumeMatch) return;
+      // Frontend Action Safety Guard: Ensure banner is strictly an active practice match
+      if (!resumeMatch.isPractice && !resumeMatch.is_practice) {
+          console.warn('[Banner] Blocked attempt to delete non-practice match.');
+          return;
+      }
       const matchId = resumeMatch.id;
       const rawId = matchId.trim();
       const strippedId = rawId.startsWith('practice-') ? rawId.slice('practice-'.length).trim() : rawId;
@@ -619,12 +634,22 @@ const App: React.FC = () => {
   };
 
   const handleDeleteMatch = async (matchId: string) => {
-    if (!confirm("Are you sure you want to delete this match? This cannot be undone.")) return;
-    try {
-        const rawId = matchId.trim();
-        const strippedId = rawId.startsWith('practice-') ? rawId.slice('practice-'.length).trim() : rawId;
-        const prefixedId = `practice-${strippedId}`;
+    const rawId = matchId.trim();
+    const strippedId = rawId.startsWith('practice-') ? rawId.slice('practice-'.length).trim() : rawId;
+    const prefixedId = `practice-${strippedId}`;
 
+    const target = matches.find(m => {
+        const mId = String(m.id || '').trim();
+        return mId === rawId || mId === strippedId || mId === prefixedId;
+    });
+
+    if (target && !target.isPractice && !target.is_practice) {
+        alert("Protected Game: Official league matches cannot be deleted. Only practice sessions can be removed.");
+        return;
+    }
+
+    if (!confirm("Are you sure you want to delete this practice match? This cannot be undone.")) return;
+    try {
         // Immediately remove match from local matches state array for instant UI update
         setMatches(prev => prev.filter(m => {
             const mId = String(m.id || '').trim();
@@ -638,8 +663,8 @@ const App: React.FC = () => {
 
         await storage.deleteMatch(matchId);
         if (state.currentLeague) await refreshDashboard(state.currentLeague, state.season, true);
-    } catch (e) {
-        alert("Failed to delete match");
+    } catch (e: any) {
+        alert(e?.message || "Failed to delete match");
     }
   };
 

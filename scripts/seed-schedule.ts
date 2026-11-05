@@ -162,6 +162,8 @@ async function main() {
       awayTeamId: m.away_team_id || m.awayTeamId,
       date: m.date,
       isComplete: m.is_complete ?? m.isComplete ?? false,
+      is_practice: m.is_practice ?? m.isPractice ?? false,
+      isPractice: m.is_practice ?? m.isPractice ?? false,
       innings: m.innings || []
     }));
 

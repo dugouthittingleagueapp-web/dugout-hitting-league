@@ -57,6 +57,7 @@ describe('Stats Editor & Fix Last Night Stats Suite', () => {
       league: '7-9',
       season: '2026',
       isComplete: true,
+      is_practice: false,
       innings: [
         {
           number: 1,
@@ -132,6 +133,7 @@ describe('Stats Editor & Fix Last Night Stats Suite', () => {
       league: '7-9',
       season: '2026',
       isComplete: true,
+      is_practice: false,
       innings: [
         {
           number: 1,

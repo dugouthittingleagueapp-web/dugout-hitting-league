@@ -363,7 +363,7 @@ export const ARCHIVE_2025_TEAMS: Team[] = [
   }
 ];
 
-export const ARCHIVE_2025_MATCHES: Match[] = [
+const RAW_ARCHIVE_2025_MATCHES = [
   {
     "id": "c7a7e29b-9d4f-4006-ace1-52e6f9ba4cb7",
     "league": "11U",
@@ -32501,3 +32501,4 @@ export const ARCHIVE_2025_MATCHES: Match[] = [
     "season": "2025"
   }
 ];
+export const ARCHIVE_2025_MATCHES: Match[] = RAW_ARCHIVE_2025_MATCHES.map((m: any) => ({ ...m, isPractice: false, is_practice: false }));

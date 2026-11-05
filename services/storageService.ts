@@ -582,7 +582,9 @@ export const createMatch = async (league: AgeGroup, homeTeamId: string, awayTeam
         isComplete: false,
         status: 'SCHEDULED',
         innings,
-        season
+        season,
+        isPractice: false,
+        is_practice: false
     };
 
     // Immediate local persistence before network request
@@ -635,6 +637,8 @@ export const createScheduledMatch = async (params: {
     startTime: params.startTime,
     endTime: params.endTime,
     notes: params.notes,
+    isPractice: false,
+    is_practice: false
   };
 
   if (typeof window !== 'undefined') {
@@ -824,6 +828,30 @@ export const deleteMatch = async (matchId: string) => {
     const strippedId = rawId.startsWith('practice-') ? rawId.slice('practice-'.length).trim() : rawId;
     const prefixedId = `practice-${strippedId}`;
 
+    // Frontend safety verification: check local cache to reject official games immediately
+    if (typeof window !== 'undefined') {
+        try {
+            const cached = localStorage.getItem(`dugout_match_${rawId}`) || 
+                           localStorage.getItem(`dugout_match_${strippedId}`) || 
+                           localStorage.getItem(`dugout_match_${prefixedId}`);
+            if (cached) {
+                const parsed = JSON.parse(cached);
+                if (parsed.is_practice === false && parsed.isPractice === false) {
+                    console.warn(`[storageService] Blocked attempt to delete official match ${rawId}`);
+                    throw new Error('Forbidden: Official league matches cannot be deleted.');
+                }
+            }
+        } catch (e: any) {
+            if (e?.message?.includes('Forbidden')) throw e;
+        }
+    }
+
+    const res = await apiFetch(`/api/matches?id=${encodeURIComponent(rawId)}`, { method: 'DELETE' });
+    if (res.status === 403) {
+        console.warn(`[storageService] Deletion rejected: Official league games cannot be deleted (${rawId}).`);
+        throw new Error('Forbidden: Official league matches cannot be deleted.');
+    }
+
     if (typeof window !== 'undefined') {
         try {
             localStorage.removeItem(`dugout_match_${rawId}`);
@@ -858,8 +886,6 @@ export const deleteMatch = async (matchId: string) => {
     dequeuePendingMatchSync(rawId);
     dequeuePendingMatchSync(strippedId);
     dequeuePendingMatchSync(prefixedId);
-
-    await apiFetch(`/api/matches?id=${encodeURIComponent(rawId)}`, { method: 'DELETE' });
 };
 
 export const restoreTeamRoster = async (matchId: string, teamId: string, currentInningIdx: number): Promise<Match> => {

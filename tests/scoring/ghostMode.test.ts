@@ -94,6 +94,7 @@ describe('Ghost Mode (3v2 & 2v3 Asymmetric Scoring)', () => {
       awayTeamId: awayTeam.id,
       date: new Date().toISOString(),
       isComplete: true,
+      is_practice: false,
       innings: [inning]
     };
 
@@ -173,6 +174,7 @@ describe('Ghost Mode (3v2 & 2v3 Asymmetric Scoring)', () => {
       awayTeamId: awayTeam.id,
       date: new Date().toISOString(),
       isComplete: true,
+      is_practice: false,
       innings: [
         {
           number: 1,

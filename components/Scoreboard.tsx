@@ -8,7 +8,7 @@ import { isPlaceholderPlayerName } from '../utils/statsEditorHelper.js';
 
 interface ScoreboardProps {
   matchId: string;
-  onExit: (options?: { endedPractice?: boolean; deletedPractice?: boolean; savedPractice?: boolean; finalizedMatch?: boolean; message?: string }) => void;
+  onExit: (options?: { endedPractice?: boolean; deletedPractice?: boolean; matchId?: string; savedPractice?: boolean; finalizedMatch?: boolean; message?: string }) => void;
   isReadOnly?: boolean;
   userRole?: 'fan' | 'umpire' | 'admin';
   onPlayerClick?: (playerName: string) => void;
@@ -142,7 +142,7 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
           }
       } catch (e) {}
       setShowPracticeExitModal(false);
-      onExit({ deletedPractice: true, message: 'Practice match exited and auto-deleted.' });
+      onExit({ deletedPractice: true, matchId: match?.id, message: 'Practice match exited and auto-deleted.' });
   };
 
   const formatName = (p: { name: string, lastName?: string } | undefined) => {

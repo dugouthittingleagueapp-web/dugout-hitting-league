@@ -393,17 +393,26 @@ const App: React.FC = () => {
       }
   };
 
-  const handleScoreboardExit = async (options?: { endedPractice?: boolean; deletedPractice?: boolean; savedPractice?: boolean; finalizedMatch?: boolean; message?: string }) => {
+  const handleScoreboardExit = async (options?: { endedPractice?: boolean; deletedPractice?: boolean; matchId?: string; savedPractice?: boolean; finalizedMatch?: boolean; message?: string }) => {
+      const targetMatchId = options?.matchId || state.currentMatchId;
       if (options?.deletedPractice || options?.endedPractice) {
-          const exitingMatchId = state.currentMatchId;
           safeStorage.removeItem('dugout_active_match_id');
           setResumeMatch(null);
-          if (exitingMatchId) {
-              setMatches(prev => prev.filter(m => m.id !== exitingMatchId));
-              await storage.deleteMatch(exitingMatchId).catch(() => {});
+          if (targetMatchId) {
+              const rawId = targetMatchId.trim();
+              const strippedId = rawId.startsWith('practice-') ? rawId.slice('practice-'.length).trim() : rawId;
+              const prefixedId = `practice-${strippedId}`;
+
+              // Immediately remove from local matches state array for instant UI update
+              setMatches(prev => prev.filter(m => {
+                  const mId = String(m.id || '').trim();
+                  return mId !== rawId && mId !== strippedId && mId !== prefixedId;
+              }));
+
+              await storage.deleteMatch(targetMatchId).catch(console.error);
           }
           if (state.currentLeague) {
-              refreshDashboard(state.currentLeague, state.season, true);
+              await refreshDashboard(state.currentLeague, state.season, true);
           }
       } else if (options?.finalizedMatch) {
           safeStorage.removeItem('dugout_active_match_id');
@@ -412,7 +421,7 @@ const App: React.FC = () => {
               setMatches(prev => prev.map(m => m.id === state.currentMatchId ? { ...m, isComplete: true, status: 'FINAL' as const } : m));
           }
           if (state.currentLeague) {
-              refreshDashboard(state.currentLeague, state.season, true);
+              await refreshDashboard(state.currentLeague, state.season, true);
           }
       }
       if (options?.message) {
@@ -425,13 +434,23 @@ const App: React.FC = () => {
   const handleEndPracticeBannerMatch = async () => {
       if (!resumeMatch) return;
       const matchId = resumeMatch.id;
+      const rawId = matchId.trim();
+      const strippedId = rawId.startsWith('practice-') ? rawId.slice('practice-'.length).trim() : rawId;
+      const prefixedId = `practice-${strippedId}`;
+
       safeStorage.removeItem('dugout_active_match_id');
       setResumeMatch(null);
+      // Immediately remove from local matches state array for instant UI update
+      setMatches(prev => prev.filter(m => {
+          const mId = String(m.id || '').trim();
+          return mId !== rawId && mId !== strippedId && mId !== prefixedId;
+      }));
+
       try {
           await storage.deleteMatch(matchId);
-          setMatches(prev => prev.filter(item => item.id !== matchId));
           setDashboardToast({ text: 'Practice match cleared and deleted.', type: 'info' });
           setTimeout(() => setDashboardToast(null), 5000);
+          if (state.currentLeague) await refreshDashboard(state.currentLeague, state.season, true);
       } catch (e) {
           console.error("Failed to delete practice match from banner", e);
       }
@@ -443,8 +462,13 @@ const App: React.FC = () => {
       
       const weeksMap = new Map<string, Match[]>();
       matches.forEach(m => {
-          // Strictly exclude practice matches from fan schedule view
-          if (userRole === 'fan' && m.isPractice) return;
+          // Strictly exclude practice matches from schedule view unless currently active and not complete
+          const isPractice = Boolean(m.isPractice || m.is_practice);
+          if (isPractice) {
+              const activeId = safeStorage.getItem('dugout_active_match_id');
+              const isActivePractice = activeId && (m.id === activeId || m.id === activeId.replace(/^practice-/, '') || `practice-${m.id}` === activeId) && !m.isComplete;
+              if (!isActivePractice || userRole === 'fan') return;
+          }
           if (m.league && !storage.leaguesMatch(m.league, state.currentLeague)) return;
           const key = getWeekKey(m.date);
           if (!weeksMap.has(key)) weeksMap.set(key, []);
@@ -597,16 +621,25 @@ const App: React.FC = () => {
   const handleDeleteMatch = async (matchId: string) => {
     if (!confirm("Are you sure you want to delete this match? This cannot be undone.")) return;
     try {
-        setLoading(true);
-        if (safeStorage.getItem('dugout_active_match_id') === matchId) {
+        const rawId = matchId.trim();
+        const strippedId = rawId.startsWith('practice-') ? rawId.slice('practice-'.length).trim() : rawId;
+        const prefixedId = `practice-${strippedId}`;
+
+        // Immediately remove match from local matches state array for instant UI update
+        setMatches(prev => prev.filter(m => {
+            const mId = String(m.id || '').trim();
+            return mId !== rawId && mId !== strippedId && mId !== prefixedId;
+        }));
+
+        const activeId = safeStorage.getItem('dugout_active_match_id');
+        if (activeId === rawId || activeId === strippedId || activeId === prefixedId) {
             safeStorage.removeItem('dugout_active_match_id');
         }
+
         await storage.deleteMatch(matchId);
-        if (state.currentLeague) await refreshDashboard(state.currentLeague, state.season);
-        else setLoading(false);
+        if (state.currentLeague) await refreshDashboard(state.currentLeague, state.season, true);
     } catch (e) {
         alert("Failed to delete match");
-        setLoading(false);
     }
   };
 

@@ -456,7 +456,16 @@ export const getMatches = async (league: AgeGroup, season: string): Promise<Matc
     const res = await apiFetch(`/api/matches?league=${encodeURIComponent(league)}&season=${encodeURIComponent(season)}`);
     if (res.ok) {
       const data = await res.json();
-      const mapped: Match[] = sortMatchesChronologically<Match>(data.map(mapMatchFromDB));
+      const rawMapped: Match[] = data.map(mapMatchFromDB);
+      const activePracticeId = typeof window !== 'undefined' ? localStorage.getItem('dugout_active_match_id') : null;
+      // Filter out matches marked with is_practice / isPractice from the main active matches list,
+      // retaining only the currently active in-progress practice match session if one exists.
+      const mapped: Match[] = sortMatchesChronologically<Match>(
+        rawMapped.filter(m => {
+          if (!m.isPractice && !m.is_practice) return true;
+          return activePracticeId && (m.id === activePracticeId || m.id === activePracticeId.replace(/^practice-/, '') || `practice-${m.id}` === activePracticeId) && !m.isComplete;
+        })
+      );
       if (mapped.length > 0 || season !== '2025') {
         if (typeof window !== 'undefined') {
           try {
@@ -476,7 +485,12 @@ export const getMatches = async (league: AgeGroup, season: string): Promise<Matc
       const cached = localStorage.getItem(`dugout_matches_${season}_${league}`);
       if (cached) {
         const parsed: Match[] = JSON.parse(cached);
-        if (parsed.length > 0 || season !== '2025') return sortMatchesChronologically(parsed);
+        const activePracticeId = localStorage.getItem('dugout_active_match_id');
+        const filtered = parsed.filter(m => {
+          if (!m.isPractice && !m.is_practice) return true;
+          return activePracticeId && (m.id === activePracticeId || m.id === activePracticeId.replace(/^practice-/, '') || `practice-${m.id}` === activePracticeId) && !m.isComplete;
+        });
+        if (filtered.length > 0 || season !== '2025') return sortMatchesChronologically(filtered);
       }
     } catch (e) {}
   }
@@ -805,7 +819,47 @@ export const updateMatch = async (match: Match): Promise<Match> => {
 };
 
 export const deleteMatch = async (matchId: string) => {
-    await apiFetch(`/api/matches?id=${matchId}`, { method: 'DELETE' });
+    if (!matchId) return;
+    const rawId = matchId.trim();
+    const strippedId = rawId.startsWith('practice-') ? rawId.slice('practice-'.length).trim() : rawId;
+    const prefixedId = `practice-${strippedId}`;
+
+    if (typeof window !== 'undefined') {
+        try {
+            localStorage.removeItem(`dugout_match_${rawId}`);
+            localStorage.removeItem(`dugout_match_${strippedId}`);
+            localStorage.removeItem(`dugout_match_${prefixedId}`);
+
+            const activeId = localStorage.getItem('dugout_active_match_id');
+            if (activeId === rawId || activeId === strippedId || activeId === prefixedId) {
+                localStorage.removeItem('dugout_active_match_id');
+            }
+
+            // Purge from all local match list caches
+            for (let i = 0; i < localStorage.length; i++) {
+                const key = localStorage.key(i);
+                if (key && key.startsWith('dugout_matches_')) {
+                    const raw = localStorage.getItem(key);
+                    if (raw) {
+                        try {
+                            const list: Match[] = JSON.parse(raw);
+                            const filtered = list.filter(m => {
+                                const mId = String(m.id || '').trim();
+                                return mId !== rawId && mId !== strippedId && mId !== prefixedId;
+                            });
+                            localStorage.setItem(key, JSON.stringify(filtered));
+                        } catch (e) {}
+                    }
+                }
+            }
+        } catch (e) {}
+    }
+
+    dequeuePendingMatchSync(rawId);
+    dequeuePendingMatchSync(strippedId);
+    dequeuePendingMatchSync(prefixedId);
+
+    await apiFetch(`/api/matches?id=${encodeURIComponent(rawId)}`, { method: 'DELETE' });
 };
 
 export const restoreTeamRoster = async (matchId: string, teamId: string, currentInningIdx: number): Promise<Match> => {

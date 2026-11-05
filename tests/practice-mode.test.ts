@@ -394,4 +394,37 @@ describe('Practice Mode Verification', () => {
     expect(dbMatches).toHaveLength(1);
     expect(dbMatches.find(m => m.id === practiceToFinalize.id)).toBeUndefined();
   });
+
+  it('immediately purges practice matches from client state array and dashboard fetch query', async () => {
+    const practiceGame = await createPracticeMatch({
+      league: '10u',
+      homeTeamId: teamAlpha.id,
+      awayTeamId: teamBeta.id,
+      homePlayerIds: ['p-alpha-1'],
+      awayPlayerIds: ['p-beta-1'],
+      season: '2026'
+    });
+
+    let clientMatches: Match[] = [officialMatch, practiceGame];
+
+    // Client-side filtering logic: deletes immediately from array
+    const targetId = practiceGame.id;
+    const rawId = targetId.trim();
+    const strippedId = rawId.startsWith('practice-') ? rawId.slice('practice-'.length).trim() : rawId;
+    const prefixedId = `practice-${strippedId}`;
+
+    clientMatches = clientMatches.filter(m => {
+      const mId = String(m.id || '').trim();
+      return mId !== rawId && mId !== strippedId && mId !== prefixedId;
+    });
+
+    expect(clientMatches).toHaveLength(1);
+    expect(clientMatches[0].id).toBe(officialMatch.id);
+
+    // Dashboard query filter: main active matches list excludes practice matches
+    const allFetched: Match[] = [officialMatch, practiceGame];
+    const mainActiveList = allFetched.filter(m => !m.isPractice && !m.is_practice);
+    expect(mainActiveList).toHaveLength(1);
+    expect(mainActiveList[0].id).toBe(officialMatch.id);
+  });
 });

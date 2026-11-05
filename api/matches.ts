@@ -95,6 +95,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           params.push(season);
         }
       }
+      if (req.query.includePractice !== 'true') {
+        conditions.push(`(is_practice IS FALSE OR is_practice IS NULL)`);
+      }
       
       if (conditions.length > 0) {
         query += ' WHERE ' + conditions.join(' AND ');
@@ -274,7 +277,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       if (!id) return res.status(400).json({ error: 'Missing ID' });
       
       const { rawId, strippedId } = cleanMatchId(id);
-      await pool.query('DELETE FROM matches WHERE id::text = $1 OR id::text = $2', [rawId, strippedId]);
+      await pool.query('DELETE FROM matches WHERE id::text = $1 OR id::text = $2 OR id::text = $3', [rawId, strippedId, `practice-${strippedId}`]);
       
       return res.status(200).json({ success: true });
     }

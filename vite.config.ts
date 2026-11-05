@@ -316,6 +316,10 @@ function devApiPlugin(): Plugin {
               if (query.season) {
                 matches = matches.filter((m: any) => (m.season || (m.date && m.date.startsWith('2026') ? '2026' : '2025')) === query.season);
               }
+              // Main active matches list strictly filters out practice matches unless explicitly requested
+              if (query.includePractice !== 'true') {
+                matches = matches.filter((m: any) => !m.is_practice && !m.isPractice);
+              }
               return sendJson(res, 200, matches);
             }
             if (method === 'POST') {
@@ -367,7 +371,14 @@ function devApiPlugin(): Plugin {
             }
             if (method === 'DELETE') {
               const id = query.id;
-              db.matches = db.matches.filter((m: any) => m.id !== id);
+              if (!id) return sendJson(res, 400, { error: 'Missing ID' });
+              const rawId = String(id).trim();
+              const strippedId = rawId.startsWith('practice-') ? rawId.slice('practice-'.length).trim() : rawId;
+              const prefixedId = `practice-${strippedId}`;
+              db.matches = db.matches.filter((m: any) => {
+                const mId = String(m.id || '').trim();
+                return mId !== rawId && mId !== strippedId && mId !== prefixedId;
+              });
               saveDb(db);
               return sendJson(res, 200, { success: true });
             }

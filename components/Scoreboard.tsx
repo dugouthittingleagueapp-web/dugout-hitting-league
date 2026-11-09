@@ -32,7 +32,6 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
   const [showFinishModal, setShowFinishModal] = useState(false);
   const [showExitMenuModal, setShowExitMenuModal] = useState(false);
   const [confirmTieExit, setConfirmTieExit] = useState(false);
-  const [showPracticeExitModal, setShowPracticeExitModal] = useState(false);
   const [loading, setLoading] = useState(true);
   const [savingRoster, setSavingRoster] = useState(false);
   
@@ -59,12 +58,8 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
   useEffect(() => {
       const handleBackAttempt = () => {
           if (!isReadOnly && userRole !== 'fan' && match && !match.isComplete) {
-              if (match.isPractice || match.is_practice) {
-                  setShowPracticeExitModal(true);
-              } else {
-                  setConfirmTieExit(false);
-                  setShowExitMenuModal(true);
-              }
+              setConfirmTieExit(false);
+              setShowExitMenuModal(true);
           }
       };
       window.addEventListener('dugout:umpire-back-attempt', handleBackAttempt);
@@ -75,12 +70,8 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
 
   const handleExitRequest = () => {
       if (!isReadOnly && userRole !== 'fan' && match) {
-          if (match.isPractice || match.is_practice) {
-              setShowPracticeExitModal(true);
-          } else {
-              setConfirmTieExit(false);
-              setShowExitMenuModal(true);
-          }
+          setConfirmTieExit(false);
+          setShowExitMenuModal(true);
       } else {
           onExit();
       }
@@ -96,10 +87,6 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
 
   const handleExitAndFinalize = async (forceTie: boolean = false) => {
       if (isReadOnly || !match) return;
-      if (match.isPractice || match.is_practice) {
-          await handleEndPracticeMatch();
-          return;
-      }
       const hT = calculateTeamGameTotal('home', match);
       const aT = calculateTeamGameTotal('away', match);
 
@@ -126,27 +113,14 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
 
       const homeName = teams.home?.name || 'Home Team';
       const awayName = teams.away?.name || 'Away Team';
+      const isPractice = !!(match.isPractice || match.is_practice);
       onExit({
           finalizedMatch: true,
-          message: `Match Finalized! Final Score: ${homeName} ${hT} - ${awayName} ${aT}. Official stats and standings recorded.`
+          matchId: match.id,
+          message: isPractice
+              ? `Practice Match Completed! Final Score: ${homeName} ${hT} - ${awayName} ${aT}. Stored on schedule.`
+              : `Match Finalized! Final Score: ${homeName} ${hT} - ${awayName} ${aT}. Official stats and standings recorded.`
       });
-  };
-
-  const handleEndPracticeMatch = async () => {
-      if (!match || (!match.isPractice && !match.is_practice)) {
-          console.warn('[Scoreboard] Blocked attempt to delete non-practice match via practice cleanup.');
-          return;
-      }
-      await storage.deleteMatch(match.id).catch((err) => {
-          console.error('[Scoreboard] Error deleting practice match:', err);
-      });
-      try {
-          if (typeof window !== 'undefined') {
-              localStorage.removeItem('dugout_active_match_id');
-          }
-      } catch (e) {}
-      setShowPracticeExitModal(false);
-      onExit({ deletedPractice: true, matchId: match.id, message: 'Practice match exited and auto-deleted.' });
   };
 
   const formatName = (p: { name: string, lastName?: string } | undefined) => {
@@ -435,10 +409,6 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
 
   const confirmCompleteGame = async () => {
     if (isReadOnly || !match) return;
-    if (match.isPractice || match.is_practice) {
-        await handleEndPracticeMatch();
-        return;
-    }
     const hT = calculateTeamGameTotal('home', match);
     const aT = calculateTeamGameTotal('away', match);
     if (hT === aT) {
@@ -455,9 +425,13 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
     setShowFinishModal(false);
     const homeName = teams.home?.name || 'Home Team';
     const awayName = teams.away?.name || 'Away Team';
+    const isPractice = !!(match.isPractice || match.is_practice);
     onExit({
         finalizedMatch: true,
-        message: `Match Finalized! Final Score: ${homeName} ${hT} - ${awayName} ${aT}. Standings and stats updated.`
+        matchId: match.id,
+        message: isPractice
+            ? `Practice Match Completed! Final Score: ${homeName} ${hT} - ${awayName} ${aT}. Stored on schedule.`
+            : `Match Finalized! Final Score: ${homeName} ${hT} - ${awayName} ${aT}. Standings and stats updated.`
     });
   };
 
@@ -796,12 +770,12 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
             )}
             
             {/* Exit & Finalize Fast Action in Header */}
-            {!match.isPractice && !match.isComplete && !isReadOnly && userRole !== 'fan' && (
+            {!match.isComplete && !isReadOnly && userRole !== 'fan' && (
               <button 
                 type="button"
                 onClick={() => handleExitAndFinalize(false)} 
                 className="text-[11px] sm:text-xs font-bold px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-lg sm:rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white transition-all cursor-pointer whitespace-nowrap shadow-sm flex items-center gap-1.5 active:scale-95"
-                title="Finalize match and record official results"
+                title="Finalize match and complete session"
               >
                 <span>🏁</span>
                 <span className="hidden sm:inline">Exit & Finalize</span>
@@ -1131,52 +1105,6 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
                       className="w-full py-3 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-xl font-bold text-xs sm:text-sm transition-colors cursor-pointer"
                   >
                       Cancel — Stay in Match
-                  </button>
-              </div>
-          </div>,
-          document.body
-      )}
-
-      {showPracticeExitModal && createPortal(
-          <div className="fixed inset-0 z-[130] flex items-center justify-center bg-slate-900/80 backdrop-blur-sm p-4 animate-in fade-in duration-150" onClick={() => setShowPracticeExitModal(false)}>
-              <div className="bg-white dark:bg-slate-900 p-6 sm:p-7 rounded-2xl shadow-2xl max-w-md w-full border border-slate-200 dark:border-slate-800 font-sans" onClick={e => e.stopPropagation()}>
-                  <div className="flex items-center gap-3 mb-4">
-                      <div className="w-12 h-12 rounded-2xl bg-amber-100 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400 flex items-center justify-center text-2xl shrink-0">
-                          🧪
-                      </div>
-                      <div>
-                          <h2 className="text-lg sm:text-xl font-black text-slate-900 dark:text-white leading-tight">Exit Practice Match</h2>
-                          <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Practice matches auto-delete on exit so league records stay clean</p>
-                      </div>
-                  </div>
-
-                  <div className="space-y-3 mb-5">
-                      <button
-                          type="button"
-                          onClick={handleEndPracticeMatch}
-                          className="w-full text-left p-3.5 sm:p-4 rounded-xl border-2 border-rose-300 dark:border-rose-900/60 bg-rose-50/70 dark:bg-rose-950/40 hover:bg-rose-100/80 dark:hover:bg-rose-900/60 transition-all flex items-start gap-3.5 group active:scale-[0.99] cursor-pointer"
-                      >
-                          <div className="w-10 h-10 rounded-xl bg-rose-600 text-white flex items-center justify-center shrink-0 text-xl font-bold shadow-md shadow-rose-600/20 group-hover:scale-105 transition-transform">
-                              🗑️
-                          </div>
-                          <div className="flex-1 min-w-0">
-                              <div className="flex items-center justify-between gap-2">
-                                  <span className="font-black text-sm text-slate-900 dark:text-white">Exit & Delete Match</span>
-                                  <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-rose-200 dark:bg-rose-900 text-rose-800 dark:text-rose-200 shrink-0">Auto-Delete</span>
-                              </div>
-                              <p className="text-xs text-slate-600 dark:text-slate-400 mt-1 leading-relaxed">
-                                  Automatically deletes this practice match from the database and dashboard, clearing the session completely.
-                              </p>
-                          </div>
-                      </button>
-                  </div>
-
-                  <button
-                      type="button"
-                      onClick={() => setShowPracticeExitModal(false)}
-                      className="w-full py-3 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-xl font-bold text-xs sm:text-sm transition-colors cursor-pointer"
-                  >
-                      Cancel — Stay in Practice Match
                   </button>
               </div>
           </div>,

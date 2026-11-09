@@ -448,19 +448,25 @@ export const deleteTeam = async (teamId: string) => {
 };
 
 // Match Methods
-export const getMatches = async (league: AgeGroup, season: string): Promise<Match[]> => {
+export const getMatches = async (league: AgeGroup, season: string, options?: { excludePractice?: boolean }): Promise<Match[]> => {
+  const excludePractice = options?.excludePractice ?? false;
   if (typeof window === 'undefined' && season === '2025') {
-    return sortMatchesChronologically(ARCHIVE_2025_MATCHES.filter(m => leaguesMatch(m.league, league)));
+    let matches2025 = ARCHIVE_2025_MATCHES.filter(m => leaguesMatch(m.league, league));
+    if (excludePractice) matches2025 = matches2025.filter(m => !m.isPractice && !m.is_practice);
+    return sortMatchesChronologically(matches2025);
   }
   try {
-    const res = await apiFetch(`/api/matches?league=${encodeURIComponent(league)}&season=${encodeURIComponent(season)}`);
+    const url = `/api/matches?league=${encodeURIComponent(league)}&season=${encodeURIComponent(season)}${excludePractice ? '&excludePractice=true' : ''}`;
+    const res = await apiFetch(url);
     if (res.ok) {
       const data = await res.json();
       const rawMapped: Match[] = data.map(mapMatchFromDB);
-      // Practice matches are first-class citizens on the dashboard schedule view
-      const mapped: Match[] = sortMatchesChronologically<Match>(rawMapped);
+      let mapped: Match[] = sortMatchesChronologically<Match>(rawMapped);
+      if (excludePractice) {
+        mapped = mapped.filter(m => !m.isPractice && !m.is_practice);
+      }
       if (mapped.length > 0 || season !== '2025') {
-        if (typeof window !== 'undefined') {
+        if (typeof window !== 'undefined' && !excludePractice) {
           try {
             localStorage.setItem(`dugout_matches_${season}_${league}`, JSON.stringify(mapped));
           } catch (e) {}
@@ -477,7 +483,8 @@ export const getMatches = async (league: AgeGroup, season: string): Promise<Matc
     try {
       const cached = localStorage.getItem(`dugout_matches_${season}_${league}`);
       if (cached) {
-        const parsed: Match[] = JSON.parse(cached);
+        let parsed: Match[] = JSON.parse(cached);
+        if (excludePractice) parsed = parsed.filter(m => !m.isPractice && !m.is_practice);
         if (parsed.length > 0 || season !== '2025') return sortMatchesChronologically(parsed);
       }
     } catch (e) {}
@@ -485,8 +492,9 @@ export const getMatches = async (league: AgeGroup, season: string): Promise<Matc
 
   // Guaranteed fallback for 2025 historical archive
   if (season === '2025') {
-    const fallback = sortMatchesChronologically(ARCHIVE_2025_MATCHES.filter(m => leaguesMatch(m.league, league)));
-    if (typeof window !== 'undefined') {
+    let fallback = sortMatchesChronologically(ARCHIVE_2025_MATCHES.filter(m => leaguesMatch(m.league, league)));
+    if (excludePractice) fallback = fallback.filter(m => !m.isPractice && !m.is_practice);
+    if (typeof window !== 'undefined' && !excludePractice) {
       try {
         localStorage.setItem(`dugout_matches_2025_${league}`, JSON.stringify(fallback));
       } catch (e) {}
@@ -495,6 +503,10 @@ export const getMatches = async (league: AgeGroup, season: string): Promise<Matc
   }
 
   return [];
+};
+
+export const getOfficialMatches = async (league: AgeGroup, season: string): Promise<Match[]> => {
+  return getMatches(league, season, { excludePractice: true });
 };
 
 export const getAllMatches = async (): Promise<Match[]> => {
@@ -1029,7 +1041,8 @@ export const calculateMatchStats = (match: Match, homeTeam: Team, awayTeam: Team
 };
 
 export const getTeamStats = async (team: Team, league: AgeGroup, season: string): Promise<PlayerStats[]> => {
-    const matches = await getMatches(league, season);
+    // Strict isolation: Fetch official matches excluding practice, and filter out any practice matches
+    const matches = await getMatches(league, season, { excludePractice: true });
     const teamMatches = matches.filter(m => (m.homeTeamId === team.id || m.awayTeamId === team.id) && m.isComplete && !m.isPractice && !m.is_practice);
     
     const allTeams = await getAllTeams();

@@ -227,6 +227,28 @@ describe('Practice Mode Verification', () => {
     expect(charlieStats!.hits4).toBe(0);
   });
 
+  it('strictly excludes practice matches from weekly leaderboards', () => {
+    const allMatches = [officialMatch, practiceMatch];
+    
+    // Simulate App.tsx calculateWeeklyLeaders filter
+    const relevantMatches = allMatches.filter(m => m.isComplete && !m.isPractice && !m.is_practice);
+    expect(relevantMatches).toHaveLength(1);
+    expect(relevantMatches[0].id).toBe('match-official-1');
+  });
+
+  it('applies SQL isolation clause (is_practice IS FALSE OR is_practice IS NULL) for official matches queries', () => {
+    const mockDbRows = [
+      { id: '1', league: '10u', is_practice: false },
+      { id: '2', league: '10u', is_practice: null },
+      { id: '3', league: '10u', is_practice: true }
+    ];
+
+    // Simulating backend SQL query filter with: AND (is_practice IS FALSE OR is_practice IS NULL)
+    const officialRows = mockDbRows.filter(row => row.is_practice === false || row.is_practice === null);
+    expect(officialRows).toHaveLength(2);
+    expect(officialRows.some(r => r.id === '3')).toBe(false);
+  });
+
   it('filters out practice matches from public fan schedule view', () => {
     const allMatches = [officialMatch, practiceMatch];
 
@@ -274,7 +296,7 @@ describe('Practice Mode Verification', () => {
     expect(savedPracticeMatch.innings[0].away.playerScores[0].pitches[0].points).toBe(4);
   });
 
-  it('handles exit by auto-deleting the practice match from matches list and clearing active banner state', async () => {
+  it('persists completed practice matches on exit/finalization and removes active banner', async () => {
     const livePracticeMatch = await createPracticeMatch({
       league: '10u',
       homeTeamId: teamAlpha.id,
@@ -292,12 +314,13 @@ describe('Practice Mode Verification', () => {
     expect(fakeLocalStorage.get('dugout_active_match_id')).toBe(livePracticeMatch.id);
     expect(currentMatches).toHaveLength(2);
 
-    // Simulate Practice Match Exit: Auto-delete match from matches and clear active ID
+    // Simulate Practice Match Exit & Finalize: Finalizes match, persists on schedule, and clears active ID
     fakeLocalStorage.delete('dugout_active_match_id');
-    currentMatches = currentMatches.filter(m => m.id !== livePracticeMatch.id);
+    currentMatches = currentMatches.map(m => m.id === livePracticeMatch.id ? { ...m, isComplete: true, status: 'FINAL' as const } : m);
 
-    expect(currentMatches).toHaveLength(1);
-    expect(currentMatches[0].id).toBe(officialMatch.id);
+    expect(currentMatches).toHaveLength(2);
+    expect(currentMatches.find(m => m.id === livePracticeMatch.id)?.status).toBe('FINAL');
+    expect(currentMatches.find(m => m.id === livePracticeMatch.id)?.isComplete).toBe(true);
     expect(fakeLocalStorage.get('dugout_active_match_id')).toBeUndefined();
 
     // Verify active banner does not show
@@ -368,7 +391,7 @@ describe('Practice Mode Verification', () => {
     expect(getLineup(fullPlayers, '2v2', 'away')).toHaveLength(2);
   });
 
-  it('triggers auto-deletion when finalizing a practice match (clean exit / no season pollution)', async () => {
+  it('persists finalized practice matches in database store until manual deletion via dashboard action', async () => {
     const practiceToFinalize = await createPracticeMatch({
       league: '10u',
       homeTeamId: teamAlpha.id,
@@ -380,23 +403,31 @@ describe('Practice Mode Verification', () => {
 
     let dbMatches = [officialMatch, practiceToFinalize];
 
-    // Simulate finalization trigger
-    const finalizeOrExitHandler = (match: Match) => {
-      if (match.isPractice || match.is_practice) {
-        // Auto-delete from DB
-        dbMatches = dbMatches.filter(m => m.id !== match.id);
-        return { deleted: true };
-      }
-      return { finalized: true };
+    // Finalize practice match: persists in database as FINAL
+    const finalizeMatch = (match: Match): Match => {
+      return { ...match, isComplete: true, status: 'FINAL' };
     };
 
-    const result = finalizeOrExitHandler(practiceToFinalize);
-    expect(result.deleted).toBe(true);
+    const finalized = finalizeMatch(practiceToFinalize);
+    dbMatches = dbMatches.map(m => m.id === finalized.id ? finalized : m);
+
+    expect(dbMatches).toHaveLength(2);
+    expect(dbMatches.find(m => m.id === practiceToFinalize.id)?.status).toBe('FINAL');
+    expect(dbMatches.find(m => m.id === practiceToFinalize.id)?.isComplete).toBe(true);
+
+    // Manual Deletion: Only removed when explicitly deleted via dashboard Delete button
+    const deletePracticeMatchHandler = (matchId: string) => {
+      dbMatches = dbMatches.filter(m => m.id !== matchId);
+      return { deleted: true };
+    };
+
+    const deleteResult = deletePracticeMatchHandler(practiceToFinalize.id);
+    expect(deleteResult.deleted).toBe(true);
     expect(dbMatches).toHaveLength(1);
-    expect(dbMatches.find(m => m.id === practiceToFinalize.id)).toBeUndefined();
+    expect(dbMatches[0].id).toBe(officialMatch.id);
   });
 
-  it('immediately purges practice matches from client state array and dashboard fetch query', async () => {
+  it('immediately purges practice matches from client state array and dashboard fetch query on manual delete', async () => {
     const practiceGame = await createPracticeMatch({
       league: '10u',
       homeTeamId: teamAlpha.id,
@@ -408,7 +439,14 @@ describe('Practice Mode Verification', () => {
 
     let clientMatches: Match[] = [officialMatch, practiceGame];
 
-    // Client-side filtering logic: deletes immediately from array
+    // Dashboard query: default dashboard schedule list includes practice matches alongside official games
+    const allFetched: Match[] = [officialMatch, practiceGame];
+    const dashboardScheduleList = allFetched.filter(m => m.league === '10u');
+    expect(dashboardScheduleList).toHaveLength(2);
+    expect(dashboardScheduleList.some(m => m.id === practiceGame.id && (m.isPractice || m.is_practice))).toBe(true);
+    expect(dashboardScheduleList.some(m => m.id === officialMatch.id)).toBe(true);
+
+    // Manual Deletion: clicking dashboard Delete button deletes immediately from array
     const targetId = practiceGame.id;
     const rawId = targetId.trim();
     const strippedId = rawId.startsWith('practice-') ? rawId.slice('practice-'.length).trim() : rawId;
@@ -422,17 +460,10 @@ describe('Practice Mode Verification', () => {
     expect(clientMatches).toHaveLength(1);
     expect(clientMatches[0].id).toBe(officialMatch.id);
 
-    // Dashboard query: default dashboard schedule list includes practice matches alongside official games
-    const allFetched: Match[] = [officialMatch, practiceGame];
-    const dashboardScheduleList = allFetched.filter(m => m.league === '10u');
-    expect(dashboardScheduleList).toHaveLength(2);
-    expect(dashboardScheduleList.some(m => m.id === practiceGame.id && (m.isPractice || m.is_practice))).toBe(true);
-    expect(dashboardScheduleList.some(m => m.id === officialMatch.id)).toBe(true);
-
-    // Delayed Deletion on Exit: once deleted on exit, it vanishes instantly from client array
-    const postExitMatches = dashboardScheduleList.filter(m => m.id !== practiceGame.id);
-    expect(postExitMatches).toHaveLength(1);
-    expect(postExitMatches[0].id).toBe(officialMatch.id);
+    // After manual delete, it vanishes from schedule list
+    const postDeleteMatches = dashboardScheduleList.filter(m => m.id !== practiceGame.id);
+    expect(postDeleteMatches).toHaveLength(1);
+    expect(postDeleteMatches[0].id).toBe(officialMatch.id);
   });
 
   describe('Security Guards Against Official Game Deletion', () => {

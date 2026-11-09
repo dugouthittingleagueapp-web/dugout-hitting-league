@@ -427,8 +427,9 @@ const App: React.FC = () => {
       } else if (options?.finalizedMatch) {
           safeStorage.removeItem('dugout_active_match_id');
           setResumeMatch(null);
-          if (state.currentMatchId) {
-              setMatches(prev => prev.map(m => m.id === state.currentMatchId ? { ...m, isComplete: true, status: 'FINAL' as const } : m));
+          const targetId = options?.matchId || state.currentMatchId;
+          if (targetId) {
+              setMatches(prev => prev.map(m => m.id === targetId ? { ...m, isComplete: true, status: 'FINAL' as const } : m));
           }
           if (state.currentLeague) {
               await refreshDashboard(state.currentLeague, state.season, true);
@@ -445,29 +446,32 @@ const App: React.FC = () => {
       if (!resumeMatch) return;
       // Frontend Action Safety Guard: Ensure banner is strictly an active practice match
       if (!resumeMatch.isPractice && !resumeMatch.is_practice) {
-          console.warn('[Banner] Blocked attempt to delete non-practice match.');
+          console.warn('[Banner] Blocked attempt to end non-practice match.');
           return;
       }
       const matchId = resumeMatch.id;
-      const rawId = matchId.trim();
-      const strippedId = rawId.startsWith('practice-') ? rawId.slice('practice-'.length).trim() : rawId;
-      const prefixedId = `practice-${strippedId}`;
 
       safeStorage.removeItem('dugout_active_match_id');
       setResumeMatch(null);
-      // Immediately remove from local matches state array for instant UI update
-      setMatches(prev => prev.filter(m => {
-          const mId = String(m.id || '').trim();
-          return mId !== rawId && mId !== strippedId && mId !== prefixedId;
-      }));
 
       try {
-          await storage.deleteMatch(matchId);
-          setDashboardToast({ text: 'Practice match cleared and deleted.', type: 'info' });
+          const matchToFinalize = await storage.getMatch(matchId);
+          if (matchToFinalize) {
+              const finalized: Match = {
+                  ...matchToFinalize,
+                  isComplete: true,
+                  status: 'FINAL'
+              };
+              await storage.updateMatch(finalized);
+              setMatches(prev => prev.map(m => m.id === matchId ? finalized : m));
+          } else {
+              setMatches(prev => prev.map(m => m.id === matchId ? { ...m, isComplete: true, status: 'FINAL' as const } : m));
+          }
+          setDashboardToast({ text: 'Practice match completed and saved to schedule.', type: 'success' });
           setTimeout(() => setDashboardToast(null), 5000);
           if (state.currentLeague) await refreshDashboard(state.currentLeague, state.season, true);
       } catch (e) {
-          console.error("Failed to delete practice match from banner", e);
+          console.error("Failed to finalize practice match from banner", e);
       }
   };
 
@@ -791,7 +795,7 @@ const App: React.FC = () => {
       const targetWeek = activeWeeks.find(w => w.id === leaderboardWeek);
       const targetMatches = targetWeek ? targetWeek.matches : [];
       
-      const relevantMatches = targetMatches.filter(m => m.isComplete && !m.isPractice);
+      const relevantMatches = targetMatches.filter(m => m.isComplete && !m.isPractice && !m.is_practice);
 
       // Track unique players by ID to ensure they only appear once with their best score
       const uniqueTotals = new Map<string, { name: string, team: string, score: number }>();
@@ -912,7 +916,8 @@ const App: React.FC = () => {
     });
 
     matches.forEach(m => {
-      if (m.isPractice || !m.isComplete || (m.league && !storage.leaguesMatch(m.league, state.currentLeague))) return;
+      // Strict Stats Isolation: Practice matches never affect official league standings
+      if (m.isPractice || m.is_practice || !m.isComplete || (m.league && !storage.leaguesMatch(m.league, state.currentLeague))) return;
       
       const getScore = (innings: Inning[], side: 'home' | 'away', tb?: TieBreakerRound[]) => {
          let score = (innings || []).reduce((acc, ing) => {
@@ -963,7 +968,8 @@ const App: React.FC = () => {
       const aggStats = new Map<string, PlayerStats>();
       
       matches.forEach(m => {
-          if (m.isPractice || !m.isComplete || (m.league && !storage.leaguesMatch(m.league, state.currentLeague))) return;
+          // Strict Stats Isolation: Practice matches never affect official season stats or leaderboards
+          if (m.isPractice || m.is_practice || !m.isComplete || (m.league && !storage.leaguesMatch(m.league, state.currentLeague))) return;
           const home = teams.find(t => t.id === m.homeTeamId);
           const away = teams.find(t => t.id === m.awayTeamId);
           if (!home || !away) return;
@@ -1626,7 +1632,30 @@ const App: React.FC = () => {
                                                         }
                                                     </button>
                                                     
-                                                    {userRole === 'admin' ? (
+                                                    {/* Manual Delete Button for completed practice sessions - right alongside Stats & View */}
+                                                    {(match.isPractice || match.is_practice) && match.isComplete && userRole !== 'fan' && (
+                                                        <button 
+                                                            onClick={() => handleDeleteMatch(match.id)} 
+                                                            className="flex-1 lg:flex-none text-center px-3 py-1.5 sm:py-2 rounded-lg border border-red-300 dark:border-red-900/70 bg-red-50/70 dark:bg-red-950/40 text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/50 hover:border-red-400 font-bold text-xs sm:text-sm transition-all font-sans cursor-pointer whitespace-nowrap shadow-sm flex items-center justify-center gap-1 shrink-0"
+                                                            title="Delete completed practice session"
+                                                        >
+                                                            <span>🗑️</span>
+                                                            <span>Delete</span>
+                                                        </button>
+                                                    )}
+
+                                                    {(match.isPractice || match.is_practice) && !match.isComplete && userRole !== 'fan' && (
+                                                        <button 
+                                                            onClick={() => handleDeleteMatch(match.id)} 
+                                                            className="flex-1 lg:flex-none text-center px-3 py-1.5 sm:py-2 rounded-lg border border-amber-400/50 dark:border-amber-700/60 bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 hover:bg-red-50 dark:hover:bg-red-950/40 hover:text-red-600 hover:border-red-400 font-bold text-xs sm:text-sm transition-all font-sans cursor-pointer whitespace-nowrap shadow-sm flex items-center justify-center gap-1 shrink-0"
+                                                            title="Delete practice session"
+                                                        >
+                                                            <span>🗑️</span>
+                                                            <span>Del Practice</span>
+                                                        </button>
+                                                    )}
+                                                    
+                                                    {userRole === 'admin' && (
                                                         <div className="flex gap-2 shrink-0">
                                                             {matchStatus === 'FINAL' && (
                                                                 <button 
@@ -1645,23 +1674,7 @@ const App: React.FC = () => {
                                                             >
                                                                 Move
                                                             </button>
-                                                            <button 
-                                                                onClick={() => handleDeleteMatch(match.id)} 
-                                                                className="px-3 py-1.5 sm:py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800/50 text-red-500 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 hover:border-red-400 dark:hover:border-red-500/50 font-bold text-xs sm:text-sm transition-all font-sans cursor-pointer shadow-sm"
-                                                            >
-                                                                Del
-                                                            </button>
                                                         </div>
-                                                    ) : (
-                                                        (match.isPractice || match.is_practice) && userRole === 'umpire' && (
-                                                            <button 
-                                                                onClick={() => handleDeleteMatch(match.id)} 
-                                                                className="px-3 py-1.5 sm:py-2 rounded-lg border border-amber-400/50 dark:border-amber-700/60 bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 hover:bg-red-50 dark:hover:bg-red-950/40 hover:text-red-600 hover:border-red-400 font-bold text-xs sm:text-sm transition-all font-sans cursor-pointer shadow-sm shrink-0"
-                                                                title="Delete practice session"
-                                                            >
-                                                                Del Practice
-                                                            </button>
-                                                        )
                                                     )}
                                                 </div>
                                             </div>

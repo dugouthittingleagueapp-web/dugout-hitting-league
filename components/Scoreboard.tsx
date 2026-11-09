@@ -5,6 +5,7 @@ import * as storage from '../services/storageService';
 import { ScoreInput } from './ScoreInput';
 import { formatFullPlayerName, getMatchStatus } from '../utils/lineupHelper';
 import { isPlaceholderPlayerName } from '../utils/statsEditorHelper.js';
+import { detectForfeit } from '../services/matchHelpers';
 
 interface ScoreboardProps {
   matchId: string;
@@ -535,6 +536,18 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
           newMatch.innings[i] = updateInningStructure(newMatch.innings[i], currentHomeLineup, currentAwayLineup);
       }
 
+      if (teams.home && teams.away) {
+          const evalResult = detectForfeit(teams.home, teams.away, currentHomeLineup, currentAwayLineup);
+          newMatch.is_forfeit = evalResult.isForfeit;
+          newMatch.isForfeit = evalResult.isForfeit;
+          newMatch.forfeiting_team_id = evalResult.forfeitingTeamId;
+          newMatch.forfeitingTeamId = evalResult.forfeitingTeamId;
+          newMatch.winning_team_id = evalResult.winningTeamId;
+          newMatch.winningTeamId = evalResult.winningTeamId;
+          newMatch.forfeit_reason = evalResult.forfeitReason;
+          newMatch.forfeitReason = evalResult.forfeitReason;
+      }
+
       setMatch(newMatch);
       await storage.updateMatch(newMatch);
       setSavingRoster(false);
@@ -732,9 +745,30 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
 
   return (
     <div className="min-h-full w-full overflow-x-hidden pb-20 font-sans">
+      {/* Official Forfeit Sticky Banner */}
+      {(match.isForfeit || match.is_forfeit) && (() => {
+        const forfeitingId = match.forfeitingTeamId || match.forfeiting_team_id;
+        const forfeitTeam = forfeitingId === teams.home?.id ? teams.home : (forfeitingId === teams.away?.id ? teams.away : null);
+        const winningTeam = forfeitingId === teams.home?.id ? teams.away : (forfeitingId === teams.away?.id ? teams.home : null);
+        return (
+          <div className="sticky top-0 z-[60] bg-rose-600 text-white px-3 py-2 text-center text-xs sm:text-sm font-bold flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-2 shadow-lg border-b border-rose-700 font-sans">
+            <span className="font-black flex items-center gap-1 uppercase tracking-wider">
+              <span>⚠️</span>
+              <span>OFFICIAL FORFEIT</span>
+            </span>
+            <span>
+              {forfeitTeam ? `${forfeitTeam.name} forfeited (≤1 main player fielded)` : 'Forfeit match'}. Automatic Win awarded to {winningTeam?.name || 'opponent'}.
+            </span>
+            <span className="text-[11px] font-normal bg-rose-700/80 px-2 py-0.5 rounded-full">
+              Stats recorded exclusively for {winningTeam?.name || 'compliant team'}
+            </span>
+          </div>
+        );
+      })()}
+
       {/* Practice Mode Sticky Top Banner */}
       {match.isPractice && (
-        <div className="sticky top-0 z-[60] bg-amber-500 text-slate-950 px-3 py-2 text-center text-xs sm:text-sm font-black uppercase tracking-wider flex items-center justify-center gap-2 shadow-md border-b border-amber-600 font-sans">
+        <div className="sticky top-0 z-[59] bg-amber-500 text-slate-950 px-3 py-2 text-center text-xs sm:text-sm font-black uppercase tracking-wider flex items-center justify-center gap-2 shadow-md border-b border-amber-600 font-sans">
           <span className="text-sm sm:text-base">🧪</span>
           <span>TEST / PRACTICE MODE — Stats will not be saved to official standings or leaderboards</span>
           <span className="text-sm sm:text-base">🧪</span>
@@ -750,6 +784,11 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
           <div className="flex items-center gap-2 shrink-0">
             {match.isComplete ? (
               <div className="flex items-center gap-1.5">
+                {(match.isForfeit || match.is_forfeit) && (
+                  <span className="text-[10px] font-black uppercase px-2 py-1 rounded bg-rose-100 dark:bg-rose-950/60 text-rose-700 dark:text-rose-300 border border-rose-400 dark:border-rose-700/80">
+                    ⚠️ FORFEIT
+                  </span>
+                )}
                 <span className="text-[10px] font-black uppercase px-2 py-1 rounded bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border border-slate-300 dark:border-slate-700">FINAL</span>
                 {userRole === 'admin' && (
                   <button 
@@ -762,11 +801,18 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
                 )}
               </div>
             ) : (
-              getMatchStatus(match) === 'IN_PROGRESS' ? (
-                <div className="text-red-600 dark:text-red-400 font-black px-2.5 py-1 rounded-md text-[10px] uppercase tracking-wider bg-red-100 dark:bg-red-950/50 border border-red-500/30 animate-pulse">LIVE</div>
-              ) : (
-                <div className="text-blue-600 dark:text-blue-400 font-bold px-2.5 py-1 rounded-md text-[10px] uppercase tracking-wider bg-blue-50 dark:bg-blue-950/40 border border-blue-500/30">SCHEDULED</div>
-              )
+              <div className="flex items-center gap-1.5">
+                {(match.isForfeit || match.is_forfeit) && (
+                  <span className="text-[10px] font-black uppercase px-2 py-1 rounded bg-rose-100 dark:bg-rose-950/60 text-rose-700 dark:text-rose-300 border border-rose-400 dark:border-rose-700/80">
+                    ⚠️ FORFEIT
+                  </span>
+                )}
+                {getMatchStatus(match) === 'IN_PROGRESS' ? (
+                  <div className="text-red-600 dark:text-red-400 font-black px-2.5 py-1 rounded-md text-[10px] uppercase tracking-wider bg-red-100 dark:bg-red-950/50 border border-red-500/30 animate-pulse">LIVE</div>
+                ) : (
+                  <div className="text-blue-600 dark:text-blue-400 font-bold px-2.5 py-1 rounded-md text-[10px] uppercase tracking-wider bg-blue-50 dark:bg-blue-950/40 border border-blue-500/30">SCHEDULED</div>
+                )}
+              </div>
             )}
             
             {/* Exit & Finalize Fast Action in Header */}

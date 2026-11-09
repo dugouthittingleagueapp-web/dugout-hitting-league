@@ -3,6 +3,7 @@ import react from '@vitejs/plugin-react';
 import fs from 'node:fs';
 import path from 'node:path';
 import { migrateCrushersInDbData } from './utils/crushersMigration';
+import { signSessionToken, getAuthFromRequest, setSessionCookie, clearSessionCookie, comparePassword, hashPassword } from './api/auth';
 
 function devApiPlugin(): Plugin {
   const dbFile = path.resolve(process.cwd(), '.data', 'db.json');
@@ -140,21 +141,34 @@ function devApiPlugin(): Plugin {
                 const cleanPw = (body.password || '').trim();
                 const adminPw = (db.settings?.admin_password || 'admin').trim();
                 const umpirePw = (db.settings?.umpire_password || 'umpire').trim();
-                if (cleanPw.toLowerCase() === adminPw.toLowerCase()) {
-                  return sendJson(res, 200, { success: true, role: 'admin' });
+                let role: 'admin' | 'umpire' | null = null;
+                if (await comparePassword(cleanPw, adminPw)) {
+                  role = 'admin';
+                } else if (await comparePassword(cleanPw, umpirePw)) {
+                  role = 'umpire';
                 }
-                if (cleanPw.toLowerCase() === umpirePw.toLowerCase()) {
-                  return sendJson(res, 200, { success: true, role: 'umpire' });
+                if (role) {
+                  const token = signSessionToken(role);
+                  setSessionCookie(res, token);
+                  return sendJson(res, 200, { success: true, role, token });
                 }
                 return sendJson(res, 401, { success: false, error: 'Incorrect password' });
               }
+              if (body.action === 'check_auth') {
+                const auth = getAuthFromRequest(req);
+                return sendJson(res, 200, { authenticated: auth.authenticated, role: auth.role });
+              }
+              if (body.action === 'logout') {
+                clearSessionCookie(res);
+                return sendJson(res, 200, { success: true });
+              }
               if (body.action === 'update_password') {
-                db.settings.admin_password = body.password.trim();
+                db.settings.admin_password = await hashPassword(body.password.trim());
                 saveDb(db);
                 return sendJson(res, 200, { success: true });
               }
               if (body.action === 'update_umpire_password') {
-                db.settings.umpire_password = body.password.trim();
+                db.settings.umpire_password = await hashPassword(body.password.trim());
                 saveDb(db);
                 return sendJson(res, 200, { success: true });
               }
@@ -339,6 +353,10 @@ function devApiPlugin(): Plugin {
                 end_time: match.endTime || match.end_time || null,
                 notes: match.notes || null,
                 is_practice: match.isPractice ?? match.is_practice ?? false,
+                is_forfeit: match.isForfeit ?? match.is_forfeit ?? false,
+                forfeiting_team_id: match.forfeitingTeamId || match.forfeiting_team_id || null,
+                winning_team_id: match.winningTeamId || match.winning_team_id || null,
+                forfeit_reason: match.forfeitReason || match.forfeit_reason || null,
                 created_at: new Date().toISOString(),
               };
               db.matches.unshift(newMatch);
@@ -362,6 +380,10 @@ function devApiPlugin(): Plugin {
                   end_time: (match.endTime || match.end_time) !== undefined ? (match.endTime || match.end_time) : db.matches[idx].end_time,
                   notes: match.notes !== undefined ? match.notes : db.matches[idx].notes,
                   is_practice: match.isPractice !== undefined ? match.isPractice : (match.is_practice !== undefined ? match.is_practice : db.matches[idx].is_practice),
+                  is_forfeit: match.isForfeit !== undefined ? match.isForfeit : (match.is_forfeit !== undefined ? match.is_forfeit : db.matches[idx].is_forfeit),
+                  forfeiting_team_id: (match.forfeitingTeamId !== undefined || match.forfeiting_team_id !== undefined) ? (match.forfeitingTeamId || match.forfeiting_team_id) : db.matches[idx].forfeiting_team_id,
+                  winning_team_id: (match.winningTeamId !== undefined || match.winning_team_id !== undefined) ? (match.winningTeamId || match.winning_team_id) : db.matches[idx].winning_team_id,
+                  forfeit_reason: (match.forfeitReason !== undefined || match.forfeit_reason !== undefined) ? (match.forfeitReason || match.forfeit_reason) : db.matches[idx].forfeit_reason,
                 };
                 saveDb(db);
                 return sendJson(res, 200, db.matches[idx]);
@@ -369,6 +391,10 @@ function devApiPlugin(): Plugin {
               return sendJson(res, 404, { error: 'Match not found' });
             }
             if (method === 'DELETE') {
+              const auth = getAuthFromRequest(req);
+              if (auth.authenticated && auth.role === 'fan') {
+                return sendJson(res, 403, { error: 'Forbidden: Insufficient permissions to delete matches.' });
+              }
               const id = query.id;
               if (!id) return sendJson(res, 400, { error: 'Missing ID' });
               const rawId = String(id).trim();

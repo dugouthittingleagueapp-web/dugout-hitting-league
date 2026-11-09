@@ -13,6 +13,7 @@ import { PracticeSetupModal } from './components/PracticeSetupModal';
 import { MatchStatsEditorModal } from './components/MatchStatsEditorModal';
 import * as storage from './services/storageService';
 import { getMatchStatus, findCurrentOrUpcomingWeekId } from './utils/lineupHelper';
+import { detectForfeit, isForfeitMatch, getForfeitingTeamId } from './services/matchHelpers';
 
 const INACTIVITY_LIMIT = 3 * 60 * 60 * 1000; // 3 hours
 
@@ -395,45 +396,19 @@ const App: React.FC = () => {
 
   const handleScoreboardExit = async (options?: { endedPractice?: boolean; deletedPractice?: boolean; matchId?: string; savedPractice?: boolean; finalizedMatch?: boolean; message?: string }) => {
       const targetMatchId = options?.matchId || state.currentMatchId;
-      if (options?.deletedPractice || options?.endedPractice) {
-          safeStorage.removeItem('dugout_active_match_id');
-          setResumeMatch(null);
-          if (targetMatchId) {
-              const rawId = targetMatchId.trim();
-              const strippedId = rawId.startsWith('practice-') ? rawId.slice('practice-'.length).trim() : rawId;
-              const prefixedId = `practice-${strippedId}`;
+      safeStorage.removeItem('dugout_active_match_id');
+      setResumeMatch(null);
 
-              const target = matches.find(m => {
-                  const mId = String(m.id || '').trim();
-                  return mId === rawId || mId === strippedId || mId === prefixedId;
-              });
-
-              // Frontend Action Safety Guard: Only delete if target is verified practice session
-              if (target && !target.isPractice && !target.is_practice) {
-                  console.warn(`[handleScoreboardExit] Blocked deletion attempt on official match: ${targetMatchId}`);
-              } else {
-                  // Immediately remove from local matches state array for instant UI update
-                  setMatches(prev => prev.filter(m => {
-                      const mId = String(m.id || '').trim();
-                      return mId !== rawId && mId !== strippedId && mId !== prefixedId;
-                  }));
-
-                  await storage.deleteMatch(targetMatchId).catch(console.error);
-              }
-          }
-          if (state.currentLeague) {
-              await refreshDashboard(state.currentLeague, state.season, true);
-          }
-      } else if (options?.finalizedMatch) {
-          safeStorage.removeItem('dugout_active_match_id');
-          setResumeMatch(null);
+      // Priority 4 & 5: Practice matches must NEVER be automatically deleted on exit, completion, or finalization.
+      // They persist on the dashboard with the PRACTICE badge until manually deleted.
+      if (options?.finalizedMatch) {
           const targetId = options?.matchId || state.currentMatchId;
           if (targetId) {
               setMatches(prev => prev.map(m => m.id === targetId ? { ...m, isComplete: true, status: 'FINAL' as const } : m));
           }
-          if (state.currentLeague) {
-              await refreshDashboard(state.currentLeague, state.season, true);
-          }
+      }
+      if (state.currentLeague) {
+          await refreshDashboard(state.currentLeague, state.season, true);
       }
       if (options?.message) {
           setDashboardToast({ text: options.message, type: 'success' });
@@ -530,6 +505,8 @@ const App: React.FC = () => {
       safeStorage.removeItem('userRole');
       safeStorage.removeItem('lastActivity');
       safeStorage.removeItem('dugout_app_state'); 
+      safeStorage.removeItem('dugout_auth_token');
+      storage.logout().catch(() => {});
       setState(s => ({
           ...s, 
           season: activeSeason, 
@@ -604,7 +581,24 @@ const App: React.FC = () => {
         const homeIds = homeLineup.map(p => p.id);
         const awayIds = awayLineup.map(p => p.id);
         
-        const newMatch = await storage.createMatch(state.currentLeague, finalHomeId, finalAwayId, homeIds, awayIds, state.season);
+        const homeTeamObj = teams.find(t => t.id === finalHomeId);
+        const awayTeamObj = teams.find(t => t.id === finalAwayId);
+        const forfeitEval = detectForfeit(homeTeamObj, awayTeamObj, homeIds, awayIds);
+
+        const newMatch = await storage.createMatch(
+            state.currentLeague, 
+            finalHomeId, 
+            finalAwayId, 
+            homeIds, 
+            awayIds, 
+            state.season,
+            forfeitEval.isForfeit ? {
+                is_forfeit: true,
+                forfeiting_team_id: forfeitEval.forfeitingTeamId,
+                winning_team_id: forfeitEval.winningTeamId,
+                forfeit_reason: forfeitEval.forfeitReason,
+            } : undefined
+        );
         safeStorage.setItem('dugout_active_match_id', newMatch.id);
         
         setSelectedHomeId(''); setSelectedAwayId(''); setLoading(false);
@@ -647,7 +641,10 @@ const App: React.FC = () => {
 
     if (!confirm("Are you sure you want to delete this practice match? This cannot be undone.")) return;
     try {
-        // Immediately remove match from local matches state array for instant UI update
+        setLoading(true);
+        await storage.deleteMatch(matchId);
+        
+        // Remove match from local matches state array only upon successful deletion
         setMatches(prev => prev.filter(m => {
             const mId = String(m.id || '').trim();
             return mId !== rawId && mId !== strippedId && mId !== prefixedId;
@@ -658,9 +655,10 @@ const App: React.FC = () => {
             safeStorage.removeItem('dugout_active_match_id');
         }
 
-        await storage.deleteMatch(matchId);
+        setLoading(false);
         if (state.currentLeague) await refreshDashboard(state.currentLeague, state.season, true);
     } catch (e: any) {
+        setLoading(false);
         alert(e?.message || "Failed to delete match");
     }
   };
@@ -806,13 +804,22 @@ const App: React.FC = () => {
           const away = teams.find(t => t.id === m.awayTeamId);
           if (!home || !away) return;
 
+          const isForfeit = isForfeitMatch(m);
+          const forfeitingId = getForfeitingTeamId(m);
+
           // 1. Calculate Match Totals Manually (Strict 10-pitch limit for Ghost Mode)
           const matchPlayerTotals = new Map<string, number>();
 
           // Process Innings
           (m.innings || []).forEach(ing => {
-              [ing.home, ing.away].forEach(side => {
+              [ing.home, ing.away].forEach((side, sideIdx) => {
                    if (!side?.playerScores) return;
+                   // Completely exclude forfeiting team stats
+                   if (isForfeit && forfeitingId) {
+                       const currentSideTeamId = sideIdx === 0 ? m.homeTeamId : m.awayTeamId;
+                       if (currentSideTeamId === forfeitingId) return;
+                   }
+
                    const isGhostMode = side.playerScores.length === 2 && (side.playerScores[0]?.pitches?.length || 0) >= 15;
                    side.playerScores.forEach(ps => {
                        if (!ps || ps.playerId.startsWith('ghost-')) return;
@@ -837,8 +844,8 @@ const App: React.FC = () => {
                       const pts = scores.reduce<number>((sum, s) => (sum || 0) + (s || 0), 0);
                       matchPlayerTotals.set(pid, (matchPlayerTotals.get(pid) || 0) + pts);
                   };
-                  if (tb.homePlayerId) addTbScore(tb.homePlayerId, tb.homeScores);
-                  if (tb.awayPlayerId) addTbScore(tb.awayPlayerId, tb.awayScores);
+                  if (tb.homePlayerId && (!isForfeit || forfeitingId !== m.homeTeamId)) addTbScore(tb.homePlayerId, tb.homeScores);
+                  if (tb.awayPlayerId && (!isForfeit || forfeitingId !== m.awayTeamId)) addTbScore(tb.awayPlayerId, tb.awayScores);
               });
           }
 
@@ -866,6 +873,10 @@ const App: React.FC = () => {
           (m.innings || []).forEach(ing => {
               [ing.home, ing.away].forEach((side, sideIdx) => {
                   if (!side?.playerScores) return;
+                  if (isForfeit && forfeitingId) {
+                      const currentSideTeamId = sideIdx === 0 ? m.homeTeamId : m.awayTeamId;
+                      if (currentSideTeamId === forfeitingId) return;
+                  }
                   const team = sideIdx === 0 ? home : away;
                   const isGhostMode = side.playerScores.length === 2 && (side.playerScores[0]?.pitches?.length || 0) >= 15;
 
@@ -939,6 +950,45 @@ const App: React.FC = () => {
       const hScore = getScore(m.innings, 'home', m.tieBreaker);
       const aScore = getScore(m.innings, 'away', m.tieBreaker);
 
+      const isForfeit = isForfeitMatch(m);
+      const forfeitingId = getForfeitingTeamId(m);
+
+      if (isForfeit && forfeitingId) {
+          // Automatic Forfeit Win/Loss Outcome & Asymmetrical Stats:
+          // Non-forfeiting team gets an automatic win. Points scored count for compliant team.
+          // Forfeiting team gets an automatic loss. Forfeiting team points are completely excluded (pf = 0).
+          const isHomeForfeiting = forfeitingId === m.homeTeamId;
+          const homeRec = stats.get(m.homeTeamId);
+          const awayRec = stats.get(m.awayTeamId);
+
+          if (homeRec) {
+              homeRec.gp++;
+              if (isHomeForfeiting) {
+                  homeRec.l++;
+                  homeRec.pf += 0; // forfeiting team hitting points completely excluded
+                  homeRec.pa += aScore;
+              } else {
+                  homeRec.w++;
+                  homeRec.pf += hScore; // compliant team hitting points intact
+                  homeRec.pa += 0; // opponent forfeiting points excluded
+              }
+          }
+
+          if (awayRec) {
+              awayRec.gp++;
+              if (isHomeForfeiting) {
+                  awayRec.w++;
+                  awayRec.pf += aScore; // compliant team hitting points intact
+                  awayRec.pa += 0; // opponent forfeiting points excluded
+              } else {
+                  awayRec.l++;
+                  awayRec.pf += 0; // forfeiting team hitting points completely excluded
+                  awayRec.pa += hScore;
+              }
+          }
+          return;
+      }
+
       const update = (id: string, s: number, os: number) => {
           if (!stats.has(id)) return;
           const rec = stats.get(id)!;
@@ -974,9 +1024,17 @@ const App: React.FC = () => {
           const away = teams.find(t => t.id === m.awayTeamId);
           if (!home || !away) return;
           
+          const isForfeit = isForfeitMatch(m);
+          const forfeitingId = getForfeitingTeamId(m);
+
           const mStats = storage.calculateMatchStats(m, home, away);
           mStats.forEach(s => {
               if (s.playerId.startsWith('ghost-')) return;
+              if (isForfeit && forfeitingId) {
+                  const forfeitingTeam = forfeitingId === home.id ? home : (forfeitingId === away.id ? away : null);
+                  const isForfeitingPlayer = forfeitingTeam && [...(forfeitingTeam.players || []), ...(forfeitingTeam.subs || [])].some(p => p.id === s.playerId);
+                  if (isForfeitingPlayer) return; // Completely exclude forfeiting team player stats
+              }
               if (!aggStats.has(s.playerId)) {
                   aggStats.set(s.playerId, { ...s });
               } else {
@@ -1539,6 +1597,12 @@ const App: React.FC = () => {
                                                                 <span>PRACTICE</span>
                                                             </span>
                                                         )}
+                                                        {(match.isForfeit || match.is_forfeit) && (
+                                                            <span className="text-[9px] sm:text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded font-sans border shrink-0 bg-rose-500/20 text-rose-700 dark:text-rose-300 border-rose-500/50 shadow-xs flex items-center gap-1 font-bold">
+                                                                <span>⚠️</span>
+                                                                <span>FORFEIT</span>
+                                                            </span>
+                                                        )}
                                                         {matchStatus === 'SCHEDULED' && (
                                                             <span className="text-[9px] sm:text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded font-sans border shrink-0 bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-400 border-blue-300 dark:border-blue-800/50">
                                                                 SCHEDULED
@@ -1588,6 +1652,24 @@ const App: React.FC = () => {
                                                             <div className="text-[8px] sm:text-[10px] font-bold uppercase tracking-wider text-blue-500/80">Away</div>
                                                         </div>
                                                     </div>
+
+                                                    {(match.isForfeit || match.is_forfeit) && (() => {
+                                                        const forfeitingId = match.forfeitingTeamId || match.forfeiting_team_id;
+                                                        const forfeitTeamName = forfeitingId === match.homeTeamId ? homeName : (forfeitingId === match.awayTeamId ? awayName : null);
+                                                        const winningTeamName = forfeitingId === match.homeTeamId ? awayName : (forfeitingId === match.awayTeamId ? homeName : null);
+                                                        return (
+                                                            <div className="mt-1 p-2 rounded-lg bg-rose-500/10 border border-rose-500/30 text-[11px] text-rose-800 dark:text-rose-200 font-sans flex items-start gap-1.5 leading-snug">
+                                                                <span className="font-bold shrink-0">⚠️ FORFEIT:</span>
+                                                                <div>
+                                                                    <span>{forfeitTeamName ? `${forfeitTeamName} forfeited (≤1 main player fielded)` : 'Forfeit match'}. </span>
+                                                                    <span className="font-bold text-green-700 dark:text-green-400">Automatic Win awarded to {winningTeamName || 'opponent'}. </span>
+                                                                    <span className="text-[10px] text-slate-600 dark:text-slate-400 block mt-0.5">
+                                                                        Stats recorded exclusively for {winningTeamName || 'compliant team'}; forfeiting team stats excluded.
+                                                                    </span>
+                                                                </div>
+                                                            </div>
+                                                        );
+                                                    })()}
                                                 </div>
 
                                                 {/* Right Section: Action Buttons */}
@@ -1897,6 +1979,17 @@ const App: React.FC = () => {
                         </div>
                         <button onClick={() => setStatsModalMatch(null)} className="text-slate-500 hover:text-slate-800 dark:hover:text-white font-bold text-xl transition-colors">&times;</button>
                     </div>
+
+                    {(statsModalMatch.isForfeit || statsModalMatch.is_forfeit) && (
+                        <div className="p-3 sm:px-6 bg-rose-50 dark:bg-rose-950/40 border-b border-rose-200 dark:border-rose-900/60 text-xs text-rose-800 dark:text-rose-200 font-sans flex items-start gap-2">
+                            <span className="font-bold shrink-0 text-sm">⚠️</span>
+                            <div>
+                                <span className="font-bold">Official Forfeit Match: </span>
+                                <span>Compliant team hitting points count normally toward official records. Forfeiting team statistics shown below are completely excluded from season totals, weekly leaderboards, and career stats.</span>
+                            </div>
+                        </div>
+                    )}
+
                     <div className="overflow-y-auto p-0 bg-white dark:bg-slate-900">
                         <table className="w-full text-left text-sm">
                             <thead className="bg-slate-100 dark:bg-slate-900 text-slate-500 dark:text-slate-400 uppercase font-bold text-xs sticky top-0 z-10 shadow-sm border-b border-slate-200 dark:border-slate-800">
@@ -1917,6 +2010,13 @@ const App: React.FC = () => {
                                     const teamLabel = isAway ? awayName : homeName;
                                     const teamColor = isAway ? 'text-blue-700 dark:text-blue-300 bg-blue-50 dark:bg-blue-900/30 border-blue-200 dark:border-blue-800' : 'text-red-700 dark:text-red-300 bg-red-50 dark:bg-red-900/30 border-red-200 dark:border-red-800';
 
+                                    const isMatchForfeit = !!(statsModalMatch.isForfeit || statsModalMatch.is_forfeit);
+                                    const forfeitingTeamId = statsModalMatch.forfeitingTeamId || statsModalMatch.forfeiting_team_id;
+                                    const isForfeitingPlayer = isMatchForfeit && forfeitingTeamId && (
+                                        (forfeitingTeamId === statsModalMatch.homeTeamId && !isAway) ||
+                                        (forfeitingTeamId === statsModalMatch.awayTeamId && isAway)
+                                    );
+
                                     return (
                                         <tr key={stat.playerId} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
                                             <td className="px-2 sm:px-6 py-2 sm:py-3 font-bold text-slate-900 dark:text-white font-sans text-xs sm:text-base">
@@ -1933,6 +2033,11 @@ const App: React.FC = () => {
                                                 <span className={`px-2 py-0.5 rounded border text-[11px] font-bold ${teamColor}`}>
                                                     {teamLabel}
                                                 </span>
+                                                {isForfeitingPlayer && (
+                                                    <span className="ml-1 text-[9px] font-bold uppercase px-1 py-0.5 rounded bg-rose-100 dark:bg-rose-900/50 text-rose-700 dark:text-rose-300 border border-rose-300 dark:border-rose-800">
+                                                        Excluded
+                                                    </span>
+                                                )}
                                             </td>
                                             <td className="px-1 sm:px-4 py-2 sm:py-3 text-right font-sans tabular-nums font-bold text-sm sm:text-lg text-slate-900 dark:text-white">{stat.totalPoints}</td>
                                             <td className="px-1 sm:px-4 py-2 sm:py-3 text-right font-sans tabular-nums text-[10px] sm:text-sm">{stat.hits4}</td>

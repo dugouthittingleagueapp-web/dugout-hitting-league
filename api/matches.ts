@@ -1,5 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import pool from './db.js';
+import { requireRole, getAuthFromRequest } from './auth.js';
 
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -13,53 +14,8 @@ function cleanMatchId(id: any): { rawId: string; strippedId: string; isPracticeP
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   try {
-    // 1. Ensure table exists with all standard columns (using TEXT for IDs to safely support practice & external sessions)
-    await pool.query(`
-      CREATE TABLE IF NOT EXISTS matches (
-        id TEXT PRIMARY KEY,
-        league TEXT NOT NULL,
-        home_team_id TEXT,
-        away_team_id TEXT,
-        date TIMESTAMPTZ NOT NULL,
-        is_complete BOOLEAN DEFAULT FALSE,
-        innings JSONB NOT NULL,
-        season TEXT NOT NULL DEFAULT TO_CHAR(CURRENT_DATE, 'YYYY'),
-        location TEXT,
-        start_time TEXT,
-        end_time TEXT,
-        notes TEXT,
-        status TEXT DEFAULT 'SCHEDULED',
-        is_practice BOOLEAN DEFAULT FALSE,
-        tie_breaker JSONB,
-        created_at TIMESTAMPTZ DEFAULT NOW()
-      )
-    `);
-
-    // 2. Safe independent migrations for existing tables
-    try {
-      await pool.query(`ALTER TABLE matches DROP CONSTRAINT IF EXISTS matches_home_team_id_fkey`);
-      await pool.query(`ALTER TABLE matches DROP CONSTRAINT IF EXISTS matches_away_team_id_fkey`);
-    } catch (e) {}
-    try {
-      await pool.query(`ALTER TABLE matches ALTER COLUMN id TYPE TEXT`);
-    } catch (e) {}
-    try {
-      await pool.query(`ALTER TABLE matches ALTER COLUMN home_team_id DROP NOT NULL`);
-      await pool.query(`ALTER TABLE matches ALTER COLUMN away_team_id DROP NOT NULL`);
-      await pool.query(`ALTER TABLE matches ALTER COLUMN home_team_id TYPE TEXT`);
-      await pool.query(`ALTER TABLE matches ALTER COLUMN away_team_id TYPE TEXT`);
-    } catch (e) {}
-    await pool.query(`ALTER TABLE matches ADD COLUMN IF NOT EXISTS season TEXT NOT NULL DEFAULT TO_CHAR(CURRENT_DATE, 'YYYY')`);
-    await pool.query(`ALTER TABLE matches ADD COLUMN IF NOT EXISTS location TEXT`);
-    await pool.query(`ALTER TABLE matches ADD COLUMN IF NOT EXISTS start_time TEXT`);
-    await pool.query(`ALTER TABLE matches ADD COLUMN IF NOT EXISTS end_time TEXT`);
-    await pool.query(`ALTER TABLE matches ADD COLUMN IF NOT EXISTS notes TEXT`);
-    await pool.query(`ALTER TABLE matches ADD COLUMN IF NOT EXISTS status TEXT DEFAULT 'SCHEDULED'`);
-    await pool.query(`ALTER TABLE matches ADD COLUMN IF NOT EXISTS is_practice BOOLEAN DEFAULT FALSE`);
-    await pool.query(`ALTER TABLE matches ADD COLUMN IF NOT EXISTS tie_breaker JSONB`);
-
     if (req.method === 'GET') {
-      const { league, id, season } = req.query;
+      const { league, id, season, excludePractice } = req.query;
       if (id) {
         const { rawId, strippedId } = cleanMatchId(id);
         const { rows } = await pool.query(
@@ -70,6 +26,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const row = rows[0];
         if (row.innings && typeof row.innings === 'string') row.innings = JSON.parse(row.innings);
         if (row.tie_breaker && typeof row.tie_breaker === 'string') row.tieBreaker = JSON.parse(row.tie_breaker);
+        row.isForfeit = row.is_forfeit === true;
+        row.forfeitingTeamId = row.forfeiting_team_id;
+        row.forfeitReason = row.forfeit_reason;
         if (rawId.startsWith('practice-') && !String(row.id).startsWith('practice-')) {
           row.id = rawId;
         }
@@ -80,8 +39,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const params: any[] = [];
       let paramCount = 1;
       
-      // Build dynamic where clause
-      const conditions = [];
+      // Dynamic where clause
+      const conditions: string[] = [];
       if (league) {
         conditions.push(`LOWER(league) = LOWER($${paramCount++})`);
         params.push(league);
@@ -95,7 +54,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           params.push(season);
         }
       }
-      if (req.query.excludePractice === 'true') {
+      
+      // Strict Official Statistics Isolation Clause:
+      // Excludes practice matches completely when excludePractice is requested
+      if (excludePractice === 'true') {
         conditions.push(`(is_practice IS FALSE OR is_practice IS NULL)`);
       }
       
@@ -108,13 +70,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const mappedRows = rows.map(row => {
         if (row.innings && typeof row.innings === 'string') row.innings = JSON.parse(row.innings);
         if (row.tie_breaker && typeof row.tie_breaker === 'string') row.tieBreaker = JSON.parse(row.tie_breaker);
+        row.isForfeit = row.is_forfeit === true;
+        row.forfeitingTeamId = row.forfeiting_team_id;
+        row.forfeitReason = row.forfeit_reason;
         if (row.is_practice && !String(row.id).startsWith('practice-')) {
           row.id = `practice-${row.id}`;
         }
         return row;
       });
 
-      // Ensure strict chronological ascending order: date ASC, start_time ASC
+      // Strict chronological ascending sort: date ASC, start_time ASC
       const parseTimeToMinutes = (timeStr?: string | null, dateStr?: string | null): number => {
         if (timeStr && typeof timeStr === 'string' && timeStr.trim().length > 0) {
           const clean = timeStr.trim().toLowerCase();
@@ -150,8 +115,24 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(200).json(mappedRows);
     } 
     else if (req.method === 'POST') {
-      const { id, league, homeTeamId, awayTeamId, date, isComplete, innings, season, location, startTime, endTime, notes, status, isPractice, is_practice } = req.body;
+      const { 
+        id, league, homeTeamId, awayTeamId, date, isComplete, innings, season, 
+        location, startTime, endTime, notes, status, isPractice, is_practice,
+        isForfeit, is_forfeit, forfeitingTeamId, forfeiting_team_id, forfeitReason, forfeit_reason
+      } = req.body || {};
       
+      const matchIsPractice = isPractice === true || is_practice === true;
+      const matchIsForfeit = isForfeit === true || is_forfeit === true;
+      const forfeitTeamId = forfeitingTeamId || forfeiting_team_id || null;
+      const forfeitNote = forfeitReason || forfeit_reason || null;
+
+      // Server-Side Authorization:
+      // Practice match creation allowed for ADMIN and UMPIRE
+      // Official match creation strictly requires ADMIN
+      const allowedRoles = matchIsPractice ? ['admin', 'umpire'] : ['admin'];
+      const role = requireRole(req, res, allowedRoles as ('admin' | 'umpire')[]);
+      if (!role) return;
+
       let matchSeason = season;
       if (!matchSeason) {
         try {
@@ -162,15 +143,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       if (!matchSeason) matchSeason = new Date().getFullYear().toString();
 
       const matchStatus = status || (isComplete ? 'FINAL' : 'SCHEDULED');
-      const matchIsPractice = isPractice ?? is_practice ?? false;
 
       const { rawId, strippedId, isPracticePrefix, isStrippedUuid } = cleanMatchId(id);
-      // Strip 'practice-' prefix to a clean UUID for database storage if needed
       const insertId = isPracticePrefix && isStrippedUuid ? strippedId : rawId;
 
       const query = `
-        INSERT INTO matches (id, league, home_team_id, away_team_id, date, is_complete, innings, season, location, start_time, end_time, notes, status, is_practice) 
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14) 
+        INSERT INTO matches (
+          id, league, home_team_id, away_team_id, date, is_complete, innings, season, 
+          location, start_time, end_time, notes, status, is_practice, is_forfeit, forfeiting_team_id, forfeit_reason
+        ) 
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17) 
         RETURNING *
       `;
       const values = [
@@ -178,16 +160,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         league, 
         homeTeamId || null, 
         awayTeamId || null, 
-        date, 
+        date || new Date().toISOString(), 
         isComplete ?? false, 
-        JSON.stringify(innings), 
+        JSON.stringify(innings || []), 
         matchSeason,
         location || null,
         startTime || null,
         endTime || null,
         notes || null,
         matchStatus,
-        matchIsPractice
+        matchIsPractice,
+        matchIsForfeit,
+        forfeitTeamId,
+        forfeitNote
       ];
 
       let row: any = null;
@@ -211,6 +196,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       if (row) {
         if (row.innings && typeof row.innings === 'string') row.innings = JSON.parse(row.innings);
         if (row.tie_breaker && typeof row.tie_breaker === 'string') row.tieBreaker = JSON.parse(row.tie_breaker);
+        row.isForfeit = row.is_forfeit === true;
+        row.forfeitingTeamId = row.forfeiting_team_id;
+        row.forfeitReason = row.forfeit_reason;
         if (isPracticePrefix && !String(row.id).startsWith('practice-')) {
           row.id = rawId;
         }
@@ -218,13 +206,22 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(201).json(row);
     } 
     else if (req.method === 'PUT') {
-      const { id, isComplete, innings, tieBreaker, league, location, startTime, endTime, notes, homeTeamId, awayTeamId, status, isPractice, is_practice } = req.body;
+      // Server-Side Authorization:
+      // Scoring and updating matches allowed for ADMIN and UMPIRE
+      const role = requireRole(req, res, ['admin', 'umpire']);
+      if (!role) return;
+
+      const { 
+        id, isComplete, innings, tieBreaker, league, location, startTime, 
+        endTime, notes, homeTeamId, awayTeamId, status, isPractice, is_practice,
+        isForfeit, is_forfeit, forfeitingTeamId, forfeiting_team_id, forfeitReason, forfeit_reason
+      } = req.body || {};
       
       const { rawId, strippedId, isPracticePrefix } = cleanMatchId(id);
-
-      await pool.query(`ALTER TABLE matches ADD COLUMN IF NOT EXISTS tie_breaker JSONB`);
-      
       const practiceFlag = isPractice !== undefined ? isPractice : (is_practice !== undefined ? is_practice : null);
+      const forfeitFlag = isForfeit !== undefined ? isForfeit : (is_forfeit !== undefined ? is_forfeit : null);
+      const forfeitTeamId = forfeitingTeamId !== undefined ? forfeitingTeamId : (forfeiting_team_id !== undefined ? forfeiting_team_id : null);
+      const forfeitNote = forfeitReason !== undefined ? forfeitReason : (forfeit_reason !== undefined ? forfeit_reason : null);
 
       const queryUpdate = `
         UPDATE matches 
@@ -239,7 +236,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             home_team_id = COALESCE($11, home_team_id),
             away_team_id = COALESCE($12, away_team_id),
             status = COALESCE($13, status),
-            is_practice = COALESCE($14, is_practice)
+            is_practice = COALESCE($14, is_practice),
+            is_forfeit = COALESCE($15, is_forfeit),
+            forfeiting_team_id = COALESCE($16, forfeiting_team_id),
+            forfeit_reason = COALESCE($17, forfeit_reason)
         WHERE id::text = $1 OR id::text = $2
         RETURNING *
       `;
@@ -257,7 +257,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         homeTeamId !== undefined ? homeTeamId : null,
         awayTeamId !== undefined ? awayTeamId : null,
         status !== undefined ? status : (isComplete ? 'FINAL' : null),
-        practiceFlag
+        practiceFlag,
+        forfeitFlag,
+        forfeitTeamId,
+        forfeitNote
       ];
 
       const { rows } = await pool.query(queryUpdate, values);
@@ -265,6 +268,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       if (row) {
         row.innings = typeof row.innings === 'string' ? JSON.parse(row.innings) : row.innings;
         if (row.tie_breaker) row.tieBreaker = typeof row.tie_breaker === 'string' ? JSON.parse(row.tie_breaker) : row.tie_breaker;
+        row.isForfeit = row.is_forfeit === true;
+        row.forfeitingTeamId = row.forfeiting_team_id;
+        row.forfeitReason = row.forfeit_reason;
         if (isPracticePrefix && !String(row.id).startsWith('practice-')) {
           row.id = rawId;
         }
@@ -273,35 +279,77 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(200).json(row);
     }
     else if (req.method === 'DELETE') {
+      // PRIORITY 1 — ABSOLUTE PROTECTION OF OFFICIAL MATCHES
+      // Step 1: Server-Side Authorization check (Admin & Umpire allowed for practice sessions)
+      const auth = getAuthFromRequest(req);
+      if (!auth.authenticated) {
+        return res.status(401).json({ error: 'Unauthorized: Authentication required.' });
+      }
+      if (auth.role !== 'admin' && auth.role !== 'umpire') {
+        return res.status(403).json({ error: 'Forbidden: Insufficient permissions to delete matches.' });
+      }
+
       const { id } = req.query;
       if (!id) return res.status(400).json({ error: 'Missing ID' });
       
       const { rawId, strippedId } = cleanMatchId(id);
       
-      const checkRes = await pool.query(
-        'SELECT id, is_practice FROM matches WHERE id::text = $1 OR id::text = $2 OR id::text = $3 LIMIT 1',
-        [rawId, strippedId, `practice-${strippedId}`]
-      );
-      
-      if (checkRes.rows.length === 0) {
-        return res.status(404).json({ error: 'Match not found' });
+      // Step 2: Prevent race conditions using PostgreSQL transaction and row lock (FOR UPDATE)
+      const client = await pool.connect();
+      try {
+        await client.query('BEGIN');
+
+        const checkRes = await client.query(
+          `SELECT id, is_practice FROM matches 
+           WHERE id::text = $1 OR id::text = $2 OR id::text = $3 
+           FOR UPDATE LIMIT 1`,
+          [rawId, strippedId, `practice-${strippedId}`]
+        );
+        
+        if (checkRes.rows.length === 0) {
+          await client.query('ROLLBACK');
+          return res.status(404).json({ error: 'Match not found' });
+        }
+        
+        const targetMatch = checkRes.rows[0];
+        
+        // Step 3: Absolute backend delete guard
+        // Deletion rejected unless database record explicitly contains is_practice === true
+        if (targetMatch.is_practice !== true) {
+          await client.query('ROLLBACK');
+          console.warn(`[SECURITY WARNING] Attempted deletion of official league match ID: ${targetMatch.id} by role: ${auth.role}. Rejecting with 403 Forbidden.`);
+          return res.status(403).json({ 
+            error: 'Forbidden: Official league matches cannot be deleted. Only practice sessions can be removed.' 
+          });
+        }
+        
+        // Step 4: Atomic conditional deletion strictly enforcing is_practice IS TRUE
+        const delRes = await client.query(
+          `DELETE FROM matches 
+           WHERE (id::text = $1 OR id::text = $2 OR id::text = $3) 
+             AND is_practice IS TRUE 
+           RETURNING id`,
+          [rawId, strippedId, `practice-${strippedId}`]
+        );
+
+        if (delRes.rows.length === 0) {
+          await client.query('ROLLBACK');
+          return res.status(404).json({ error: 'Match could not be deleted or is not a practice match.' });
+        }
+        
+        await client.query('COMMIT');
+        return res.status(200).json({ success: true, deletedId: delRes.rows[0].id });
+      } catch (transErr: any) {
+        await client.query('ROLLBACK');
+        console.error('[DELETE /api/matches] Database failure:', transErr);
+        return res.status(500).json({ error: 'Database failure during match deletion.' });
+      } finally {
+        client.release();
       }
-      
-      const targetMatch = checkRes.rows[0];
-      if (targetMatch.is_practice !== true) {
-        console.warn(`[SECURITY WARNING] Attempted unauthorized deletion of official league match ID: ${targetMatch.id}. Rejecting with 403 Forbidden.`);
-        return res.status(403).json({ 
-          error: 'Forbidden: Official league matches cannot be deleted. Only practice sessions can be removed.' 
-        });
-      }
-      
-      await pool.query('DELETE FROM matches WHERE id::text = $1 OR id::text = $2 OR id::text = $3', [rawId, strippedId, `practice-${strippedId}`]);
-      
-      return res.status(200).json({ success: true });
     }
     return res.status(405).json({ error: 'Method not allowed' });
   } catch (error: any) {
-    console.error(error);
+    console.error('[API] Matches Error:', error);
     return res.status(500).json({ error: error.message });
   }
 }

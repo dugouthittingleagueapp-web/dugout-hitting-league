@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { Team, Player } from '../types.js';
 import * as storage from '../services/storageService.js';
 import { isPlaceholderPlayerName } from '../utils/statsEditorHelper.js';
+import { detectForfeit } from '../services/matchHelpers.js';
 
 interface MatchSetupProps {
   homeTeam: Team;
@@ -350,6 +351,18 @@ export const MatchSetup: React.FC<MatchSetupProps> = ({ homeTeam, awayTeam, onSt
     );
   };
 
+  const effectiveHomeTeam = isSwapped ? awayTeam : homeTeam;
+  const effectiveAwayTeam = isSwapped ? homeTeam : awayTeam;
+  const effectiveHomeLineup = isSwapped ? awayLineup : homeLineup;
+  const effectiveAwayLineup = isSwapped ? homeLineup : awayLineup;
+
+  const forfeitEval = detectForfeit(
+    effectiveHomeTeam,
+    effectiveAwayTeam,
+    effectiveHomeLineup.map(p => p.id),
+    effectiveAwayLineup.map(p => p.id)
+  );
+
   return (
     <div className="max-w-4xl mx-auto p-4 sm:p-6 pb-24 font-sans animate-in fade-in duration-300">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
@@ -388,6 +401,32 @@ export const MatchSetup: React.FC<MatchSetupProps> = ({ homeTeam, awayTeam, onSt
       </div>
 
       <div className="space-y-6">
+        {forfeitEval.isForfeit && (
+          <div className="bg-red-50 dark:bg-red-950/30 border-2 border-red-500/60 rounded-xl p-4 text-xs font-sans text-red-900 dark:text-red-200 shadow-md animate-in fade-in">
+            <div className="flex items-center gap-2 mb-2 font-black text-sm text-red-600 dark:text-red-400 uppercase tracking-wider">
+              <span>⚠️</span>
+              <span>Official Roster Threshold Warning: Automatic Forfeit</span>
+            </div>
+            <p className="mb-2 leading-relaxed font-semibold">
+              {forfeitEval.forfeitReason}
+            </p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-2 pt-2 border-t border-red-200 dark:border-red-900/50 text-[11px]">
+              <div className="bg-white/70 dark:bg-slate-900/60 p-2 rounded-lg border border-red-200/50 dark:border-red-800/40">
+                <span className="font-bold text-red-700 dark:text-red-300">Automatic Decision: </span>
+                <span>
+                  {forfeitEval.winningTeamId === effectiveHomeTeam.id ? effectiveHomeTeam.name : effectiveAwayTeam.name} awarded Win. {forfeitEval.forfeitingTeamId === effectiveHomeTeam.id ? effectiveHomeTeam.name : effectiveAwayTeam.name} receives Loss.
+                </span>
+              </div>
+              <div className="bg-white/70 dark:bg-slate-900/60 p-2 rounded-lg border border-red-200/50 dark:border-red-800/40">
+                <span className="font-bold text-red-700 dark:text-red-300">Asymmetrical Stats: </span>
+                <span>
+                  Compliant team stats count normally. Forfeiting team stats are completely excluded from season totals.
+                </span>
+              </div>
+            </div>
+          </div>
+        )}
+
         <div className="bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800/40 p-4 rounded-xl text-xs text-amber-800 dark:text-amber-300 font-sans">
              <span className="font-bold">Dugout Note:</span> Batters will hit in this exact order. Tap any player to swap positions, or use the arrows to reorder. 3v2 games automatically activate 15-pitch Ghost Mode for the short team.
         </div>

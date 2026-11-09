@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { Match, Team, Player } from '../types';
 import { applyLineupToMatch, moveBatterUp, moveBatterDown, formatFullPlayerName, swapHomeAndAway } from '../utils/lineupHelper';
 import * as storage from '../services/storageService';
+import { detectForfeit } from '../services/matchHelpers';
 
 interface SetLineupModalProps {
   match: Match;
@@ -216,13 +217,20 @@ export const SetLineupModal: React.FC<SetLineupModalProps> = ({
     setIsSaving(true);
     setErrorMessage(null);
     try {
+      const forfeitEval = detectForfeit(homeTeam, awayTeam, homeLineup, awayLineup);
       let updatedMatch = applyLineupToMatch(workingMatch, homeLineup, awayLineup);
-      if (andStartScoring) {
-        updatedMatch = {
-          ...updatedMatch,
-          status: 'IN_PROGRESS'
-        };
-      }
+      updatedMatch = {
+        ...updatedMatch,
+        isForfeit: forfeitEval.isForfeit,
+        is_forfeit: forfeitEval.isForfeit,
+        forfeitingTeamId: forfeitEval.forfeitingTeamId,
+        forfeiting_team_id: forfeitEval.forfeitingTeamId,
+        winningTeamId: forfeitEval.winningTeamId,
+        winning_team_id: forfeitEval.winningTeamId,
+        forfeitReason: forfeitEval.reason,
+        forfeit_reason: forfeitEval.reason,
+        status: andStartScoring ? 'IN_PROGRESS' : updatedMatch.status
+      };
       await storage.updateMatch(updatedMatch);
       await onSave(updatedMatch, andStartScoring);
       onClose();
@@ -335,6 +343,23 @@ export const SetLineupModal: React.FC<SetLineupModalProps> = ({
               {errorMessage}
             </div>
           )}
+
+          {(() => {
+            const liveForfeit = detectForfeit(homeTeam, awayTeam, homeLineup, awayLineup);
+            if (!liveForfeit.isForfeit) return null;
+            return (
+              <div className="p-3.5 bg-rose-50 dark:bg-rose-950/40 border border-rose-300 dark:border-rose-800 rounded-xl text-rose-800 dark:text-rose-200 text-xs font-medium space-y-1">
+                <div className="flex items-center gap-1.5 font-black text-rose-900 dark:text-rose-100 text-[11px] uppercase tracking-wider">
+                  <span>⚠️</span>
+                  <span>Official Forfeit Threshold Triggered</span>
+                </div>
+                <p>{liveForfeit.reason}</p>
+                <p className="text-[11px] text-rose-700/90 dark:text-rose-300/90 font-semibold">
+                  Outcome: Automatic loss for {liveForfeit.forfeitingTeamId === homeTeam.id ? homeTeam.name : awayTeam.name} • Win awarded to {liveForfeit.winningTeamId === homeTeam.id ? homeTeam.name : awayTeam.name}. Individual stats will be recorded exclusively for the compliant team.
+                </p>
+              </div>
+            );
+          })()}
 
           {/* Active Batting Order List */}
           <div>

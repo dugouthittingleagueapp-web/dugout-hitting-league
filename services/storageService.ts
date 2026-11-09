@@ -3,6 +3,7 @@ import { AgeGroup, Match, Team, Inning, League, PlayerStats, PlayerSeasonStatRow
 import { ARCHIVE_2025_LEAGUES, ARCHIVE_2025_TEAMS, ARCHIVE_2025_MATCHES } from './archive2025Data';
 import { parseScheduleCsv, isDuplicateMatch } from '../utils/scheduleImporter';
 import { sortMatchesChronologically } from '../utils/matchSort';
+import { detectForfeit, isForfeitMatch, getForfeitingTeamId } from './matchHelpers';
 
 export { sortMatchesChronologically };
 
@@ -38,9 +39,16 @@ const mapMatchFromDB = (dbMatch: any): Match => {
     location: dbMatch.location || undefined,
     startTime: dbMatch.start_time || dbMatch.startTime || undefined,
     endTime: dbMatch.end_time || dbMatch.endTime || undefined,
-    notes: dbMatch.notes || undefined,
     isPractice: dbMatch.is_practice !== undefined ? dbMatch.is_practice : (dbMatch.isPractice ?? false),
-    is_practice: dbMatch.is_practice !== undefined ? dbMatch.is_practice : (dbMatch.isPractice ?? false)
+    is_practice: dbMatch.is_practice !== undefined ? dbMatch.is_practice : (dbMatch.isPractice ?? false),
+    isForfeit: dbMatch.is_forfeit !== undefined ? dbMatch.is_forfeit : (dbMatch.isForfeit ?? false),
+    is_forfeit: dbMatch.is_forfeit !== undefined ? dbMatch.is_forfeit : (dbMatch.isForfeit ?? false),
+    forfeitingTeamId: dbMatch.forfeiting_team_id || dbMatch.forfeitingTeamId || null,
+    forfeiting_team_id: dbMatch.forfeiting_team_id || dbMatch.forfeitingTeamId || null,
+    winningTeamId: dbMatch.winning_team_id || dbMatch.winningTeamId || null,
+    winning_team_id: dbMatch.winning_team_id || dbMatch.winningTeamId || null,
+    forfeitReason: dbMatch.forfeit_reason || dbMatch.forfeitReason || undefined,
+    forfeit_reason: dbMatch.forfeit_reason || dbMatch.forfeitReason || undefined,
   };
 };
 
@@ -66,12 +74,29 @@ export const generateUUID = (): string => {
     });
 };
 
-// Safe fetch wrapper ensuring absolute URLs in Node/test environments
+// Safe fetch wrapper ensuring absolute URLs, session credentials, and Bearer authorization tokens
 const apiFetch = async (url: string, init?: RequestInit): Promise<Response> => {
   const fullUrl = url.startsWith('http') || typeof window !== 'undefined'
     ? url
     : `http://localhost:3000${url}`;
-  return fetch(fullUrl, init);
+
+  const headers = new Headers(init?.headers || {});
+  if (typeof window !== 'undefined') {
+    try {
+      const token = sessionStorage.getItem('dugout_auth_token') || localStorage.getItem('dugout_auth_token');
+      if (token && !headers.has('Authorization')) {
+        headers.set('Authorization', `Bearer ${token}`);
+      }
+    } catch (e) {}
+  }
+
+  const enhancedInit: RequestInit = {
+    ...init,
+    headers,
+    credentials: init?.credentials || 'same-origin',
+  };
+
+  return fetch(fullUrl, enhancedInit);
 };
 
 // League Methods
@@ -567,7 +592,24 @@ export const getMatch = async (id: string): Promise<Match | undefined> => {
   return undefined;
 };
 
-export const createMatch = async (league: AgeGroup, homeTeamId: string, awayTeamId: string, homePlayerIds: string[], awayPlayerIds: string[], season: string): Promise<Match> => {
+export const createMatch = async (
+    league: AgeGroup, 
+    homeTeamId: string, 
+    awayTeamId: string, 
+    homePlayerIds: string[], 
+    awayPlayerIds: string[], 
+    season: string,
+    forfeitOptions?: {
+        isForfeit?: boolean;
+        is_forfeit?: boolean;
+        forfeitingTeamId?: string | null;
+        forfeiting_team_id?: string | null;
+        winningTeamId?: string | null;
+        winning_team_id?: string | null;
+        forfeitReason?: string;
+        forfeit_reason?: string;
+    }
+): Promise<Match> => {
     const innings: Inning[] = [];
     for (let i = 1; i <= 6; i++) {
         innings.push(createEmptyInning(i, homePlayerIds, awayPlayerIds));
@@ -584,7 +626,15 @@ export const createMatch = async (league: AgeGroup, homeTeamId: string, awayTeam
         innings,
         season,
         isPractice: false,
-        is_practice: false
+        is_practice: false,
+        isForfeit: forfeitOptions?.isForfeit ?? forfeitOptions?.is_forfeit ?? false,
+        is_forfeit: forfeitOptions?.is_forfeit ?? forfeitOptions?.isForfeit ?? false,
+        forfeitingTeamId: forfeitOptions?.forfeitingTeamId ?? forfeitOptions?.forfeiting_team_id ?? null,
+        forfeiting_team_id: forfeitOptions?.forfeiting_team_id ?? forfeitOptions?.forfeitingTeamId ?? null,
+        winningTeamId: forfeitOptions?.winningTeamId ?? forfeitOptions?.winning_team_id ?? null,
+        winning_team_id: forfeitOptions?.winning_team_id ?? forfeitOptions?.winningTeamId ?? null,
+        forfeitReason: forfeitOptions?.forfeitReason ?? forfeitOptions?.forfeit_reason,
+        forfeit_reason: forfeitOptions?.forfeit_reason ?? forfeitOptions?.forfeitReason,
     };
 
     // Immediate local persistence before network request
@@ -617,6 +667,14 @@ export const createScheduledMatch = async (params: {
   startTime?: string;
   endTime?: string;
   notes?: string;
+  isForfeit?: boolean;
+  is_forfeit?: boolean;
+  forfeitingTeamId?: string | null;
+  forfeiting_team_id?: string | null;
+  winningTeamId?: string | null;
+  winning_team_id?: string | null;
+  forfeitReason?: string;
+  forfeit_reason?: string;
 }): Promise<Match> => {
   const innings: Inning[] = [];
   for (let i = 1; i <= 6; i++) {
@@ -638,7 +696,15 @@ export const createScheduledMatch = async (params: {
     endTime: params.endTime,
     notes: params.notes,
     isPractice: false,
-    is_practice: false
+    is_practice: false,
+    isForfeit: params.isForfeit ?? params.is_forfeit ?? false,
+    is_forfeit: params.is_forfeit ?? params.isForfeit ?? false,
+    forfeitingTeamId: params.forfeitingTeamId ?? params.forfeiting_team_id ?? null,
+    forfeiting_team_id: params.forfeiting_team_id ?? params.forfeitingTeamId ?? null,
+    winningTeamId: params.winningTeamId ?? params.winning_team_id ?? null,
+    winning_team_id: params.winning_team_id ?? params.winningTeamId ?? null,
+    forfeitReason: params.forfeitReason ?? params.forfeit_reason,
+    forfeit_reason: params.forfeit_reason ?? params.forfeitReason,
   };
 
   if (typeof window !== 'undefined') {
@@ -847,9 +913,13 @@ export const deleteMatch = async (matchId: string) => {
     }
 
     const res = await apiFetch(`/api/matches?id=${encodeURIComponent(rawId)}`, { method: 'DELETE' });
-    if (res.status === 403) {
-        console.warn(`[storageService] Deletion rejected: Official league games cannot be deleted (${rawId}).`);
-        throw new Error('Forbidden: Official league matches cannot be deleted.');
+    if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        const errMessage = errData.error || (res.status === 403 
+            ? 'Forbidden: Official league matches cannot be deleted. Only practice sessions can be removed.' 
+            : `Failed to delete match (HTTP ${res.status})`);
+        console.warn(`[storageService] Deletion rejected: ${errMessage}`);
+        throw new Error(errMessage);
     }
 
     if (typeof window !== 'undefined') {
@@ -1050,6 +1120,15 @@ export const getTeamStats = async (team: Team, league: AgeGroup, season: string)
     const aggStats = new Map<string, PlayerStats>();
     
     teamMatches.forEach(m => {
+        // ASYMMETRICAL STATS EXCLUSION:
+        // Completely exclude the individual and team statistics of the forfeiting team from being counted toward season totals.
+        // The compliant opponent's stats remain fully intact!
+        const isForfeit = !!(m.isForfeit || m.is_forfeit);
+        const forfeitingId = m.forfeitingTeamId || m.forfeiting_team_id;
+        if (isForfeit && forfeitingId === team.id) {
+            return;
+        }
+
         const home = allTeams.find(t => t.id === m.homeTeamId);
         const away = allTeams.find(t => t.id === m.awayTeamId);
         if(home && away) {
@@ -1095,6 +1174,14 @@ export const verifyPassword = async (password: string): Promise<{success: boolea
         });
         const data = await res.json().catch(() => ({}));
         if (res.ok && data.success && data.role) {
+            if (typeof window !== 'undefined') {
+                try {
+                    if (data.token) {
+                        sessionStorage.setItem('dugout_auth_token', data.token);
+                        localStorage.setItem('dugout_auth_token', data.token);
+                    }
+                } catch (e) {}
+            }
             return { success: true, role: data.role };
         }
         if (data.error && !res.ok && res.status !== 500) {
@@ -1149,6 +1236,40 @@ export const updateUmpirePassword = async (password: string) => {
         const err = await res.json().catch(() => ({}));
         throw new Error(err.error || 'Failed to update umpire password');
     }
+};
+
+export const logout = async (): Promise<void> => {
+    if (typeof window !== 'undefined') {
+        try {
+            sessionStorage.removeItem('dugout_auth_token');
+            localStorage.removeItem('dugout_auth_token');
+            localStorage.removeItem('userRole');
+        } catch (e) {}
+    }
+    try {
+        await apiFetch('/api/settings', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'logout' })
+        });
+    } catch (e) {}
+};
+
+export const checkAuthSession = async (): Promise<{ authenticated: boolean; role?: 'admin' | 'umpire' }> => {
+    try {
+        const res = await apiFetch('/api/settings', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'check_auth' })
+        });
+        if (res.ok) {
+            const data = await res.json();
+            if (data.authenticated && data.role) {
+                return { authenticated: true, role: data.role };
+            }
+        }
+    } catch (e) {}
+    return { authenticated: false };
 };
 
 export const getCurrentSeason = async (): Promise<string> => {
@@ -1357,6 +1478,15 @@ export const getPlayerCareerStats = async (playerIdentifier: string): Promise<Pl
     }
 
     if (!playedSide) return;
+
+    // Asymmetrical Stats Exclusion:
+    // If match was a forfeit, completely exclude stats for players on the forfeiting team from career leaderboards.
+    // Opponent player stats remain fully intact!
+    const isForfeit = !!(match.isForfeit || match.is_forfeit);
+    const forfeitingId = match.forfeitingTeamId || match.forfeiting_team_id;
+    if (isForfeit && playedTeamId === forfeitingId) {
+      return;
+    }
 
     const season = match.season || String(new Date(match.date || Date.now()).getFullYear());
     const leagueId = match.league || 'Standard';

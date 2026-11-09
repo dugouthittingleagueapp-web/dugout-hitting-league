@@ -13,10 +13,13 @@
     "test:watch": "vitest",
     "seed:schedule": "tsx scripts/seed-schedule.ts",
     "fix:crushers": "tsx scripts/fix-crushers-team-name.ts",
-    "fix:stats": "tsx scripts/fix-last-night-stats.ts"
+    "fix:stats": "tsx scripts/fix-last-night-stats.ts",
+    "db:migrate": "tsx scripts/db-migrate.ts"
   },
   "dependencies": {
     "@google/genai": "^2.30.0",
+    "@types/bcryptjs": "^2.4.6",
+    "bcryptjs": "^3.0.3",
     "pg": "^8.11.3",
     "react": "^19.2.0",
     "react-dom": "^19.2.0"

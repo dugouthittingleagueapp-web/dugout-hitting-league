@@ -70,6 +70,14 @@ export interface Match {
   notes?: string;
   isPractice?: boolean;
   is_practice: boolean;
+  isForfeit?: boolean;
+  is_forfeit?: boolean;
+  forfeitingTeamId?: string | null;
+  forfeiting_team_id?: string | null;
+  winningTeamId?: string | null;
+  winning_team_id?: string | null;
+  forfeitReason?: string;
+  forfeit_reason?: string;
 }
 
 export interface ScheduledGameRecord {

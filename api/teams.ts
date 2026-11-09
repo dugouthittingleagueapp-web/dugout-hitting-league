@@ -1,29 +1,9 @@
-
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import pool from './db.js';
+import { requireRole } from './auth.js';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   try {
-    // 1. Ensure table exists with season and subs columns
-    await pool.query(`
-      CREATE TABLE IF NOT EXISTS teams (
-        id TEXT PRIMARY KEY,
-        name TEXT NOT NULL,
-        league TEXT NOT NULL,
-        players JSONB NOT NULL,
-        subs JSONB DEFAULT '[]',
-        season TEXT NOT NULL DEFAULT TO_CHAR(CURRENT_DATE, 'YYYY'),
-        created_at TIMESTAMPTZ DEFAULT NOW()
-      )
-    `);
-    
-    // 2. Safe independent migrations for existing tables
-    try {
-      await pool.query(`ALTER TABLE teams ALTER COLUMN id TYPE TEXT`);
-    } catch (e) {}
-    await pool.query(`ALTER TABLE teams ADD COLUMN IF NOT EXISTS season TEXT NOT NULL DEFAULT TO_CHAR(CURRENT_DATE, 'YYYY')`);
-    await pool.query(`ALTER TABLE teams ADD COLUMN IF NOT EXISTS subs JSONB DEFAULT '[]'`);
-
     if (req.method === 'GET') {
       const { league, season } = req.query;
       let query = 'SELECT * FROM teams';
@@ -49,11 +29,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         query += conditions.join(' AND');
       }
 
+      query += ' ORDER BY name ASC';
       const { rows } = await pool.query(query, params);
       return res.status(200).json(rows);
     } 
     else if (req.method === 'POST') {
-      const { id, name, league, players, subs, season } = req.body;
+      const role = requireRole(req, res, ['admin']);
+      if (!role) return;
+
+      const { id, name, league, players, subs, season } = req.body || {};
       if (!name || !league || !players) return res.status(400).json({ error: 'Missing fields' });
 
       let teamSeason = season;
@@ -66,15 +50,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       if (!teamSeason) teamSeason = new Date().getFullYear().toString();
 
       const teamSubs = subs || [];
+      const teamId = id || `team-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
 
       const query = `INSERT INTO teams (id, name, league, players, subs, season) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`;
-      const values = [id, name, league, JSON.stringify(players), JSON.stringify(teamSubs), teamSeason];
+      const values = [teamId, name, league, JSON.stringify(players), JSON.stringify(teamSubs), teamSeason];
       
       const { rows } = await pool.query(query, values);
       return res.status(201).json(rows[0]);
     }
     else if (req.method === 'PUT') {
-      const { id, name, players, subs } = req.body;
+      const role = requireRole(req, res, ['admin']);
+      if (!role) return;
+
+      const { id, name, players, subs } = req.body || {};
       if (!id || !name || !players) return res.status(400).json({ error: 'Missing fields' });
       
       const query = `UPDATE teams SET name = $2, players = $3, subs = $4 WHERE id = $1 RETURNING *`;
@@ -86,7 +74,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(200).json(rows[0]);
     }
     else if (req.method === 'PATCH') {
-      const { action, teamIds, targetLeague } = req.body;
+      const role = requireRole(req, res, ['admin']);
+      if (!role) return;
+
+      const { action, teamIds, targetLeague } = req.body || {};
 
       if (action === 'move_teams') {
         if (!teamIds || !Array.isArray(teamIds) || teamIds.length === 0 || !targetLeague) {
@@ -94,7 +85,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         }
 
         // 1. Update Teams
-        // We use Postgres ANY() for array checking
         const updateTeamsQuery = `
             UPDATE teams 
             SET league = $1 
@@ -103,9 +93,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         await pool.query(updateTeamsQuery, [targetLeague, teamIds]);
 
         // 2. Update Matches
-        // If a team moves, their games should move with them to preserve stats for that league.
-        // We update any match where EITHER the home or away team is in the moved list.
-        // This ensures partial moves (if user does one team at a time) still carry stats.
         const updateMatchesQuery = `
             UPDATE matches
             SET league = $1
@@ -119,14 +106,29 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(400).json({ error: 'Invalid action' });
     }
     else if (req.method === 'DELETE') {
+      const role = requireRole(req, res, ['admin']);
+      if (!role) return;
+
       const { id } = req.query;
-      if (!id) return res.status(400).json({ error: 'Missing ID' });
+      if (!id || typeof id !== 'string') return res.status(400).json({ error: 'Missing ID' });
+
+      // Preserve official league matches: do not allow deleting team with official matches
+      const officialMatches = await pool.query(
+        'SELECT id FROM matches WHERE (home_team_id = $1 OR away_team_id = $1) AND (is_practice IS FALSE OR is_practice IS NULL) LIMIT 1',
+        [id]
+      );
+      if (officialMatches.rows.length > 0) {
+        return res.status(403).json({
+          error: 'Forbidden: Cannot delete team with official league matches. Reassign or archive the team instead.'
+        });
+      }
+
       await pool.query('DELETE FROM teams WHERE id = $1', [id]);
       return res.status(200).json({ success: true });
     }
     return res.status(405).json({ error: 'Method not allowed' });
   } catch (error: any) {
-    console.error(error);
+    console.error("[API] Teams Error:", error);
     return res.status(500).json({ error: error.message });
   }
 }

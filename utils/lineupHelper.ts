@@ -1,224 +1,251 @@
-import { describe, it, expect } from 'vitest';
-import { 
-  applyLineupToMatch, 
-  moveBatterUp, 
-  moveBatterDown, 
-  formatFullPlayerName,
-  getMatchStatus,
-  swapHomeAndAway,
-  findCurrentOrUpcomingWeekId
-} from '../../utils/lineupHelper';
-import { Match, Inning } from '../../types';
+import { Match, Inning, PlayerInningScore, MatchStatus } from '../types';
 
-describe('lineupHelper', () => {
-  const createMockMatch = (homePids: string[], awayPids: string[]): Match => {
-    const innings: Inning[] = [];
-    for (let i = 1; i <= 6; i++) {
-      innings.push({
-        number: i,
-        home: {
-          teamId: 'home',
-          playerScores: homePids.map(id => ({
-            playerId: id,
-            pitches: Array(10).fill(null).map(() => ({ points: null }))
-          }))
-        },
-        away: {
-          teamId: 'away',
-          playerScores: awayPids.map(id => ({
-            playerId: id,
-            pitches: Array(10).fill(null).map(() => ({ points: null }))
-          }))
+/**
+ * Re-orders and applies new home and away batting orders to all innings of a match.
+ * Preserves any already recorded pitches for existing players while ensuring:
+ * - The playerScores array reflects the exact batting order (index 0 = Batter 1, index 1 = Batter 2, index 2 = Batter 3)
+ * - Pitch counts conform to league standards (10 pitches each for 3v3 or 2v2, 15 pitches for the short side in 3v2/2v3 Ghost Mode)
+ */
+export const applyLineupToMatch = (
+  match: Match,
+  newHomePlayerIds: string[],
+  newAwayPlayerIds: string[],
+  options?: { startFromInningIdx?: number }
+): Match => {
+  const homeCount = newHomePlayerIds.length;
+  const awayCount = newAwayPlayerIds.length;
+
+  let homePitchCount = 10;
+  let awayPitchCount = 10;
+
+  if (homeCount === 2 && awayCount === 3) {
+    homePitchCount = 15; // Ghost Mode for Home
+  } else if (awayCount === 2 && homeCount === 3) {
+    awayPitchCount = 15; // Ghost Mode for Away
+  }
+
+  const startIdx = options?.startFromInningIdx ?? 0;
+
+  const syncTeamPlayerScores = (
+    existingScores: PlayerInningScore[] | undefined,
+    playerIds: string[],
+    targetPitchCount: number
+  ): PlayerInningScore[] => {
+    return playerIds.map(pid => {
+      const found = existingScores?.find(p => p.playerId === pid);
+      if (found) {
+        const curLen = found.pitches?.length || 0;
+        if (curLen === targetPitchCount) {
+          return { playerId: pid, pitches: [...found.pitches] };
         }
-      });
+        if (curLen < targetPitchCount) {
+          const extra = Array(targetPitchCount - curLen)
+            .fill(null)
+            .map(() => ({ points: null }));
+          return {
+            playerId: pid,
+            pitches: [...(found.pitches || []), ...extra],
+          };
+        }
+        return {
+          playerId: pid,
+          pitches: found.pitches.slice(0, targetPitchCount),
+        };
+      }
+
+      return {
+        playerId: pid,
+        pitches: Array(targetPitchCount)
+          .fill(null)
+          .map(() => ({ points: null })),
+      };
+    });
+  };
+
+  // Newly scheduled games may not have any innings until scoring starts.
+  // Still persist the selected lineup by creating the first empty inning now;
+  // otherwise Save Lineup silently writes an empty innings array and the modal
+  // falls back to the roster's default order the next time it opens.
+  const sourceInnings: Inning[] = match.innings?.length
+    ? match.innings
+    : Array.from({ length: 6 }, (_, idx) => ({
+        number: idx + 1,
+        home: { teamId: 'home', playerScores: [] },
+        away: { teamId: 'away', playerScores: [] },
+      }));
+
+  const updatedInnings: Inning[] = sourceInnings.map((inning, idx) => {
+    if (idx < startIdx) {
+      return inning;
     }
 
     return {
-      id: 'match-1',
-      league: '9U 3v3',
-      season: '2026',
-      homeTeamId: 'home-team',
-      awayTeamId: 'away-team',
-      date: '2026-11-02T19:00:00.000Z',
-      isComplete: false,
-      is_practice: false,
-      innings
+      ...inning,
+      home: {
+        teamId: 'home',
+        playerScores: syncTeamPlayerScores(
+          inning.home?.playerScores,
+          newHomePlayerIds,
+          homePitchCount
+        ),
+      },
+      away: {
+        teamId: 'away',
+        playerScores: syncTeamPlayerScores(
+          inning.away?.playerScores,
+          newAwayPlayerIds,
+          awayPitchCount
+        ),
+      },
     };
+  });
+
+  return {
+    ...match,
+    innings: updatedInnings,
   };
+};
 
-  describe('moveBatterUp and moveBatterDown', () => {
-    it('moves batter up in batting order correctly', () => {
-      const initial = ['p1', 'p2', 'p3'];
-      const moved = moveBatterUp(initial, 2); // move p3 up to slot 1
-      expect(moved).toEqual(['p1', 'p3', 'p2']);
+/**
+ * Moves a batter up (earlier) in the batting order.
+ */
+export const moveBatterUp = (playerIds: string[], index: number): string[] => {
+  if (index <= 0 || index >= playerIds.length) return [...playerIds];
+  const copy = [...playerIds];
+  const temp = copy[index - 1];
+  copy[index - 1] = copy[index];
+  copy[index] = temp;
+  return copy;
+};
 
-      const movedToFirst = moveBatterUp(moved, 1); // move p3 up to slot 0
-      expect(movedToFirst).toEqual(['p3', 'p1', 'p2']);
+/**
+ * Moves a batter down (later) in the batting order.
+ */
+export const moveBatterDown = (playerIds: string[], index: number): string[] => {
+  if (index < 0 || index >= playerIds.length - 1) return [...playerIds];
+  const copy = [...playerIds];
+  const temp = copy[index + 1];
+  copy[index + 1] = copy[index];
+  copy[index] = temp;
+  return copy;
+};
 
-      // Boundaries
-      expect(moveBatterUp(initial, 0)).toEqual(['p1', 'p2', 'p3']);
-    });
+/**
+ * Formats a player's full name, guaranteeing that both first name and last name
+ * are shown in full without abbreviation, truncation, or duplicate surnames.
+ */
+export const formatFullPlayerName = (p?: { name?: string; lastName?: string }): string => {
+  if (!p) return 'Unknown Player';
+  const first = (p.name || '').trim();
+  const last = (p.lastName || '').trim();
+  if (!last) return first || 'Unknown Player';
+  if (!first) return last;
+  if (first.toLowerCase().endsWith(last.toLowerCase())) {
+    return first;
+  }
+  return `${first} ${last}`;
+};
 
-    it('moves batter down in batting order correctly', () => {
-      const initial = ['p1', 'p2', 'p3'];
-      const moved = moveBatterDown(initial, 0); // move p1 down to slot 1
-      expect(moved).toEqual(['p2', 'p1', 'p3']);
+/**
+ * Returns the effective lifecycle status of a match:
+ * - 'FINAL': match is complete
+ * - 'IN_PROGRESS': actively being scored by an umpire (LIVE)
+ * - 'SCHEDULED': upcoming scheduled match that has not started
+ */
+export const getMatchStatus = (match: Match): MatchStatus => {
+  if (match.isComplete || match.status === 'FINAL') return 'FINAL';
+  if (match.status === 'IN_PROGRESS') return 'IN_PROGRESS';
+  if (match.status === 'SCHEDULED') return 'SCHEDULED';
 
-      // Boundaries
-      expect(moveBatterDown(initial, 2)).toEqual(['p1', 'p2', 'p3']);
-    });
-  });
+  // Fallback for legacy records: check if any pitches have been recorded
+  const hasRecordedPitches = (match.innings || []).some(ing =>
+    ing.home?.playerScores?.some(p => p.pitches?.some(pt => pt?.points !== null && pt?.points !== undefined)) ||
+    ing.away?.playerScores?.some(p => p.pitches?.some(pt => pt?.points !== null && pt?.points !== undefined))
+  );
 
-  describe('applyLineupToMatch', () => {
-    it('updates batting order across all 6 innings', () => {
-      const match = createMockMatch(['h1', 'h2', 'h3'], ['a1', 'a2', 'a3']);
-      const reorderedHome = ['h3', 'h1', 'h2'];
-      const reorderedAway = ['a2', 'a3', 'a1'];
+  return hasRecordedPitches ? 'IN_PROGRESS' : 'SCHEDULED';
+};
 
-      const updated = applyLineupToMatch(match, reorderedHome, reorderedAway);
+/**
+ * Swaps Home and Away designations on a match record.
+ * Updates homeTeamId/awayTeamId, swaps the batting sides in each inning,
+ * and swaps tieBreaker assignments if present.
+ */
+export const swapHomeAndAway = (match: Match): Match => {
+  const newHomeTeamId = match.awayTeamId;
+  const newAwayTeamId = match.homeTeamId;
 
-      expect(updated.innings).toHaveLength(6);
-      updated.innings.forEach(inning => {
-        expect(inning.home.playerScores.map(p => p.playerId)).toEqual(['h3', 'h1', 'h2']);
-        expect(inning.away.playerScores.map(p => p.playerId)).toEqual(['a2', 'a3', 'a1']);
-        expect(inning.home.playerScores[0].pitches).toHaveLength(10);
-        expect(inning.away.playerScores[0].pitches).toHaveLength(10);
-      });
-    });
+  const swappedInnings: Inning[] = (match.innings || []).map(inning => ({
+    ...inning,
+    home: {
+      teamId: 'home',
+      playerScores: (inning.away?.playerScores || []).map(ps => ({
+        playerId: ps.playerId,
+        pitches: [...(ps.pitches || [])]
+      }))
+    },
+    away: {
+      teamId: 'away',
+      playerScores: (inning.home?.playerScores || []).map(ps => ({
+        playerId: ps.playerId,
+        pitches: [...(ps.pitches || [])]
+      }))
+    }
+  }));
 
-    it('persists a selected lineup when a scheduled match has no innings yet', () => {
-      const match = createMockMatch([], []);
-      match.innings = [];
+  const swappedTieBreaker = match.tieBreaker?.map(tb => ({
+    roundNumber: tb.roundNumber,
+    pitchLimit: tb.pitchLimit,
+    homePlayerId: tb.awayPlayerId,
+    awayPlayerId: tb.homePlayerId,
+    homeScores: [...tb.awayScores],
+    awayScores: [...tb.homeScores]
+  }));
 
-      const updated = applyLineupToMatch(match, ['h3', 'h1', 'h2'], ['a2', 'a3', 'a1']);
+  return {
+    ...match,
+    homeTeamId: newHomeTeamId,
+    awayTeamId: newAwayTeamId,
+    innings: swappedInnings,
+    tieBreaker: swappedTieBreaker
+  };
+};
 
-      expect(updated.innings).toHaveLength(6);
-      expect(updated.innings[0].number).toBe(1);
-      expect(updated.innings[0].home.playerScores.map(p => p.playerId)).toEqual(['h3', 'h1', 'h2']);
-      expect(updated.innings[0].away.playerScores.map(p => p.playerId)).toEqual(['a2', 'a3', 'a1']);
-      expect(updated.innings[0].home.playerScores[0].pitches).toHaveLength(10);
-      expect(updated.innings[0].away.playerScores[0].pitches).toHaveLength(10);
-    });
+/**
+ * Auto-advances schedule view to the current or closest upcoming week based on the system date.
+ */
+export const findCurrentOrUpcomingWeekId = (
+  weeks: { id: string; label: string; matches: Match[] }[],
+  currentDateStr: string = new Date().toISOString()
+): string => {
+  if (!weeks || weeks.length === 0) return '';
 
-    it('preserves existing scores while reordering batters', () => {
-      const match = createMockMatch(['h1', 'h2', 'h3'], ['a1', 'a2', 'a3']);
-      // Give h3 some points in inning 1
-      match.innings[0].home.playerScores[2].pitches[0].points = 4;
-      match.innings[0].home.playerScores[2].pitches[1].points = 2;
+  const d = new Date(currentDateStr);
+  d.setHours(0, 0, 0, 0);
+  d.setDate(d.getDate() + 4 - (d.getDay() || 7));
+  const yearStart = new Date(d.getFullYear(), 0, 1);
+  const weekNo = Math.ceil((((d.getTime() - yearStart.getTime()) / 86400000) + 1) / 7);
+  const currentWeekKey = `${d.getFullYear()}-W${String(weekNo).padStart(2, '0')}`;
 
-      // Swap h3 into Batter 1 (lead-off)
-      const updated = applyLineupToMatch(match, ['h3', 'h1', 'h2'], ['a1', 'a2', 'a3']);
+  // 1. Active in-progress week takes first precedence (games currently being scored)
+  const liveWeek = weeks.find(w => w.matches.some(m => getMatchStatus(m) === 'IN_PROGRESS'));
+  if (liveWeek) return liveWeek.id;
 
-      // h3 is now in index 0
-      expect(updated.innings[0].home.playerScores[0].playerId).toBe('h3');
-      expect(updated.innings[0].home.playerScores[0].pitches[0].points).toBe(4);
-      expect(updated.innings[0].home.playerScores[0].pitches[1].points).toBe(2);
-    });
+  // 2. Exact match for current system calendar week
+  const exact = weeks.find(w => w.id === currentWeekKey);
+  if (exact) return exact.id;
 
-    it('handles 2-player Ghost Mode pitch allocations (15 pitches for 2 players vs 3)', () => {
-      const match = createMockMatch(['h1', 'h2', 'h3'], ['a1', 'a2', 'a3']);
-      // Away team has 2 players, Home team has 3
-      const updated = applyLineupToMatch(match, ['h1', 'h2', 'h3'], ['a1', 'a2']);
+  // 3. Earliest upcoming week with scheduled games
+  const todayDay = currentDateStr.substring(0, 10);
+  const upcomingWeek = weeks.find(w =>
+    w.matches.some(m => !m.isComplete && m.date && m.date.substring(0, 10) >= todayDay)
+  );
+  if (upcomingWeek) return upcomingWeek.id;
 
-      updated.innings.forEach(inning => {
-        expect(inning.away.playerScores).toHaveLength(2);
-        expect(inning.away.playerScores[0].pitches).toHaveLength(15);
-        expect(inning.away.playerScores[1].pitches).toHaveLength(15);
+  // 4. Chronological fallback
+  const futureWeek = weeks.find(w => w.id > currentWeekKey);
+  if (futureWeek) return futureWeek.id;
 
-        expect(inning.home.playerScores).toHaveLength(3);
-        expect(inning.home.playerScores[0].pitches).toHaveLength(10);
-      });
-    });
-  });
-
-  describe('formatFullPlayerName', () => {
-    it('formats first and last name in full', () => {
-      expect(formatFullPlayerName({ name: 'Charlie', lastName: 'Washington' })).toBe('Charlie Washington');
-    });
-
-    it('handles player with no last name', () => {
-      expect(formatFullPlayerName({ name: 'Babe' })).toBe('Babe');
-    });
-
-    it('avoids duplicating if name already includes last name', () => {
-      expect(formatFullPlayerName({ name: 'Derek Jeter', lastName: 'Jeter' })).toBe('Derek Jeter');
-    });
-
-    it('handles undefined or empty names safely', () => {
-      expect(formatFullPlayerName(undefined)).toBe('Unknown Player');
-      expect(formatFullPlayerName({ name: '' })).toBe('Unknown Player');
-    });
-  });
-
-  describe('getMatchStatus', () => {
-    it('returns FINAL if match is marked complete', () => {
-      const match = createMockMatch(['h1', 'h2', 'h3'], ['a1', 'a2', 'a3']);
-      match.isComplete = true;
-      expect(getMatchStatus(match)).toBe('FINAL');
-    });
-
-    it('returns IN_PROGRESS if status is set to IN_PROGRESS', () => {
-      const match = createMockMatch(['h1', 'h2', 'h3'], ['a1', 'a2', 'a3']);
-      match.status = 'IN_PROGRESS';
-      expect(getMatchStatus(match)).toBe('IN_PROGRESS');
-    });
-
-    it('returns SCHEDULED if status is set to SCHEDULED', () => {
-      const match = createMockMatch(['h1', 'h2', 'h3'], ['a1', 'a2', 'a3']);
-      match.status = 'SCHEDULED';
-      expect(getMatchStatus(match)).toBe('SCHEDULED');
-    });
-
-    it('detects legacy unstarted vs started match when status is not present', () => {
-      const match = createMockMatch(['h1', 'h2', 'h3'], ['a1', 'a2', 'a3']);
-      // No status, no pitches
-      expect(getMatchStatus(match)).toBe('SCHEDULED');
-
-      // Record 1 pitch
-      match.innings[0].home.playerScores[0].pitches[0].points = 3;
-      expect(getMatchStatus(match)).toBe('IN_PROGRESS');
-    });
-  });
-
-  describe('swapHomeAndAway', () => {
-    it('swaps home and away team IDs and inning player scores', () => {
-      const match = createMockMatch(['h1', 'h2', 'h3'], ['a1', 'a2', 'a3']);
-      match.homeTeamId = 'team-red';
-      match.awayTeamId = 'team-blue';
-
-      const swapped = swapHomeAndAway(match);
-
-      expect(swapped.homeTeamId).toBe('team-blue');
-      expect(swapped.awayTeamId).toBe('team-red');
-
-      // First inning checks
-      expect(swapped.innings[0].home.playerScores.map(p => p.playerId)).toEqual(['a1', 'a2', 'a3']);
-      expect(swapped.innings[0].away.playerScores.map(p => p.playerId)).toEqual(['h1', 'h2', 'h3']);
-    });
-  });
-
-  describe('findCurrentOrUpcomingWeekId', () => {
-    it('selects active week if a match is IN_PROGRESS', () => {
-      const activeMatch = createMockMatch(['h1'], ['a1']);
-      activeMatch.status = 'IN_PROGRESS';
-
-      const weeks = [
-        { id: '2026-W40', label: 'Week 1', matches: [createMockMatch(['h1'], ['a1'])] },
-        { id: '2026-W41', label: 'Week 2', matches: [activeMatch] }
-      ];
-
-      expect(findCurrentOrUpcomingWeekId(weeks, '2026-10-01T00:00:00Z')).toBe('2026-W41');
-    });
-
-    it('returns current week if matches today', () => {
-      const weeks = [
-        { id: '2026-W45', label: 'Week 1', matches: [createMockMatch(['h1'], ['a1'])] },
-        { id: '2026-W46', label: 'Week 2', matches: [createMockMatch(['h1'], ['a1'])] }
-      ];
-      // 2026-11-03 is in 2026-W45
-      expect(findCurrentOrUpcomingWeekId(weeks, '2026-11-03T12:00:00Z')).toBe('2026-W45');
-    });
-  });
-});
-
+  return weeks[weeks.length - 1].id;
+};
 

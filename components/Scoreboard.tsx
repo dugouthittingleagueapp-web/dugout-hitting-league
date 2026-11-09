@@ -600,7 +600,39 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
     const isTwoPlayerGhostMode = inningData.playerScores.length === 2 && inningData.playerScores[0].pitches.length >= 15;
     const canEdit = !isReadOnly && (!match.isComplete || userRole === 'admin');
 
-    const findPlayer = (id: string) => [...team.players, ...(team.subs || [])].find(p => p.id === id);
+    // Resolve lineup entries against both teams and tolerate legacy records that
+    // stored a player name (or a differently typed ID) instead of the roster ID.
+    // The match's batting side remains unchanged; this is only player identity lookup.
+    const findPlayer = (id: string) => {
+        const allPlayers = [
+            ...(team.players || []),
+            ...(team.subs || []),
+            ...(teams.home?.players || []),
+            ...(teams.home?.subs || []),
+            ...(teams.away?.players || []),
+            ...(teams.away?.subs || [])
+        ];
+        const key = String(id ?? '').trim();
+        if (!key) return undefined;
+
+        const byExactId = allPlayers.find(p => String(p.id ?? '').trim() === key);
+        if (byExactId) return byExactId;
+
+        const normalizedKey = key.toLocaleLowerCase();
+        const byNormalizedId = allPlayers.find(
+            p => String(p.id ?? '').trim().toLocaleLowerCase() === normalizedKey
+        );
+        if (byNormalizedId) return byNormalizedId;
+
+        // Older lineup records may contain the display name rather than player.id.
+        return allPlayers.find(p => {
+            const first = String(p.name || '').trim();
+            const last = String(p.lastName || '').trim();
+            const full = `${first} ${last}`.trim();
+            return [first, full, `${first} ${last ? `${last.charAt(0)}.` : ''}`.trim()]
+                .some(name => name && name.toLocaleLowerCase() === normalizedKey);
+        });
+    };
 
     const renderRow = (playerScore: any, lineupIdx: number, player: any, pitchStartIndex: number, pitchEndIndex: number, isGhostRow = false) => {
          const visiblePitches = playerScore.pitches.slice(pitchStartIndex, pitchEndIndex);

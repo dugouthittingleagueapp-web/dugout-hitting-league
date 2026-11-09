@@ -86,6 +86,20 @@ describe('lineupHelper', () => {
       });
     });
 
+    it('persists a selected lineup when a scheduled match has no innings yet', () => {
+      const match = createMockMatch([], []);
+      match.innings = [];
+
+      const updated = applyLineupToMatch(match, ['h3', 'h1', 'h2'], ['a2', 'a3', 'a1']);
+
+      expect(updated.innings).toHaveLength(6);
+      expect(updated.innings[0].number).toBe(1);
+      expect(updated.innings[0].home.playerScores.map(p => p.playerId)).toEqual(['h3', 'h1', 'h2']);
+      expect(updated.innings[0].away.playerScores.map(p => p.playerId)).toEqual(['a2', 'a3', 'a1']);
+      expect(updated.innings[0].home.playerScores[0].pitches).toHaveLength(10);
+      expect(updated.innings[0].away.playerScores[0].pitches).toHaveLength(10);
+    });
+
     it('preserves existing scores while reordering batters', () => {
       const match = createMockMatch(['h1', 'h2', 'h3'], ['a1', 'a2', 'a3']);
       // Give h3 some points in inning 1

@@ -54,3 +54,26 @@ export const applyPitchChange = (match: Match, c: PitchChange): Match => {
     } : v)
   };
 };
+
+/** Read the exact current server cell and batter for explicit conflict review. */
+export const readPitchCell = (match: Match, c: PitchChange): {
+  exists: boolean; playerId: string | null; points: number | null
+} => {
+  if (match.id !== c.matchId) return { exists: false, playerId: null, points: null };
+  if (c.kind === 'regulation') {
+    const player = match.innings[c.inningIdx]?.[c.side]?.playerScores[c.batterIdx];
+    const pitch = player?.pitches[c.pitchIdx];
+    if (!player || !pitch || (pitch.points !== null && !isIndex(pitch.points, 4))) {
+      return { exists: false, playerId: player?.playerId || null, points: null };
+    }
+    return { exists: true, playerId: player.playerId, points: pitch.points };
+  }
+  const round = match.tieBreaker?.[c.roundIdx];
+  const scores = round?.[c.side === 'home' ? 'homeScores' : 'awayScores'];
+  const playerId = round?.[c.side === 'home' ? 'homePlayerId' : 'awayPlayerId'] || null;
+  const points = scores?.[c.pitchIdx];
+  if (!round || points === undefined || (points !== null && !isIndex(points, 4))) {
+    return { exists: false, playerId, points: null };
+  }
+  return { exists: true, playerId, points };
+};

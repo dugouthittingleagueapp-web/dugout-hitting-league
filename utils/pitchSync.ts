@@ -7,6 +7,7 @@ export interface PitchEdit {
   side: PitchSide;
   pitchIdx: number;
   playerId: string;
+  lineupIdx?: number;
   points: number | null;
   expectedPoints: number | null;
   /** Regulation pitch is addressed by inning; tie-breaker by round. */
@@ -26,6 +27,7 @@ export const validatePitchEdit = (edit: PitchEdit): string | null => {
   const isRegulation = Number.isInteger(edit.inningIdx) && edit.roundIdx === undefined && edit.inningIdx! >= 0 && edit.inningIdx! < 6;
   const isTie = Number.isInteger(edit.roundIdx) && edit.inningIdx === undefined && edit.roundIdx! >= 0 && edit.roundIdx! < 50;
   if (!isRegulation && !isTie) return 'Specify one valid inning or tie-breaker round.';
+  if (isRegulation && (!Number.isInteger(edit.lineupIdx) || edit.lineupIdx! < 0 || edit.lineupIdx! > 2)) return 'Invalid batter position.';
   return null;
 };
 

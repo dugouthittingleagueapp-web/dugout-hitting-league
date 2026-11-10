@@ -866,7 +866,7 @@ export const calculateTeamGameTotal = (side: 'home' | 'away', matchData?: Match 
     return baseScore + tieScore;
 };
 
-export const updateMatch = async (match: Match): Promise<Match> => {
+export const updateMatch = async (match: Match, options?: { requireServerSave?: boolean }): Promise<Match> => {
     // Immediate local persistence on every input/score/substitution
     if (typeof window !== 'undefined') {
         try {
@@ -890,9 +890,14 @@ export const updateMatch = async (match: Match): Promise<Match> => {
             const data = await res.json();
             return mapMatchFromDB(data);
         } else {
+            if (options?.requireServerSave) {
+                const details = await res.json().catch(() => ({}));
+                throw new Error(details.error || `Failed to save match (HTTP ${res.status})`);
+            }
             enqueuePendingMatchSync(match);
         }
     } catch (err) {
+        if (options?.requireServerSave) throw err;
         console.warn('Network sync failed (phone offline/disconnected), match saved in local storage and queued for background sync', err);
         enqueuePendingMatchSync(match);
     }

@@ -15,7 +15,7 @@ function cleanMatchId(id: any): { rawId: string; strippedId: string; isPracticeP
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   try {
     if (req.method === 'GET') {
-      const { league, id, season, excludePractice } = req.query;
+      const { league, id, season, excludePractice, revisions } = req.query;
       if (id) {
         const { rawId, strippedId } = cleanMatchId(id);
         const { rows } = await pool.query(
@@ -35,7 +35,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         return res.status(200).json(row);
       }
 
-      let query = 'SELECT * FROM matches';
+      // Lightweight change detection for dashboard polling. Returning only IDs and
+      // fingerprints avoids sending entire inning/pitch JSON to clients every 30s.
+      // Hash the complete stored row so edits to scores, metadata, or forfeits all
+      // invalidate the revision. This is read-only and changes no scoring data.
+      let query = revisions === 'true'
+        ? "SELECT m.id::text AS id, m.is_practice, md5(row_to_json(m)::text) AS revision FROM matches m"
+        : 'SELECT * FROM matches';
       const params: any[] = [];
       let paramCount = 1;
       
@@ -67,6 +73,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       
       query += ' ORDER BY date ASC, start_time ASC, id ASC';
       const { rows } = await pool.query(query, params);
+      if (revisions === 'true') {
+        return res.status(200).json(rows.map(row => ({
+          id: row.is_practice && !String(row.id).startsWith('practice-')
+            ? `practice-${row.id}`
+            : String(row.id),
+          revision: row.revision
+        })));
+      }
       const mappedRows = rows.map(row => {
         if (row.innings && typeof row.innings === 'string') row.innings = JSON.parse(row.innings);
         if (row.tie_breaker && typeof row.tie_breaker === 'string') row.tieBreaker = JSON.parse(row.tie_breaker);

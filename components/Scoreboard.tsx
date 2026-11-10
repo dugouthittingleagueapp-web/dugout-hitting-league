@@ -7,6 +7,7 @@ import { applyLineupToMatch, getUnsafeLineupChangeReason, formatFullPlayerName, 
 import { isPlaceholderPlayerName } from '../utils/statsEditorHelper.js';
 import { detectForfeit, getUnknownLineupIds } from '../services/matchHelpers';
 import { explainSaveError } from '../utils/friendlyErrors';
+import { setPitchScore, setTieBreakerPitchScore } from '../utils/scorePatches';
 
 interface ScoreboardProps {
   matchId: string;
@@ -255,14 +256,6 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
       };
   }, [matchId, isReadOnly]);
 
-  useEffect(() => {
-      const handleOnline = () => {
-          storage.syncOfflineData();
-      };
-      window.addEventListener('online', handleOnline);
-      return () => window.removeEventListener('online', handleOnline);
-  }, []);
-
   const calculateTeamInningTotal = (side: 'home' | 'away', inning?: Inning) => {
     if (!inning) return 0;
     const teamData = side === 'home' ? inning.home : inning.away;
@@ -356,12 +349,10 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
       if (!match) return;
       const prevPitchIdx = currentPitchIdx - 1;
       if (prevPitchIdx < 0) return;
-      const newMatch: Match = JSON.parse(JSON.stringify(match));
-      if (roundIdx !== undefined && newMatch.tieBreaker) {
-          const round = newMatch.tieBreaker[roundIdx];
-          if (round) {
-              if (side === 'home') round.homeScores[prevPitchIdx] = null;
-              else round.awayScores[prevPitchIdx] = null;
+      let newMatch: Match = match;
+      if (roundIdx !== undefined && match.tieBreaker) {
+          newMatch = setTieBreakerPitchScore(match, roundIdx, side, prevPitchIdx, null);
+          if (newMatch !== match) {
               setActiveCell({ side, lineupIdx: 0, pitchIdx: prevPitchIdx, roundIdx });
           }
       } else {
@@ -369,7 +360,7 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
           if (inning) {
               const teamData = side === 'home' ? inning.home : inning.away;
               if (teamData?.playerScores?.[lineupIdx]?.pitches?.[prevPitchIdx]) {
-                  teamData.playerScores[lineupIdx].pitches[prevPitchIdx].points = null;
+                  newMatch = setPitchScore(match, activeInningIdx, side, lineupIdx, prevPitchIdx, null);
                   setActiveCell({ side, lineupIdx, pitchIdx: prevPitchIdx });
               }
           }
@@ -392,13 +383,10 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
     if (!teamData?.playerScores?.[lineupIdx]?.pitches?.[pitchIdx]) return;
     const existingValue = teamData.playerScores[lineupIdx].pitches[pitchIdx].points;
     const isEdit = existingValue !== null;
-    const newMatch: Match = JSON.parse(JSON.stringify(match));
-    const curInning = newMatch.innings[targetInningIdx];
-    const curTeamData = side === 'home' ? curInning.home : curInning.away;
-    curTeamData.playerScores[lineupIdx].pitches[pitchIdx].points = val;
-    if (!newMatch.isComplete) {
-      newMatch.status = 'IN_PROGRESS';
-    }
+    // Update only the scored batter. Deep-cloning every inning and pitch
+    // during a tap blocked the browser from painting scoring feedback.
+    const newMatch = setPitchScore(match, targetInningIdx, side, lineupIdx, pitchIdx, val);
+    if (newMatch === match) return;
     setMatch(newMatch); 
     
     // Automated Completion Flow Check
@@ -485,17 +473,15 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
   };
 
   const handleTieBreakerScore = async (roundIdx: number, side: 'home'|'away', pitchIdx: number, val: number) => {
-      if(!match?.tieBreaker) return;
-      const newMatch: Match = JSON.parse(JSON.stringify(match));
-      const cur = newMatch.tieBreaker?.[roundIdx];
+      if (isReadOnly || !match?.tieBreaker) return;
+      const cur = match.tieBreaker[roundIdx];
       if (!cur) return;
-      const limit = cur.pitchLimit;
       const existing = side === 'home' ? cur.homeScores[pitchIdx] : cur.awayScores[pitchIdx];
+      if (existing === undefined) return;
       const isEdit = existing !== null;
-      if (side === 'home') cur.homeScores[pitchIdx] = val; else cur.awayScores[pitchIdx] = val;
-      if (!newMatch.isComplete) {
-        newMatch.status = 'IN_PROGRESS';
-      }
+      const limit = cur.pitchLimit;
+      const newMatch = setTieBreakerPitchScore(match, roundIdx, side, pitchIdx, val);
+      if (newMatch === match) return;
       setMatch(newMatch);
       
       // Auto-Completion for tie breakers

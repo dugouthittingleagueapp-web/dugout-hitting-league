@@ -13,6 +13,7 @@ import { PracticeSetupModal } from './components/PracticeSetupModal';
 import { MatchStatsEditorModal } from './components/MatchStatsEditorModal';
 import * as storage from './services/storageService';
 import { getMatchStatus, findCurrentOrUpcomingWeekId } from './utils/lineupHelper';
+import { useDashboardMatchSync } from './hooks/useDashboardMatchSync';
 import { detectForfeit, isForfeitMatch, getForfeitingTeamId } from './services/matchHelpers';
 
 const INACTIVITY_LIMIT = 3 * 60 * 60 * 1000; // 3 hours
@@ -284,11 +285,10 @@ const App: React.FC = () => {
   }, []);
 
   // Initial Load & View Change
+  // The storage service owns the reconnect listener; the app only kicks off
+  // one initial queue flush to prevent multiple duplicate synchronization runs.
   useEffect(() => {
-    storage.syncOfflineData();
-    const handleOnline = () => storage.syncOfflineData();
-    window.addEventListener('online', handleOnline);
-    return () => window.removeEventListener('online', handleOnline);
+    void storage.syncOfflineData();
   }, []);
 
   useEffect(() => {
@@ -297,31 +297,14 @@ const App: React.FC = () => {
     }
   }, [state.currentLeague, state.view, state.season, refreshDashboard]);
 
-  // Reduce unnecessary database egress when viewing the dashboard.
-  useEffect(() => {
-    if (state.view !== 'dashboard' || !state.currentLeague || lineupModalMatch) return;
-    let inFlight = false;
-    let ticks = 0;
-    const poll = async () => {
-        if (document.visibilityState === 'hidden' || inFlight) return;
-        inFlight = true;
-        try {
-            ticks++;
-            await refreshDashboard(state.currentLeague!, state.season, true, ticks % 10 === 0);
-        } finally {
-            inFlight = false;
-        }
-    };
-    const interval = setInterval(() => { void poll(); }, 30000);
-    const onVisibility = () => {
-        if (document.visibilityState === 'visible') void poll();
-    };
-    document.addEventListener('visibilitychange', onVisibility);
-    return () => {
-        clearInterval(interval);
-        document.removeEventListener('visibilitychange', onVisibility);
-    };
-  }, [state.view, state.currentLeague, state.season, refreshDashboard, lineupModalMatch]);
+  useDashboardMatchSync({
+    active: state.view === 'dashboard' && !lineupModalMatch,
+    league: state.currentLeague,
+    season: state.season,
+    refreshDashboard,
+    setMatches,
+    setTeams
+  });
 
   // Active Match Recovery Detection (Prompt to resume if device refreshed or returned)
   useEffect(() => {

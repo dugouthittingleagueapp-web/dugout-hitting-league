@@ -43,7 +43,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // Never trust client indexes or old score values. The row lock protects
     // the read/compare/write cycle against another umpire's concurrent edit.
     const result = await client.query(
-      `SELECT id, is_complete, md5(COALESCE(innings::text, '') || '|' || COALESCE(tie_breaker::text, '')) AS server_revision,
+      `SELECT id, is_complete, md5(row_to_json(matches)::text) AS server_revision,
               ${column}::jsonb #>> $3::text[] AS current_points,
               ${column}::jsonb #>> $4::text[] AS current_player,
               jsonb_typeof(${column}::jsonb #> $3::text[]) AS existing_kind
@@ -82,7 +82,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       `UPDATE matches
        SET ${column} = jsonb_set(${column}::jsonb, $2::text[], COALESCE(to_jsonb($3::integer), 'null'::jsonb), false),
            status = CASE WHEN is_complete THEN status ELSE 'IN_PROGRESS' END
-       WHERE id = $1 RETURNING id, md5(COALESCE(innings::text, '') || '|' || COALESCE(tie_breaker::text, '')) AS server_revision`,
+       WHERE id = $1 RETURNING id, md5(row_to_json(matches)::text) AS server_revision`,
       [row.id, valuePath, edit.points]
     );
     if (!saved.rowCount) throw new Error('Match disappeared during pitch save');

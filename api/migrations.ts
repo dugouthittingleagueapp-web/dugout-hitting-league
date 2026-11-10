@@ -154,6 +154,19 @@ export const migrations: Migration[] = [
       await client.query(`ALTER TABLE matches ADD COLUMN IF NOT EXISTS forfeit_reason TEXT;`);
       await client.query(`CREATE INDEX IF NOT EXISTS idx_matches_forfeit ON matches (is_forfeit);`);
     }
+  },
+  {
+    version: 5,
+    name: '005_exclusive_scoring_locks',
+    up: async (client) => {
+      await client.query(`
+        CREATE TABLE IF NOT EXISTS scoring_locks (
+          match_id TEXT PRIMARY KEY,
+          token_hash TEXT NOT NULL,
+          updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        );
+      `);
+    }
   }
 ];
 

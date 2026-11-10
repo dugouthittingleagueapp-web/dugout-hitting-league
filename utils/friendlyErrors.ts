@@ -16,6 +16,9 @@ export const explainSaveError = (
     match: 'game changes'
   }[action];
 
+  if (/quota exceeded|storage full|localstorage|securityerror|not enough space/i.test(raw)) {
+    return 'Your device could not safely store this score. Check available storage or browser permissions, then retry. Do not assume this pitch was saved.';
+  }
   if (/cannot remove a batter|changing the pitch allocation|recorded pitches/i.test(message)) {
     return `Your ${task} was not saved because it would erase pitches already recorded. Keep the scored batter in this inning, or make the substitution in the next inning before scoring begins. Your existing scores are safe.`;
   }

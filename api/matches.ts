@@ -19,7 +19,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       if (id) {
         const { rawId, strippedId } = cleanMatchId(id);
         const { rows } = await pool.query(
-          'SELECT *, md5(COALESCE(innings::text, '') || '|' || COALESCE(tie_breaker::text, '')) AS server_revision FROM matches WHERE id::text = $1 OR id::text = $2 LIMIT 1',
+          `SELECT *, md5(COALESCE(innings::text, '') || '|' || COALESCE(tie_breaker::text, '')) AS server_revision FROM matches WHERE id::text = $1 OR id::text = $2 LIMIT 1`,
           [rawId, strippedId]
         );
         if (rows.length === 0) return res.status(404).json({ error: 'Not found' });

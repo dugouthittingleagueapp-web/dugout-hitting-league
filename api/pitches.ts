@@ -80,7 +80,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     const saved = await client.query(
       `UPDATE matches
-       SET ${column} = jsonb_set(${column}::jsonb, $2::text[], to_jsonb($3::integer), false),
+       SET ${column} = jsonb_set(${column}::jsonb, $2::text[], COALESCE(to_jsonb($3::integer), 'null'::jsonb), false),
            status = CASE WHEN is_complete THEN status ELSE 'IN_PROGRESS' END
        WHERE id = $1 RETURNING id, md5(COALESCE(innings::text, '') || '|' || COALESCE(tie_breaker::text, '')) AS server_revision`,
       [row.id, valuePath, edit.points]

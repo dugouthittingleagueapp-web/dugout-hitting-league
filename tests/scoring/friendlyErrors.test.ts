@@ -34,6 +34,7 @@ describe('Plain-English game save errors', () => {
   it('never exposes unknown technical internals', () => {
     const text = explainSaveError(new Error('postgres column secret_token cannot parse value abc'), 'stats');
     expect(text).not.toContain('secret_token');
-    expect(text).toContain('Neon');
+    expect(text).toContain('game server');
+    expect(text).not.toContain('Neon');
   });
 });

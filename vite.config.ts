@@ -2,6 +2,8 @@ import { defineConfig, Plugin } from 'vite';
 import react from '@vitejs/plugin-react';
 import fs from 'node:fs';
 import path from 'node:path';
+import { createHash } from 'node:crypto';
+import { parsePitchChange, applyPitchChange } from './utils/pitchSync';
 import { migrateCrushersInDbData } from './utils/crushersMigration';
 import { signSessionToken, getAuthFromRequest, setSessionCookie, clearSessionCookie, comparePassword, hashPassword } from './api/auth';
 
@@ -276,6 +278,7 @@ function devApiPlugin(): Plugin {
                 players: team.players || [],
                 subs: team.subs || [],
                 created_at: new Date().toISOString(),
+                row_version: '1',
               };
               db.teams.push(newTeam);
               saveDb(db);
@@ -313,6 +316,49 @@ function devApiPlugin(): Plugin {
             }
           }
 
+          // Atomic scoring endpoint mirrors Vercel's single-pitch CAS behavior.
+          if (pathname === '/api/pitch') {
+            if (method !== 'PATCH') return sendJson(res, 405, { error: 'Only pitch updates are supported.' });
+            const auth = getAuthFromRequest(req);
+            if (!auth.authenticated || !['admin', 'umpire'].includes(auth.role || '')) {
+              return sendJson(res, 403, { error: 'Sign in as an umpire or admin to save scores.' });
+            }
+            const change = parsePitchChange(await readBody(req));
+            if (!change) return sendJson(res, 400, { error: 'Invalid pitch or score.' });
+            const stripped = change.matchId.startsWith('practice-') ? change.matchId.slice(9) : change.matchId;
+            const idx = db.matches.findIndex((m: any) => m.id === change.matchId || (m.id === stripped && m.is_practice));
+            if (idx < 0) return sendJson(res, 404, { error: 'Game not found.' });
+            const original = db.matches[idx];
+            if ((original.is_complete || original.isComplete) && auth.role !== 'admin') {
+              return sendJson(res, 403, { error: 'The game is final. Ask an admin to reopen it.' });
+            }
+            const model = {
+              ...original,
+              id: change.matchId,
+              tieBreaker: original.tieBreaker || original.tie_breaker || []
+            };
+            const current = change.kind === 'regulation'
+              ? model.innings?.[change.inningIdx]?.[change.side]?.playerScores?.[change.batterIdx]?.pitches?.[change.pitchIdx]?.points
+              : model.tieBreaker?.[change.roundIdx]?.[change.side === 'home' ? 'homeScores' : 'awayScores']?.[change.pitchIdx];
+            const recordedId = change.kind === 'regulation'
+              ? model.innings?.[change.inningIdx]?.[change.side]?.playerScores?.[change.batterIdx]?.playerId
+              : model.tieBreaker?.[change.roundIdx]?.[change.side === 'home' ? 'homePlayerId' : 'awayPlayerId'];
+            if (current === undefined || current !== change.expectedPoints || recordedId !== change.playerId) {
+              return sendJson(res, 409, { error: 'Another umpire changed this pitch or lineup. Your local score was not overwritten. Compare scores before retrying.' });
+            }
+            const updated = applyPitchChange(model, change);
+            const rowVersion = String(Number(original.row_version || 1) + 1);
+            db.matches[idx] = {
+              ...original,
+              innings: updated.innings,
+              tie_breaker: updated.tieBreaker || original.tie_breaker,
+              status: (original.is_complete || original.isComplete) ? original.status : 'IN_PROGRESS',
+              row_version: rowVersion
+            };
+            saveDb(db);
+            return sendJson(res, 200, { saved: true, rowVersion });
+          }
+
           // 4. Matches Endpoint
           if (pathname === '/api/matches') {
             const activeSeason = db.settings.current_season || String(new Date().getFullYear());
@@ -320,7 +366,7 @@ function devApiPlugin(): Plugin {
               if (query.id) {
                 const match = (db.matches || []).find((m: any) => m.id === query.id);
                 if (!match) return sendJson(res, 404, { error: 'Match not found' });
-                return sendJson(res, 200, match);
+                return sendJson(res, 200, { ...match, row_version: String(match.row_version || 1) });
               }
               let matches = db.matches || [];
               if (query.league) {
@@ -333,7 +379,15 @@ function devApiPlugin(): Plugin {
               if (query.excludePractice === 'true') {
                 matches = matches.filter((m: any) => !m.is_practice && !m.isPractice);
               }
-              return sendJson(res, 200, matches);
+              if (query.revisions === 'true') {
+                return sendJson(res, 200, matches.map((m: any) => ({
+                  id: m.is_practice && !String(m.id).startsWith('practice-') ? `practice-${m.id}` : m.id,
+                  revision: createHash('sha256').update(JSON.stringify(m)).digest('hex')
+                })));
+              }
+              return sendJson(res, 200, matches.map((m: any) => ({
+                ...m, row_version: String(m.row_version || 1)
+              })));
             }
             if (method === 'POST') {
               const match = await readBody(req);
@@ -367,6 +421,13 @@ function devApiPlugin(): Plugin {
               const match = await readBody(req);
               const idx = db.matches.findIndex((m: any) => m.id === match.id);
               if (idx !== -1) {
+                const currentVersion = String(db.matches[idx].row_version || 1);
+                if (typeof match.rowVersion !== 'string' || !/^[0-9]+$/.test(match.rowVersion)) {
+                  return sendJson(res, 428, { error: 'Reopen this game to get the latest scores before saving.' });
+                }
+                if (match.rowVersion !== currentVersion) {
+                  return sendJson(res, 409, { error: 'Another umpire updated this game. Nothing was overwritten. Refresh to review the scores.' });
+                }
                 db.matches[idx] = {
                   ...db.matches[idx],
                   ...match,
@@ -384,6 +445,7 @@ function devApiPlugin(): Plugin {
                   forfeiting_team_id: (match.forfeitingTeamId !== undefined || match.forfeiting_team_id !== undefined) ? (match.forfeitingTeamId || match.forfeiting_team_id) : db.matches[idx].forfeiting_team_id,
                   winning_team_id: (match.winningTeamId !== undefined || match.winning_team_id !== undefined) ? (match.winningTeamId || match.winning_team_id) : db.matches[idx].winning_team_id,
                   forfeit_reason: (match.forfeitReason !== undefined || match.forfeit_reason !== undefined) ? (match.forfeitReason || match.forfeit_reason) : db.matches[idx].forfeit_reason,
+                  row_version: String(Number(currentVersion) + 1),
                 };
                 saveDb(db);
                 return sendJson(res, 200, db.matches[idx]);

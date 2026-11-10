@@ -1,9 +1,7 @@
 import type { Match } from '../types';
 import { applyPitchChange, type PitchChange } from '../utils/pitchSync';
 
-export interface PendingPitch extends PitchChange {
-  operationId: string;
-}
+export type PendingPitch = PitchChange & { operationId: string };
 
 const PENDING_KEY = 'dugout_pending_pitch_changes_v1';
 const PROTECTED_KEY = 'dugout_pitch_patch_protected_v1';

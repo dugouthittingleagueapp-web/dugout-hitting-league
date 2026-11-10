@@ -37,6 +37,9 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
   const [confirmTieExit, setConfirmTieExit] = useState(false);
   const [loading, setLoading] = useState(true);
   const [savingRoster, setSavingRoster] = useState(false);
+  const [pendingPitchCount, setPendingPitchCount] = useState(0);
+  const [pitchSyncNotice, setPitchSyncNotice] = useState('');
+
   
   const [activeCell, setActiveCell] = useState<{ side: 'home' | 'away'; lineupIdx: number; pitchIdx: number; roundIdx?: number } | null>(null);
   const [showResetConfirmModal, setShowResetConfirmModal] = useState(false);
@@ -49,6 +52,23 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
   // Roster Editing State
   const [rosterSide, setRosterSide] = useState<'home' | 'away' | null>(null);
   const [newSubNameInput, setNewSubNameInput] = useState('');
+
+  useEffect(() => {
+    if (isReadOnly) return;
+    const refresh = () => setPendingPitchCount(storage.getPendingPitchCount(matchId));
+    const conflict = (event: Event) => {
+      const detail = (event as CustomEvent<{message: string}>).detail;
+      setPitchSyncNotice(detail?.message || 'A saved pitch needs review before syncing.');
+      refresh();
+    };
+    refresh();
+    window.addEventListener('dugout:pitch-sync-status', refresh);
+    window.addEventListener('dugout:pitch-sync-conflict', conflict);
+    return () => {
+      window.removeEventListener('dugout:pitch-sync-status', refresh);
+      window.removeEventListener('dugout:pitch-sync-conflict', conflict);
+    };
+  }, [matchId, isReadOnly]);
 
   const activeInningRef = useRef(activeInningIdx);
   const lastLiveInningRef = useRef<number>(-1);
@@ -826,6 +846,18 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
 
   return (
     <div className="min-h-full w-full overflow-x-hidden pb-20 font-sans">
+      {!isReadOnly && (pendingPitchCount !== 0 || pitchSyncNotice) && (
+        <div className="bg-amber-100 border-b-2 border-amber-500 text-amber-950 px-3 py-2 text-sm flex flex-wrap gap-2 items-center justify-center">
+          <strong>
+            {pendingPitchCount > 0 ? `${pendingPitchCount} pitch${pendingPitchCount === 1 ? '' : 'es'} saved on this device, not yet confirmed in the league database.` :
+              'A scoring synchronization issue needs review.'}
+          </strong>
+          <span>{pitchSyncNotice || 'You may continue scoring offline. Do not finalize or change the lineup until synchronization finishes.'}</span>
+          <button type="button" className="underline font-bold px-2 py-1"
+            onClick={() => { void storage.syncOfflineData(); }}>Retry sync</button>
+          <span className="text-xs">If this persists, ask an administrator to compare the scores before reloading.</span>
+        </div>
+      )}
       {/* Official Forfeit Sticky Banner */}
       {(match.isForfeit || match.is_forfeit) && (() => {
         const forfeitingId = match.forfeitingTeamId || match.forfeiting_team_id;

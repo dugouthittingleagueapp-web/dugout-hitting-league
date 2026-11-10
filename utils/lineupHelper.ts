@@ -1,6 +1,37 @@
 import { Match, Inning, PlayerInningScore, MatchStatus } from '../types';
 
 /**
+ * Protect recorded points from being deleted when changing lineups midgame.
+ * Only the selected inning and later innings are affected; earlier innings
+ * remain intact. The UI must display this reason instead of saving.
+ */
+export const getUnsafeLineupChangeReason = (
+  match: Match, newHomeIds: string[], newAwayIds: string[], startInningIdx = 0
+): string | null => {
+  const homeTarget = newHomeIds.length === 2 && newAwayIds.length === 3 ? 15 : 10;
+  const awayTarget = newAwayIds.length === 2 && newHomeIds.length === 3 ? 15 : 10;
+  for (let i = startInningIdx; i < (match.innings || []).length; i++) {
+    const inning = match.innings[i];
+    for (const [side, ids, pitchCount] of [
+      ['home', newHomeIds, homeTarget],
+      ['away', newAwayIds, awayTarget]
+    ] as const) {
+      for (const player of inning[side]?.playerScores || []) {
+        const hasPoints = (player.pitches || []).some(p => p?.points !== null && p?.points !== undefined);
+        if (!ids.includes(player.playerId) && hasPoints) {
+          return `Inning ${inning.number}: cannot remove a batter who already has recorded pitches. Change the lineup in the next unscored inning, or keep this batter.`;
+        }
+        if (ids.includes(player.playerId) &&
+            (player.pitches || []).slice(pitchCount).some(p => p?.points !== null && p?.points !== undefined)) {
+          return `Inning ${inning.number}: changing the pitch allocation would remove recorded pitches. Keep the current lineup for this inning.`;
+        }
+      }
+    }
+  }
+  return null;
+};
+
+/**
  * Re-orders and applies new home and away batting orders to all innings of a match.
  * Preserves any already recorded pitches for existing players while ensuring:
  * - The playerScores array reflects the exact batting order (index 0 = Batter 1, index 1 = Batter 2, index 2 = Batter 3)
@@ -12,6 +43,11 @@ export const applyLineupToMatch = (
   newAwayPlayerIds: string[],
   options?: { startFromInningIdx?: number }
 ): Match => {
+  const unsafeReason = getUnsafeLineupChangeReason(
+    match, newHomePlayerIds, newAwayPlayerIds, options?.startFromInningIdx ?? 0
+  );
+  if (unsafeReason) throw new Error(unsafeReason);
+
   const homeCount = newHomePlayerIds.length;
   const awayCount = newAwayPlayerIds.length;
 

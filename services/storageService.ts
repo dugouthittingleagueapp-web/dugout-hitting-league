@@ -4,6 +4,7 @@ import { ARCHIVE_2025_LEAGUES, ARCHIVE_2025_TEAMS, ARCHIVE_2025_MATCHES } from '
 import { parseScheduleCsv, isDuplicateMatch } from '../utils/scheduleImporter';
 import { sortMatchesChronologically } from '../utils/matchSort';
 import { detectForfeit, isForfeitMatch, getForfeitingTeamId } from './matchHelpers';
+import { coalesceInFlightGet } from '../utils/requestCoalescer';
 
 export { sortMatchesChronologically };
 
@@ -96,6 +97,12 @@ const apiFetch = async (url: string, init?: RequestInit): Promise<Response> => {
     credentials: init?.credentials || 'same-origin',
   };
 
+  // Include credentials in the key to prevent sharing authenticated responses
+  // across different users when a login switches during an in-flight request.
+  if ((!init?.method || init.method.toUpperCase() === 'GET') && !init?.body && !init?.signal) {
+    const key = `${fullUrl}|auth:${headers.get('Authorization') || ''}|credentials:${enhancedInit.credentials}`;
+    return coalesceInFlightGet(key, () => fetch(fullUrl, enhancedInit));
+  }
   return fetch(fullUrl, enhancedInit);
 };
 
@@ -202,7 +209,24 @@ export const enqueuePendingTeamSync = (team: Team) => {
   } catch (e) {}
 };
 
-export const syncOfflineData = async () => {
+let inFlightOfflineSync: Promise<void> | null = null;
+
+/**
+ * Avoid overlapping reconnect sync passes that could resend the same queued
+ * roster or game to Neon. All listeners share this one in-flight operation.
+ */
+export const syncOfflineData = (): Promise<void> => {
+  if (!inFlightOfflineSync) {
+    const running = performOfflineSync();
+    const settled = running.finally(() => {
+      if (inFlightOfflineSync === settled) inFlightOfflineSync = null;
+    });
+    inFlightOfflineSync = settled;
+  }
+  return inFlightOfflineSync;
+};
+
+const performOfflineSync = async (): Promise<void> => {
   if (typeof window === 'undefined') return;
   if (typeof navigator !== 'undefined' && !navigator.onLine) return;
 
@@ -476,6 +500,32 @@ export const moveTeams = async (teamIds: string[], targetLeague: string): Promis
 
 export const deleteTeam = async (teamId: string) => {
   await apiFetch(`/api/teams?id=${teamId}`, { method: 'DELETE' });
+};
+
+// Dashboard polls only small revision records. Errors are never treated as
+// empty schedules; this prevents network outages from erasing the match list.
+export interface MatchRevision {
+  id: string;
+  revision: string;
+}
+
+export const getMatchRevisions = async (league: AgeGroup, season: string): Promise<MatchRevision[]> => {
+  const url = `/api/matches?league=${encodeURIComponent(league)}&season=${encodeURIComponent(season)}&revisions=true`;
+  const res = await apiFetch(url);
+  if (!res.ok) throw new Error(`Could not check the latest match updates (HTTP ${res.status})`);
+  const rows: unknown = await res.json();
+  if (!Array.isArray(rows) || !rows.every(row => row && typeof row.id === 'string' && typeof row.revision === 'string')) {
+    throw new Error('Invalid match update response; keeping the current scores.');
+  }
+  return rows as MatchRevision[];
+};
+
+// Unlike getMatch, this live-refresh read must not fall back to a potentially
+// outdated local match. An error leaves the existing dashboard unchanged.
+export const getMatchFromServer = async (id: string): Promise<Match> => {
+  const res = await apiFetch(`/api/matches?id=${encodeURIComponent(id)}`);
+  if (!res.ok) throw new Error(`Match details could not be refreshed (HTTP ${res.status})`);
+  return mapMatchFromDB(await res.json());
 };
 
 // Match Methods

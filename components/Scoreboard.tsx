@@ -106,11 +106,19 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
   };
 
   const handleSaveAndExit = async () => {
-      if (match) {
-          await storage.updateMatch(match);
+      if (!match) return;
+      // Do not close the game until we know every score is accounted for.
+      if (storage.getPendingPitchCount(match.id) !== 0) {
+          alert('Some scores are still saving. Please keep this page open until they finish, then try leaving again.');
+          return;
       }
-      setShowExitMenuModal(false);
-      onExit({ savedPractice: false });
+      try {
+          await storage.updateMatch(match, { requireServerSave: true });
+          setShowExitMenuModal(false);
+          onExit({ savedPractice: false });
+      } catch (error) {
+          alert(explainSaveError(error, 'match'));
+      }
   };
 
   const handleExitAndFinalize = async (forceTie: boolean = false) => {

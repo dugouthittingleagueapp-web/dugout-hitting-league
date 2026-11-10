@@ -167,6 +167,13 @@ export const migrations: Migration[] = [
         );
       `);
     }
+  },
+  {
+    version: 6,
+    name: '006_match_revisions',
+    up: async (client) => {
+      await client.query(`ALTER TABLE matches ADD COLUMN IF NOT EXISTS revision BIGINT NOT NULL DEFAULT 0;`);
+    }
   }
 ];
 

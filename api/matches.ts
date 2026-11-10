@@ -228,7 +228,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
       const queryUpdate = `
         UPDATE matches 
-        SET is_complete = COALESCE($3, is_complete), 
+        SET revision = revision + 1,
+            is_complete = COALESCE($3, is_complete), 
             innings = COALESCE($4, innings), 
             tie_breaker = $5, 
             league = COALESCE($6, league),
@@ -319,7 +320,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             error: 'Please reopen this game before entering more scores.'
           });
         }
-        const result = await client.query(queryUpdate.replace('UPDATE matches', 'UPDATE matches').replace('SET is_complete =', 'SET revision = revision + 1, is_complete ='), values);
+        const result = await client.query(queryUpdate, values);
         row = result.rows[0];
         if (row?.is_complete) {
           await client.query('DELETE FROM scoring_locks WHERE match_id = $1', [String(row.id)]);

@@ -129,12 +129,15 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
       return `${p.name}${p.lastName ? ' ' + p.lastName.charAt(0) + '.' : ''}`;
   };
 
-  const loadMatchData = async () => {
+  const spectatorTeamsRef = useRef<{ home?: Team; away?: Team }>({});
+  const loadMatchData = async (refreshTeams = true) => {
       const m = await storage.getMatch(matchId);
       if (m) {
-        const allTeams = await storage.getAllTeams();
-        let home = allTeams.find(t => t.id === m.homeTeamId);
-        let away = allTeams.find(t => t.id === m.awayTeamId);
+        const cached = spectatorTeamsRef.current;
+        const needTeams = refreshTeams || cached.home?.id !== m.homeTeamId || cached.away?.id !== m.awayTeamId;
+        const allTeams = needTeams ? await storage.getAllTeams() : [];
+        let home = needTeams ? allTeams.find(t => t.id === m.homeTeamId) : cached.home;
+        let away = needTeams ? allTeams.find(t => t.id === m.awayTeamId) : cached.away;
 
         // Offline team resolution fallback from localStorage
         if (!home && typeof window !== 'undefined') {
@@ -159,7 +162,8 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
         }
 
         setMatch(m);
-        setTeams({ home, away });
+        spectatorTeamsRef.current = { home, away };
+        if (needTeams) setTeams({ home, away });
         
         if (home && !tbHomePlayerId && home.players.length > 0) setTbHomePlayerId(home.players[0].id);
         if (away && !tbAwayPlayerId && away.players.length > 0) setTbAwayPlayerId(away.players[0].id);
@@ -220,8 +224,29 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
 
   useEffect(() => {
       if (!isReadOnly) return;
-      const interval = setInterval(() => { loadMatchData(); }, 5000);
-      return () => clearInterval(interval);
+      let inFlight = false;
+      let ticks = 0;
+      const poll = async () => {
+          if (document.visibilityState === 'hidden' || inFlight) return;
+          inFlight = true;
+          try {
+              ticks++;
+              await loadMatchData(ticks % 6 === 0);
+          } finally {
+              inFlight = false;
+          }
+      };
+      // Spectator score updates remain live at ten seconds, with team rosters
+      // refreshed once per minute rather than on every score refresh.
+      const interval = setInterval(() => { void poll(); }, 10000);
+      const onVisibility = () => {
+          if (document.visibilityState === 'visible') void poll();
+      };
+      document.addEventListener('visibilitychange', onVisibility);
+      return () => {
+          clearInterval(interval);
+          document.removeEventListener('visibilitychange', onVisibility);
+      };
   }, [matchId, isReadOnly]);
 
   useEffect(() => {

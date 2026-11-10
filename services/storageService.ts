@@ -930,10 +930,13 @@ export const updateMatch = (match: Match, options?: { requireServerSave?: boolea
 };
 
 const performMatchUpdate = async (match: Match, options?: { requireServerSave?: boolean }): Promise<Match> => {
+    // Serialize once for both offline recovery and the server. A pitch update
+    // previously stringified the entire match twice on the same save path.
+    const serializedMatch = JSON.stringify(match);
     // Only optimistic-cache offline pitch updates; explicit confirmed saves must wait for Neon.
     if (!options?.requireServerSave && typeof window !== 'undefined') {
         try {
-            localStorage.setItem(`dugout_match_${match.id}`, JSON.stringify(match));
+            localStorage.setItem(`dugout_match_${match.id}`, serializedMatch);
             if (!match.isComplete && match.status === 'IN_PROGRESS') {
                 localStorage.setItem('dugout_active_match_id', match.id);
             } else if (match.isComplete) {
@@ -946,7 +949,7 @@ const performMatchUpdate = async (match: Match, options?: { requireServerSave?: 
         const res = await apiFetch('/api/matches', {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(match)
+            body: serializedMatch
         });
         if (res.ok) {
             dequeuePendingMatchSync(match.id);

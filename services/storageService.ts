@@ -173,6 +173,34 @@ export const deleteLeague = async (id: string, season?: string) => {
 // Offline Sync Queue Keys
 const PENDING_MATCHES_KEY = 'dugout_pending_sync_matches';
 const PENDING_TEAMS_KEY = 'dugout_pending_sync_teams';
+const scoringTokenKey = (id: string) => `dugout_scoring_token_${id}`;
+export const getScoringToken = (id: string): string | null => {
+  try { return sessionStorage.getItem(scoringTokenKey(id)); } catch { return null; }
+};
+const matchWriteHeaders = (id: string): HeadersInit => {
+  const token = getScoringToken(id);
+  return token ? { 'Content-Type': 'application/json', 'X-Scoring-Token': token } : { 'Content-Type': 'application/json' };
+};
+export const requestScoringLock = async (id: string, action: 'acquire' | 'takeover' | 'release' | 'status' = 'acquire'): Promise<{ owned: boolean; locked: boolean }> => {
+  let token = getScoringToken(id);
+  if (!token) {
+    token = generateUUID();
+    sessionStorage.setItem(scoringTokenKey(id), token);
+  }
+  const response = await apiFetch('/api/scoring-lock', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ matchId: id, token, action })
+  });
+  if (!response.ok) {
+    const body = await response.json().catch(() => ({}));
+    throw new Error(body.error || 'Unable to open scoring. Please try again.');
+  }
+  const result = await response.json();
+  if (action === 'release' && result.released) sessionStorage.removeItem(scoringTokenKey(id));
+  return result;
+};
+
 
 export const enqueuePendingMatchSync = (match: Match) => {
   if (typeof window === 'undefined') return;
@@ -268,7 +296,7 @@ const performOfflineSync = async (): Promise<void> => {
         try {
           const res = await apiFetch('/api/matches', {
             method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
+            headers: matchWriteHeaders(match.id),
             body: JSON.stringify(match)
           });
           if (res.ok) {
@@ -919,7 +947,7 @@ const performMatchUpdate = async (match: Match, options?: { requireServerSave?: 
     try {
         const res = await apiFetch('/api/matches', {
             method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
+            headers: matchWriteHeaders(match.id),
             body: JSON.stringify(match)
         });
         if (res.ok) {
@@ -935,14 +963,18 @@ const performMatchUpdate = async (match: Match, options?: { requireServerSave?: 
             }
             return saved;
         } else {
+            const details = await res.json().catch(() => ({}));
+            if (res.status === 423 || res.status === 401 || res.status === 403 || res.status === 409) {
+                // Never queue an unauthorized or stale score for automatic replay.
+                throw new Error(details.error || 'This device cannot score this game.');
+            }
             if (options?.requireServerSave) {
-                const details = await res.json().catch(() => ({}));
                 throw new Error(details.error || `Failed to save match (HTTP ${res.status})`);
             }
             enqueuePendingMatchSync(match);
         }
     } catch (err) {
-        if (options?.requireServerSave) throw err;
+        if (options?.requireServerSave || (err instanceof Error && /another umpire|scoring is not ready|cannot score|not permitted|sign in/i.test(err.message))) throw err;
         console.warn('Network sync failed (phone offline/disconnected), match saved in local storage and queued for background sync', err);
         enqueuePendingMatchSync(match);
     }

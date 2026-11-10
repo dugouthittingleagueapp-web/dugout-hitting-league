@@ -14,6 +14,7 @@ import { MatchStatsEditorModal } from './components/MatchStatsEditorModal';
 import * as storage from './services/storageService';
 import { getMatchStatus, findCurrentOrUpcomingWeekId } from './utils/lineupHelper';
 import { useDashboardMatchSync } from './hooks/useDashboardMatchSync';
+import { explainSaveError } from './utils/friendlyErrors';
 import { detectForfeit, isForfeitMatch, getForfeitingTeamId } from './services/matchHelpers';
 
 const INACTIVITY_LIMIT = 3 * 60 * 60 * 1000; // 3 hours
@@ -533,7 +534,7 @@ const App: React.FC = () => {
               const diff = Date.now() - parseInt(lastActivity, 10);
               if (diff > INACTIVITY_LIMIT) {
                   handleLogout();
-                  alert("Session expired due to inactivity.");
+                  alert("You have been signed out because the app was not used for a while. Just sign in again when you’re ready.");
               }
           }
       };
@@ -604,7 +605,7 @@ const App: React.FC = () => {
         
         setSelectedHomeId(''); setSelectedAwayId(''); setLoading(false);
         setState({ ...state, view: 'scoring', currentMatchId: newMatch.id });
-    } catch (e) { alert("Error starting match: " + e); setLoading(false); }
+    } catch (e) { alert('This game could not start yet. ' + explainSaveError(e, 'match')); setLoading(false); }
   };
 
   const handleStartPractice = async (practiceMatch: Match) => {
@@ -636,7 +637,7 @@ const App: React.FC = () => {
     });
 
     if (target && !target.isPractice && !target.is_practice) {
-        alert("Protected Game: Official league matches cannot be deleted. Only practice sessions can be removed.");
+        alert("You can only delete practice games here. League games stay on the schedule.");
         return;
     }
 
@@ -660,7 +661,7 @@ const App: React.FC = () => {
         if (state.currentLeague) await refreshDashboard(state.currentLeague, state.season, true);
     } catch (e: any) {
         setLoading(false);
-        alert(e?.message || "Failed to delete match");
+        alert('That practice game could not be removed right now. Please ask the person running the league for help.');
     }
   };
 
@@ -679,7 +680,7 @@ const App: React.FC = () => {
             if (state.currentLeague) await refreshDashboard(state.currentLeague, state.season);
         }
     } catch (e) {
-        alert("Failed to move match.");
+        alert('That game could not be moved right now. Please try again, or ask the person running the league for help.');
     } finally {
         setLoading(false);
     }
@@ -755,7 +756,7 @@ const App: React.FC = () => {
       }
     } catch (err: any) {
       setLoading(false);
-      setLoginError(err?.message || 'Login verification failed. Please check connection and try again.');
+      setLoginError('Sign-in did not work this time. Please check your connection and try again.');
     }
   };
 

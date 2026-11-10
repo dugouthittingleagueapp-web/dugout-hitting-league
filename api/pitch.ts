@@ -34,6 +34,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       SET ${column} = jsonb_set(${column}, $3::text[], COALESCE(to_jsonb($4::integer), 'null'::jsonb), false),
           status = CASE WHEN is_complete THEN status ELSE 'IN_PROGRESS' END
       WHERE (id::text = $1 OR id::text = $2)
+        AND ($1::text NOT LIKE 'practice-%' OR is_practice IS TRUE)
         AND (is_complete IS NOT TRUE OR $8::boolean)
         AND (${column} #> $3::text[]) IS NOT NULL
         AND (${column} #>> $3::text[]) IS NOT DISTINCT FROM $5::text

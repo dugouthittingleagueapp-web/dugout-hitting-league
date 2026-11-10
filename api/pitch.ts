@@ -40,7 +40,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         ${change.kind === 'regulation'
           ? "AND (innings #>> $6::text[]) = $7::text"
           : "AND (tie_breaker #>> $6::text[]) = $7::text"}
-      RETURNING id
+      RETURNING id, xmin::text AS row_version
     `;
     const identityPath = change.kind === 'regulation'
       ? [String(change.inningIdx), change.side, 'playerScores', String(change.batterIdx), 'playerId']
@@ -49,7 +49,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       matchId, stripped, path, points, expectedPoints === null ? null : String(expectedPoints),
       identityPath, change.playerId, role === 'admin'
     ]);
-    if (result.rowCount) return res.status(200).json({ saved: true });
+    if (result.rowCount) return res.status(200).json({ saved: true, rowVersion: result.rows[0].row_version });
 
     const check = await pool.query(
       'SELECT id, is_complete FROM matches WHERE id::text = $1 OR id::text = $2 LIMIT 1',

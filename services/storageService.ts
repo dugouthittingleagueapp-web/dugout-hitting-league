@@ -35,6 +35,7 @@ const mapMatchFromDB = (dbMatch: any): Match => {
     date: dbMatch.date,
     isComplete: dbMatch.is_complete !== undefined ? dbMatch.is_complete : (dbMatch.isComplete ?? false),
     status: dbMatch.status || undefined,
+    serverRevision: dbMatch.server_revision || dbMatch.serverRevision || undefined,
     innings: typeof dbMatch.innings === 'string' ? JSON.parse(dbMatch.innings) : dbMatch.innings,
     season: inferredSeason,
     tieBreaker: dbMatch.tie_breaker ? (typeof dbMatch.tie_breaker === 'string' ? JSON.parse(dbMatch.tie_breaker) : dbMatch.tie_breaker) : (dbMatch.tieBreaker || undefined),
@@ -673,6 +674,7 @@ export const getMatch = async (id: string): Promise<Match | undefined> => {
     if (res.ok) {
       const data = await res.json();
       const mapped = mapMatchFromDB(data);
+      rememberMatchRevision(mapped);
       if (typeof window !== 'undefined') {
         try {
           localStorage.setItem(`dugout_match_${id}`, JSON.stringify(mapped));
@@ -971,6 +973,20 @@ export const calculateTeamGameTotal = (side: 'home' | 'away', matchData?: Match 
 // overwriting a newer pitch or lineup update in Neon.
 const matchWriteQueues = new Map<string, Promise<void>>();
 
+/**
+ * null means a concurrent device changed the scoring document while our local
+ * copy was stale. Atomic edits remain possible; full-match replacement is
+ * blocked until a fresh game is reopened.
+ */
+const knownMatchRevisions = new Map<string, string | null>();
+const rememberMatchRevision = (match: Match): Match => {
+  if (match.serverRevision && !readPendingPitches().some(p => p.id === match.id)) {
+    knownMatchRevisions.set(match.id, match.serverRevision);
+  }
+  return match;
+};
+
+
 const queueMatchWrite = <T>(id: string, operation: () => Promise<T>): Promise<T> => {
     const previous = matchWriteQueues.get(id) || Promise.resolve();
     const write = previous.catch(() => {}).then(operation);
@@ -1030,13 +1046,29 @@ const sendPitchEdit = async (edit: QueuedPitchEdit): Promise<void> => {
       const body = await res.json().catch(() => ({}));
       throw new Error(`HTTP ${res.status}: ${body.error || 'The score could not be saved.'}`);
     }
+    const response = await res.json() as { previousRevision?: string; serverRevision?: string };
+    const remembered = knownMatchRevisions.get(edit.id);
+    if (remembered && response.previousRevision === remembered && response.serverRevision) {
+      knownMatchRevisions.set(edit.id, response.serverRevision);
+    } else {
+      // Includes replay from an old offline snapshot or concurrent independent
+      // edits on another device. Never permit a subsequent full stale PUT.
+      knownMatchRevisions.set(edit.id, null);
+    }
     removePendingPitch(edit.operationId);
 };
 
 const performMatchUpdate = async (match: Match, options?: { requireServerSave?: boolean }): Promise<Match> => {
     // Serialize once for both offline recovery and the server. A pitch update
     // previously stringified the entire match twice on the same save path.
-    const serializedMatch = JSON.stringify(match);
+    const latestRevision = knownMatchRevisions.has(match.id)
+      ? knownMatchRevisions.get(match.id)
+      : match.serverRevision;
+    if (!latestRevision) {
+      throw new Error('HTTP 409: Current scoring version is unknown. Reload this game and check its scores before making a lineup or finalization change.');
+    }
+    const matchToSave = { ...match, serverRevision: latestRevision };
+    const serializedMatch = JSON.stringify(matchToSave);
     // Only optimistic-cache offline pitch updates; explicit confirmed saves must wait for Neon.
     if (!options?.requireServerSave && typeof window !== 'undefined') {
         try {
@@ -1059,6 +1091,7 @@ const performMatchUpdate = async (match: Match, options?: { requireServerSave?: 
             dequeuePendingMatchSync(match.id);
             const data = await res.json();
             const saved = mapMatchFromDB(data);
+            knownMatchRevisions.set(match.id, saved.serverRevision || null);
             if (options?.requireServerSave && typeof window !== 'undefined') {
                 try {
                     localStorage.setItem(`dugout_match_${saved.id}`, JSON.stringify(saved));

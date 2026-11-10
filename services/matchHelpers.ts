@@ -64,6 +64,18 @@ export function getForfeitingTeamId(match: { forfeitingTeamId?: string | null; f
   return match.forfeitingTeamId || match.forfeiting_team_id || null;
 }
 
+/**
+ * A lineup ID must belong to this team's permanent roster or registered substitutes.
+ * Never silently classify a missing/stale ID as a substitute.
+ */
+export function getUnknownLineupIds(
+  team: { players?: { id: string }[]; subs?: { id: string }[] } | null | undefined,
+  lineupIds: string[]
+): string[] {
+  const validIds = new Set([...(team?.players || []), ...(team?.subs || [])].map(p => p.id));
+  return lineupIds.filter(id => !validIds.has(id));
+}
+
 export interface ForfeitEvaluation {
   isForfeit: boolean;
   forfeitingTeamId: string | null;
@@ -72,6 +84,8 @@ export interface ForfeitEvaluation {
   forfeitReason?: string;
   homeMainCount: number;
   awayMainCount: number;
+  unknownHomeIds: string[];
+  unknownAwayIds: string[];
 }
 
 /**
@@ -86,7 +100,17 @@ export function detectForfeit(
   awayLineupIds: string[] = []
 ): ForfeitEvaluation {
   if (!homeTeam || !awayTeam) {
-    return { isForfeit: false, forfeitingTeamId: null, winningTeamId: null, homeMainCount: 0, awayMainCount: 0 };
+    return { isForfeit: false, forfeitingTeamId: null, winningTeamId: null, homeMainCount: 0, awayMainCount: 0, unknownHomeIds: [], unknownAwayIds: [] };
+  }
+
+  const unknownHomeIds = getUnknownLineupIds(homeTeam, homeLineupIds);
+  const unknownAwayIds = getUnknownLineupIds(awayTeam, awayLineupIds);
+  // Incomplete/corrupt lineups must be repaired, not scored as official forfeits.
+  if (unknownHomeIds.length > 0 || unknownAwayIds.length > 0) {
+    return {
+      isForfeit: false, forfeitingTeamId: null, winningTeamId: null,
+      homeMainCount: 0, awayMainCount: 0, unknownHomeIds, unknownAwayIds
+    };
   }
 
   const homeMainPlayers = homeTeam.players || [];
@@ -108,7 +132,9 @@ export function detectForfeit(
       reason: text,
       forfeitReason: text,
       homeMainCount,
-      awayMainCount
+      awayMainCount,
+      unknownHomeIds,
+      unknownAwayIds
     };
   }
 
@@ -122,7 +148,9 @@ export function detectForfeit(
       reason: text,
       forfeitReason: text,
       homeMainCount,
-      awayMainCount
+      awayMainCount,
+      unknownHomeIds,
+      unknownAwayIds
     };
   }
 
@@ -131,7 +159,9 @@ export function detectForfeit(
     forfeitingTeamId: null,
     winningTeamId: null,
     homeMainCount,
-    awayMainCount
+    awayMainCount,
+    unknownHomeIds,
+    unknownAwayIds
   };
 }
 

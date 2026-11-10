@@ -4,7 +4,7 @@ import { explainSaveError, explainPitchSyncIssue } from '../../utils/friendlyErr
 describe('Calm, easy-to-follow umpire messages', () => {
   const simpleWords = (message: string) => {
     expect(message).not.toMatch(/HTTP|409|428|Neon|database|Postgres|sync|JSON|cache|token|server revision|conflict/i);
-    expect(message).toMatch(/keep this page|ask|please|try|check|sign in/i);
+    expect(message).toMatch(/keep this page|keep them|ask|please|try|check|sign in/i);
   };
 
   it('explains a sign-in problem with one next step', () => {

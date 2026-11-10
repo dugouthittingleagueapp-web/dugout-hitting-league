@@ -64,6 +64,8 @@ export interface Match {
   status?: MatchStatus;
   innings: Inning[];
   tieBreaker?: TieBreakerRound[];
+  /** Fingerprint of the exact server innings and tie-breakers last observed. */
+  serverRevision?: string;
   location?: string;
   startTime?: string;
   endTime?: string;

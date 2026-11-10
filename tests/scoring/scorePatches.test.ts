@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { setPitchScore } from '../../utils/scorePatches';
+import { setPitchScore, setTieBreakerPitchScore } from '../../utils/scorePatches';
 import type { Match, Inning } from '../../types';
 
 const createMatch = (): Match => ({
@@ -55,6 +55,47 @@ describe('fast pitch-score patches', () => {
     expect(setPitchScore(match, 0, 'home', 0, 0, null)).toBe(match);
     expect(setPitchScore(match, 50, 'home', 0, 0, 2)).toBe(match);
     expect(setPitchScore(match, 0, 'home', 0, 60, 2)).toBe(match);
+  });
+
+  it.each([0, 1, 2, 3, 4])('records score %i through the same regular pitching path', points => {
+    const match = createMatch();
+    const updated = setPitchScore(match, 3, 'away', 2, 5, points);
+    expect(updated.innings[3].away.playerScores[2].pitches[5].points).toBe(points);
+    expect(updated.innings[3].away.playerScores[2].pitches[4].points).toBeNull();
+    expect(updated.innings[1]).toBe(match.innings[1]);
+  });
+
+  it.each([0, 1, 2, 3, 4])('records score %i through the same tie-breaker pitching path', points => {
+    const match = createMatch();
+    match.tieBreaker = [{
+      roundNumber: 1, pitchLimit: 5, homePlayerId: 'h1', awayPlayerId: 'a1',
+      homeScores: [null, null, null, null, null],
+      awayScores: [null, null, null, null, null]
+    }];
+    const updated = setTieBreakerPitchScore(match, 0, 'home', 1, points);
+    expect(updated.tieBreaker?.[0].homeScores[1]).toBe(points);
+    expect(updated.tieBreaker?.[0].awayScores).toBe(match.tieBreaker[0].awayScores);
+    expect(updated.innings).toBe(match.innings);
+    expect(match.tieBreaker[0].homeScores[1]).toBeNull();
+  });
+
+  it('edits or undoes a tie-breaker pitch without touching other rounds', () => {
+    const match = createMatch();
+    match.tieBreaker = [
+      { roundNumber: 1, pitchLimit: 3, homePlayerId: 'h1', awayPlayerId: 'a1',
+        homeScores: [null, null, null], awayScores: [null, null, null] },
+      { roundNumber: 2, pitchLimit: 1, homePlayerId: 'h2', awayPlayerId: 'a2',
+        homeScores: [null], awayScores: [null] }
+    ];
+    const scored = setTieBreakerPitchScore(match, 0, 'away', 0, 2);
+    const edited = setTieBreakerPitchScore(scored, 0, 'away', 0, 4);
+    const undone = setTieBreakerPitchScore(edited, 0, 'away', 0, null);
+    expect(undone.tieBreaker?.[0].awayScores[0]).toBeNull();
+    expect(edited.tieBreaker?.[0].awayScores[0]).toBe(4);
+    expect(scored.tieBreaker?.[0].awayScores[0]).toBe(2);
+    expect(undone.tieBreaker?.[1]).toBe(match.tieBreaker[1]);
+    expect(setTieBreakerPitchScore(match, 5, 'home', 0, 2)).toBe(match);
+    expect(setTieBreakerPitchScore(match, 0, 'home', 50, 2)).toBe(match);
   });
 
   it('does not change completion status of a previously finalized game', () => {

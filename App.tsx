@@ -288,6 +288,7 @@ const App: React.FC = () => {
   // The storage service owns the reconnect listener; the app only kicks off
   // one initial queue flush to prevent multiple duplicate synchronization runs.
   useEffect(() => {
+    void storage.syncAllPitchChanges();
     void storage.syncOfflineData();
   }, []);
 

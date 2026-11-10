@@ -19,7 +19,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       if (id) {
         const { rawId, strippedId } = cleanMatchId(id);
         const { rows } = await pool.query(
-          `SELECT *, md5(COALESCE(innings::text, '') || '|' || COALESCE(tie_breaker::text, '')) AS server_revision FROM matches WHERE id::text = $1 OR id::text = $2 LIMIT 1`,
+          `SELECT *, md5(row_to_json(matches)::text) AS server_revision FROM matches WHERE id::text = $1 OR id::text = $2 LIMIT 1`,
           [rawId, strippedId]
         );
         if (rows.length === 0) return res.status(404).json({ error: 'Not found' });
@@ -41,7 +41,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       // invalidate the revision. This is read-only and changes no scoring data.
       let query = revisions === 'true'
         ? "SELECT m.id::text AS id, m.is_practice, md5(row_to_json(m)::text) AS revision FROM matches m"
-        : "SELECT *, md5(COALESCE(innings::text, '') || '|' || COALESCE(tie_breaker::text, '')) AS server_revision FROM matches";
+        : "SELECT *, md5(row_to_json(matches)::text) AS server_revision FROM matches";
       const params: any[] = [];
       let paramCount = 1;
       
@@ -167,7 +167,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           location, start_time, end_time, notes, status, is_practice, is_forfeit, forfeiting_team_id, forfeit_reason, winning_team_id
         ) 
         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18) 
-        RETURNING *, md5(COALESCE(innings::text, '') || '|' || COALESCE(tie_breaker::text, '')) AS server_revision
+        RETURNING *, md5(row_to_json(matches)::text) AS server_revision
       `;
       const values = [
         insertId, 
@@ -263,8 +263,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             forfeit_reason = CASE WHEN $15::boolean = FALSE THEN NULL ELSE COALESCE($17, forfeit_reason) END,
             winning_team_id = CASE WHEN $15::boolean = FALSE THEN NULL ELSE COALESCE($18, winning_team_id) END
         WHERE (id::text = $1 OR id::text = $2)
-          AND md5(COALESCE(innings::text, '') || '|' || COALESCE(tie_breaker::text, '')) = $19
-        RETURNING *, md5(COALESCE(innings::text, '') || '|' || COALESCE(tie_breaker::text, '')) AS server_revision
+          AND md5(row_to_json(matches)::text) = $19
+        RETURNING *, md5(row_to_json(matches)::text) AS server_revision
       `;
       const values = [
         rawId,

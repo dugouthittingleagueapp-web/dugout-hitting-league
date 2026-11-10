@@ -6,7 +6,7 @@ import { ScoreInput } from './ScoreInput';
 import { applyLineupToMatch, getUnsafeLineupChangeReason, formatFullPlayerName, getMatchStatus } from '../utils/lineupHelper';
 import { isPlaceholderPlayerName } from '../utils/statsEditorHelper.js';
 import { detectForfeit, getUnknownLineupIds } from '../services/matchHelpers';
-import { explainSaveError } from '../utils/friendlyErrors';
+import { explainSaveError, explainPitchSyncIssue } from '../utils/friendlyErrors';
 import { setPitchScore, setTieBreakerPitchScore } from '../utils/scorePatches';
 
 interface ScoreboardProps {
@@ -55,10 +55,15 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
 
   useEffect(() => {
     if (isReadOnly) return;
-    const refresh = () => setPendingPitchCount(storage.getPendingPitchCount(matchId));
+    const refresh = () => {
+      const count = storage.getPendingPitchCount(matchId);
+      setPendingPitchCount(count);
+      // Once every score is confirmed, clear an older connection notice.
+      if (count === 0) setPitchSyncNotice('');
+    };
     const conflict = (event: Event) => {
       const detail = (event as CustomEvent<{message: string}>).detail;
-      setPitchSyncNotice(detail?.message || 'A saved pitch needs review before syncing.');
+      setPitchSyncNotice(explainPitchSyncIssue(detail?.message));
       refresh();
     };
     refresh();
@@ -571,7 +576,7 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
       if (!team || playerIds.length < 2 || playerIds.length > 3 ||
           getUnknownLineupIds(team, playerIds).length > 0 ||
           new Set(playerIds).size !== playerIds.length) {
-          alert('Select two or three distinct players from the roster or registered substitutes.');
+          alert('Please pick 2 or 3 different players from this team before continuing.');
           return false;
       }
 
@@ -584,7 +589,7 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
           : currentInning.away.playerScores.map(p => p.playerId);
       const unsafeReason = getUnsafeLineupChangeReason(match, newHomeIds, newAwayIds, activeInningIdx);
       if (unsafeReason) {
-          alert(unsafeReason);
+          alert(explainSaveError(new Error(unsafeReason), 'lineup'));
           return false;
       }
 
@@ -625,7 +630,7 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
     const trimmed = newSubNameInput.trim();
     if (!trimmed || !rosterSide) return;
     if (isPlaceholderPlayerName(trimmed)) {
-        alert("Please enter the player's real name (e.g. Jack S.) rather than a generic placeholder like 'Sub' or 'Player 1' so their stats are recorded under their profile.");
+        alert("Please enter the player's name, like Jack S., so their scores go to the right person.");
         return;
     }
     const currentTeam = rosterSide === 'home' ? teams.home : teams.away;
@@ -648,9 +653,9 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
         if (newList.length >= 2 && newList.length <= 3) {
             setNewSubNameInput('');
             const saved = await saveRosterChange(rosterSide, newList, updatedTeam);
-            if (!saved) alert('Substitute registered, but the lineup change was not saved. Select the substitute from the roster and retry.');
+            if (!saved) alert('The player was added, but the lineup did not change. Please pick them again from the player list.');
         } else {
-            alert("Roster limit reached (3 max). Player saved as sub.");
+            alert("This player was added to the team list. You can have up to 3 players batting at once.");
             setNewSubNameInput('');
             setSavingRoster(false);
         }
@@ -847,15 +852,21 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
   return (
     <div className="min-h-full w-full overflow-x-hidden pb-20 font-sans">
       {!isReadOnly && (pendingPitchCount !== 0 || pitchSyncNotice) && (
-        <div className="bg-amber-100 border-b-2 border-amber-500 text-amber-950 px-3 py-2 text-sm flex flex-wrap gap-2 items-center justify-center">
+        <div role="status" aria-live="polite"
+          className={`px-3 py-2 text-sm flex flex-wrap gap-2 items-center justify-center ${pitchSyncNotice || pendingPitchCount < 0
+            ? 'bg-amber-50 text-amber-950 border-b border-amber-300'
+            : 'bg-blue-50 text-blue-950 border-b border-blue-200'}`}>
           <strong>
-            {pendingPitchCount > 0 ? `${pendingPitchCount} pitch${pendingPitchCount === 1 ? '' : 'es'} saved on this device, not yet confirmed in the league database.` :
-              'A scoring synchronization issue needs review.'}
+            {pitchSyncNotice ? 'A score needs checking.' :
+              pendingPitchCount < 0 ? 'Please ask for help with saving.' :
+              `Saving ${pendingPitchCount} ${pendingPitchCount === 1 ? 'score' : 'scores'}…`}
           </strong>
-          <span>{pitchSyncNotice || 'You may continue scoring offline. Do not finalize or change the lineup until synchronization finishes.'}</span>
-          <button type="button" className="underline font-bold px-2 py-1"
-            onClick={() => { void storage.syncOfflineData(); }}>Retry sync</button>
-          <span className="text-xs">If this persists, ask an administrator to compare the scores before reloading.</span>
+          <span>{pitchSyncNotice ||
+            (pendingPitchCount < 0
+              ? 'Keep this page open and ask the person running the league for help.'
+              : 'Your scores are kept on this device while they are sent. You can keep scoring.')}</span>
+          <button type="button" className="underline font-semibold px-2 py-1"
+            onClick={() => { void storage.syncOfflineData(); }}>Try saving again</button>
         </div>
       )}
       {/* Official Forfeit Sticky Banner */}

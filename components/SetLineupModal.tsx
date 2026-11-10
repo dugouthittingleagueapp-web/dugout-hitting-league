@@ -164,7 +164,7 @@ export const SetLineupModal: React.FC<SetLineupModalProps> = ({
         subs: [...(currentTeam.subs || []), newSub]
       };
 
-      await storage.updateTeam(updated);
+      await storage.updateTeam(updated, { requireServerSave: true });
 
       if (activeSide === 'home') {
         setHomeTeam(updated);

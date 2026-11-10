@@ -38,6 +38,7 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
   const [confirmTieExit, setConfirmTieExit] = useState(false);
   const [loading, setLoading] = useState(true);
   const [savingRoster, setSavingRoster] = useState(false);
+  const [reviewingConflict, setReviewingConflict] = useState(false);
   
   const [activeCell, setActiveCell] = useState<{ side: 'home' | 'away'; lineupIdx: number; pitchIdx: number; roundIdx?: number } | null>(null);
   const [showResetConfirmModal, setShowResetConfirmModal] = useState(false);
@@ -689,6 +690,44 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
     }
   };
 
+  const handleReviewPitchConflict = async () => {
+      if (!match || reviewingConflict) return;
+      setReviewingConflict(true);
+      try {
+          const review = await storage.reviewPitchConflict(match.id);
+          const change = review.change;
+          const team = change.side === 'home' ? teams.home : teams.away;
+          const player = [...(team?.players || []), ...(team?.subs || [])].find(p => p.id === change.playerId);
+          const batter = player ? `${player.name} ${player.lastName || ''}`.trim() : 'the selected batter';
+          const inning = change.kind === 'regulation' ? `Inning ${change.inningIdx + 1}` : `Tie-breaker round ${change.roundIdx + 1}`;
+          const pitch = change.pitchIdx + 1;
+          const label = `${inning}, ${team?.name || change.side}, ${batter}, pitch ${pitch}`;
+          const display = (score: number | null) => score === null ? 'not yet scored' : `${score} points`;
+
+          let decision: 'keep-server' | 'use-device' | null = null;
+          if (review.playerStillMatches) {
+              if (window.confirm(
+                  `SCORE CONFLICT: ${label}\n\nServer: ${display(review.serverPoints)}\nThis device: ${display(change.points)}\n\nPress OK to USE YOUR DEVICE SCORE. This attempts to replace the server score, but only if no one else has changed it again.\nPress Cancel to review keeping the server score.`
+              )) decision = 'use-device';
+          } else {
+              alert(`${label}\nThe batting lineup has changed on the server. Do not transfer this score to a different batter. Ask an admin to review the lineup.`);
+          }
+
+          if (!decision && window.confirm(
+              `${label}\n\nServer: ${display(review.serverPoints)}\nYour unsent score: ${display(change.points)}\n\nPress OK to KEEP THE SERVER SCORE and discard only this conflicting unsent pitch. Other queued pitches remain saved. Press Cancel to leave everything unchanged for an admin.`
+          )) decision = 'keep-server';
+
+          if (!decision) return;
+          const latest = await storage.choosePitchConflict(review, decision);
+          setMatch(latest);
+          forceSyncStatus(v => v + 1);
+      } catch (error) {
+          alert(error instanceof Error ? error.message : explainSaveError(error, 'match'));
+      } finally {
+          setReviewingConflict(false);
+      }
+  };
+
   const renderTeamSection = (side: 'home' | 'away', team: Team) => {
     const inningData = side === 'home' ? currentInning.home : currentInning.away;
     const headerClass = side === 'home' 
@@ -877,9 +916,15 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
     <div className="min-h-full w-full overflow-x-hidden pb-20 font-sans">
       {!isReadOnly && (pitchSyncStatus.pending > 0 || pitchSyncStatus.conflict) && (
         <div role="status" className="bg-amber-100 text-amber-950 border-b border-amber-400 px-3 py-2 text-sm font-bold text-center">
-          {pitchSyncStatus.conflict
+          <span>{pitchSyncStatus.conflict
             ? `Score conflict: ${pitchSyncStatus.conflict} Local scores are still saved on this device.`
-            : `${pitchSyncStatus.pending} pitch change(s) saved on this device, awaiting server confirmation. Do not clear browser data.`}
+            : `${pitchSyncStatus.pending} pitch change(s) saved on this device, awaiting server confirmation. Do not clear browser data.`}</span>
+          {pitchSyncStatus.conflict && (
+            <button type="button" disabled={reviewingConflict} onClick={handleReviewPitchConflict}
+              className="ml-3 mt-2 rounded-lg bg-amber-800 px-3 py-2 text-white font-bold disabled:opacity-50">
+              {reviewingConflict ? 'Checking scores…' : 'Review both scores'}
+            </button>
+          )}
         </div>
       )}
       {/* Official Forfeit Sticky Banner */}

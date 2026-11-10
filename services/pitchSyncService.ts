@@ -1,5 +1,5 @@
 import type { Match } from '../types';
-import { applyPitchChange, type PitchChange } from '../utils/pitchSync';
+import { applyPitchChange, readPitchCell, type PitchChange } from '../utils/pitchSync';
 
 export type PendingPitch = PitchChange & { operationId: string };
 
@@ -66,6 +66,70 @@ export const queuePitchChange = (change: PitchChange): PendingPitch => {
 export const replayPendingPitchChanges = (match: Match): Match =>
   getPendingPitchChanges(match.id).reduce<Match>((current, change) =>
     applyPitchChange(current, change), match);
+
+export interface PitchConflictReview {
+  change: PendingPitch;
+  serverPoints: number | null;
+  playerStillMatches: boolean;
+  serverMatch: Match;
+}
+
+/**
+ * Never infer a conflict from the local copy. Show the actual server score
+ * and identity to the umpire before offering any resolution choice.
+ */
+export const inspectPitchConflict = (matchId: string, serverMatch: Match): PitchConflictReview => {
+  if (!getPitchSyncConflict(matchId)) throw new Error('There is no pending score conflict to review.');
+  const first = getPendingPitchChanges(matchId)[0];
+  if (!first) throw new Error('No unsaved pitch was found for this game.');
+  const cell = readPitchCell(serverMatch, first);
+  if (!cell.exists) {
+    throw new Error('This pitch no longer exists in the game. Ask an admin to review the saved roster before changing any scores.');
+  }
+  return {
+    change: first,
+    serverPoints: cell.points,
+    playerStillMatches: cell.playerId === first.playerId,
+    serverMatch
+  };
+};
+
+/**
+ * Explicitly chosen by the umpire after seeing both scores. "use-device"
+ * prepares a new CAS from the actual server value. A subsequent device
+ * change still causes 409. "keep-server" discards only the conflicting
+ * operation, never the rest of the unsent edits.
+ */
+export const resolvePitchConflict = (
+  review: PitchConflictReview, decision: 'use-device' | 'keep-server'
+): void => {
+  const { change, serverMatch, serverPoints } = review;
+  const current = getPendingPitchChanges(change.matchId)[0];
+  if (!current || current.operationId !== change.operationId || !getPitchSyncConflict(change.matchId)) {
+    throw new Error('This conflict changed while you were reviewing it. Reload the game and try again.');
+  }
+  if (decision === 'use-device' && !review.playerStillMatches) {
+    throw new Error('The batter has changed. Do not assign this score to a different player; ask an admin to review the lineup.');
+  }
+  const key = `dugout_match_${change.matchId}`;
+  // Save the fresh server baseline, keeping the remainder of the local
+  // pending queue durable for replay after this decision.
+  storeObject(key, serverMatch);
+  const queues = getQueues();
+  const entries = queues[change.matchId] || [];
+  if (decision === 'keep-server') entries.shift();
+  else entries[0] = { ...entries[0], expectedPoints: serverPoints };
+  if (!entries.length) delete queues[change.matchId];
+  storeObject(PENDING_KEY, queues);
+  const conflicts = readObject<Record<string, string>>(CONFLICT_KEY, {});
+  delete conflicts[change.matchId];
+  storeObject(CONFLICT_KEY, conflicts);
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('dugout:pitch-sync-status', {
+      detail: { matchId: change.matchId }
+    }));
+  }
+};
 
 const acknowledgePitch = (change: PendingPitch, rowVersion: string | undefined) => {
   if (typeof window === 'undefined') return;

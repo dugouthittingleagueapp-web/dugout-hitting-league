@@ -46,7 +46,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       `SELECT id, is_complete,
               ${column}::jsonb #>> $3::text[] AS current_points,
               ${column}::jsonb #>> $4::text[] AS current_player,
-              ${column}::jsonb #> $3::text[] AS existing_json
+              jsonb_typeof(${column}::jsonb #> $3::text[]) AS existing_kind
        FROM matches WHERE id::text = $1 OR id::text = $2 LIMIT 1 FOR UPDATE`,
       [rawId, strippedId, valuePath, playerPath]
     );
@@ -59,7 +59,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       await client.query('ROLLBACK');
       return res.status(409).json({ error: 'This game is final. Ask an administrator to correct it.' });
     }
-    if (row.current_player !== edit.playerId || row.existing_json === null) {
+    if (row.current_player !== edit.playerId || row.existing_kind === null) {
       await client.query('ROLLBACK');
       return res.status(409).json({ error: 'This lineup or pitch has changed. Reload the game before scoring.' });
     }

@@ -213,8 +213,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const role = requireRole(req, res, ['admin', 'umpire']);
       if (!role) return;
 
-      const { 
-        id, isComplete, innings, tieBreaker, league, location, startTime, 
+      const {
+        revision, id, isComplete, innings, tieBreaker, league, location, startTime, 
         endTime, notes, homeTeamId, awayTeamId, status, isPractice, is_practice,
         isForfeit, is_forfeit, forfeitingTeamId, forfeiting_team_id, winningTeamId, winning_team_id, forfeitReason, forfeit_reason
       } = req.body || {};
@@ -275,7 +275,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       try {
         await client.query('BEGIN');
         const target = await client.query(
-          'SELECT id, status, is_complete FROM matches WHERE id::text = $1 OR id::text = $2 FOR UPDATE',
+          'SELECT id, status, is_complete, revision FROM matches WHERE id::text = $1 OR id::text = $2 FOR UPDATE',
           [rawId, strippedId]
         );
         if (!target.rows.length) {
@@ -302,7 +302,24 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
               : 'Scoring is not ready yet. Reopen the game to secure scoring access.'
           });
         }
-        const result = await client.query(queryUpdate, values);
+        // Compare before writing: a delayed offline snapshot must never replace
+        // a match that has been modified since the snapshot was created.
+        if (revision !== undefined && revision !== null &&
+            (!Number.isSafeInteger(revision) || revision !== Number(target.rows[0].revision))) {
+          await client.query('ROLLBACK');
+          return res.status(409).json({
+            code: 'STALE_MATCH',
+            error: 'This game has newer scores on the server. Your older changes were not applied. Ask an admin to review before scoring again.'
+          });
+        }
+        if ((scoringStarted || !!owner) && !Number.isSafeInteger(revision)) {
+          await client.query('ROLLBACK');
+          return res.status(409).json({
+            code: 'MISSING_REVISION',
+            error: 'Please reopen this game before entering more scores.'
+          });
+        }
+        const result = await client.query(queryUpdate.replace('UPDATE matches', 'UPDATE matches').replace('SET is_complete =', 'SET revision = revision + 1, is_complete ='), values);
         row = result.rows[0];
         if (row?.is_complete) {
           await client.query('DELETE FROM scoring_locks WHERE match_id = $1', [String(row.id)]);

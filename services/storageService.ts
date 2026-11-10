@@ -5,6 +5,7 @@ import { parseScheduleCsv, isDuplicateMatch } from '../utils/scheduleImporter';
 import { sortMatchesChronologically } from '../utils/matchSort';
 import { detectForfeit, isForfeitMatch, getForfeitingTeamId } from './matchHelpers';
 import { coalesceInFlightGet } from '../utils/requestCoalescer';
+import { validatePitchEdit, type PitchEdit } from '../utils/pitchSync';
 
 export { sortMatchesChronologically };
 
@@ -174,6 +175,36 @@ export const deleteLeague = async (id: string, season?: string) => {
 const PENDING_MATCHES_KEY = 'dugout_pending_sync_matches';
 const PENDING_TEAMS_KEY = 'dugout_pending_sync_teams';
 
+const PENDING_PITCHES_KEY = 'dugout_pending_pitch_edits';
+
+type QueuedPitchEdit = PitchEdit & { operationId: string };
+
+const readPendingPitches = (): QueuedPitchEdit[] => {
+  if (typeof window === 'undefined') return [];
+  const raw = localStorage.getItem(PENDING_PITCHES_KEY);
+  if (!raw) return [];
+  const parsed: unknown = JSON.parse(raw);
+  if (!Array.isArray(parsed)) throw new Error('Offline pitch recovery data is invalid. Ask an admin for help before scoring more.');
+  return parsed as QueuedPitchEdit[];
+};
+
+const writePendingPitches = (operations: QueuedPitchEdit[]): void => {
+  if (typeof window === 'undefined') return;
+  if (operations.length === 0) localStorage.removeItem(PENDING_PITCHES_KEY);
+  else localStorage.setItem(PENDING_PITCHES_KEY, JSON.stringify(operations));
+};
+
+const removePendingPitch = (operationId: string): void => {
+  writePendingPitches(readPendingPitches().filter(item => item.operationId !== operationId));
+};
+
+const emitPitchSyncConflict = (message: string): void => {
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('dugout:pitch-sync-conflict', { detail: { message } }));
+  }
+};
+
+
 export const enqueuePendingMatchSync = (match: Match) => {
   if (typeof window === 'undefined') return;
   try {
@@ -283,6 +314,28 @@ const performOfflineSync = async (): Promise<void> => {
       }
     }
   } catch (e) {}
+
+  // 3. Replay individual pitch edits in their recorded order. These are
+  // protected by server-side player-ID and expected-value comparisons.
+  // Conflicts remain queued and never silently overwrite another umpire.
+  try {
+    const pending = readPendingPitches();
+    for (const edit of pending) {
+      if (typeof navigator !== 'undefined' && !navigator.onLine) break;
+      const active = readPendingPitches().some(item => item.operationId === edit.operationId);
+      if (!active) continue;
+      try {
+        await queueMatchWrite(edit.id, () => sendPitchEdit(edit));
+      } catch (err) {
+        console.warn('Pitch replay needs attention:', err);
+        emitPitchSyncConflict(err instanceof Error ? err.message : 'Pitch could not be synchronized.');
+        break;
+      }
+    }
+  } catch (err) {
+    console.error('Could not inspect offline pitch recovery queue:', err);
+    emitPitchSyncConflict('Offline pitch backup is unreadable. Please contact the administrator before continuing.');
+  }
 };
 
 // Automatic listener to sync queued items once internet reconnects
@@ -918,15 +971,66 @@ export const calculateTeamGameTotal = (side: 'home' | 'away', matchData?: Match 
 // overwriting a newer pitch or lineup update in Neon.
 const matchWriteQueues = new Map<string, Promise<void>>();
 
-export const updateMatch = (match: Match, options?: { requireServerSave?: boolean }): Promise<Match> => {
-    const previous = matchWriteQueues.get(match.id) || Promise.resolve();
-    const write = previous.catch(() => {}).then(() => performMatchUpdate(match, options));
+const queueMatchWrite = <T>(id: string, operation: () => Promise<T>): Promise<T> => {
+    const previous = matchWriteQueues.get(id) || Promise.resolve();
+    const write = previous.catch(() => {}).then(operation);
     const settled = write.then(() => {}, () => {});
-    matchWriteQueues.set(match.id, settled);
+    matchWriteQueues.set(id, settled);
     void settled.then(() => {
-        if (matchWriteQueues.get(match.id) === settled) matchWriteQueues.delete(match.id);
+        if (matchWriteQueues.get(id) === settled) matchWriteQueues.delete(id);
     });
     return write;
+};
+
+export const updateMatch = (match: Match, options?: { requireServerSave?: boolean }): Promise<Match> =>
+    queueMatchWrite(match.id, () => performMatchUpdate(match, options));
+
+/**
+ * Preserve the COMPLETE match locally before attempting a small atomic pitch
+ * PATCH. Unlike the legacy full-record PUT, unrelated pitches from other
+ * devices are never replaced by this operation.
+ */
+export const updatePitch = (match: Match, edit: PitchEdit): Promise<Match> => {
+    const validation = validatePitchEdit(edit);
+    if (validation) return Promise.reject(new Error(validation));
+    if (match.id !== edit.id) return Promise.reject(new Error('Pitch belongs to a different game.'));
+    if (typeof window !== 'undefined') {
+      try {
+        localStorage.setItem(`dugout_match_${match.id}`, JSON.stringify(match));
+        localStorage.setItem('dugout_active_match_id', match.id);
+        const pending = readPendingPitches();
+        pending.push({ ...edit, operationId: generateUUID() });
+        writePendingPitches(pending);
+      } catch (error) {
+        return Promise.reject(new Error('Could not save a local recovery copy of this pitch. Check device storage before continuing.'));
+      }
+    }
+    const pending = typeof window !== 'undefined' ? readPendingPitches() : [];
+    const operation = pending[pending.length - 1] || { ...edit, operationId: generateUUID() };
+    return queueMatchWrite(match.id, async () => {
+      try {
+        await sendPitchEdit(operation);
+      } catch (error) {
+        // A disconnected device retains its score and pending edit. A server
+        // refusal (including 409) needs explicit action, not a silent retry.
+        if (error instanceof Error && error.message.startsWith('HTTP ')) throw error;
+        console.warn('Pitch stored locally, awaiting connectivity:', error);
+      }
+      return match;
+    });
+};
+
+const sendPitchEdit = async (edit: QueuedPitchEdit): Promise<void> => {
+    const res = await apiFetch('/api/pitches', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(edit)
+    });
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      throw new Error(`HTTP ${res.status}: ${body.error || 'The score could not be saved.'}`);
+    }
+    removePendingPitch(edit.operationId);
 };
 
 const performMatchUpdate = async (match: Match, options?: { requireServerSave?: boolean }): Promise<Match> => {

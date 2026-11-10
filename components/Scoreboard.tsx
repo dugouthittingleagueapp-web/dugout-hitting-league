@@ -27,7 +27,7 @@ const getLiveInningIndex = (m: Match): number => {
     return 5;
 };
 
-export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadOnly = false, userRole = 'fan', onPlayerClick }) => {
+const ScoringBoardContent: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadOnly = false, userRole = 'fan', onPlayerClick }) => {
   const [match, setMatch] = useState<Match | null>(null);
   const [teams, setTeams] = useState<{ home?: Team, away?: Team }>({});
   const [activeInningIdx, setActiveInningIdx] = useState(0); 
@@ -428,7 +428,12 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
             }
         }
     }
-    await storage.updateMatch(newMatch).catch(err => console.error(err));
+    await storage.updateMatch(newMatch).catch(async err => {
+      console.error('Score could not be confirmed:', err);
+      alert(explainSaveError(err, 'match'));
+      const latest = await storage.getMatch(matchId);
+      if (latest) setMatch(latest);
+    });
   };
 
   const confirmCompleteGame = async () => {
@@ -1235,6 +1240,56 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
           </div>,
           document.body
       )}
+    </div>
+  );
+};
+
+
+/**
+ * Exclusive scoring gate. The scoring controls never mount until this browser
+ * session has secured ownership. Spectators remain read-only as before.
+ */
+export const Scoreboard: React.FC<ScoreboardProps> = (props) => {
+  const [access, setAccess] = useState<'checking' | 'granted' | 'locked' | 'error'>('checking');
+  const [message, setMessage] = useState('');
+  const isSpectator = props.isReadOnly || props.userRole === 'fan';
+
+  const checkAccess = async (takeover = false) => {
+    setAccess('checking');
+    try {
+      await storage.requestScoringLock(props.matchId, takeover ? 'takeover' : 'acquire');
+      setAccess('granted');
+      setMessage('');
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : '';
+      setMessage(msg || 'We could not check who is scoring. Please try again.');
+      setAccess(/another umpire|already scoring|transfer control/i.test(msg) ? 'locked' : 'error');
+    }
+  };
+
+  useEffect(() => {
+    if (isSpectator) return;
+    void checkAccess();
+  }, [props.matchId, isSpectator]);
+
+  if (isSpectator || access === 'granted') return <ScoringBoardContent {...props} />;
+  return (
+    <div className="min-h-[60vh] flex items-center justify-center px-4">
+      <div className="max-w-md w-full rounded-2xl border border-gray-300 dark:border-gray-700 p-6 text-center space-y-4">
+        <h2 className="text-xl font-bold">{access === 'checking' ? 'Opening the game…' : 'Scoring is unavailable'}</h2>
+        {access !== 'checking' && <p className="text-base">{message}</p>}
+        {access !== 'checking' && (
+          <div className="flex flex-wrap gap-3 justify-center">
+            <button type="button" onClick={() => void checkAccess()} className="px-4 py-3 rounded-lg bg-blue-600 text-white font-semibold">Try again</button>
+            {props.userRole === 'admin' && access === 'locked' && (
+              <button type="button" onClick={() => {
+                if (window.confirm('Transfer scoring to this device? The previous umpire will no longer be able to save plays. First confirm their unsent plays have been checked.')) void checkAccess(true);
+              }} className="px-4 py-3 rounded-lg bg-orange-600 text-white font-semibold">Admin: Take over</button>
+            )}
+            <button type="button" onClick={() => props.onExit()} className="px-4 py-3 rounded-lg border border-gray-400">Back to schedule</button>
+          </div>
+        )}
+      </div>
     </div>
   );
 };

@@ -5,7 +5,7 @@ import * as storage from '../services/storageService';
 import { ScoreInput } from './ScoreInput';
 import { formatFullPlayerName, getMatchStatus } from '../utils/lineupHelper';
 import { isPlaceholderPlayerName } from '../utils/statsEditorHelper.js';
-import { detectForfeit } from '../services/matchHelpers';
+import { detectForfeit, getUnknownLineupIds } from '../services/matchHelpers';
 
 interface ScoreboardProps {
   matchId: string;
@@ -495,6 +495,12 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
 
   const saveRosterChange = async (side: 'home' | 'away', playerIds: string[]) => {
       if (isReadOnly || !match) return;
+      const team = side === 'home' ? teams.home : teams.away;
+      if (!team || getUnknownLineupIds(team, playerIds).length > 0 ||
+          new Set(playerIds).size !== playerIds.length) {
+          alert('Lineup includes an unknown or duplicate player. Select a valid roster player or registered substitute.');
+          return;
+      }
       setSavingRoster(true);
       const newMatch = JSON.parse(JSON.stringify(match)); // Deep clone for safe mutation
       

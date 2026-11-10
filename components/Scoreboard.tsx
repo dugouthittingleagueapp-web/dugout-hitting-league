@@ -592,7 +592,7 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
     };
 
     try {
-        await storage.updateTeam(updatedTeam);
+        await storage.updateTeam(updatedTeam, { requireServerSave: true });
         setTeams(prev => ({ ...prev, [rosterSide]: updatedTeam }));
         
         const lineup = currentInning[rosterSide].playerScores.map(x => x.playerId);

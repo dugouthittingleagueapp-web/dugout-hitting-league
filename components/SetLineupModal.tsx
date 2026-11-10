@@ -225,7 +225,7 @@ export const SetLineupModal: React.FC<SetLineupModalProps> = ({
     const invalidAwayIds = getUnknownLineupIds(awayTeam, awayLineup);
     if (invalidHomeIds.length || invalidAwayIds.length) {
       setActiveSide(invalidAwayIds.length ? 'away' : 'home');
-      setErrorMessage('One of these players isn't on the team list. Please choose players from the list below.');
+      setErrorMessage("One of these players isn't on the team list. Please choose players from the list below.");
       return;
     }
     if (new Set(homeLineup).size !== homeLineup.length || new Set(awayLineup).size !== awayLineup.length) {

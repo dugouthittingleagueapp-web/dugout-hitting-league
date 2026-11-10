@@ -864,7 +864,22 @@ export const calculateTeamGameTotal = (side: 'home' | 'away', matchData?: Match 
     return baseScore + tieScore;
 };
 
-export const updateMatch = async (match: Match, options?: { requireServerSave?: boolean }): Promise<Match> => {
+// Serialize writes from the same browser to prevent an older network response
+// overwriting a newer pitch or lineup update in Neon.
+const matchWriteQueues = new Map<string, Promise<void>>();
+
+export const updateMatch = (match: Match, options?: { requireServerSave?: boolean }): Promise<Match> => {
+    const previous = matchWriteQueues.get(match.id) || Promise.resolve();
+    const write = previous.catch(() => {}).then(() => performMatchUpdate(match, options));
+    const settled = write.then(() => {}, () => {});
+    matchWriteQueues.set(match.id, settled);
+    void settled.then(() => {
+        if (matchWriteQueues.get(match.id) === settled) matchWriteQueues.delete(match.id);
+    });
+    return write;
+};
+
+const performMatchUpdate = async (match: Match, options?: { requireServerSave?: boolean }): Promise<Match> => {
     // Only optimistic-cache offline pitch updates; explicit confirmed saves must wait for Neon.
     if (!options?.requireServerSave && typeof window !== 'undefined') {
         try {

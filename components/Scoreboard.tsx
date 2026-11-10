@@ -6,6 +6,7 @@ import { ScoreInput } from './ScoreInput';
 import { applyLineupToMatch, getUnsafeLineupChangeReason, formatFullPlayerName, getMatchStatus } from '../utils/lineupHelper';
 import { isPlaceholderPlayerName } from '../utils/statsEditorHelper.js';
 import { detectForfeit, getUnknownLineupIds } from '../services/matchHelpers';
+import { explainSaveError } from '../utils/friendlyErrors';
 
 interface ScoreboardProps {
   matchId: string;
@@ -105,7 +106,7 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
           const saved = await storage.updateMatch(finalizedMatch, { requireServerSave: true });
           setMatch(saved);
       } catch (err: any) {
-          alert(`Cannot finalize: server did not confirm the result. ${err?.message || 'Please check your connection and retry.'}`);
+          alert(explainSaveError(err, 'finalize'));
           return;
       }
       try {
@@ -452,7 +453,7 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
         const saved = await storage.updateMatch(newMatch, { requireServerSave: true });
         setMatch(saved);
     } catch (err: any) {
-        alert(`Cannot finalize: server did not confirm the result. ${err?.message || 'Please check your connection and retry.'}`);
+        alert(explainSaveError(err, 'finalize'));
         return;
     }
     try {
@@ -479,7 +480,7 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
         const saved = await storage.updateMatch(updated, { requireServerSave: true });
         setMatch(saved);
     } catch (err: any) {
-        alert(`Cannot change final status: ${err?.message || 'Server save failed'}`);
+        alert(explainSaveError(err, 'finalize'));
     }
   };
 
@@ -581,7 +582,7 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
           setMatch(saved);
           return true;
       } catch (err: any) {
-          alert(`Lineup was not saved: ${err?.message || 'Network error'}. Check your connection and try again.`);
+          alert(explainSaveError(err, 'lineup'));
           return false;
       } finally {
           setSavingRoster(false);
@@ -622,7 +623,7 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
             setSavingRoster(false);
         }
     } catch (e) {
-        alert("Failed to save sub");
+        alert(explainSaveError(e, "substitute"));
         setSavingRoster(false);
     }
   };

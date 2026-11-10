@@ -341,7 +341,10 @@ const ScoringBoardContent: React.FC<ScoreboardProps> = ({ matchId, onExit, isRea
     setShowFinishModal(false);
     setShowTieBreakerSetup(false);
     setShowResetConfirmModal(false);
-    await storage.updateMatch(resetMatch).catch(console.error);
+    await storage.updateMatch(resetMatch).catch(err => {
+      console.error('Practice reset failed:', err);
+      alert(explainSaveError(err, 'match'));
+    });
   };
 
   const handleUndo = async (side: 'home' | 'away', lineupIdx: number, currentPitchIdx: number, roundIdx?: number) => {
@@ -367,7 +370,10 @@ const ScoringBoardContent: React.FC<ScoreboardProps> = ({ matchId, onExit, isRea
           }
       }
       setMatch(newMatch);
-      await storage.updateMatch(newMatch).catch(err => console.error("Undo failed", err));
+      await storage.updateMatch(newMatch).catch(err => {
+        console.error('Undo failed:', err);
+        alert(explainSaveError(err, 'match'));
+      });
   };
 
   const handleScoreUpdate = async (
@@ -509,7 +515,10 @@ const ScoringBoardContent: React.FC<ScoreboardProps> = ({ matchId, onExit, isRea
           if (!isEdit && pitchIdx < limit - 1) next = { side, lineupIdx: 0, pitchIdx: pitchIdx + 1, roundIdx };
           setActiveCell(next);
       }
-      await storage.updateMatch(newMatch);
+      await storage.updateMatch(newMatch).catch(err => {
+        console.error('Tie-breaker score could not be saved:', err);
+        alert(explainSaveError(err, 'match'));
+      });
   };
 
 
@@ -1252,6 +1261,16 @@ const ScoringBoardContent: React.FC<ScoreboardProps> = ({ matchId, onExit, isRea
 export const Scoreboard: React.FC<ScoreboardProps> = (props) => {
   const [access, setAccess] = useState<'checking' | 'granted' | 'locked' | 'error'>('checking');
   const [message, setMessage] = useState('');
+  const [syncWarning, setSyncWarning] = useState<string | null>(() => storage.getScoringSyncWarning(props.matchId));
+  useEffect(() => {
+    setSyncWarning(storage.getScoringSyncWarning(props.matchId));
+    const onWarning = (event: Event) => {
+      const detail = (event as CustomEvent<{ matchId: string; message: string }>).detail;
+      if (detail?.matchId === props.matchId) setSyncWarning(detail.message);
+    };
+    window.addEventListener('dugout:scoring-sync-warning', onWarning);
+    return () => window.removeEventListener('dugout:scoring-sync-warning', onWarning);
+  }, [props.matchId]);
   const isSpectator = props.isReadOnly || props.userRole === 'fan';
 
   const checkAccess = async (takeover = false) => {
@@ -1272,7 +1291,19 @@ export const Scoreboard: React.FC<ScoreboardProps> = (props) => {
     void checkAccess();
   }, [props.matchId, isSpectator]);
 
-  if (isSpectator || access === 'granted') return <ScoringBoardContent {...props} />;
+  if (isSpectator) return <ScoringBoardContent {...props} />;
+  if (syncWarning) {
+    return (
+      <div className="min-h-[60vh] flex items-center justify-center px-4">
+        <div className="max-w-md w-full rounded-2xl border border-amber-500 p-6 text-center space-y-4">
+          <h2 className="text-xl font-bold">Scoring needs attention</h2>
+          <p>{syncWarning}</p>
+          <button type="button" onClick={() => props.onExit()} className="px-4 py-3 rounded-lg bg-blue-600 text-white font-semibold">Back to schedule</button>
+        </div>
+      </div>
+    );
+  }
+  if (access === 'granted') return <ScoringBoardContent {...props} />;
   return (
     <div className="min-h-[60vh] flex items-center justify-center px-4">
       <div className="max-w-md w-full rounded-2xl border border-gray-300 dark:border-gray-700 p-6 text-center space-y-4">

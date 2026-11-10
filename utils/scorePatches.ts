@@ -33,3 +33,29 @@ export const setPitchScore = (
     status: match.isComplete ? match.status : 'IN_PROGRESS'
   };
 };
+
+/**
+ * Tie-breaker buttons 0–4 use the same targeted immutable approach.
+ * Preserve untouched tie-breaker rounds and complete regulation innings.
+ */
+export const setTieBreakerPitchScore = (
+  match: Match,
+  roundIdx: number,
+  side: 'home' | 'away',
+  pitchIdx: number,
+  points: number | null
+): Match => {
+  const round = match.tieBreaker?.[roundIdx];
+  const scores = side === 'home' ? round?.homeScores : round?.awayScores;
+  if (!round || !scores || pitchIdx < 0 || pitchIdx >= scores.length) return match;
+  if (scores[pitchIdx] === points) return match;
+  const updatedScores = scores.map((value, idx) => idx === pitchIdx ? points : value);
+  const updatedRound = side === 'home'
+    ? { ...round, homeScores: updatedScores }
+    : { ...round, awayScores: updatedScores };
+  return {
+    ...match,
+    tieBreaker: match.tieBreaker!.map((value, idx) => idx === roundIdx ? updatedRound : value),
+    status: match.isComplete ? match.status : 'IN_PROGRESS'
+  };
+};

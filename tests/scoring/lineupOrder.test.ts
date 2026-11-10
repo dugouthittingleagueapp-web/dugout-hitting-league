@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { 
-  applyLineupToMatch, 
+  applyLineupToMatch,
+  getUnsafeLineupChangeReason,
   moveBatterUp, 
   moveBatterDown, 
   formatFullPlayerName,
@@ -128,6 +129,51 @@ describe('lineupHelper', () => {
         expect(inning.home.playerScores).toHaveLength(3);
         expect(inning.home.playerScores[0].pitches).toHaveLength(10);
       });
+    });
+  });
+
+  describe('midgame lineup safety', () => {
+    it('refuses to remove a batter with recorded points in the current inning', () => {
+      const match = createMockMatch(['h1', 'h2', 'h3'], ['a1', 'a2', 'a3']);
+      match.innings[2].home.playerScores[2].pitches[4].points = 0;
+      expect(getUnsafeLineupChangeReason(match, ['h1', 'h2', 'sub1'], ['a1','a2','a3'], 2))
+        .toContain('cannot remove');
+      expect(() => applyLineupToMatch(match, ['h1','h2','sub1'], ['a1','a2','a3'], { startFromInningIdx: 2 }))
+        .toThrow('cannot remove');
+      expect(match.innings[2].home.playerScores[2].pitches[4].points).toBe(0);
+    });
+
+    it('refuses ghost-mode pitch contraction when recorded pitches would be cut', () => {
+      const match = createMockMatch(['h1', 'h2'], ['a1', 'a2', 'a3']);
+      match.innings[3].home.playerScores.forEach(p => {
+        p.pitches = Array(15).fill(null).map(() => ({ points: null }));
+      });
+      match.innings[3].home.playerScores[0].pitches[12].points = 4;
+      expect(getUnsafeLineupChangeReason(match, ['h1','h2','h3'], ['a1','a2','a3'], 3))
+        .toContain('pitch allocation');
+      expect(() => applyLineupToMatch(match, ['h1','h2','h3'], ['a1','a2','a3'], {startFromInningIdx:3}))
+        .toThrow('pitch allocation');
+    });
+
+    it('changes only future innings, preserving earlier completed innings and points', () => {
+      const match = createMockMatch(['h1','h2','h3'],['a1','a2','a3']);
+      match.innings[0].home.playerScores[0].pitches[0].points = 3;
+      match.innings[1].home.playerScores[1].pitches[3].points = 2;
+      const result = applyLineupToMatch(match,['h1','h2','sub1'],['a1','a2','a3'], {startFromInningIdx: 2});
+      expect(result.innings[0].home.playerScores.map(p=>p.playerId)).toEqual(['h1','h2','h3']);
+      expect(result.innings[0].home.playerScores[0].pitches[0].points).toBe(3);
+      expect(result.innings[1].home.playerScores[1].pitches[3].points).toBe(2);
+      expect(result.innings[2].home.playerScores.map(p=>p.playerId)).toEqual(['h1','h2','sub1']);
+      expect(result.innings[5].home.playerScores.map(p=>p.playerId)).toEqual(['h1','h2','sub1']);
+    });
+
+    it('allows replacing an unscored player while preserving scores of remaining batters', () => {
+      const match = createMockMatch(['h1','h2','h3'],['a1','a2','a3']);
+      match.innings[2].home.playerScores[0].pitches[0].points = 4;
+      expect(getUnsafeLineupChangeReason(match, ['h1','h2','sub1'],['a1','a2','a3'], 2)).toBeNull();
+      const result = applyLineupToMatch(match,['h1','h2','sub1'],['a1','a2','a3'], {startFromInningIdx:2});
+      expect(result.innings[2].home.playerScores[0].pitches[0].points).toBe(4);
+      expect(result.innings[2].home.playerScores[2].playerId).toBe('sub1');
     });
   });
 

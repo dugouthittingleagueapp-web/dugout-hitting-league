@@ -29,7 +29,8 @@ describe('Official League Forfeit and Asymmetrical Stats Rules', () => {
       { id: 'h3', name: 'Charlie' }
     ],
     subs: [
-      { id: 'h-sub1', name: 'Sub Dave' }
+      { id: 'h-sub1', name: 'Sub Dave' },
+      { id: 'h-sub2', name: 'Sub Erin' }
     ]
   };
 
@@ -60,8 +61,8 @@ describe('Official League Forfeit and Asymmetrical Stats Rules', () => {
 
   describe('1. Roster Threshold Validation (detectForfeit)', () => {
     it('flags forfeit when home fields only 1 main roster player against away 3 main players', () => {
-      // Home fields Alice (main) + Sub Dave + external sub, away fields 3 main players
-      const homeLineup = ['h1', 'h-sub1', 'ext-sub'];
+      // Home fields Alice (main) plus two registered substitutes.
+      const homeLineup = ['h1', 'h-sub1', 'h-sub2'];
       const awayLineup = ['a1', 'a2', 'a3'];
 
       const result = detectForfeit(homeTeam, awayTeam, homeLineup, awayLineup);
@@ -70,6 +71,13 @@ describe('Official League Forfeit and Asymmetrical Stats Rules', () => {
       expect(result.winningTeamId).toBe('team-away');
       expect(result.forfeitReason).toContain('Home Sluggers');
       expect(result.forfeitReason).toContain('1 main roster member');
+    });
+
+    it('does not treat an unknown lineup player ID as a substitute or assign a forfeit', () => {
+      const result = detectForfeit(homeTeam, awayTeam, ['h1', 'h-sub1', 'stale-james-id'], ['a1', 'a2', 'a3']);
+      expect(result.isForfeit).toBe(false);
+      expect(result.unknownHomeIds).toEqual(['stale-james-id']);
+      expect(result.unknownAwayIds).toEqual([]);
     });
 
     it('flags forfeit when away fields only 1 main player against home 2 main players', () => {

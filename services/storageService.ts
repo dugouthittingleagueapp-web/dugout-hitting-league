@@ -426,37 +426,43 @@ export const saveTeam = async (team: Team): Promise<Team> => {
   return team;
 };
 
-export const updateTeam = async (team: Team): Promise<Team> => {
-  // Update local cache immediately so offline roster substitutions persist
-  if (typeof window !== 'undefined') {
-    try {
-      localStorage.setItem(`dugout_team_${team.id}`, JSON.stringify(team));
-      const cached = localStorage.getItem('dugout_all_teams_cache');
-      if (cached) {
-        const list: Team[] = JSON.parse(cached);
-        const idx = list.findIndex(t => t.id === team.id);
-        if (idx !== -1) list[idx] = team;
-        else list.push(team);
-        localStorage.setItem('dugout_all_teams_cache', JSON.stringify(list));
-      }
-    } catch (e) {}
-  }
-
+export const updateTeam = async (team: Team, options?: { requireServerSave?: boolean }): Promise<Team> => {
+  // Do not show an unpersisted substitute as saved. The server must confirm
+  // official roster edits before the lineup can refer to the new player ID.
   try {
     const res = await apiFetch('/api/teams', {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(team)
     });
-    if (res.ok) {
-      const data = await res.json();
-      return mapTeamFromDB(data);
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      // All HTTP rejections (including 400/403/500) are real failures, not offline.
+      throw new Error(body.error || `Roster update rejected (HTTP ${res.status})`);
     }
+    const saved = mapTeamFromDB(await res.json());
+    if (typeof window !== 'undefined') {
+      try {
+        localStorage.setItem(`dugout_team_${saved.id}`, JSON.stringify(saved));
+        const cached = localStorage.getItem('dugout_all_teams_cache');
+        if (cached) {
+          const list: Team[] = JSON.parse(cached);
+          const idx = list.findIndex(t => t.id === saved.id);
+          if (idx !== -1) list[idx] = saved;
+          else list.push(saved);
+          localStorage.setItem('dugout_all_teams_cache', JSON.stringify(list));
+        }
+      } catch (e) {}
+    }
+    return saved;
   } catch (err) {
-    console.warn('Network updateTeam failed (offline), queued for sync', err);
+    // Official umpire workflows must never proceed with a substitute that
+    // exists only in browser cache. Other callers retain offline queueing.
+    if (options?.requireServerSave) throw err;
+    if (err instanceof Error && /rejected \(HTTP|Unauthorized|Forbidden|permissions|only add substitutes/i.test(err.message)) throw err;
     enqueuePendingTeamSync(team);
+    return team;
   }
-  return team;
 };
 
 export const moveTeams = async (teamIds: string[], targetLeague: string): Promise<void> => {
@@ -650,7 +656,10 @@ export const createMatch = async (
         body: JSON.stringify(match)
     });
     
-    if (!res.ok) throw new Error('Failed to create match');
+    if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body.error || `Failed to create match (HTTP ${res.status})`);
+  }
     const data = await res.json();
     return mapMatchFromDB(data);
 };
@@ -855,9 +864,24 @@ export const calculateTeamGameTotal = (side: 'home' | 'away', matchData?: Match 
     return baseScore + tieScore;
 };
 
-export const updateMatch = async (match: Match): Promise<Match> => {
-    // Immediate local persistence on every input/score/substitution
-    if (typeof window !== 'undefined') {
+// Serialize writes from the same browser to prevent an older network response
+// overwriting a newer pitch or lineup update in Neon.
+const matchWriteQueues = new Map<string, Promise<void>>();
+
+export const updateMatch = (match: Match, options?: { requireServerSave?: boolean }): Promise<Match> => {
+    const previous = matchWriteQueues.get(match.id) || Promise.resolve();
+    const write = previous.catch(() => {}).then(() => performMatchUpdate(match, options));
+    const settled = write.then(() => {}, () => {});
+    matchWriteQueues.set(match.id, settled);
+    void settled.then(() => {
+        if (matchWriteQueues.get(match.id) === settled) matchWriteQueues.delete(match.id);
+    });
+    return write;
+};
+
+const performMatchUpdate = async (match: Match, options?: { requireServerSave?: boolean }): Promise<Match> => {
+    // Only optimistic-cache offline pitch updates; explicit confirmed saves must wait for Neon.
+    if (!options?.requireServerSave && typeof window !== 'undefined') {
         try {
             localStorage.setItem(`dugout_match_${match.id}`, JSON.stringify(match));
             if (!match.isComplete && match.status === 'IN_PROGRESS') {
@@ -877,11 +901,24 @@ export const updateMatch = async (match: Match): Promise<Match> => {
         if (res.ok) {
             dequeuePendingMatchSync(match.id);
             const data = await res.json();
-            return mapMatchFromDB(data);
+            const saved = mapMatchFromDB(data);
+            if (options?.requireServerSave && typeof window !== 'undefined') {
+                try {
+                    localStorage.setItem(`dugout_match_${saved.id}`, JSON.stringify(saved));
+                    if (saved.isComplete) localStorage.removeItem('dugout_active_match_id');
+                    else if (saved.status === 'IN_PROGRESS') localStorage.setItem('dugout_active_match_id', saved.id);
+                } catch (e) {}
+            }
+            return saved;
         } else {
+            if (options?.requireServerSave) {
+                const details = await res.json().catch(() => ({}));
+                throw new Error(details.error || `Failed to save match (HTTP ${res.status})`);
+            }
             enqueuePendingMatchSync(match);
         }
     } catch (err) {
+        if (options?.requireServerSave) throw err;
         console.warn('Network sync failed (phone offline/disconnected), match saved in local storage and queued for background sync', err);
         enqueuePendingMatchSync(match);
     }

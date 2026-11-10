@@ -118,18 +118,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const { 
         id, league, homeTeamId, awayTeamId, date, isComplete, innings, season, 
         location, startTime, endTime, notes, status, isPractice, is_practice,
-        isForfeit, is_forfeit, forfeitingTeamId, forfeiting_team_id, forfeitReason, forfeit_reason
+        isForfeit, is_forfeit, forfeitingTeamId, forfeiting_team_id, winningTeamId, winning_team_id, forfeitReason, forfeit_reason
       } = req.body || {};
       
       const matchIsPractice = isPractice === true || is_practice === true;
       const matchIsForfeit = isForfeit === true || is_forfeit === true;
       const forfeitTeamId = forfeitingTeamId || forfeiting_team_id || null;
       const forfeitNote = forfeitReason || forfeit_reason || null;
+      const winningId = winningTeamId || winning_team_id || null;
 
       // Server-Side Authorization:
-      // Practice match creation allowed for ADMIN and UMPIRE
-      // Official match creation strictly requires ADMIN
-      const allowedRoles = matchIsPractice ? ['admin', 'umpire'] : ['admin'];
+      // Both authenticated admins and umpires may start official or practice games.
+      const allowedRoles = ['admin', 'umpire'];
       const role = requireRole(req, res, allowedRoles as ('admin' | 'umpire')[]);
       if (!role) return;
 
@@ -150,9 +150,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const query = `
         INSERT INTO matches (
           id, league, home_team_id, away_team_id, date, is_complete, innings, season, 
-          location, start_time, end_time, notes, status, is_practice, is_forfeit, forfeiting_team_id, forfeit_reason
+          location, start_time, end_time, notes, status, is_practice, is_forfeit, forfeiting_team_id, forfeit_reason, winning_team_id
         ) 
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17) 
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18) 
         RETURNING *
       `;
       const values = [
@@ -172,7 +172,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         matchIsPractice,
         matchIsForfeit,
         forfeitTeamId,
-        forfeitNote
+        forfeitNote,
+        winningId
       ];
 
       let row: any = null;
@@ -214,7 +215,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const { 
         id, isComplete, innings, tieBreaker, league, location, startTime, 
         endTime, notes, homeTeamId, awayTeamId, status, isPractice, is_practice,
-        isForfeit, is_forfeit, forfeitingTeamId, forfeiting_team_id, forfeitReason, forfeit_reason
+        isForfeit, is_forfeit, forfeitingTeamId, forfeiting_team_id, winningTeamId, winning_team_id, forfeitReason, forfeit_reason
       } = req.body || {};
       
       const { rawId, strippedId, isPracticePrefix } = cleanMatchId(id);
@@ -222,6 +223,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const forfeitFlag = isForfeit !== undefined ? isForfeit : (is_forfeit !== undefined ? is_forfeit : null);
       const forfeitTeamId = forfeitingTeamId !== undefined ? forfeitingTeamId : (forfeiting_team_id !== undefined ? forfeiting_team_id : null);
       const forfeitNote = forfeitReason !== undefined ? forfeitReason : (forfeit_reason !== undefined ? forfeit_reason : null);
+      const winningId = winningTeamId !== undefined ? winningTeamId : (winning_team_id !== undefined ? winning_team_id : null);
 
       const queryUpdate = `
         UPDATE matches 
@@ -238,8 +240,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             status = COALESCE($13, status),
             is_practice = COALESCE($14, is_practice),
             is_forfeit = COALESCE($15, is_forfeit),
-            forfeiting_team_id = COALESCE($16, forfeiting_team_id),
-            forfeit_reason = COALESCE($17, forfeit_reason)
+            forfeiting_team_id = CASE WHEN $15::boolean = FALSE THEN NULL ELSE COALESCE($16, forfeiting_team_id) END,
+            forfeit_reason = CASE WHEN $15::boolean = FALSE THEN NULL ELSE COALESCE($17, forfeit_reason) END,
+            winning_team_id = CASE WHEN $15::boolean = FALSE THEN NULL ELSE COALESCE($18, winning_team_id) END
         WHERE id::text = $1 OR id::text = $2
         RETURNING *
       `;
@@ -260,11 +263,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         practiceFlag,
         forfeitFlag,
         forfeitTeamId,
-        forfeitNote
+        forfeitNote,
+        winningId
       ];
 
       const { rows } = await pool.query(queryUpdate, values);
       const row = rows[0];
+      if (!row) return res.status(404).json({ error: 'Match not found; no scoring data was saved.' });
       if (row) {
         row.innings = typeof row.innings === 'string' ? JSON.parse(row.innings) : row.innings;
         if (row.tie_breaker) row.tieBreaker = typeof row.tie_breaker === 'string' ? JSON.parse(row.tie_breaker) : row.tie_breaker;

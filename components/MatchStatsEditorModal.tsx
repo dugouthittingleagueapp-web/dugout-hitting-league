@@ -1,7 +1,9 @@
+import { explainSaveError } from '../utils/friendlyErrors';
 import React, { useState, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { Match, Team, Player } from '../types.js';
 import * as storage from '../services/storageService.js';
+import { detectForfeit, getUnknownLineupIds } from '../services/matchHelpers.js';
 import {
   extractMatchPlayerSummary,
   remapMatchPlayerIds,
@@ -118,15 +120,38 @@ export const MatchStatsEditorModal: React.FC<MatchStatsEditorModalProps> = ({
 
       // 2. Save updated teams if new players were added
       if (updatedHomeTeam && updatedHomeTeam.players.length !== (homeTeam?.players?.length || 0)) {
-        await storage.updateTeam(updatedHomeTeam);
+        await storage.updateTeam(updatedHomeTeam, { requireServerSave: true });
       }
       if (updatedAwayTeam && updatedAwayTeam.players.length !== (awayTeam?.players?.length || 0)) {
-        await storage.updateTeam(updatedAwayTeam);
+        await storage.updateTeam(updatedAwayTeam, { requireServerSave: true });
       }
 
-      // 3. Remap match player scores
-      const updatedMatch = remapMatchPlayerIds(match, finalMapping);
-      const savedMatch = await storage.updateMatch(updatedMatch);
+      // 3. Remap match player scores without altering pitch values.
+      let updatedMatch = remapMatchPlayerIds(match, finalMapping);
+
+      // 4. Re-evaluate the forfeit only when both full lineups resolve to
+      // known roster members or registered substitutes.
+      if (updatedHomeTeam && updatedAwayTeam) {
+        const homeIds = (updatedMatch.innings?.[0]?.home?.playerScores || []).map(ps => ps.playerId);
+        const awayIds = (updatedMatch.innings?.[0]?.away?.playerScores || []).map(ps => ps.playerId);
+        if (homeIds.length >= 2 && awayIds.length >= 2 &&
+            !getUnknownLineupIds(updatedHomeTeam, homeIds).length &&
+            !getUnknownLineupIds(updatedAwayTeam, awayIds).length) {
+          const verdict = detectForfeit(updatedHomeTeam, updatedAwayTeam, homeIds, awayIds);
+          updatedMatch = {
+            ...updatedMatch,
+            isForfeit: verdict.isForfeit,
+            is_forfeit: verdict.isForfeit,
+            forfeitingTeamId: verdict.forfeitingTeamId,
+            forfeiting_team_id: verdict.forfeitingTeamId,
+            winningTeamId: verdict.winningTeamId,
+            winning_team_id: verdict.winningTeamId,
+            forfeitReason: verdict.reason,
+            forfeit_reason: verdict.reason
+          };
+        }
+      }
+      const savedMatch = await storage.updateMatch(updatedMatch, { requireServerSave: true });
 
       setSaveSuccessMsg('Match player stats successfully re-assigned!');
       setTimeout(() => {
@@ -135,7 +160,7 @@ export const MatchStatsEditorModal: React.FC<MatchStatsEditorModalProps> = ({
       }, 700);
     } catch (err: any) {
       console.error('Failed to save re-mapped match stats:', err);
-      alert('Error updating match stats: ' + (err.message || 'Unknown error'));
+      alert(explainSaveError(err, 'stats'));
     } finally {
       setIsSaving(false);
     }

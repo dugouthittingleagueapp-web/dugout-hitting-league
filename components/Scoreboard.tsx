@@ -351,18 +351,8 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
       if (prevPitchIdx < 0) return;
       let newMatch: Match = match;
       if (roundIdx !== undefined && match.tieBreaker) {
-          newMatch = {
-              ...match,
-              tieBreaker: match.tieBreaker.map((round, idx) => {
-                  if (idx !== roundIdx) return round;
-                  if (side === 'home') {
-                      return { ...round, homeScores: round.homeScores.map((score, i) => i === prevPitchIdx ? null : score) };
-                  }
-                  return { ...round, awayScores: round.awayScores.map((score, i) => i === prevPitchIdx ? null : score) };
-              })
-          };
-          const round = newMatch.tieBreaker[roundIdx];
-          if (round) {
+          newMatch = setTieBreakerPitchScore(match, roundIdx, side, prevPitchIdx, null);
+          if (newMatch !== match) {
               setActiveCell({ side, lineupIdx: 0, pitchIdx: prevPitchIdx, roundIdx });
           }
       } else {

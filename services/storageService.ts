@@ -115,7 +115,8 @@ export const syncPitchChanges = (matchId: string) => flushPitchChanges(matchId, 
 export const syncAllPitchChanges = () => flushAllPitchChanges(apiFetch);
 export const getPitchSyncStatus = (matchId: string) => ({
   pending: getPendingPitchChanges(matchId).length,
-  conflict: getPitchSyncConflict(matchId)
+  conflict: getPitchSyncConflict(matchId),
+  atomic: isPitchProtected(matchId)
 });
 
 // League Methods

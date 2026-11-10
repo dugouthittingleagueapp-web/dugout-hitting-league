@@ -215,7 +215,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const { 
         id, isComplete, innings, tieBreaker, league, location, startTime, 
         endTime, notes, homeTeamId, awayTeamId, status, isPractice, is_practice,
-        isForfeit, is_forfeit, forfeitingTeamId, forfeiting_team_id, forfeitReason, forfeit_reason
+        isForfeit, is_forfeit, forfeitingTeamId, forfeiting_team_id, winningTeamId, winning_team_id, forfeitReason, forfeit_reason
       } = req.body || {};
       
       const { rawId, strippedId, isPracticePrefix } = cleanMatchId(id);

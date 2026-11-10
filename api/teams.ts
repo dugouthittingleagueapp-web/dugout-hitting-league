@@ -59,12 +59,37 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(201).json(rows[0]);
     }
     else if (req.method === 'PUT') {
-      const role = requireRole(req, res, ['admin']);
+      const role = requireRole(req, res, ['admin', 'umpire']);
       if (!role) return;
 
       const { id, name, players, subs } = req.body || {};
-      if (!id || !name || !players) return res.status(400).json({ error: 'Missing fields' });
-      
+      if (!id || !name || !Array.isArray(players) || !Array.isArray(subs)) {
+        return res.status(400).json({ error: 'Missing or invalid roster fields' });
+      }
+
+      if (role === 'umpire') {
+        // Umpires may register substitutes during games, not rewrite the permanent roster.
+        const current = await pool.query('SELECT name, players, subs FROM teams WHERE id = $1', [id]);
+        if (!current.rows.length) return res.status(404).json({ error: 'Team not found' });
+        const storedPlayers = typeof current.rows[0].players === 'string'
+          ? JSON.parse(current.rows[0].players) : current.rows[0].players;
+        const storedSubs = typeof current.rows[0].subs === 'string'
+          ? JSON.parse(current.rows[0].subs) : (current.rows[0].subs || []);
+        const samePlayers = JSON.stringify(players) === JSON.stringify(storedPlayers);
+        const existingSubsIntact = storedSubs.every((existing: any) =>
+          subs.some((submitted: any) => JSON.stringify(submitted) === JSON.stringify(existing))
+        );
+        const uniqueSubIds = new Set(subs.map((sub: any) => sub?.id)).size === subs.length;
+        if (name !== current.rows[0].name || !samePlayers || !existingSubsIntact || !uniqueSubIds) {
+          return res.status(403).json({ error: 'Umpires may only add substitutes; permanent team roster changes require an admin.' });
+        }
+        const { rows } = await pool.query(
+          'UPDATE teams SET subs = $2 WHERE id = $1 RETURNING *',
+          [id, JSON.stringify(subs)]
+        );
+        return res.status(200).json(rows[0]);
+      }
+
       const query = `UPDATE teams SET name = $2, players = $3, subs = $4 WHERE id = $1 RETURNING *`;
       const values = [id, name, JSON.stringify(players), JSON.stringify(subs || [])];
       

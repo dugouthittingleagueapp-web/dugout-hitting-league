@@ -518,9 +518,11 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
   const homeTotal = calculateTeamGameTotal('home', match);
   const awayTotal = calculateTeamGameTotal('away', match);
 
-  const saveRosterChange = async (side: 'home' | 'away', playerIds: string[]) => {
+  const saveRosterChange = async (side: 'home' | 'away', playerIds: string[], updatedTeam?: Team) => {
       if (isReadOnly || !match) return;
-      const team = side === 'home' ? teams.home : teams.away;
+      // Use the newly persisted team when a substitute was just registered.
+      // React state updates are asynchronous, so teams can otherwise be stale here.
+      const team = updatedTeam || (side === 'home' ? teams.home : teams.away);
       if (!team || getUnknownLineupIds(team, playerIds).length > 0 ||
           new Set(playerIds).size !== playerIds.length) {
           alert('Lineup includes an unknown or duplicate player. Select a valid roster player or registered substitute.');
@@ -567,8 +569,10 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
           newMatch.innings[i] = updateInningStructure(newMatch.innings[i], currentHomeLineup, currentAwayLineup);
       }
 
-      if (teams.home && teams.away) {
-          const evalResult = detectForfeit(teams.home, teams.away, currentHomeLineup, currentAwayLineup);
+      const homeTeamForValidation = side === 'home' ? team : teams.home;
+      const awayTeamForValidation = side === 'away' ? team : teams.away;
+      if (homeTeamForValidation && awayTeamForValidation) {
+          const evalResult = detectForfeit(homeTeamForValidation, awayTeamForValidation, currentHomeLineup, currentAwayLineup);
           newMatch.is_forfeit = evalResult.isForfeit;
           newMatch.isForfeit = evalResult.isForfeit;
           newMatch.forfeiting_team_id = evalResult.forfeitingTeamId;
@@ -610,7 +614,7 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
         
         if (newList.length >= 2 && newList.length <= 3) {
             setNewSubNameInput('');
-            await saveRosterChange(rosterSide, newList);
+            await saveRosterChange(rosterSide, newList, updatedTeam);
         } else {
             alert("Roster limit reached (3 max). Player saved as sub.");
             setNewSubNameInput('');

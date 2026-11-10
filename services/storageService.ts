@@ -502,6 +502,32 @@ export const deleteTeam = async (teamId: string) => {
   await apiFetch(`/api/teams?id=${teamId}`, { method: 'DELETE' });
 };
 
+// Dashboard polls only small revision records. Errors are never treated as
+// empty schedules; this prevents network outages from erasing the match list.
+export interface MatchRevision {
+  id: string;
+  revision: string;
+}
+
+export const getMatchRevisions = async (league: AgeGroup, season: string): Promise<MatchRevision[]> => {
+  const url = `/api/matches?league=${encodeURIComponent(league)}&season=${encodeURIComponent(season)}&revisions=true`;
+  const res = await apiFetch(url);
+  if (!res.ok) throw new Error(`Could not check the latest match updates (HTTP ${res.status})`);
+  const rows: unknown = await res.json();
+  if (!Array.isArray(rows) || !rows.every(row => row && typeof row.id === 'string' && typeof row.revision === 'string')) {
+    throw new Error('Invalid match update response; keeping the current scores.');
+  }
+  return rows as MatchRevision[];
+};
+
+// Unlike getMatch, this live-refresh read must not fall back to a potentially
+// outdated local match. An error leaves the existing dashboard unchanged.
+export const getMatchFromServer = async (id: string): Promise<Match> => {
+  const res = await apiFetch(`/api/matches?id=${encodeURIComponent(id)}`);
+  if (!res.ok) throw new Error(`Match details could not be refreshed (HTTP ${res.status})`);
+  return mapMatchFromDB(await res.json());
+};
+
 // Match Methods
 export const getMatches = async (league: AgeGroup, season: string, options?: { excludePractice?: boolean }): Promise<Match[]> => {
   const excludePractice = options?.excludePractice ?? false;

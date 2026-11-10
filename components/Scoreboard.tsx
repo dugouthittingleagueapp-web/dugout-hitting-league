@@ -86,7 +86,8 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
         .finally(() => forceSyncStatus(v => v + 1));
       return true;
     } catch (err) {
-      alert(err instanceof Error ? err.message : explainSaveError(err, 'match'));
+      const message = err instanceof Error ? err.message : '';
+      alert(/quota|storage|securityerror/i.test(message) ? explainSaveError(err, 'match') : (message || explainSaveError(err, 'match')));
       return false;
     }
   };

@@ -32,6 +32,9 @@ const saveConflict = (matchId: string, reason: string) => {
   const conflicts = readObject<Record<string, string>>(CONFLICT_KEY, {});
   conflicts[matchId] = reason;
   storeObject(CONFLICT_KEY, conflicts);
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('dugout:pitch-sync-status', { detail: { matchId } }));
+  }
 };
 
 /** Persist the change before painting it. Protect against older full-match replay. */

@@ -269,6 +269,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
       const { rows } = await pool.query(queryUpdate, values);
       const row = rows[0];
+      if (!row) return res.status(404).json({ error: 'Match not found; no scoring data was saved.' });
       if (row) {
         row.innings = typeof row.innings === 'string' ? JSON.parse(row.innings) : row.innings;
         if (row.tie_breaker) row.tieBreaker = typeof row.tie_breaker === 'string' ? JSON.parse(row.tie_breaker) : row.tie_breaker;

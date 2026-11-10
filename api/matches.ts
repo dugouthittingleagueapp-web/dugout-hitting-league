@@ -232,6 +232,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         isForfeit, is_forfeit, forfeitingTeamId, forfeiting_team_id, winningTeamId, winning_team_id, forfeitReason, forfeit_reason
       } = req.body || {};
       
+      // Every full-record PUT must be based on a known server version.
+      // Otherwise an old browser tab could silently overwrite newer pitches.
+      if (typeof rowVersion !== 'string' || !/^[0-9]+$/.test(rowVersion)) {
+        return res.status(428).json({ error: 'This game was opened before the latest update. Reopen it from the dashboard before saving. Your existing scores were not overwritten.' });
+      }
       const { rawId, strippedId, isPracticePrefix } = cleanMatchId(id);
       const practiceFlag = isPractice !== undefined ? isPractice : (is_practice !== undefined ? is_practice : null);
       const forfeitFlag = isForfeit !== undefined ? isForfeit : (is_forfeit !== undefined ? is_forfeit : null);
@@ -258,7 +263,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             forfeit_reason = CASE WHEN $15::boolean = FALSE THEN NULL ELSE COALESCE($17, forfeit_reason) END,
             winning_team_id = CASE WHEN $15::boolean = FALSE THEN NULL ELSE COALESCE($18, winning_team_id) END
         WHERE (id::text = $1 OR id::text = $2)
-          AND ($19::text IS NULL OR xmin::text = $19::text)
+          AND xmin::text = $19::text
         RETURNING *, xmin::text AS row_version
       `;
       const values = [

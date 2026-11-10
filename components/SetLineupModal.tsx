@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import { Match, Team, Player } from '../types';
 import { applyLineupToMatch, moveBatterUp, moveBatterDown, formatFullPlayerName, swapHomeAndAway } from '../utils/lineupHelper';
 import * as storage from '../services/storageService';
-import { detectForfeit } from '../services/matchHelpers';
+import { detectForfeit, getUnknownLineupIds } from '../services/matchHelpers';
 
 interface SetLineupModalProps {
   match: Match;
@@ -70,12 +70,18 @@ export const SetLineupModal: React.FC<SetLineupModalProps> = ({
       .map(p => p.playerId)
       .filter(Boolean);
 
-    const defaultHome = matchHomeIds.length >= 2 
-      ? matchHomeIds 
-      : (initialHomeTeam.players || []).map(p => p.id).slice(0, 3);
-    const defaultAway = matchAwayIds.length >= 2 
-      ? matchAwayIds 
-      : (initialAwayTeam.players || []).map(p => p.id).slice(0, 3);
+    // An unplayed scheduled game begins with its three official regulars.
+    // Preserve intentional selections for started games; never silently overwrite scoring.
+    const hasScoredPitches = (match.innings || []).some(inning =>
+      [...(inning.home?.playerScores || []), ...(inning.away?.playerScores || [])]
+        .some(ps => (ps.pitches || []).some(p => p.points !== null && p.points !== undefined))
+    );
+    const hasValidSavedHome = matchHomeIds.length >= 2 && getUnknownLineupIds(initialHomeTeam, matchHomeIds).length === 0;
+    const hasValidSavedAway = matchAwayIds.length >= 2 && getUnknownLineupIds(initialAwayTeam, matchAwayIds).length === 0;
+    const defaultHome = hasScoredPitches || hasValidSavedHome
+      ? matchHomeIds : (initialHomeTeam.players || []).map(p => p.id).slice(0, 3);
+    const defaultAway = hasScoredPitches || hasValidSavedAway
+      ? matchAwayIds : (initialAwayTeam.players || []).map(p => p.id).slice(0, 3);
 
     setHomeLineup(defaultHome);
     setAwayLineup(defaultAway);
@@ -214,6 +220,18 @@ export const SetLineupModal: React.FC<SetLineupModalProps> = ({
       return;
     }
 
+    const invalidHomeIds = getUnknownLineupIds(homeTeam, homeLineup);
+    const invalidAwayIds = getUnknownLineupIds(awayTeam, awayLineup);
+    if (invalidHomeIds.length || invalidAwayIds.length) {
+      setActiveSide(invalidAwayIds.length ? 'away' : 'home');
+      setErrorMessage('The saved lineup contains players no longer on this team roster. Choose valid roster players or registered substitutes before saving.');
+      return;
+    }
+    if (new Set(homeLineup).size !== homeLineup.length || new Set(awayLineup).size !== awayLineup.length) {
+      setErrorMessage('A batter cannot appear twice in the same lineup.');
+      return;
+    }
+
     setIsSaving(true);
     setErrorMessage(null);
     try {
@@ -231,8 +249,8 @@ export const SetLineupModal: React.FC<SetLineupModalProps> = ({
         forfeit_reason: forfeitEval.reason,
         status: andStartScoring ? 'IN_PROGRESS' : updatedMatch.status
       };
-      await storage.updateMatch(updatedMatch);
-      await onSave(updatedMatch, andStartScoring);
+      const savedMatch = await storage.updateMatch(updatedMatch);
+      await onSave(savedMatch, andStartScoring);
       onClose();
     } catch (err: any) {
       setErrorMessage(`Failed to save lineup: ${err.message || 'Unknown error'}`);

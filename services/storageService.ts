@@ -5,7 +5,7 @@ import { parseScheduleCsv, isDuplicateMatch } from '../utils/scheduleImporter';
 import { sortMatchesChronologically } from '../utils/matchSort';
 import { detectForfeit, isForfeitMatch, getForfeitingTeamId } from './matchHelpers';
 import type { PitchChange } from '../utils/pitchSync';
-import { queuePitchChange as persistPitchChange, flushPitchChanges, flushAllPitchChanges, getPendingPitchChanges, getPitchSyncConflict, isPitchProtected, replayPendingPitchChanges } from './pitchSyncService';
+import { queuePitchChange as persistPitchChange, flushPitchChanges, flushAllPitchChanges, getPendingPitchChanges, getPitchSyncConflict, isPitchProtected, replayPendingPitchChanges, inspectPitchConflict, resolvePitchConflict, type PitchConflictReview } from './pitchSyncService';
 import { coalesceInFlightGet } from '../utils/requestCoalescer';
 
 export { sortMatchesChronologically };
@@ -113,6 +113,16 @@ const apiFetch = async (url: string, init?: RequestInit): Promise<Response> => {
 export const queuePitchChange = (change: PitchChange) => persistPitchChange(change);
 export const syncPitchChanges = (matchId: string) => flushPitchChanges(matchId, apiFetch);
 export const syncAllPitchChanges = () => flushAllPitchChanges(apiFetch);
+export const reviewPitchConflict = async (matchId: string): Promise<PitchConflictReview> =>
+  inspectPitchConflict(matchId, await getMatchFromServer(matchId));
+export const choosePitchConflict = async (review: PitchConflictReview, decision: 'keep-server' | 'use-device'): Promise<Match> => {
+  resolvePitchConflict(review, decision);
+  await syncPitchChanges(review.change.matchId);
+  const result = await getMatch(review.change.matchId);
+  if (!result) throw new Error('Unable to reload the game after conflict review. Your queued scores remain saved on this device.');
+  return result;
+};
+
 export const getPitchSyncStatus = (matchId: string) => ({
   pending: getPendingPitchChanges(matchId).length,
   conflict: getPitchSyncConflict(matchId),

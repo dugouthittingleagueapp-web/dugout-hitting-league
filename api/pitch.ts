@@ -35,6 +35,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           status = CASE WHEN is_complete THEN status ELSE 'IN_PROGRESS' END
       WHERE (id::text = $1 OR id::text = $2)
         AND (is_complete IS NOT TRUE OR $8::boolean)
+        AND (${column} #> $3::text[]) IS NOT NULL
         AND (${column} #>> $3::text[]) IS NOT DISTINCT FROM $5::text
         ${change.kind === 'regulation'
           ? "AND (innings #>> $6::text[]) = $7::text"

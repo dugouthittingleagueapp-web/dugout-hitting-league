@@ -1,4 +1,5 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
+import crypto from 'crypto';
 import pool from './db.js';
 import { requireRole, getAuthFromRequest } from './auth.js';
 
@@ -267,8 +268,52 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         winningId
       ];
 
-      const { rows } = await pool.query(queryUpdate, values);
-      const row = rows[0];
+      // Lock the match row before checking ownership. The lock endpoint uses
+      // the same row lock, preventing a takeover from racing a pitch write.
+      const client = await pool.connect();
+      let row: any;
+      try {
+        await client.query('BEGIN');
+        const target = await client.query(
+          'SELECT id, status, is_complete FROM matches WHERE id::text = $1 OR id::text = $2 FOR UPDATE',
+          [rawId, strippedId]
+        );
+        if (!target.rows.length) {
+          await client.query('ROLLBACK');
+          return res.status(404).json({ error: 'Game not found. No changes were saved.' });
+        }
+        const lock = await client.query(
+          'SELECT token_hash FROM scoring_locks WHERE match_id = $1',
+          [String(target.rows[0].id)]
+        );
+        const owner = lock.rows[0]?.token_hash;
+        const suppliedToken = req.headers['x-scoring-token'];
+        const token = typeof suppliedToken === 'string' ? suppliedToken : '';
+        const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
+        const scoringStarted = target.rows[0].status === 'IN_PROGRESS' ||
+          status === 'IN_PROGRESS' || target.rows[0].is_complete === true ||
+          isComplete === true;
+        if (scoringStarted && (!owner || !token || tokenHash !== owner)) {
+          await client.query('ROLLBACK');
+          return res.status(423).json({
+            code: 'SCORING_LOCKED',
+            error: owner
+              ? 'Another umpire is already scoring this game. Ask an admin to transfer control.'
+              : 'Scoring is not ready yet. Reopen the game to secure scoring access.'
+          });
+        }
+        const result = await client.query(queryUpdate, values);
+        row = result.rows[0];
+        if (row?.is_complete) {
+          await client.query('DELETE FROM scoring_locks WHERE match_id = $1', [String(row.id)]);
+        }
+        await client.query('COMMIT');
+      } catch (err) {
+        await client.query('ROLLBACK').catch(() => {});
+        throw err;
+      } finally {
+        client.release();
+      }
       if (!row) return res.status(404).json({ error: 'Match not found; no scoring data was saved.' });
       if (row) {
         row.innings = typeof row.innings === 'string' ? JSON.parse(row.innings) : row.innings;

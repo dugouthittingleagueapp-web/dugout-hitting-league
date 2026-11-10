@@ -7,6 +7,7 @@ import { applyLineupToMatch, getUnsafeLineupChangeReason, formatFullPlayerName, 
 import { isPlaceholderPlayerName } from '../utils/statsEditorHelper.js';
 import { detectForfeit, getUnknownLineupIds } from '../services/matchHelpers';
 import { explainSaveError } from '../utils/friendlyErrors';
+import type { PitchChange } from '../utils/pitchSync';
 import { setPitchScore, setTieBreakerPitchScore } from '../utils/scorePatches';
 
 interface ScoreboardProps {
@@ -49,6 +50,37 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
   // Roster Editing State
   const [rosterSide, setRosterSide] = useState<'home' | 'away' | null>(null);
   const [newSubNameInput, setNewSubNameInput] = useState('');
+
+  const [, forceSyncStatus] = useState(0);
+
+  // ACKs only update the version token; never replace newer locally entered
+  // pitches with an older asynchronous network response.
+  useEffect(() => {
+    const onSaved = (event: Event) => {
+      const detail = (event as CustomEvent<{ matchId: string; rowVersion: string }>).detail;
+      if (detail?.matchId !== matchId) return;
+      setMatch(previous => previous?.id === matchId
+        ? { ...previous, rowVersion: detail.rowVersion } : previous);
+      forceSyncStatus(v => v + 1);
+    };
+    window.addEventListener('dugout:pitch-synced', onSaved);
+    return () => window.removeEventListener('dugout:pitch-synced', onSaved);
+  }, [matchId]);
+
+  const persistPitchTap = (change: PitchChange): boolean => {
+    try {
+      // Must be durable on this device BEFORE showing the new score.
+      storage.queuePitchChange(change);
+      forceSyncStatus(v => v + 1);
+      void storage.syncPitchChanges(change.matchId)
+        .catch(err => alert(err instanceof Error ? err.message : explainSaveError(err, 'match')))
+        .finally(() => forceSyncStatus(v => v + 1));
+      return true;
+    } catch (err) {
+      alert(err instanceof Error ? err.message : explainSaveError(err, 'match'));
+      return false;
+    }
+  };
 
   const activeInningRef = useRef(activeInningIdx);
   const lastLiveInningRef = useRef<number>(-1);
@@ -346,27 +378,35 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
   };
 
   const handleUndo = async (side: 'home' | 'away', lineupIdx: number, currentPitchIdx: number, roundIdx?: number) => {
-      if (!match) return;
-      const prevPitchIdx = currentPitchIdx - 1;
-      if (prevPitchIdx < 0) return;
-      let newMatch: Match = match;
+      if (isReadOnly || !match) return;
+      const previousPitch = currentPitchIdx - 1;
+      if (previousPitch < 0) return;
+      let updated: Match = match;
+      let operation: PitchChange | null = null;
       if (roundIdx !== undefined && match.tieBreaker) {
-          newMatch = setTieBreakerPitchScore(match, roundIdx, side, prevPitchIdx, null);
-          if (newMatch !== match) {
-              setActiveCell({ side, lineupIdx: 0, pitchIdx: prevPitchIdx, roundIdx });
-          }
+          const round = match.tieBreaker[roundIdx];
+          const old = side === 'home' ? round?.homeScores[previousPitch] : round?.awayScores[previousPitch];
+          if (old === undefined || old === null) return;
+          operation = {
+            kind: 'tieBreaker', matchId: match.id, roundIdx, side,
+            pitchIdx: previousPitch, playerId: side === 'home' ? round.homePlayerId : round.awayPlayerId,
+            expectedPoints: old, points: null
+          };
+          updated = setTieBreakerPitchScore(match, roundIdx, side, previousPitch, null);
       } else {
-          const inning = newMatch.innings?.[activeInningIdx];
-          if (inning) {
-              const teamData = side === 'home' ? inning.home : inning.away;
-              if (teamData?.playerScores?.[lineupIdx]?.pitches?.[prevPitchIdx]) {
-                  newMatch = setPitchScore(match, activeInningIdx, side, lineupIdx, prevPitchIdx, null);
-                  setActiveCell({ side, lineupIdx, pitchIdx: prevPitchIdx });
-              }
-          }
+          const previous = match.innings[activeInningIdx]?.[side]?.playerScores[lineupIdx];
+          const old = previous?.pitches[previousPitch]?.points;
+          if (old === undefined || old === null) return;
+          operation = {
+            kind: 'regulation', matchId: match.id, inningIdx: activeInningIdx, side,
+            batterIdx: lineupIdx, pitchIdx: previousPitch, playerId: previous.playerId,
+            expectedPoints: old, points: null
+          };
+          updated = setPitchScore(match, activeInningIdx, side, lineupIdx, previousPitch, null);
       }
-      setMatch(newMatch);
-      await storage.updateMatch(newMatch).catch(err => console.error("Undo failed", err));
+      if (updated === match || !persistPitchTap(operation)) return;
+      setMatch(updated);
+      setActiveCell({ side, lineupIdx: roundIdx === undefined ? lineupIdx : 0, pitchIdx: previousPitch, ...(roundIdx === undefined ? {} : { roundIdx }) });
   };
 
   const handleScoreUpdate = async (
@@ -387,6 +427,11 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
     // during a tap blocked the browser from painting scoring feedback.
     const newMatch = setPitchScore(match, targetInningIdx, side, lineupIdx, pitchIdx, val);
     if (newMatch === match) return;
+    if (!persistPitchTap({
+      kind: 'regulation', matchId: match.id, inningIdx: targetInningIdx, side,
+      batterIdx: lineupIdx, pitchIdx, playerId: teamData.playerScores[lineupIdx].playerId,
+      expectedPoints: existingValue, points: val
+    })) return;
     setMatch(newMatch); 
     
     // Automated Completion Flow Check
@@ -424,7 +469,6 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
             }
         }
     }
-    await storage.updateMatch(newMatch).catch(err => console.error(err));
   };
 
   const confirmCompleteGame = async () => {
@@ -482,6 +526,11 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
       const limit = cur.pitchLimit;
       const newMatch = setTieBreakerPitchScore(match, roundIdx, side, pitchIdx, val);
       if (newMatch === match) return;
+      if (!persistPitchTap({
+          kind: 'tieBreaker', matchId: match.id, roundIdx, side, pitchIdx,
+          playerId: side === 'home' ? cur.homePlayerId : cur.awayPlayerId,
+          expectedPoints: existing, points: val
+      })) return;
       setMatch(newMatch);
       
       // Auto-Completion for tie breakers
@@ -498,7 +547,6 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
           if (!isEdit && pitchIdx < limit - 1) next = { side, lineupIdx: 0, pitchIdx: pitchIdx + 1, roundIdx };
           setActiveCell(next);
       }
-      await storage.updateMatch(newMatch);
   };
 
 
@@ -518,6 +566,7 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
   const isExtraInnings = activeInningIdx === 6;
   const homeTotal = calculateTeamGameTotal('home', match);
   const awayTotal = calculateTeamGameTotal('away', match);
+  const pitchSyncStatus = storage.getPitchSyncStatus(match.id);
 
   const saveRosterChange = async (side: 'home' | 'away', playerIds: string[], updatedTeam?: Team): Promise<boolean> => {
       if (isReadOnly || !match) return false;
@@ -800,6 +849,13 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
 
   return (
     <div className="min-h-full w-full overflow-x-hidden pb-20 font-sans">
+      {!isReadOnly && (pitchSyncStatus.pending > 0 || pitchSyncStatus.conflict) && (
+        <div role="status" className="bg-amber-100 text-amber-950 border-b border-amber-400 px-3 py-2 text-sm font-bold text-center">
+          {pitchSyncStatus.conflict
+            ? `Score conflict: ${pitchSyncStatus.conflict} Local scores are still saved on this device.`
+            : `${pitchSyncStatus.pending} pitch change(s) saved on this device, awaiting server confirmation. Do not clear browser data.`}
+        </div>
+      )}
       {/* Official Forfeit Sticky Banner */}
       {(match.isForfeit || match.is_forfeit) && (() => {
         const forfeitingId = match.forfeitingTeamId || match.forfeiting_team_id;

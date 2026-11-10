@@ -197,6 +197,12 @@ const writePendingPitches = (operations: QueuedPitchEdit[]): void => {
 
 const removePendingPitch = (operationId: string): void => {
   writePendingPitches(readPendingPitches().filter(item => item.operationId !== operationId));
+  if (typeof window !== 'undefined') window.dispatchEvent(new Event('dugout:pitch-sync-status'));
+};
+
+export const getPendingPitchCount = (matchId: string): number => {
+  try { return readPendingPitches().filter(item => item.id === matchId).length; }
+  catch { return -1; }
 };
 
 const emitPitchSyncConflict = (message: string): void => {
@@ -305,6 +311,8 @@ const performOfflineSync = async (): Promise<void> => {
           });
           if (res.ok) {
             delete matchMap[matchId];
+          } else if (res.status === 409 || res.status === 428) {
+            emitPitchSyncConflict('An offline full-game save conflicts with a newer game. The local backup remains available; ask an admin to review before continuing.');
           }
         } catch (err) {}
       }
@@ -670,7 +678,16 @@ export const getAllMatches = async (): Promise<Match[]> => {
 
 export const getMatch = async (id: string): Promise<Match | undefined> => {
   try {
-    const res = await apiFetch(`/api/matches?id=${id}`);
+    // On reconnect, keep showing recorded local scores until queued edits
+    // have been successfully replayed or explicitly reconciled.
+    if (typeof window !== 'undefined' && getPendingPitchCount(id) !== 0) {
+      const local = localStorage.getItem(`dugout_match_${id}`);
+      if (local) {
+        knownMatchRevisions.set(id, null);
+        return JSON.parse(local) as Match;
+      }
+    }
+    const res = await apiFetch(`/api/matches?id=${encodeURIComponent(id)}`);
     if (res.ok) {
       const data = await res.json();
       const mapped = mapMatchFromDB(data);
@@ -1017,15 +1034,16 @@ export const updatePitch = (match: Match, edit: PitchEdit): Promise<Match> => {
         const pending = readPendingPitches();
         pending.push({ ...edit, operationId: generateUUID() });
         writePendingPitches(pending);
+        window.dispatchEvent(new Event('dugout:pitch-sync-status'));
       } catch (error) {
         return Promise.reject(new Error('Could not save a local recovery copy of this pitch. Check device storage before continuing.'));
       }
     }
-    const pending = typeof window !== 'undefined' ? readPendingPitches() : [];
-    const operation = pending[pending.length - 1] || { ...edit, operationId: generateUUID() };
     return queueMatchWrite(match.id, async () => {
       try {
-        await sendPitchEdit(operation);
+        // Replay earlier offline edits FIRST: do not send a newly recorded
+        // score ahead of its own prior corrections.
+        await flushPendingPitchesForMatch(match.id);
       } catch (error) {
         // A disconnected device retains its score and pending edit. A server
         // refusal (including 409) needs explicit action, not a silent retry.
@@ -1034,6 +1052,13 @@ export const updatePitch = (match: Match, edit: PitchEdit): Promise<Match> => {
       }
       return match;
     });
+};
+
+const flushPendingPitchesForMatch = async (matchId: string): Promise<void> => {
+  for (const operation of readPendingPitches()) {
+    if (operation.id !== matchId) continue;
+    await sendPitchEdit(operation);
+  }
 };
 
 const sendPitchEdit = async (edit: QueuedPitchEdit): Promise<void> => {

@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import { Match, Inning, Team, TieBreakerRound, Player } from '../types';
 import * as storage from '../services/storageService';
 import { ScoreInput } from './ScoreInput';
-import { formatFullPlayerName, getMatchStatus } from '../utils/lineupHelper';
+import { applyLineupToMatch, getUnsafeLineupChangeReason, formatFullPlayerName, getMatchStatus } from '../utils/lineupHelper';
 import { isPlaceholderPlayerName } from '../utils/statsEditorHelper.js';
 import { detectForfeit, getUnknownLineupIds } from '../services/matchHelpers';
 
@@ -518,74 +518,60 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
   const homeTotal = calculateTeamGameTotal('home', match);
   const awayTotal = calculateTeamGameTotal('away', match);
 
-  const saveRosterChange = async (side: 'home' | 'away', playerIds: string[], updatedTeam?: Team) => {
-      if (isReadOnly || !match) return;
-      // Use the newly persisted team when a substitute was just registered.
-      // React state updates are asynchronous, so teams can otherwise be stale here.
+  const saveRosterChange = async (side: 'home' | 'away', playerIds: string[], updatedTeam?: Team): Promise<boolean> => {
+      if (isReadOnly || !match || savingRoster) return false;
       const team = updatedTeam || (side === 'home' ? teams.home : teams.away);
-      if (!team || getUnknownLineupIds(team, playerIds).length > 0 ||
+      if (!team || playerIds.length < 2 || playerIds.length > 3 ||
+          getUnknownLineupIds(team, playerIds).length > 0 ||
           new Set(playerIds).size !== playerIds.length) {
-          alert('Lineup includes an unknown or duplicate player. Select a valid roster player or registered substitute.');
-          return;
+          alert('Select two or three distinct players from the roster or registered substitutes.');
+          return false;
       }
+
+      const currentInning = match.innings[activeInningIdx] || match.innings[0];
+      const newHomeIds = side === 'home'
+          ? playerIds
+          : currentInning.home.playerScores.map(p => p.playerId);
+      const newAwayIds = side === 'away'
+          ? playerIds
+          : currentInning.away.playerScores.map(p => p.playerId);
+      const unsafeReason = getUnsafeLineupChangeReason(match, newHomeIds, newAwayIds, activeInningIdx);
+      if (unsafeReason) {
+          alert(unsafeReason);
+          return false;
+      }
+
       setSavingRoster(true);
-      const newMatch = JSON.parse(JSON.stringify(match)); // Deep clone for safe mutation
-      
-      const updateInningStructure = (ing: Inning, hIds: string[], aIds: string[]): Inning => {
-          const hC = hIds.length;
-          const aC = aIds.length;
-          let hP = 10, aP = 10;
-          
-          // Apply format shifts: 3v2 or 2v3 = Ghost Mode (15 pitches for the short side)
-          if (hC === 2 && aC === 3) hP = 15;
-          else if (aC === 2 && hC === 3) aP = 15;
-
-          const syncScores = (existingScores: any, newIds: string[], pitchCount: number) => {
-              return newIds.map(id => {
-                  const found = existingScores.playerScores.find((p: any) => p.playerId === id);
-                  if (found) {
-                      const curLen = found.pitches.length;
-                      if (curLen === pitchCount) return found;
-                      if (curLen < pitchCount) {
-                          return { ...found, pitches: [...found.pitches, ...Array(pitchCount - curLen).fill(null).map(() => ({ points: null }))] };
-                      }
-                      return { ...found, pitches: found.pitches.slice(0, pitchCount) };
-                  }
-                  return { playerId: id, pitches: Array(pitchCount).fill(null).map(() => ({ points: null })) };
-              });
-          };
-
-          return {
-              ...ing,
-              home: { teamId: 'home', playerScores: syncScores(ing.home, hIds, hP) },
-              away: { teamId: 'away', playerScores: syncScores(ing.away, aIds, aP) }
-          };
-      };
-
-      const currentHomeLineup = side === 'home' ? playerIds : newMatch.innings[activeInningIdx].home.playerScores.map((p:any) => p.playerId);
-      const currentAwayLineup = side === 'away' ? playerIds : newMatch.innings[activeInningIdx].away.playerScores.map((p:any) => p.playerId);
-
-      for (let i = activeInningIdx; i < 6; i++) {
-          newMatch.innings[i] = updateInningStructure(newMatch.innings[i], currentHomeLineup, currentAwayLineup);
+      try {
+          const homeTeam = side === 'home' ? team : teams.home;
+          const awayTeam = side === 'away' ? team : teams.away;
+          // Only change this and future innings; earlier recorded innings remain untouched.
+          let updated = applyLineupToMatch(match, newHomeIds, newAwayIds, {
+              startFromInningIdx: activeInningIdx
+          });
+          if (homeTeam && awayTeam) {
+              const verdict = detectForfeit(homeTeam, awayTeam, newHomeIds, newAwayIds);
+              updated = {
+                  ...updated,
+                  isForfeit: verdict.isForfeit,
+                  is_forfeit: verdict.isForfeit,
+                  forfeitingTeamId: verdict.forfeitingTeamId,
+                  forfeiting_team_id: verdict.forfeitingTeamId,
+                  winningTeamId: verdict.winningTeamId,
+                  winning_team_id: verdict.winningTeamId,
+                  forfeitReason: verdict.reason,
+                  forfeit_reason: verdict.reason
+              };
+          }
+          const saved = await storage.updateMatch(updated, { requireServerSave: true });
+          setMatch(saved);
+          return true;
+      } catch (err: any) {
+          alert(`Lineup was not saved: ${err?.message || 'Network error'}. Check your connection and try again.`);
+          return false;
+      } finally {
+          setSavingRoster(false);
       }
-
-      const homeTeamForValidation = side === 'home' ? team : teams.home;
-      const awayTeamForValidation = side === 'away' ? team : teams.away;
-      if (homeTeamForValidation && awayTeamForValidation) {
-          const evalResult = detectForfeit(homeTeamForValidation, awayTeamForValidation, currentHomeLineup, currentAwayLineup);
-          newMatch.is_forfeit = evalResult.isForfeit;
-          newMatch.isForfeit = evalResult.isForfeit;
-          newMatch.forfeiting_team_id = evalResult.forfeitingTeamId;
-          newMatch.forfeitingTeamId = evalResult.forfeitingTeamId;
-          newMatch.winning_team_id = evalResult.winningTeamId;
-          newMatch.winningTeamId = evalResult.winningTeamId;
-          newMatch.forfeit_reason = evalResult.forfeitReason;
-          newMatch.forfeitReason = evalResult.forfeitReason;
-      }
-
-      setMatch(newMatch);
-      await storage.updateMatch(newMatch);
-      setSavingRoster(false);
   };
 
   const handleAddManualSub = async () => {
@@ -614,7 +600,8 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
         
         if (newList.length >= 2 && newList.length <= 3) {
             setNewSubNameInput('');
-            await saveRosterChange(rosterSide, newList, updatedTeam);
+            const saved = await saveRosterChange(rosterSide, newList, updatedTeam);
+            if (!saved) alert('Substitute registered, but the lineup change was not saved. Select the substitute from the roster and retry.');
         } else {
             alert("Roster limit reached (3 max). Player saved as sub.");
             setNewSubNameInput('');

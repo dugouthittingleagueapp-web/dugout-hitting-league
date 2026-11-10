@@ -873,8 +873,10 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
             (pendingPitchCount < 0
               ? 'Keep this page open and ask the person running the league for help.'
               : 'Your scores are kept on this device while they are sent. You can keep scoring.')}</span>
-          <button type="button" className="underline font-semibold px-2 py-1"
-            onClick={() => { void storage.syncOfflineData(); }}>Try saving again</button>
+          {!pitchSyncNotice && pendingPitchCount > 0 && (
+            <button type="button" className="underline font-semibold px-2 py-1"
+              onClick={() => { void storage.syncOfflineData(); }}>Try saving again</button>
+          )}
         </div>
       )}
       {/* Official Forfeit Sticky Banner */}

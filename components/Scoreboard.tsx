@@ -519,7 +519,7 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
   const awayTotal = calculateTeamGameTotal('away', match);
 
   const saveRosterChange = async (side: 'home' | 'away', playerIds: string[], updatedTeam?: Team): Promise<boolean> => {
-      if (isReadOnly || !match || savingRoster) return false;
+      if (isReadOnly || !match) return false;
       const team = updatedTeam || (side === 'home' ? teams.home : teams.away);
       if (!team || playerIds.length < 2 || playerIds.length > 3 ||
           getUnknownLineupIds(team, playerIds).length > 0 ||

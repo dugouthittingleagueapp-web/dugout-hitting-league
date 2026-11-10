@@ -16,6 +16,9 @@ export const explainSaveError = (
     match: 'game changes'
   }[action];
 
+  if (/quota exceeded|storage full|localstorage|securityerror|not enough space/i.test(raw)) {
+    return 'Your device could not safely store this score. Check available storage or browser permissions, then retry. Do not assume this pitch was saved.';
+  }
   if (/cannot remove a batter|changing the pitch allocation|recorded pitches/i.test(message)) {
     return `Your ${task} was not saved because it would erase pitches already recorded. Keep the scored batter in this inning, or make the substitution in the next inning before scoring begins. Your existing scores are safe.`;
   }
@@ -27,6 +30,12 @@ export const explainSaveError = (
   }
   if (/\b(404|match not found|team not found)\b/i.test(raw)) {
     return `Your ${task} was not saved because the game or team could not be found. Return to the dashboard, refresh the schedule, and reopen the correct game. Do not recreate an official game until an admin checks it.`;
+  }
+  if (/\\b(428|precondition required)\\b|opened before the latest update/i.test(raw)) {
+    return `Your ${task} was not saved because this page is out of date. Return to the dashboard, reopen the game, and review the scores before retrying.`;
+  }
+  if (/another device|newer game scores|changed on another device/i.test(raw)) {
+    return `Your ${task} was not saved because another umpire updated the game. Nothing was overwritten. Refresh and compare the scores before trying again.`;
   }
   if (/\b(409|conflict)\b/i.test(raw)) {
     return `Your ${task} was not saved because the game changed on another device. Refresh and check the latest scores before making the change again.`;

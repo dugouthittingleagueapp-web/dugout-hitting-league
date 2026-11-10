@@ -4,6 +4,9 @@ import { ARCHIVE_2025_LEAGUES, ARCHIVE_2025_TEAMS, ARCHIVE_2025_MATCHES } from '
 import { parseScheduleCsv, isDuplicateMatch } from '../utils/scheduleImporter';
 import { sortMatchesChronologically } from '../utils/matchSort';
 import { detectForfeit, isForfeitMatch, getForfeitingTeamId } from './matchHelpers';
+import type { PitchChange } from '../utils/pitchSync';
+import { queuePitchChange as persistPitchChange, flushPitchChanges, flushAllPitchChanges, getPendingPitchChanges, getPitchSyncConflict, isPitchProtected, replayPendingPitchChanges, inspectPitchConflict, resolvePitchConflict, type PitchConflictReview } from './pitchSyncService';
+import { coalesceInFlightGet } from '../utils/requestCoalescer';
 
 export { sortMatchesChronologically };
 
@@ -27,6 +30,7 @@ const mapMatchFromDB = (dbMatch: any): Match => {
   const inferredSeason = dbMatch.season || (dbMatch.date ? String(new Date(dbMatch.date).getFullYear()) : '2025');
   return {
     id: dbMatch.id,
+    rowVersion: dbMatch.row_version || dbMatch.rowVersion || undefined,
     league: dbMatch.league,
     homeTeamId: dbMatch.home_team_id || dbMatch.homeTeamId,
     awayTeamId: dbMatch.away_team_id || dbMatch.awayTeamId,
@@ -96,8 +100,34 @@ const apiFetch = async (url: string, init?: RequestInit): Promise<Response> => {
     credentials: init?.credentials || 'same-origin',
   };
 
+  // Include credentials in the key to prevent sharing authenticated responses
+  // across different users when a login switches during an in-flight request.
+  if ((!init?.method || init.method.toUpperCase() === 'GET') && !init?.body && !init?.signal) {
+    const key = `${fullUrl}|auth:${headers.get('Authorization') || ''}|credentials:${enhancedInit.credentials}`;
+    return coalesceInFlightGet(key, () => fetch(fullUrl, enhancedInit));
+  }
   return fetch(fullUrl, enhancedInit);
 };
+
+/** Durable local scoring first, atomic server save second. */
+export const queuePitchChange = (change: PitchChange) => persistPitchChange(change);
+export const syncPitchChanges = (matchId: string) => flushPitchChanges(matchId, apiFetch);
+export const syncAllPitchChanges = () => flushAllPitchChanges(apiFetch);
+export const reviewPitchConflict = async (matchId: string): Promise<PitchConflictReview> =>
+  inspectPitchConflict(matchId, await getMatchFromServer(matchId));
+export const choosePitchConflict = async (review: PitchConflictReview, decision: 'keep-server' | 'use-device'): Promise<Match> => {
+  resolvePitchConflict(review, decision);
+  await syncPitchChanges(review.change.matchId);
+  const result = await getMatch(review.change.matchId);
+  if (!result) throw new Error('Unable to reload the game after conflict review. Your queued scores remain saved on this device.');
+  return result;
+};
+
+export const getPitchSyncStatus = (matchId: string) => ({
+  pending: getPendingPitchChanges(matchId).length,
+  conflict: getPitchSyncConflict(matchId),
+  atomic: isPitchProtected(matchId)
+});
 
 // League Methods
 export const getLeagues = async (season?: string): Promise<League[]> => {
@@ -202,7 +232,24 @@ export const enqueuePendingTeamSync = (team: Team) => {
   } catch (e) {}
 };
 
-export const syncOfflineData = async () => {
+let inFlightOfflineSync: Promise<void> | null = null;
+
+/**
+ * Avoid overlapping reconnect sync passes that could resend the same queued
+ * roster or game to Neon. All listeners share this one in-flight operation.
+ */
+export const syncOfflineData = (): Promise<void> => {
+  if (!inFlightOfflineSync) {
+    const running = performOfflineSync();
+    const settled = running.finally(() => {
+      if (inFlightOfflineSync === settled) inFlightOfflineSync = null;
+    });
+    inFlightOfflineSync = settled;
+  }
+  return inFlightOfflineSync;
+};
+
+const performOfflineSync = async (): Promise<void> => {
   if (typeof window === 'undefined') return;
   if (typeof navigator !== 'undefined' && !navigator.onLine) return;
 
@@ -240,6 +287,12 @@ export const syncOfflineData = async () => {
       const matchMap: Record<string, Match> = JSON.parse(rawMatches);
       const matchIds = Object.keys(matchMap);
       for (const matchId of matchIds) {
+        // Legacy whole-match retries must never overwrite newer atomic pitches.
+        // Keep the old recovery copy available for an admin to reconcile.
+        if (isPitchProtected(matchId)) {
+          console.warn('Legacy match backup needs review; avoiding unsafe full-record replay:', matchId);
+          continue;
+        }
         const match = matchMap[matchId];
         try {
           const res = await apiFetch('/api/matches', {
@@ -264,7 +317,8 @@ export const syncOfflineData = async () => {
 // Automatic listener to sync queued items once internet reconnects
 if (typeof window !== 'undefined') {
   window.addEventListener('online', () => {
-    syncOfflineData();
+    void syncAllPitchChanges();
+    void syncOfflineData();
   });
 }
 
@@ -478,6 +532,32 @@ export const deleteTeam = async (teamId: string) => {
   await apiFetch(`/api/teams?id=${teamId}`, { method: 'DELETE' });
 };
 
+// Dashboard polls only small revision records. Errors are never treated as
+// empty schedules; this prevents network outages from erasing the match list.
+export interface MatchRevision {
+  id: string;
+  revision: string;
+}
+
+export const getMatchRevisions = async (league: AgeGroup, season: string): Promise<MatchRevision[]> => {
+  const url = `/api/matches?league=${encodeURIComponent(league)}&season=${encodeURIComponent(season)}&revisions=true`;
+  const res = await apiFetch(url);
+  if (!res.ok) throw new Error(`Could not check the latest match updates (HTTP ${res.status})`);
+  const rows: unknown = await res.json();
+  if (!Array.isArray(rows) || !rows.every(row => row && typeof row.id === 'string' && typeof row.revision === 'string')) {
+    throw new Error('Invalid match update response; keeping the current scores.');
+  }
+  return rows as MatchRevision[];
+};
+
+// Unlike getMatch, this live-refresh read must not fall back to a potentially
+// outdated local match. An error leaves the existing dashboard unchanged.
+export const getMatchFromServer = async (id: string): Promise<Match> => {
+  const res = await apiFetch(`/api/matches?id=${encodeURIComponent(id)}`);
+  if (!res.ok) throw new Error(`Match details could not be refreshed (HTTP ${res.status})`);
+  return mapMatchFromDB(await res.json());
+};
+
 // Match Methods
 export const getMatches = async (league: AgeGroup, season: string, options?: { excludePractice?: boolean }): Promise<Match[]> => {
   const excludePractice = options?.excludePractice ?? false;
@@ -575,7 +655,7 @@ export const getMatch = async (id: string): Promise<Match | undefined> => {
           localStorage.setItem(`dugout_match_${id}`, JSON.stringify(mapped));
         } catch (e) {}
       }
-      return mapped;
+      return replayPendingPitchChanges(mapped);
     }
   } catch (err) {
     console.warn('Network fetch failed for match, attempting offline cache recovery', err);
@@ -586,7 +666,7 @@ export const getMatch = async (id: string): Promise<Match | undefined> => {
     try {
       const local = localStorage.getItem(`dugout_match_${id}`);
       if (local) {
-        return JSON.parse(local);
+        return replayPendingPitchChanges(JSON.parse(local));
       }
     } catch (e) {}
   }
@@ -879,11 +959,38 @@ export const updateMatch = (match: Match, options?: { requireServerSave?: boolea
     return write;
 };
 
+class NonRetryableMatchSaveError extends Error {}
+
 const performMatchUpdate = async (match: Match, options?: { requireServerSave?: boolean }): Promise<Match> => {
+    // A match using atomic pitches must never fall back to a stale, full-record
+    // offline write. Preserve the pitch queue instead and report the failure.
+    const requireConfirmation = !!options?.requireServerSave || isPitchProtected(match.id);
+    let safeMatch = match;
+    if (isPitchProtected(match.id)) {
+        await syncPitchChanges(match.id);
+        if (getPendingPitchChanges(match.id).length || getPitchSyncConflict(match.id)) {
+            throw new Error('Some pitches are saved only on this device. Reconnect or ask an admin to review the game before changing its lineup or finalizing.');
+        }
+        // Whole-match edits are rare. Before one can replace inning JSON, ensure
+        // it is based on the latest server pitches, including other devices.
+        const response = await apiFetch(`/api/matches?id=${encodeURIComponent(match.id)}`);
+        if (!response.ok) throw new Error('Unable to verify current server scores. No match changes were sent.');
+        const remote = mapMatchFromDB(await response.json());
+        const raw = typeof window !== 'undefined' ? localStorage.getItem(`dugout_match_${match.id}`) : null;
+        if (!raw) throw new Error('No verified local recovery copy was found. Reopen the game before making lineup changes.');
+        const baseline = JSON.parse(raw) as Match;
+        if (JSON.stringify(remote.innings) !== JSON.stringify(baseline.innings) ||
+            JSON.stringify(remote.tieBreaker || []) !== JSON.stringify(baseline.tieBreaker || [])) {
+            throw new Error('Another device has newer game scores. No data was overwritten. Refresh and review the scores before making changes.');
+        }
+        safeMatch = { ...match, rowVersion: remote.rowVersion };
+    }
+    // Serialize once for both offline recovery and the server.
+    const serializedMatch = JSON.stringify(safeMatch);
     // Only optimistic-cache offline pitch updates; explicit confirmed saves must wait for Neon.
-    if (!options?.requireServerSave && typeof window !== 'undefined') {
+    if (!requireConfirmation && typeof window !== 'undefined') {
         try {
-            localStorage.setItem(`dugout_match_${match.id}`, JSON.stringify(match));
+            localStorage.setItem(`dugout_match_${match.id}`, serializedMatch);
             if (!match.isComplete && match.status === 'IN_PROGRESS') {
                 localStorage.setItem('dugout_active_match_id', match.id);
             } else if (match.isComplete) {
@@ -896,13 +1003,13 @@ const performMatchUpdate = async (match: Match, options?: { requireServerSave?: 
         const res = await apiFetch('/api/matches', {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(match)
+            body: serializedMatch
         });
         if (res.ok) {
             dequeuePendingMatchSync(match.id);
             const data = await res.json();
             const saved = mapMatchFromDB(data);
-            if (options?.requireServerSave && typeof window !== 'undefined') {
+            if (requireConfirmation && typeof window !== 'undefined') {
                 try {
                     localStorage.setItem(`dugout_match_${saved.id}`, JSON.stringify(saved));
                     if (saved.isComplete) localStorage.removeItem('dugout_active_match_id');
@@ -911,14 +1018,14 @@ const performMatchUpdate = async (match: Match, options?: { requireServerSave?: 
             }
             return saved;
         } else {
-            if (options?.requireServerSave) {
+            if (requireConfirmation || [400, 401, 403, 404, 409, 428].includes(res.status)) {
                 const details = await res.json().catch(() => ({}));
-                throw new Error(details.error || `Failed to save match (HTTP ${res.status})`);
+                throw new NonRetryableMatchSaveError(details.error || `Match was not saved (HTTP ${res.status}). Reopen it before retrying.`);
             }
             enqueuePendingMatchSync(match);
         }
     } catch (err) {
-        if (options?.requireServerSave) throw err;
+        if (requireConfirmation || err instanceof NonRetryableMatchSaveError) throw err;
         console.warn('Network sync failed (phone offline/disconnected), match saved in local storage and queued for background sync', err);
         enqueuePendingMatchSync(match);
     }

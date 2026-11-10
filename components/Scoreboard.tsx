@@ -101,8 +101,13 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
           isComplete: true,
           status: 'FINAL'
       };
-      setMatch(finalizedMatch);
-      await storage.updateMatch(finalizedMatch);
+      try {
+          const saved = await storage.updateMatch(finalizedMatch, { requireServerSave: true });
+          setMatch(saved);
+      } catch (err: any) {
+          alert(`Cannot finalize: server did not confirm the result. ${err?.message || 'Please check your connection and retry.'}`);
+          return;
+      }
       try {
           if (typeof window !== 'undefined') {
               localStorage.removeItem('dugout_active_match_id');
@@ -443,8 +448,13 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
         return;
     }
     const newMatch: Match = { ...match, isComplete: true, status: 'FINAL' };
-    setMatch(newMatch);
-    await storage.updateMatch(newMatch);
+    try {
+        const saved = await storage.updateMatch(newMatch, { requireServerSave: true });
+        setMatch(saved);
+    } catch (err: any) {
+        alert(`Cannot finalize: server did not confirm the result. ${err?.message || 'Please check your connection and retry.'}`);
+        return;
+    }
     try {
         if (typeof window !== 'undefined') localStorage.removeItem('dugout_active_match_id');
     } catch (e) {}
@@ -465,8 +475,12 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
     if (!match || userRole !== 'admin') return;
     const nextIsComplete = !match.isComplete;
     const updated: Match = { ...match, isComplete: nextIsComplete, status: nextIsComplete ? 'FINAL' : 'IN_PROGRESS' };
-    setMatch(updated);
-    await storage.updateMatch(updated);
+    try {
+        const saved = await storage.updateMatch(updated, { requireServerSave: true });
+        setMatch(saved);
+    } catch (err: any) {
+        alert(`Cannot change final status: ${err?.message || 'Server save failed'}`);
+    }
   };
 
   const handleTieBreakerScore = async (roundIdx: number, side: 'home'|'away', pitchIdx: number, val: number) => {

@@ -949,6 +949,9 @@ export const updateMatch = (match: Match, options?: { requireServerSave?: boolea
 };
 
 const performMatchUpdate = async (match: Match, options?: { requireServerSave?: boolean }): Promise<Match> => {
+    // A match using atomic pitches must never fall back to a stale, full-record
+    // offline write. Preserve the pitch queue instead and report the failure.
+    const requireConfirmation = !!options?.requireServerSave || isPitchProtected(match.id);
     let safeMatch = match;
     if (isPitchProtected(match.id)) {
         await syncPitchChanges(match.id);
@@ -972,7 +975,7 @@ const performMatchUpdate = async (match: Match, options?: { requireServerSave?: 
     // Serialize once for both offline recovery and the server.
     const serializedMatch = JSON.stringify(safeMatch);
     // Only optimistic-cache offline pitch updates; explicit confirmed saves must wait for Neon.
-    if (!options?.requireServerSave && typeof window !== 'undefined') {
+    if (!requireConfirmation && typeof window !== 'undefined') {
         try {
             localStorage.setItem(`dugout_match_${match.id}`, serializedMatch);
             if (!match.isComplete && match.status === 'IN_PROGRESS') {
@@ -993,7 +996,7 @@ const performMatchUpdate = async (match: Match, options?: { requireServerSave?: 
             dequeuePendingMatchSync(match.id);
             const data = await res.json();
             const saved = mapMatchFromDB(data);
-            if (options?.requireServerSave && typeof window !== 'undefined') {
+            if (requireConfirmation && typeof window !== 'undefined') {
                 try {
                     localStorage.setItem(`dugout_match_${saved.id}`, JSON.stringify(saved));
                     if (saved.isComplete) localStorage.removeItem('dugout_active_match_id');
@@ -1002,14 +1005,14 @@ const performMatchUpdate = async (match: Match, options?: { requireServerSave?: 
             }
             return saved;
         } else {
-            if (options?.requireServerSave) {
+            if (requireConfirmation) {
                 const details = await res.json().catch(() => ({}));
                 throw new Error(details.error || `Failed to save match (HTTP ${res.status})`);
             }
             enqueuePendingMatchSync(match);
         }
     } catch (err) {
-        if (options?.requireServerSave) throw err;
+        if (requireConfirmation) throw err;
         console.warn('Network sync failed (phone offline/disconnected), match saved in local storage and queued for background sync', err);
         enqueuePendingMatchSync(match);
     }

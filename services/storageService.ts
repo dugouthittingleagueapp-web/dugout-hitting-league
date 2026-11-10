@@ -28,6 +28,7 @@ const mapMatchFromDB = (dbMatch: any): Match => {
   const inferredSeason = dbMatch.season || (dbMatch.date ? String(new Date(dbMatch.date).getFullYear()) : '2025');
   return {
     id: dbMatch.id,
+    rowVersion: dbMatch.row_version || dbMatch.rowVersion || undefined,
     league: dbMatch.league,
     homeTeamId: dbMatch.home_team_id || dbMatch.homeTeamId,
     awayTeamId: dbMatch.away_team_id || dbMatch.awayTeamId,

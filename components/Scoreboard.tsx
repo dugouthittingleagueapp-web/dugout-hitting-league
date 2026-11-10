@@ -63,8 +63,16 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
         ? { ...previous, rowVersion: detail.rowVersion } : previous);
       forceSyncStatus(v => v + 1);
     };
+    const onStatus = (event: Event) => {
+      const detail = (event as CustomEvent<{ matchId: string }>).detail;
+      if (detail?.matchId === matchId) forceSyncStatus(v => v + 1);
+    };
     window.addEventListener('dugout:pitch-synced', onSaved);
-    return () => window.removeEventListener('dugout:pitch-synced', onSaved);
+    window.addEventListener('dugout:pitch-sync-status', onStatus);
+    return () => {
+      window.removeEventListener('dugout:pitch-synced', onSaved);
+      window.removeEventListener('dugout:pitch-sync-status', onStatus);
+    };
   }, [matchId]);
 
   const persistPitchTap = (change: PitchChange): boolean => {

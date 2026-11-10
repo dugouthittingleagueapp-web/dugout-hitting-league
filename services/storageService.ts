@@ -1084,6 +1084,11 @@ const sendPitchEdit = async (edit: QueuedPitchEdit): Promise<void> => {
 };
 
 const performMatchUpdate = async (match: Match, options?: { requireServerSave?: boolean }): Promise<Match> => {
+    // A full-match replacement must never jump ahead of locally recorded
+    // pitches still awaiting confirmation, even when offline.
+    if (getPendingPitchCount(match.id) !== 0) {
+      throw new Error('HTTP 409: Some pitches are only saved on this device. Reconnect and synchronize them before changing lineups or finalizing.');
+    }
     // Serialize once for both offline recovery and the server. A pitch update
     // previously stringified the entire match twice on the same save path.
     const latestRevision = knownMatchRevisions.has(match.id)

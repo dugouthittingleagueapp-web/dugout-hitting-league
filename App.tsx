@@ -13,6 +13,7 @@ import { PracticeSetupModal } from './components/PracticeSetupModal';
 import { MatchStatsEditorModal } from './components/MatchStatsEditorModal';
 import * as storage from './services/storageService';
 import { getMatchStatus, findCurrentOrUpcomingWeekId } from './utils/lineupHelper';
+import { getMatchRevisionDelta } from './utils/matchRevisionDelta';
 import { detectForfeit, isForfeitMatch, getForfeitingTeamId } from './services/matchHelpers';
 
 const INACTIVITY_LIMIT = 3 * 60 * 60 * 1000; // 3 hours
@@ -296,29 +297,77 @@ const App: React.FC = () => {
     }
   }, [state.currentLeague, state.view, state.season, refreshDashboard]);
 
-  // Reduce unnecessary database egress when viewing the dashboard.
+  // Poll compact match fingerprints, not every pitch of every historical
+  // game. Fetch complete records only for changed/new games so standings,
+  // leaderboards and player statistics continue using the original data.
   useEffect(() => {
     if (state.view !== 'dashboard' || !state.currentLeague || lineupModalMatch) return;
+    let cancelled = false;
     let inFlight = false;
     let ticks = 0;
+    let lastRevisions: storage.MatchRevision[] | null = null;
+    const league = state.currentLeague;
+    const season = state.season;
+
     const poll = async () => {
-        if (document.visibilityState === 'hidden' || inFlight) return;
-        inFlight = true;
-        try {
-            ticks++;
-            await refreshDashboard(state.currentLeague!, state.season, true, ticks % 10 === 0);
-        } finally {
-            inFlight = false;
+      if (document.visibilityState === 'hidden' || inFlight || cancelled) return;
+      inFlight = true;
+      try {
+        ticks++;
+        if (season === '2025') {
+          // The archived 2025 data can contain locally bundled records that
+          // aren't necessarily present in Neon. Keep its proven read behavior.
+          await refreshDashboard(league, season, true, ticks % 10 === 0);
+          return;
         }
+
+        const latest = await storage.getMatchRevisions(league, season);
+        if (cancelled) return;
+        if (!lastRevisions) {
+          // Establish a safe baseline without missing changes since initial
+          // dashboard load; just one full read after mount.
+          await refreshDashboard(league, season, true, ticks % 10 === 0);
+          if (!cancelled) lastRevisions = latest;
+          return;
+        }
+
+        const delta = getMatchRevisionDelta(lastRevisions, latest);
+        if (delta.changedIds.length || delta.removedIds.length) {
+          // Fail the entire batch if even one changed game cannot be read.
+          // Never replace authoritative data with stale local/offline caches.
+          const changed = await Promise.all(delta.changedIds.map(id => storage.getMatchFromServer(id)));
+          if (cancelled) return;
+          const visibleIds = new Set(latest.map(row => row.id));
+          const changedIds = new Set(delta.changedIds);
+          setMatches(previous => storage.sortMatchesChronologically([
+            ...previous.filter(m => visibleIds.has(m.id) && !changedIds.has(m.id)),
+            ...changed
+          ]));
+        }
+        lastRevisions = latest;
+        if (ticks % 10 === 0) {
+          const freshTeams = await storage.getTeams(null, season);
+          if (!cancelled) setTeams(freshTeams);
+        }
+      } catch (error) {
+        console.warn('Compact dashboard refresh unavailable; retaining current scores', error);
+        // If an older preview does not support revision checks, preserve the
+        // working dashboard via its original full-read fallback.
+        if (!cancelled) await refreshDashboard(league, season, true, ticks % 10 === 0);
+        lastRevisions = null;
+      } finally {
+        inFlight = false;
+      }
     };
     const interval = setInterval(() => { void poll(); }, 30000);
     const onVisibility = () => {
-        if (document.visibilityState === 'visible') void poll();
+      if (document.visibilityState === 'visible') void poll();
     };
     document.addEventListener('visibilitychange', onVisibility);
     return () => {
-        clearInterval(interval);
-        document.removeEventListener('visibilitychange', onVisibility);
+      cancelled = true;
+      clearInterval(interval);
+      document.removeEventListener('visibilitychange', onVisibility);
     };
   }, [state.view, state.currentLeague, state.season, refreshDashboard, lineupModalMatch]);
 

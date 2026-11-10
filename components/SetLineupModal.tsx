@@ -4,6 +4,7 @@ import { Match, Team, Player } from '../types';
 import { applyLineupToMatch, moveBatterUp, moveBatterDown, formatFullPlayerName, swapHomeAndAway } from '../utils/lineupHelper';
 import * as storage from '../services/storageService';
 import { detectForfeit, getUnknownLineupIds } from '../services/matchHelpers';
+import { explainSaveError } from '../utils/friendlyErrors';
 
 interface SetLineupModalProps {
   match: Match;
@@ -182,7 +183,7 @@ export const SetLineupModal: React.FC<SetLineupModalProps> = ({
       onTeamUpdated?.(updated);
       setSubName('');
     } catch (err: any) {
-      setErrorMessage(`Failed to add sub: ${err.message || 'Unknown error'}`);
+      setErrorMessage(explainSaveError(err, 'substitute'));
     } finally {
       setIsSavingSub(false);
     }
@@ -253,7 +254,7 @@ export const SetLineupModal: React.FC<SetLineupModalProps> = ({
       await onSave(savedMatch, andStartScoring);
       onClose();
     } catch (err: any) {
-      setErrorMessage(`Failed to save lineup: ${err.message || 'Unknown error'}`);
+      setErrorMessage(explainSaveError(err, 'lineup'));
     } finally {
       setIsSaving(false);
     }

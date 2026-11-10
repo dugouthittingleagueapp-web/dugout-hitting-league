@@ -4,6 +4,7 @@ import { ARCHIVE_2025_LEAGUES, ARCHIVE_2025_TEAMS, ARCHIVE_2025_MATCHES } from '
 import { parseScheduleCsv, isDuplicateMatch } from '../utils/scheduleImporter';
 import { sortMatchesChronologically } from '../utils/matchSort';
 import { detectForfeit, isForfeitMatch, getForfeitingTeamId } from './matchHelpers';
+import { coalesceInFlightGet } from '../utils/requestCoalescer';
 
 export { sortMatchesChronologically };
 
@@ -96,6 +97,12 @@ const apiFetch = async (url: string, init?: RequestInit): Promise<Response> => {
     credentials: init?.credentials || 'same-origin',
   };
 
+  // Include credentials in the key to prevent sharing authenticated responses
+  // across different users when a login switches during an in-flight request.
+  if ((!init?.method || init.method.toUpperCase() === 'GET') && !init?.body && !init?.signal) {
+    const key = `${fullUrl}|auth:${headers.get('Authorization') || ''}|credentials:${enhancedInit.credentials}`;
+    return coalesceInFlightGet(key, () => fetch(fullUrl, enhancedInit));
+  }
   return fetch(fullUrl, enhancedInit);
 };
 
@@ -202,7 +209,24 @@ export const enqueuePendingTeamSync = (team: Team) => {
   } catch (e) {}
 };
 
-export const syncOfflineData = async () => {
+let inFlightOfflineSync: Promise<void> | null = null;
+
+/**
+ * Avoid overlapping reconnect sync passes that could resend the same queued
+ * roster or game to Neon. All listeners share this one in-flight operation.
+ */
+export const syncOfflineData = (): Promise<void> => {
+  if (!inFlightOfflineSync) {
+    const running = performOfflineSync();
+    const settled = running.finally(() => {
+      if (inFlightOfflineSync === settled) inFlightOfflineSync = null;
+    });
+    inFlightOfflineSync = settled;
+  }
+  return inFlightOfflineSync;
+};
+
+const performOfflineSync = async (): Promise<void> => {
   if (typeof window === 'undefined') return;
   if (typeof navigator !== 'undefined' && !navigator.onLine) return;
 

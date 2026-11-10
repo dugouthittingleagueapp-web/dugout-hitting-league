@@ -114,7 +114,25 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
 
   const handleSaveAndExit = async () => {
       if (match) {
-          await storage.updateMatch(match);
+          const sync = storage.getPitchSyncStatus(match.id);
+          if (sync.conflict) {
+              alert(sync.conflict);
+              return;
+          }
+          if (sync.atomic) {
+              // Pitch taps already have their own durable queue and server sync.
+              // Do not re-upload old whole-match JSON during Save & Exit.
+              if (sync.pending > 0 && !window.confirm(
+                  `${sync.pending} pitch change(s) are safely stored on this device but not yet confirmed by the server. Leaving is okay, but do not clear browser data. Continue?`
+              )) return;
+          } else {
+              try {
+                  await storage.updateMatch(match, { requireServerSave: true });
+              } catch (error) {
+                  alert(explainSaveError(error, 'match'));
+                  return;
+              }
+          }
       }
       setShowExitMenuModal(false);
       onExit({ savedPractice: false });

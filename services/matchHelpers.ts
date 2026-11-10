@@ -94,8 +94,8 @@ export interface ForfeitEvaluation {
  * automatically flag as a forfeit, assigning an automatic loss to the forfeiting team and win to the compliant opponent.
  */
 export function detectForfeit(
-  homeTeam: { id: string; name?: string; players?: { id: string }[] } | null | undefined,
-  awayTeam: { id: string; name?: string; players?: { id: string }[] } | null | undefined,
+  homeTeam: { id: string; name?: string; players?: { id: string }[]; subs?: { id: string }[] } | null | undefined,
+  awayTeam: { id: string; name?: string; players?: { id: string }[]; subs?: { id: string }[] } | null | undefined,
   homeLineupIds: string[] = [],
   awayLineupIds: string[] = []
 ): ForfeitEvaluation {

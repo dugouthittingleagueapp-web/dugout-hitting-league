@@ -365,8 +365,26 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
               }
           }
       }
+      if (newMatch === match) return;
       setMatch(newMatch);
-      await storage.updateMatch(newMatch).catch(err => console.error("Undo failed", err));
+      if (roundIdx !== undefined && match.tieBreaker?.[roundIdx]) {
+        const round = match.tieBreaker[roundIdx];
+        const scores = side === 'home' ? round.homeScores : round.awayScores;
+        await storage.updatePitch(newMatch, {
+          id: match.id, side, roundIdx, pitchIdx: prevPitchIdx,
+          playerId: side === 'home' ? round.homePlayerId : round.awayPlayerId,
+          expectedPoints: scores[prevPitchIdx], points: null
+        }).catch(err => alert(explainSaveError(err, 'match')));
+      } else {
+        const player = match.innings[activeInningIdx]?.[side]?.playerScores?.[lineupIdx];
+        if (player) {
+          await storage.updatePitch(newMatch, {
+            id: match.id, side, inningIdx: activeInningIdx, lineupIdx,
+            playerId: player.playerId, pitchIdx: prevPitchIdx,
+            expectedPoints: player.pitches[prevPitchIdx].points, points: null
+          }).catch(err => alert(explainSaveError(err, 'match')));
+        }
+      }
   };
 
   const handleScoreUpdate = async (
@@ -424,7 +442,11 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
             }
         }
     }
-    await storage.updateMatch(newMatch).catch(err => console.error(err));
+    await storage.updatePitch(newMatch, {
+      id: match.id, side, inningIdx: targetInningIdx, lineupIdx,
+      playerId: teamData.playerScores[lineupIdx].playerId,
+      pitchIdx, expectedPoints: existingValue, points: val
+    }).catch(err => alert(explainSaveError(err, 'match')));
   };
 
   const confirmCompleteGame = async () => {
@@ -498,7 +520,11 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
           if (!isEdit && pitchIdx < limit - 1) next = { side, lineupIdx: 0, pitchIdx: pitchIdx + 1, roundIdx };
           setActiveCell(next);
       }
-      await storage.updateMatch(newMatch);
+      await storage.updatePitch(newMatch, {
+        id: match.id, side, roundIdx, pitchIdx,
+        playerId: side === 'home' ? cur.homePlayerId : cur.awayPlayerId,
+        expectedPoints: existing, points: val
+      }).catch(err => alert(explainSaveError(err, 'match')));
   };
 
 

@@ -97,7 +97,7 @@ export const PracticeSetupModal: React.FC<PracticeSetupModalProps> = ({
       const foundHome = teams.find(t => t.id === selectedHomeId);
       const foundAway = teams.find(t => t.id === selectedAwayId);
       if (!foundHome || !foundAway) {
-        setError('We couldn't find one of those teams. Please pick teams from the list.');
+        setError("We couldn't find one of those teams. Please pick teams from the list.");
         setIsSubmitting(false);
         return;
       }

@@ -7,6 +7,7 @@ import { applyLineupToMatch, getUnsafeLineupChangeReason, formatFullPlayerName, 
 import { isPlaceholderPlayerName } from '../utils/statsEditorHelper.js';
 import { detectForfeit, getUnknownLineupIds } from '../services/matchHelpers';
 import { explainSaveError } from '../utils/friendlyErrors';
+import { setPitchScore } from '../utils/scorePatches';
 
 interface ScoreboardProps {
   matchId: string;
@@ -348,12 +349,20 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
       if (!match) return;
       const prevPitchIdx = currentPitchIdx - 1;
       if (prevPitchIdx < 0) return;
-      const newMatch: Match = JSON.parse(JSON.stringify(match));
-      if (roundIdx !== undefined && newMatch.tieBreaker) {
+      let newMatch: Match = match;
+      if (roundIdx !== undefined && match.tieBreaker) {
+          newMatch = {
+              ...match,
+              tieBreaker: match.tieBreaker.map((round, idx) => {
+                  if (idx !== roundIdx) return round;
+                  if (side === 'home') {
+                      return { ...round, homeScores: round.homeScores.map((score, i) => i === prevPitchIdx ? null : score) };
+                  }
+                  return { ...round, awayScores: round.awayScores.map((score, i) => i === prevPitchIdx ? null : score) };
+              })
+          };
           const round = newMatch.tieBreaker[roundIdx];
           if (round) {
-              if (side === 'home') round.homeScores[prevPitchIdx] = null;
-              else round.awayScores[prevPitchIdx] = null;
               setActiveCell({ side, lineupIdx: 0, pitchIdx: prevPitchIdx, roundIdx });
           }
       } else {
@@ -361,7 +370,7 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
           if (inning) {
               const teamData = side === 'home' ? inning.home : inning.away;
               if (teamData?.playerScores?.[lineupIdx]?.pitches?.[prevPitchIdx]) {
-                  teamData.playerScores[lineupIdx].pitches[prevPitchIdx].points = null;
+                  newMatch = setPitchScore(match, activeInningIdx, side, lineupIdx, prevPitchIdx, null);
                   setActiveCell({ side, lineupIdx, pitchIdx: prevPitchIdx });
               }
           }
@@ -384,13 +393,10 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
     if (!teamData?.playerScores?.[lineupIdx]?.pitches?.[pitchIdx]) return;
     const existingValue = teamData.playerScores[lineupIdx].pitches[pitchIdx].points;
     const isEdit = existingValue !== null;
-    const newMatch: Match = JSON.parse(JSON.stringify(match));
-    const curInning = newMatch.innings[targetInningIdx];
-    const curTeamData = side === 'home' ? curInning.home : curInning.away;
-    curTeamData.playerScores[lineupIdx].pitches[pitchIdx].points = val;
-    if (!newMatch.isComplete) {
-      newMatch.status = 'IN_PROGRESS';
-    }
+    // Update only the scored batter. Deep-cloning every inning and pitch
+    // during a tap blocked the browser from painting scoring feedback.
+    const newMatch = setPitchScore(match, targetInningIdx, side, lineupIdx, pitchIdx, val);
+    if (newMatch === match) return;
     setMatch(newMatch); 
     
     // Automated Completion Flow Check

@@ -77,7 +77,7 @@ export const PracticeSetupModal: React.FC<PracticeSetupModalProps> = ({
 
     try {
       if (teams.length < 2) {
-        setError(`At least 2 teams in the ${currentLeague} league are required to start a practice match.`);
+        setError(`Please add another team to this league before starting a practice game.`);
         setIsSubmitting(false);
         return;
       }
@@ -97,7 +97,7 @@ export const PracticeSetupModal: React.FC<PracticeSetupModalProps> = ({
       const foundHome = teams.find(t => t.id === selectedHomeId);
       const foundAway = teams.find(t => t.id === selectedAwayId);
       if (!foundHome || !foundAway) {
-        setError('Selected teams could not be found in active league roster.');
+        setError('We couldn't find one of those teams. Please pick teams from the list.');
         setIsSubmitting(false);
         return;
       }
@@ -119,7 +119,7 @@ export const PracticeSetupModal: React.FC<PracticeSetupModalProps> = ({
       onClose();
     } catch (err: any) {
       console.error('Failed to launch practice match:', err);
-      setError(err.message || 'Failed to initialize practice match');
+      setError('The practice game could not start yet. Please try again or ask for help.');
     } finally {
       setIsSubmitting(false);
     }

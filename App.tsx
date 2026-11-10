@@ -269,16 +269,17 @@ const App: React.FC = () => {
     }
   }, [userRole, activeSeason, state.season]);
 
-  const refreshDashboard = useCallback(async (league: AgeGroup, season: string, silent = false) => {
+  const refreshDashboard = useCallback(async (league: AgeGroup, season: string, silent = false, refreshTeams = true) => {
     if (!silent) setLoading(true);
-    try { 
+    try {
+        // Team rosters rarely change: omit them from ordinary scoreboard refreshes.
         const [m, t] = await Promise.all([
             storage.getMatches(league, season),
-            storage.getTeams(null, season)
+            refreshTeams ? storage.getTeams(null, season) : Promise.resolve(null)
         ]);
-        setMatches(m); 
-        setTeams(t); 
-    } 
+        setMatches(m);
+        if (t) setTeams(t);
+    }
     catch (e) { console.error(e); } finally { if (!silent) setLoading(false); }
   }, []);
 
@@ -296,13 +297,30 @@ const App: React.FC = () => {
     }
   }, [state.currentLeague, state.view, state.season, refreshDashboard]);
 
-  // Live Polling (paused while umpire is setting up lineup to prevent state overwriting)
+  // Reduce unnecessary database egress when viewing the dashboard.
   useEffect(() => {
     if (state.view !== 'dashboard' || !state.currentLeague || lineupModalMatch) return;
-    const interval = setInterval(() => {
-        refreshDashboard(state.currentLeague!, state.season, true);
-    }, 5000);
-    return () => clearInterval(interval);
+    let inFlight = false;
+    let ticks = 0;
+    const poll = async () => {
+        if (document.visibilityState === 'hidden' || inFlight) return;
+        inFlight = true;
+        try {
+            ticks++;
+            await refreshDashboard(state.currentLeague!, state.season, true, ticks % 10 === 0);
+        } finally {
+            inFlight = false;
+        }
+    };
+    const interval = setInterval(() => { void poll(); }, 30000);
+    const onVisibility = () => {
+        if (document.visibilityState === 'visible') void poll();
+    };
+    document.addEventListener('visibilitychange', onVisibility);
+    return () => {
+        clearInterval(interval);
+        document.removeEventListener('visibilitychange', onVisibility);
+    };
   }, [state.view, state.currentLeague, state.season, refreshDashboard, lineupModalMatch]);
 
   // Active Match Recovery Detection (Prompt to resume if device refreshed or returned)

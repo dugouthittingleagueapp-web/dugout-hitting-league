@@ -2,6 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { Match, Team, Player } from '../types.js';
 import * as storage from '../services/storageService.js';
+import { detectForfeit, getUnknownLineupIds } from '../services/matchHelpers.js';
 import {
   extractMatchPlayerSummary,
   remapMatchPlayerIds,
@@ -124,8 +125,31 @@ export const MatchStatsEditorModal: React.FC<MatchStatsEditorModalProps> = ({
         await storage.updateTeam(updatedAwayTeam);
       }
 
-      // 3. Remap match player scores
-      const updatedMatch = remapMatchPlayerIds(match, finalMapping);
+      // 3. Remap match player scores without altering pitch values.
+      let updatedMatch = remapMatchPlayerIds(match, finalMapping);
+
+      // 4. Re-evaluate the forfeit only when both full lineups resolve to
+      // known roster members or registered substitutes.
+      if (updatedHomeTeam && updatedAwayTeam) {
+        const homeIds = (updatedMatch.innings?.[0]?.home?.playerScores || []).map(ps => ps.playerId);
+        const awayIds = (updatedMatch.innings?.[0]?.away?.playerScores || []).map(ps => ps.playerId);
+        if (homeIds.length >= 2 && awayIds.length >= 2 &&
+            !getUnknownLineupIds(updatedHomeTeam, homeIds).length &&
+            !getUnknownLineupIds(updatedAwayTeam, awayIds).length) {
+          const verdict = detectForfeit(updatedHomeTeam, updatedAwayTeam, homeIds, awayIds);
+          updatedMatch = {
+            ...updatedMatch,
+            isForfeit: verdict.isForfeit,
+            is_forfeit: verdict.isForfeit,
+            forfeitingTeamId: verdict.forfeitingTeamId,
+            forfeiting_team_id: verdict.forfeitingTeamId,
+            winningTeamId: verdict.winningTeamId,
+            winning_team_id: verdict.winningTeamId,
+            forfeitReason: verdict.reason,
+            forfeit_reason: verdict.reason
+          };
+        }
+      }
       const savedMatch = await storage.updateMatch(updatedMatch);
 
       setSaveSuccessMsg('Match player stats successfully re-assigned!');

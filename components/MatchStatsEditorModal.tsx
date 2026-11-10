@@ -1,3 +1,4 @@
+import { explainSaveError } from '../utils/friendlyErrors';
 import React, { useState, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { Match, Team, Player } from '../types.js';
@@ -119,10 +120,10 @@ export const MatchStatsEditorModal: React.FC<MatchStatsEditorModalProps> = ({
 
       // 2. Save updated teams if new players were added
       if (updatedHomeTeam && updatedHomeTeam.players.length !== (homeTeam?.players?.length || 0)) {
-        await storage.updateTeam(updatedHomeTeam);
+        await storage.updateTeam(updatedHomeTeam, { requireServerSave: true });
       }
       if (updatedAwayTeam && updatedAwayTeam.players.length !== (awayTeam?.players?.length || 0)) {
-        await storage.updateTeam(updatedAwayTeam);
+        await storage.updateTeam(updatedAwayTeam, { requireServerSave: true });
       }
 
       // 3. Remap match player scores without altering pitch values.
@@ -159,7 +160,7 @@ export const MatchStatsEditorModal: React.FC<MatchStatsEditorModalProps> = ({
       }, 700);
     } catch (err: any) {
       console.error('Failed to save re-mapped match stats:', err);
-      alert('Error updating match stats: ' + (err.message || 'Unknown error'));
+      alert(explainSaveError(err, 'stats'));
     } finally {
       setIsSaving(false);
     }

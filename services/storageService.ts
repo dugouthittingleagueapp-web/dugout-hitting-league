@@ -452,8 +452,16 @@ export const updateTeam = async (team: Team): Promise<Team> => {
       const data = await res.json();
       return mapTeamFromDB(data);
     }
+    const body = await res.json().catch(() => ({}));
+    // Permission errors must not masquerade as successful offline updates.
+    if (res.status === 401 || res.status === 403) {
+      throw new Error(body.error || `Roster update not authorized (HTTP ${res.status})`);
+    }
+    throw new Error(body.error || `Roster update failed (HTTP ${res.status})`);
   } catch (err) {
-    console.warn('Network updateTeam failed (offline), queued for sync', err);
+    console.warn('Network updateTeam failed', err);
+    // Preserve offline queue semantics for connectivity failures only.
+    if (err instanceof Error && /not authorized|forbidden|unauthorized|Insufficient permissions/i.test(err.message)) throw err;
     enqueuePendingTeamSync(team);
   }
   return team;
@@ -650,7 +658,10 @@ export const createMatch = async (
         body: JSON.stringify(match)
     });
     
-    if (!res.ok) throw new Error('Failed to create match');
+    if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body.error || `Failed to create match (HTTP ${res.status})`);
+  }
     const data = await res.json();
     return mapMatchFromDB(data);
 };

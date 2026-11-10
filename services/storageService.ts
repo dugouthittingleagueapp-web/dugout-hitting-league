@@ -959,6 +959,8 @@ export const updateMatch = (match: Match, options?: { requireServerSave?: boolea
     return write;
 };
 
+class NonRetryableMatchSaveError extends Error {}
+
 const performMatchUpdate = async (match: Match, options?: { requireServerSave?: boolean }): Promise<Match> => {
     // A match using atomic pitches must never fall back to a stale, full-record
     // offline write. Preserve the pitch queue instead and report the failure.
@@ -1016,14 +1018,14 @@ const performMatchUpdate = async (match: Match, options?: { requireServerSave?: 
             }
             return saved;
         } else {
-            if (requireConfirmation) {
+            if (requireConfirmation || [400, 401, 403, 404, 409, 428].includes(res.status)) {
                 const details = await res.json().catch(() => ({}));
-                throw new Error(details.error || `Failed to save match (HTTP ${res.status})`);
+                throw new NonRetryableMatchSaveError(details.error || `Match was not saved (HTTP ${res.status}). Reopen it before retrying.`);
             }
             enqueuePendingMatchSync(match);
         }
     } catch (err) {
-        if (requireConfirmation) throw err;
+        if (requireConfirmation || err instanceof NonRetryableMatchSaveError) throw err;
         console.warn('Network sync failed (phone offline/disconnected), match saved in local storage and queued for background sync', err);
         enqueuePendingMatchSync(match);
     }

@@ -284,11 +284,10 @@ const App: React.FC = () => {
   }, []);
 
   // Initial Load & View Change
+  // The storage service owns the reconnect listener; the app only kicks off
+  // one initial queue flush to prevent multiple duplicate synchronization runs.
   useEffect(() => {
-    storage.syncOfflineData();
-    const handleOnline = () => storage.syncOfflineData();
-    window.addEventListener('online', handleOnline);
-    return () => window.removeEventListener('online', handleOnline);
+    void storage.syncOfflineData();
   }, []);
 
   useEffect(() => {

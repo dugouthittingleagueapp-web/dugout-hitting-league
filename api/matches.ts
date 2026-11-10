@@ -293,7 +293,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const scoringStarted = target.rows[0].status === 'IN_PROGRESS' ||
           status === 'IN_PROGRESS' || target.rows[0].is_complete === true ||
           isComplete === true;
-        if (scoringStarted && (!owner || !token || tokenHash !== owner)) {
+        if ((scoringStarted || !!owner) && (!owner || !token || tokenHash !== owner)) {
           await client.query('ROLLBACK');
           return res.status(423).json({
             code: 'SCORING_LOCKED',

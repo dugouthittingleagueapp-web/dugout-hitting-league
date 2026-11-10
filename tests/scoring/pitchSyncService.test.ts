@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   queuePitchChange, flushPitchChanges, getPendingPitchChanges, getPitchSyncConflict,
-  isPitchProtected, replayPendingPitchChanges
+  isPitchProtected, replayPendingPitchChanges, inspectPitchConflict, resolvePitchConflict
 } from '../../services/pitchSyncService';
 import type { PitchChange } from '../../utils/pitchSync';
 import type { Match } from '../../types';
@@ -66,6 +66,51 @@ describe('durable offline pitch synchronization', () => {
     expect(() => queuePitchChange({...op,pitchIdx:1,expectedPoints:0,points:4})).toThrow();
     await expect(flushPitchChanges(op.matchId,send)).rejects.toThrow();
     expect(send).toHaveBeenCalledTimes(1);
+  });
+
+  it('requires an explicit choice to use a device score over a different server score', async () => {
+    queuePitchChange(op);
+    const reject = vi.fn(async () => new Response(JSON.stringify({error:'Pitch changed on another device. Compare scores.'}),{status:409}));
+    await expect(flushPitchChanges(op.matchId, reject)).rejects.toThrow();
+    const remote = createMatch();
+    remote.innings[0].home.playerScores[0].pitches[0].points = 4;
+    const review = inspectPitchConflict(op.matchId, remote);
+    expect(review.serverPoints).toBe(4);
+    expect(review.change.points).toBe(2);
+    expect(review.playerStillMatches).toBe(true);
+    resolvePitchConflict(review, 'use-device');
+    expect(getPitchSyncConflict(op.matchId)).toBeNull();
+    expect(getPendingPitchChanges(op.matchId)[0].expectedPoints).toBe(4);
+    const send = vi.fn(async () => new Response(JSON.stringify({saved:true,rowVersion:'9'}),{status:200}));
+    await flushPitchChanges(op.matchId, send);
+    const submitted = JSON.parse((send.mock.calls[0] as unknown as [unknown, RequestInit])[1].body as string);
+    expect(submitted).toMatchObject({expectedPoints:4, points:2});
+    expect(getPendingPitchChanges(op.matchId)).toHaveLength(0);
+  });
+
+  it('keeps the server score only when explicitly chosen, preserving later queued edits', async () => {
+    queuePitchChange(op);
+    queuePitchChange({...op,pitchIdx:1,expectedPoints:0,points:3});
+    await expect(flushPitchChanges(op.matchId,async()=>new Response(JSON.stringify({error:'conflict'}),{status:409}))).rejects.toThrow();
+    const remote = createMatch();
+    remote.innings[0].home.playerScores[0].pitches[0].points = 4;
+    resolvePitchConflict(inspectPitchConflict(op.matchId, remote), 'keep-server');
+    expect(getPitchSyncConflict(op.matchId)).toBeNull();
+    expect(getPendingPitchChanges(op.matchId)).toHaveLength(1);
+    expect(getPendingPitchChanges(op.matchId)[0].pitchIdx).toBe(1);
+    expect(replayPendingPitchChanges(remote).innings[0].home.playerScores[0].pitches[0].points).toBe(4);
+  });
+
+  it('never assigns a conflicted score to a different batter', async () => {
+    queuePitchChange(op);
+    await expect(flushPitchChanges(op.matchId,async()=>new Response(JSON.stringify({error:'conflict'}),{status:409}))).rejects.toThrow();
+    const remote = createMatch();
+    remote.innings[0].home.playerScores[0].playerId = 'substitute';
+    const review = inspectPitchConflict(op.matchId, remote);
+    expect(review.playerStillMatches).toBe(false);
+    expect(() => resolvePitchConflict(review,'use-device')).toThrow('batter');
+    expect(getPendingPitchChanges(op.matchId)).toHaveLength(1);
+    expect(getPitchSyncConflict(op.matchId)).not.toBeNull();
   });
 
   it('never accepts an unpersisted tap when browser storage fails', () => {

@@ -28,6 +28,9 @@ export const explainSaveError = (
   if (/\b(404|match not found|team not found)\b/i.test(raw)) {
     return `Your ${task} was not saved because the game or team could not be found. Return to the dashboard, refresh the schedule, and reopen the correct game. Do not recreate an official game until an admin checks it.`;
   }
+  if (/\\b(423|scoring_locked)\\b|another umpire|scoring is not ready|transfer control/i.test(raw)) {
+    return 'Another umpire has control of this game, so this device cannot save plays. Your latest change was not confirmed. Ask an admin to transfer scoring if needed.';
+  }
   if (/\b(409|conflict)\b/i.test(raw)) {
     return `Your ${task} was not saved because the game changed on another device. Refresh and check the latest scores before making the change again.`;
   }
@@ -35,7 +38,7 @@ export const explainSaveError = (
     return `Your ${task} was not saved because the service is busy. Wait a moment, then retry. Check the game after refreshing before entering any scores again.`;
   }
   if (/\b(5\d\d|internal server|server error|database|postgres|neon)\b/i.test(raw)) {
-    return `Neon or the game server could not save your ${task}. Keep this page open, check the connection, and try again. If it keeps happening, contact the admin; don't record the same pitches twice.`;
+    return `The game server could not save your ${task}. Keep this page open, check the connection, and try again. If it keeps happening, contact the admin; don't record the same pitches twice.`;
   }
   if (/failed to fetch|network|offline|timeout|timed out|connection|load failed|fetch failed/i.test(raw)) {
     return `Your ${task} was not confirmed because the connection was interrupted. Check Wi-Fi or cellular service and try again. Refresh the game to verify what was saved before entering a score twice.`;

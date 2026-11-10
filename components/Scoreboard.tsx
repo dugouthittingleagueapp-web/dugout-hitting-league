@@ -255,14 +255,6 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
       };
   }, [matchId, isReadOnly]);
 
-  useEffect(() => {
-      const handleOnline = () => {
-          storage.syncOfflineData();
-      };
-      window.addEventListener('online', handleOnline);
-      return () => window.removeEventListener('online', handleOnline);
-  }, []);
-
   const calculateTeamInningTotal = (side: 'home' | 'away', inning?: Inning) => {
     if (!inning) return 0;
     const teamData = side === 'home' ? inning.home : inning.away;

@@ -19,7 +19,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       if (id) {
         const { rawId, strippedId } = cleanMatchId(id);
         const { rows } = await pool.query(
-          'SELECT * FROM matches WHERE id::text = $1 OR id::text = $2 LIMIT 1',
+          'SELECT *, md5(COALESCE(innings::text, '') || '|' || COALESCE(tie_breaker::text, '')) AS server_revision FROM matches WHERE id::text = $1 OR id::text = $2 LIMIT 1',
           [rawId, strippedId]
         );
         if (rows.length === 0) return res.status(404).json({ error: 'Not found' });
@@ -41,7 +41,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       // invalidate the revision. This is read-only and changes no scoring data.
       let query = revisions === 'true'
         ? "SELECT m.id::text AS id, m.is_practice, md5(row_to_json(m)::text) AS revision FROM matches m"
-        : 'SELECT * FROM matches';
+        : "SELECT *, md5(COALESCE(innings::text, '') || '|' || COALESCE(tie_breaker::text, '')) AS server_revision FROM matches";
       const params: any[] = [];
       let paramCount = 1;
       
@@ -167,7 +167,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           location, start_time, end_time, notes, status, is_practice, is_forfeit, forfeiting_team_id, forfeit_reason, winning_team_id
         ) 
         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18) 
-        RETURNING *
+        RETURNING *, md5(COALESCE(innings::text, '') || '|' || COALESCE(tie_breaker::text, '')) AS server_revision
       `;
       const values = [
         insertId, 
@@ -227,12 +227,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       if (!role) return;
 
       const { 
-        id, isComplete, innings, tieBreaker, league, location, startTime, 
+        id, serverRevision, isComplete, innings, tieBreaker, league, location, startTime, 
         endTime, notes, homeTeamId, awayTeamId, status, isPractice, is_practice,
         isForfeit, is_forfeit, forfeitingTeamId, forfeiting_team_id, winningTeamId, winning_team_id, forfeitReason, forfeit_reason
       } = req.body || {};
       
       const { rawId, strippedId, isPracticePrefix } = cleanMatchId(id);
+      if (typeof serverRevision !== 'string' || !/^[a-f0-9]{32}$/i.test(serverRevision)) {
+        return res.status(428).json({
+          error: 'This game has no current server revision. Reopen it from the schedule before saving changes.'
+        });
+      }
       const practiceFlag = isPractice !== undefined ? isPractice : (is_practice !== undefined ? is_practice : null);
       const forfeitFlag = isForfeit !== undefined ? isForfeit : (is_forfeit !== undefined ? is_forfeit : null);
       const forfeitTeamId = forfeitingTeamId !== undefined ? forfeitingTeamId : (forfeiting_team_id !== undefined ? forfeiting_team_id : null);
@@ -257,8 +262,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             forfeiting_team_id = CASE WHEN $15::boolean = FALSE THEN NULL ELSE COALESCE($16, forfeiting_team_id) END,
             forfeit_reason = CASE WHEN $15::boolean = FALSE THEN NULL ELSE COALESCE($17, forfeit_reason) END,
             winning_team_id = CASE WHEN $15::boolean = FALSE THEN NULL ELSE COALESCE($18, winning_team_id) END
-        WHERE id::text = $1 OR id::text = $2
-        RETURNING *
+        WHERE (id::text = $1 OR id::text = $2)
+          AND md5(COALESCE(innings::text, '') || '|' || COALESCE(tie_breaker::text, '')) = $19
+        RETURNING *, md5(COALESCE(innings::text, '') || '|' || COALESCE(tie_breaker::text, '')) AS server_revision
       `;
       const values = [
         rawId,
@@ -278,12 +284,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         forfeitFlag,
         forfeitTeamId,
         forfeitNote,
-        winningId
+        winningId,
+        serverRevision
       ];
 
       const { rows } = await pool.query(queryUpdate, values);
       const row = rows[0];
-      if (!row) return res.status(404).json({ error: 'Match not found; no scoring data was saved.' });
+      if (!row) {
+        const existing = await pool.query('SELECT id FROM matches WHERE id::text = $1 OR id::text = $2 LIMIT 1', [rawId, strippedId]);
+        if (existing.rows.length) return res.status(409).json({
+          error: 'This game was updated on another device. Reload and check the latest scores before changing its lineup or finalizing.'
+        });
+        return res.status(404).json({ error: 'Match not found; no scoring data was saved.' });
+      }
       if (row) {
         row.innings = typeof row.innings === 'string' ? JSON.parse(row.innings) : row.innings;
         if (row.tie_breaker) row.tieBreaker = typeof row.tie_breaker === 'string' ? JSON.parse(row.tie_breaker) : row.tie_breaker;

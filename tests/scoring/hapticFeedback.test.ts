@@ -8,6 +8,8 @@ describe('Vibration and Umpire Clicker Feedback for Score Inputs', () => {
     vi.useFakeTimers();
     resetHapticThrottle();
     vibrateMock = vi.fn().mockReturnValue(true);
+    // Vitest's default Node environment does not provide navigator.
+    if (typeof navigator === 'undefined') vi.stubGlobal('navigator', {});
     Object.defineProperty(navigator, 'vibrate', {
       value: vibrateMock,
       writable: true,
@@ -18,6 +20,7 @@ describe('Vibration and Umpire Clicker Feedback for Score Inputs', () => {
   afterEach(() => {
     vi.useRealTimers();
     vi.restoreAllMocks();
+    vi.unstubAllGlobals();
   });
 
   it('triggers identical vibration pattern (60ms) for score input buttons 0-4', () => {

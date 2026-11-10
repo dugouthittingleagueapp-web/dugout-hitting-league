@@ -127,9 +127,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const forfeitNote = forfeitReason || forfeit_reason || null;
 
       // Server-Side Authorization:
-      // Practice match creation allowed for ADMIN and UMPIRE
-      // Official match creation strictly requires ADMIN
-      const allowedRoles = matchIsPractice ? ['admin', 'umpire'] : ['admin'];
+      // Both authenticated admins and umpires may start official or practice games.
+      const allowedRoles = ['admin', 'umpire'];
       const role = requireRole(req, res, allowedRoles as ('admin' | 'umpire')[]);
       if (!role) return;
 
@@ -238,8 +237,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             status = COALESCE($13, status),
             is_practice = COALESCE($14, is_practice),
             is_forfeit = COALESCE($15, is_forfeit),
-            forfeiting_team_id = COALESCE($16, forfeiting_team_id),
-            forfeit_reason = COALESCE($17, forfeit_reason)
+            forfeiting_team_id = CASE WHEN $15::boolean = FALSE THEN NULL ELSE COALESCE($16, forfeiting_team_id) END,
+            forfeit_reason = CASE WHEN $15::boolean = FALSE THEN NULL ELSE COALESCE($17, forfeit_reason) END,
+            winning_team_id = CASE WHEN $15::boolean = FALSE THEN NULL ELSE winning_team_id END
         WHERE id::text = $1 OR id::text = $2
         RETURNING *
       `;

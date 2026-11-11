@@ -71,7 +71,7 @@ describe('Spectator network efficiency endpoints', () => {
     await teamsHandler({ method: 'GET', query: { ids: 'home,away' } } as any, res as any);
     expect(res.statusCode).toBe(200);
     expect(res.body).toEqual([{ id: 'home' }, { id: 'away' }]);
-    expect(query.mock.calls[0][0]).toContain('id = ANY');
+    expect(query.mock.calls[0][0]).toContain('id = ANY(' + String.fromCharCode(36) + '1::text[])');
     expect(query.mock.calls[0][1]).toEqual([['home', 'away']]);
   });
 

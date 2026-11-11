@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { getAuthFromRequest, signSessionToken, verifySessionToken } from '../../api/auth';
 
 describe('Session signing key configuration', () => {
-  afterEach(() => vi.unstubAllEnvs());
+  afterEach(() => { vi.unstubAllEnvs(); });
 
   it('refuses to issue signed admin sessions when no secret is configured', () => {
     vi.stubEnv('SESSION_SECRET', '');

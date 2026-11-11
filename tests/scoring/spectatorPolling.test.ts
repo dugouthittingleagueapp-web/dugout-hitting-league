@@ -65,6 +65,40 @@ describe('Spectator network efficiency endpoints', () => {
     expect(query.mock.calls[0][0]).toContain('SELECT * FROM matches');
   });
 
+  it('avoids retransmitting the dashboard game history when revisions have not changed', async () => {
+    const rows = [{ id: 'game-a', revision: 2, date: '2026-11-11', innings: [] }];
+    query.mockResolvedValueOnce({ rows });
+    const first = response();
+    await matchesHandler({ method: 'GET', query: { league: '12U', season: '2026' } } as any, first as any);
+    const signature = first.headers['x-dashboard-signature'];
+    expect(first.statusCode).toBe(200);
+    expect(signature).toMatch(/^[0-9a-f]{64}$/);
+
+    query.mockResolvedValueOnce({ rows: [{ id: 'game-a', revision: 2 }] });
+    const second = response();
+    await matchesHandler({ method: 'GET', query: { league: '12U', season: '2026', dashboardSignature: signature } } as any, second as any);
+    expect(second.statusCode).toBe(304);
+    expect(second.ended).toBe(true);
+    expect(second.body).toBeUndefined();
+    expect(query.mock.calls[1][0]).toContain('SELECT id, revision FROM matches');
+    expect(query).toHaveBeenCalledTimes(2);
+  });
+
+  it('downloads fresh matches when a game revision changes', async () => {
+    const initial = response();
+    query.mockResolvedValueOnce({ rows: [{ id: 'game-a', revision: 2, date: '2026-11-11', innings: [] }] });
+    await matchesHandler({ method: 'GET', query: { league: '12U', season: '2026' } } as any, initial as any);
+    const previous = initial.headers['x-dashboard-signature'];
+    query.mockResolvedValueOnce({ rows: [{ id: 'game-a', revision: 3 }] });
+    query.mockResolvedValueOnce({ rows: [{ id: 'game-a', revision: 3, date: '2026-11-11', innings: [{ number: 1 }] }] });
+    const refreshed = response();
+    await matchesHandler({ method: 'GET', query: { league: '12U', season: '2026', dashboardSignature: previous } } as any, refreshed as any);
+    expect(refreshed.statusCode).toBe(200);
+    expect((refreshed.body as any[])[0].revision).toBe(3);
+    expect(refreshed.headers['x-dashboard-signature']).not.toBe(previous);
+    expect(query).toHaveBeenCalledTimes(3);
+  });
+
   it('restricts roster queries to the two teams playing', async () => {
     query.mockResolvedValueOnce({ rows: [{ id: 'home' }, { id: 'away' }] });
     const res = response();

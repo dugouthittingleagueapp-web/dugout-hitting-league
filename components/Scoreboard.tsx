@@ -27,7 +27,7 @@ const getLiveInningIndex = (m: Match): number => {
     return 5;
 };
 
-const ScoringBoardContent: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadOnly = false, userRole = 'fan', onPlayerClick }) => {
+const ScoringBoardContent: React.FC<ScoreboardProps & { saveState?: storage.ScoringSaveState; onRetrySync?: () => void }> = ({ matchId, onExit, isReadOnly = false, userRole = 'fan', onPlayerClick, saveState, onRetrySync }) => {
   const [match, setMatch] = useState<Match | null>(null);
   const [teams, setTeams] = useState<{ home?: Team, away?: Team }>({});
   const [activeInningIdx, setActiveInningIdx] = useState(0); 
@@ -856,6 +856,19 @@ const ScoringBoardContent: React.FC<ScoreboardProps> = ({ matchId, onExit, isRea
         </div>
       )}
       <header className="bg-white/80 dark:bg-slate-950/90 backdrop-blur-md border-b sticky top-0 z-[50] shadow-sm">
+        {saveState && !isReadOnly && userRole !== 'fan' && (
+          <div role="status" aria-live="polite" className="flex min-h-8 items-center justify-center gap-2 border-b border-slate-200 bg-slate-100 px-3 py-1.5 text-xs font-bold text-slate-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100">
+            {saveState === 'saving' && <span>Saving scores…</span>}
+            {saveState === 'saved' && <span>✓ All scores saved</span>}
+            {saveState === 'offline' && (
+              <>
+                <span>Connection interrupted. Scores are waiting to sync.</span>
+                <button type="button" onClick={onRetrySync} className="underline underline-offset-2">Try again</button>
+              </>
+            )}
+            {saveState === 'attention' && <span>Some scores need checking before you continue.</span>}
+          </div>
+        )}
         <div className="max-w-7xl mx-auto px-4 py-3 flex justify-between items-center gap-4">
           <div className="flex gap-8 items-center flex-1 min-w-0">
             <div className="text-center flex-1 min-w-0"><div className="text-[10px] uppercase font-bold text-slate-500">Away</div><div className="text-xl font-bold text-blue-700 truncate">{teams.away.name}</div><div className="text-2xl font-sans tabular-nums font-bold dark:text-white">{awayTotal}</div></div>
@@ -1321,22 +1334,7 @@ export const Scoreboard: React.FC<ScoreboardProps> = (props) => {
       </div>
     );
   }
-  if (access === 'granted') return (
-    <div className="relative">
-      <div role="status" aria-live="polite" className="sticky top-0 z-30 flex items-center justify-center gap-2 bg-white/95 dark:bg-slate-900/95 px-3 py-1.5 text-xs font-semibold text-slate-700 dark:text-slate-200 border-b border-slate-200 dark:border-slate-700">
-        {saveState === 'saving' && <span>Saving scores…</span>}
-        {saveState === 'saved' && <span>✓ All scores saved</span>}
-        {saveState === 'offline' && (
-          <>
-            <span>Connection interrupted. Scores are waiting to sync.</span>
-            <button type="button" onClick={() => void storage.syncOfflineData()} className="underline underline-offset-2">Try again</button>
-          </>
-        )}
-        {saveState === 'attention' && <span>Some scores need checking before you continue.</span>}
-      </div>
-      <ScoringBoardContent {...props} />
-    </div>
-  );
+  if (access === 'granted') return <ScoringBoardContent {...props} saveState={saveState} onRetrySync={() => void storage.syncOfflineData()} />;
   return (
     <div className="min-h-[60vh] flex items-center justify-center px-4">
       <div className="max-w-md w-full rounded-2xl border border-gray-300 dark:border-gray-700 p-6 text-center space-y-4">

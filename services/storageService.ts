@@ -322,36 +322,51 @@ const performOfflineSync = async (): Promise<void> => {
       const matchMap: Record<string, Match> = JSON.parse(rawMatches);
       const matchIds = Object.keys(matchMap);
       for (const matchId of matchIds) {
-        const match = matchMap[matchId];
-        if (getScoringSyncWarning(matchId)) continue;
-        try {
-          // Use the revision captured when the offline edit was made.
-          // Never substitute the latest server revision for an older snapshot.
-          const res = await apiFetch('/api/matches', {
-            method: 'PUT',
-            headers: matchWriteHeaders(match.id),
-            body: JSON.stringify(match)
-          });
-          if (res.ok) {
-            const saved = recordRevision(mapMatchFromDB(await res.json()));
-            const current: Record<string, Match> = JSON.parse(localStorage.getItem(PENDING_MATCHES_KEY) || '{}');
-            if (JSON.stringify(current[matchId]) === JSON.stringify(match)) {
-              delete current[matchId];
-              if (Object.keys(current).length) localStorage.setItem(PENDING_MATCHES_KEY, JSON.stringify(current));
-              else localStorage.removeItem(PENDING_MATCHES_KEY);
-              localStorage.setItem(`dugout_match_${matchId}`, JSON.stringify(saved));
-              clearScoringSyncWarning(matchId);
+        // A reconnect replay must never run concurrently with a pitch being
+        // entered on the same device. Re-read the pending snapshot only after
+        // earlier game writes have completed.
+        await serializeMatchOperation(matchId, async () => {
+          if (getScoringSyncWarning(matchId)) return;
+          let pending: Record<string, Match>;
+          try {
+            pending = JSON.parse(localStorage.getItem(PENDING_MATCHES_KEY) || '{}');
+          } catch { return; }
+          const match = pending[matchId];
+          if (!match) return;
+          try {
+            // Keep the revision from the original offline snapshot. Never
+            // replace it with the newer revision cached from other reads.
+            const res = await apiFetch('/api/matches', {
+              method: 'PUT',
+              headers: matchWriteHeaders(match.id),
+              body: JSON.stringify(match)
+            });
+            if (res.ok) {
+              const saved = recordRevision(mapMatchFromDB(await res.json()));
+              const current: Record<string, Match> = JSON.parse(localStorage.getItem(PENDING_MATCHES_KEY) || '{}');
+              if (JSON.stringify(current[matchId]) === JSON.stringify(match)) {
+                delete current[matchId];
+                if (Object.keys(current).length) localStorage.setItem(PENDING_MATCHES_KEY, JSON.stringify(current));
+                else localStorage.removeItem(PENDING_MATCHES_KEY);
+                localStorage.setItem(`dugout_match_${matchId}`, JSON.stringify(saved));
+                clearScoringSyncWarning(matchId);
+              } else {
+                // Another snapshot replaced this one during the request.
+                // Never overwrite the local cache or erase unsent pitches.
+                markScoringSyncWarning(matchId,
+                  'Some scores are still saved on this device. Please ask an admin to check them before scoring again.');
+              }
+            } else if ([401, 403, 409, 423].includes(res.status)) {
+              const info = await res.json().catch(() => ({}));
+              console.warn('Queued score needs review:', info.code || res.status);
+              markScoringSyncWarning(matchId,
+                'Some scores from this device could not be synced because the game changed or scoring control moved. Do not re-enter those pitches. Ask an admin to review them.');
             }
-          } else if ([401, 403, 409, 423].includes(res.status)) {
-            const info = await res.json().catch(() => ({}));
-            console.warn('Queued score needs review:', info.code || res.status);
-            markScoringSyncWarning(matchId,
-              'Some scores from this device could not be synced because the game changed or scoring control moved. Do not re-enter those pitches. Ask an admin to review them.');
+          } catch (err) {
+            // Keep the saved pitches in the queue for the next reconnect.
+            console.warn('Queued scoring will retry when connected', err);
           }
-        } catch (err) {
-          // No connection: keep the pending snapshot for the next attempt.
-          console.warn('Queued scoring will retry when connected', err);
-        }
+        });
       }
     }
   } catch (e) {}
@@ -1037,16 +1052,19 @@ export const calculateTeamGameTotal = (side: 'home' | 'away', matchData?: Match 
 // overwriting a newer pitch or lineup update in Neon.
 const matchWriteQueues = new Map<string, Promise<void>>();
 
-export const updateMatch = (match: Match, options?: { requireServerSave?: boolean }): Promise<Match> => {
-    const previous = matchWriteQueues.get(match.id) || Promise.resolve();
-    const write = previous.catch(() => {}).then(() => performMatchUpdate(match, options));
+const serializeMatchOperation = <T>(id: string, operation: () => Promise<T>): Promise<T> => {
+    const previous = matchWriteQueues.get(id) || Promise.resolve();
+    const write = previous.catch(() => {}).then(operation);
     const settled = write.then(() => {}, () => {});
-    matchWriteQueues.set(match.id, settled);
+    matchWriteQueues.set(id, settled);
     void settled.then(() => {
-        if (matchWriteQueues.get(match.id) === settled) matchWriteQueues.delete(match.id);
+        if (matchWriteQueues.get(id) === settled) matchWriteQueues.delete(id);
     });
     return write;
 };
+
+export const updateMatch = (match: Match, options?: { requireServerSave?: boolean }): Promise<Match> =>
+    serializeMatchOperation(match.id, () => performMatchUpdate(match, options));
 
 const performMatchUpdate = async (match: Match, options?: { requireServerSave?: boolean }): Promise<Match> => {
     const revision = knownMatchRevisions.get(match.id) ?? match.revision ?? 0;
@@ -1070,11 +1088,26 @@ const performMatchUpdate = async (match: Match, options?: { requireServerSave?: 
             body: JSON.stringify(outgoing)
         });
         if (res.ok) {
-            dequeuePendingMatchSync(match.id);
-            clearScoringSyncWarning(match.id);
+            // A successful write must not erase a different, newer offline
+            // snapshot. Keep it for admin review instead.
+            if (typeof window !== 'undefined') {
+                try {
+                    const pending: Record<string, Match> = JSON.parse(localStorage.getItem(PENDING_MATCHES_KEY) || '{}');
+                    if (pending[match.id]) {
+                        if (JSON.stringify(pending[match.id]) === JSON.stringify(outgoing)) {
+                            dequeuePendingMatchSync(match.id);
+                        } else {
+                            markScoringSyncWarning(match.id,
+                              'There are still scores saved on this device. Ask an admin to review them before scoring again.');
+                        }
+                    }
+                } catch (e) {
+                    markScoringSyncWarning(match.id, 'Please ask an admin to review saved scores on this device.');
+                }
+            }
             const data = await res.json();
             const saved = recordRevision(mapMatchFromDB(data));
-            if (typeof window !== 'undefined') {
+            if (typeof window !== 'undefined' && !getScoringSyncWarning(match.id)) {
                 try {
                     localStorage.setItem(`dugout_match_${saved.id}`, JSON.stringify(saved));
                     if (saved.isComplete) localStorage.removeItem('dugout_active_match_id');

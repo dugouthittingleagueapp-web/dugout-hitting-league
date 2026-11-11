@@ -421,6 +421,27 @@ export const getTeams = async (league: AgeGroup | null, season: string): Promise
   return [];
 };
 
+// Retrieve only the rosters needed for the active game. The full league
+// directory is still available to admin screens via getAllTeams().
+export const getMatchTeams = async (homeTeamId: string, awayTeamId: string): Promise<Team[]> => {
+  const ids = [...new Set([homeTeamId, awayTeamId].filter(Boolean))];
+  if (!ids.length) return [];
+  try {
+    const res = await apiFetch(`/api/teams?ids=${encodeURIComponent(ids.join(','))}`);
+    if (res.ok) return (await res.json()).map(mapTeamFromDB);
+  } catch (e) {
+    console.warn('Could not refresh game rosters, using saved copies when available', e);
+  }
+  // Preserve offline roster access when the network isn't available.
+  if (typeof window === 'undefined') return [];
+  return ids.flatMap(id => {
+    try {
+      const raw = localStorage.getItem(`dugout_team_${id}`);
+      return raw ? [JSON.parse(raw) as Team] : [];
+    } catch (e) { return []; }
+  });
+};
+
 export const getAllTeams = async (): Promise<Team[]> => {
   let teams: Team[] = [];
   try {
@@ -660,9 +681,26 @@ export const getAllMatches = async (): Promise<Match[]> => {
   return sortMatchesChronologically(matches);
 };
 
-export const getMatch = async (id: string): Promise<Match | undefined> => {
+export const getMatch = async (id: string, options?: { spectator?: boolean }): Promise<Match | undefined> => {
+  // Spectators retain a full local snapshot for reviewing earlier innings.
+  // A revision check prevents repeated transfers of unchanged pitch history.
+  // Umpire reads remain unconditional for offline/scoring safety.
+  let spectatorCache: Match | undefined;
+  if (options?.spectator && typeof window !== 'undefined') {
+    try {
+      const raw = localStorage.getItem(`dugout_match_${id}`);
+      if (raw) {
+        const candidate: Match = JSON.parse(raw);
+        if (candidate.id === id && Number.isSafeInteger(candidate.revision) && candidate.revision! >= 0) {
+          spectatorCache = candidate;
+        }
+      }
+    } catch (e) {}
+  }
   try {
-    const res = await apiFetch(`/api/matches?id=${id}`);
+    const revisionQuery = spectatorCache ? `&spectatorRevision=${spectatorCache.revision}` : '';
+    const res = await apiFetch(`/api/matches?id=${encodeURIComponent(id)}${revisionQuery}`);
+    if (res.status === 304 && spectatorCache) return spectatorCache;
     if (res.ok) {
       const data = await res.json();
       const mapped = recordRevision(mapMatchFromDB(data));

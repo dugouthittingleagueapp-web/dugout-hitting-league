@@ -15,14 +15,19 @@ if ((connString.startsWith('"') && connString.endsWith('"')) ||
 
 if (!connString) {
   console.error("[DB] CRITICAL: No DATABASE_URL found in environment variables.");
+} else {
+  // Neon connection URLs commonly specify sslmode=require. node-postgres
+  // warns because its current meaning is verify-full but will change in a
+  // future release. Explicitly require certificate AND hostname validation.
+  // Do not use rejectUnauthorized:false, which disables that validation.
+  const parsed = new URL(connString);
+  parsed.searchParams.set('sslmode', 'verify-full');
+  connString = parsed.toString();
 }
 
-// 3. Initialize Pool
+// 3. Initialize Pool. The connection string supplies verified TLS settings.
 const pool = new pg.Pool({
   connectionString: connString,
-  ssl: {
-    rejectUnauthorized: false // Required for Neon/Vercel connections
-  },
   connectionTimeoutMillis: 5000, // Fail fast if cannot connect
 });
 

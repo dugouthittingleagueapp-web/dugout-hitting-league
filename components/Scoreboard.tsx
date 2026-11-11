@@ -7,6 +7,7 @@ import { applyLineupToMatch, getUnsafeLineupChangeReason, formatFullPlayerName, 
 import { isPlaceholderPlayerName } from '../utils/statsEditorHelper.js';
 import { detectForfeit, getUnknownLineupIds } from '../services/matchHelpers';
 import { explainSaveError } from '../utils/friendlyErrors';
+import { withPitchScore } from '../utils/pitchUpdate';
 
 interface ScoreboardProps {
   matchId: string;
@@ -396,13 +397,7 @@ const ScoringBoardContent: React.FC<ScoreboardProps & { saveState?: storage.Scor
     if (!teamData?.playerScores?.[lineupIdx]?.pitches?.[pitchIdx]) return;
     const existingValue = teamData.playerScores[lineupIdx].pitches[pitchIdx].points;
     const isEdit = existingValue !== null;
-    const newMatch: Match = JSON.parse(JSON.stringify(match));
-    const curInning = newMatch.innings[targetInningIdx];
-    const curTeamData = side === 'home' ? curInning.home : curInning.away;
-    curTeamData.playerScores[lineupIdx].pitches[pitchIdx].points = val;
-    if (!newMatch.isComplete) {
-      newMatch.status = 'IN_PROGRESS';
-    }
+    const newMatch = withPitchScore(match, targetInningIdx, side, lineupIdx, pitchIdx, val);
     setMatch(newMatch); 
     
     // Automated Completion Flow Check

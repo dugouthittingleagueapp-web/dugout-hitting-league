@@ -190,6 +190,29 @@ export const hasPendingMatchSync = (matchId: string): boolean => {
     return Object.prototype.hasOwnProperty.call(pending, matchId);
   } catch { return false; }
 };
+
+// A newer successful write from this same device can supersede an older
+// offline snapshot, but only when every recorded pitch in the old snapshot
+// is present unchanged in the newer saved game.
+const containsEarlierScores = (earlier: Match, later: Match): boolean => {
+  if (earlier.id !== later.id || earlier.homeTeamId !== later.homeTeamId ||
+      earlier.awayTeamId !== later.awayTeamId) return false;
+  return (earlier.innings || []).every((inning, inningIndex) => {
+    const next = later.innings?.[inningIndex];
+    if (!next || inning.number !== next.number) return false;
+    return (['home', 'away'] as const).every(side => {
+      const oldTeam = inning[side];
+      const newTeam = next[side];
+      if (oldTeam.teamId !== newTeam?.teamId) return false;
+      return oldTeam.playerScores.every(oldPlayer => {
+        const newPlayer = newTeam.playerScores.find(p => p.playerId === oldPlayer.playerId);
+        if (!newPlayer) return false;
+        return oldPlayer.pitches.every((pitch, index) =>
+          pitch.points === null || newPlayer.pitches[index]?.points === pitch.points);
+      });
+    });
+  });
+};
 const knownMatchRevisions = new Map<string, number>();
 const recordRevision = (match: Match): Match => {
   if (typeof match.revision === 'number' && Number.isSafeInteger(match.revision)) {
@@ -1113,11 +1136,13 @@ const performMatchUpdate = async (match: Match, options?: { requireServerSave?: 
                 try {
                     const pending: Record<string, Match> = JSON.parse(localStorage.getItem(PENDING_MATCHES_KEY) || '{}');
                     if (pending[match.id]) {
-                        if (JSON.stringify(pending[match.id]) === JSON.stringify(outgoing)) {
+                        if (containsEarlierScores(pending[match.id], outgoing)) {
+                            // The server has all of those recorded pitches.
+                            // Don't let a stale queue entry later interrupt scoring.
                             dequeuePendingMatchSync(match.id);
                         } else {
                             markScoringSyncWarning(match.id,
-                              'There are still scores saved on this device. Ask an admin to review them before scoring again.');
+                              'Some earlier scores could not be verified. They are still on this device. Stop scoring and have league staff check this device.');
                         }
                     }
                 } catch (e) {

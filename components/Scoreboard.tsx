@@ -51,6 +51,7 @@ const ScoringBoardContent: React.FC<ScoreboardProps> = ({ matchId, onExit, isRea
 
   const activeInningRef = useRef(activeInningIdx);
   const lastLiveInningRef = useRef<number>(-1);
+  const spectatorCompletedRef = useRef(false);
 
   useEffect(() => {
       activeInningRef.current = activeInningIdx;
@@ -139,6 +140,7 @@ const ScoringBoardContent: React.FC<ScoreboardProps> = ({ matchId, onExit, isRea
   const loadMatchData = async (refreshTeams = true) => {
       const m = await storage.getMatch(matchId, { spectator: isReadOnly });
       if (m) {
+        if (isReadOnly) spectatorCompletedRef.current = m.isComplete;
         const cached = spectatorTeamsRef.current;
         const needTeams = refreshTeams || cached.home?.id !== m.homeTeamId || cached.away?.id !== m.awayTeamId;
         const allTeams = needTeams ? await storage.getMatchTeams(m.homeTeamId, m.awayTeamId) : [];
@@ -222,6 +224,7 @@ const ScoringBoardContent: React.FC<ScoreboardProps> = ({ matchId, onExit, isRea
     const init = async () => {
         setLoading(true);
         lastLiveInningRef.current = -1;
+        spectatorCompletedRef.current = false;
         await loadMatchData();
         setLoading(false);
     };
@@ -237,6 +240,9 @@ const ScoringBoardContent: React.FC<ScoreboardProps> = ({ matchId, onExit, isRea
           inFlight = true;
           try {
               ticks++;
+              // Completed games rarely change. Check once per minute instead
+              // of every ten seconds; in-progress games still update live.
+              if (spectatorCompletedRef.current && ticks % 6 !== 0) return;
               await loadMatchData(ticks % 6 === 0);
           } finally {
               inFlight = false;

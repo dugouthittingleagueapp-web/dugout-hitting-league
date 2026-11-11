@@ -687,6 +687,9 @@ export const deleteTeam = async (teamId: string) => {
 };
 
 // Match Methods
+// Retain the fully populated dashboard list in memory so a 304 response never
+// needs to download full innings a second time.
+const matchListCache = new Map<string, { signature: string; matches: Match[] }>();
 export const getMatches = async (league: AgeGroup, season: string, options?: { excludePractice?: boolean }): Promise<Match[]> => {
   const excludePractice = options?.excludePractice ?? false;
   if (typeof window === 'undefined' && season === '2025') {
@@ -696,13 +699,22 @@ export const getMatches = async (league: AgeGroup, season: string, options?: { e
   }
   try {
     const url = `/api/matches?league=${encodeURIComponent(league)}&season=${encodeURIComponent(season)}${excludePractice ? '&excludePractice=true' : ''}`;
-    const res = await apiFetch(url);
+    const cachedList = matchListCache.get(url);
+    const conditional = cachedList ? `${url}&dashboardSignature=${cachedList.signature}` : url;
+    const res = await apiFetch(conditional);
+    if (res.status === 304 && cachedList) return cachedList.matches;
     if (res.ok) {
       const data = await res.json();
       const rawMapped: Match[] = data.map((row: any) => recordRevision(mapMatchFromDB(row)));
       let mapped: Match[] = sortMatchesChronologically<Match>(rawMapped);
       if (excludePractice) {
         mapped = mapped.filter(m => !m.isPractice && !m.is_practice);
+      }
+      const signature = res.headers.get('X-Dashboard-Signature');
+      if (signature && /^[0-9a-f]{64}$/.test(signature)) {
+        matchListCache.set(url, { signature, matches: mapped });
+      } else {
+        matchListCache.delete(url);
       }
       if (mapped.length > 0 || season !== '2025') {
         if (typeof window !== 'undefined' && !excludePractice) {

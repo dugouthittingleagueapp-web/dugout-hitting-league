@@ -59,6 +59,35 @@ describe('Offline reconnect safety', () => {
     expect(localStorage.getItem('dugout_pending_sync_matches')).toBeNull();
   });
 
+  it('clears an older queued pitch when a newer successful save includes it', async () => {
+    const id = 'reconnect-newer-score';
+    const inning = {
+      number: 1,
+      home: { teamId: 'home', playerScores: [{ playerId: 'p1', pitches: [{ points: 2 }, { points: null }] }] },
+      away: { teamId: 'away', playerScores: [{ playerId: 'p2', pitches: [{ points: null }] }] }
+    };
+    const first = { ...game(id, 0), innings: [inning] };
+    const second = {
+      ...game(id, 0),
+      innings: [{
+        ...inning,
+        home: { ...inning.home, playerScores: [{
+          playerId: 'p1', pitches: [{ points: 2 }, { points: 3 }]
+        }] }
+      }]
+    };
+    const fetcher = vi.fn()
+      .mockRejectedValueOnce(new Error('Wi-Fi disconnected'))
+      .mockResolvedValueOnce(new Response(JSON.stringify(savedRow(id, 1))));
+    vi.stubGlobal('fetch', fetcher);
+    await updateMatch(first);
+    expect(JSON.parse(localStorage.getItem('dugout_pending_sync_matches') || '{}')[id]).toBeTruthy();
+    await updateMatch(second);
+    expect(localStorage.getItem('dugout_pending_sync_matches')).toBeNull();
+    expect(JSON.parse(localStorage.getItem('dugout_scoring_sync_conflicts') || '{}')[id]).toBeUndefined();
+    expect(fetcher).toHaveBeenCalledTimes(2);
+  });
+
   it('preserves unsent pitches and warns when the server rejects a stale offline snapshot', async () => {
     const id = 'reconnect-conflict';
     enqueuePendingMatchSync(game(id, 4));

@@ -9,6 +9,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       let query = 'SELECT * FROM teams';
       const params: any[] = [];
       const conditions: string[] = [];
+      // Construct PostgreSQL placeholders safely and explicitly.
+      const placeholder = (index: number): string => String.fromCharCode(36) + index;
       if (ids !== undefined) {
         if (typeof ids !== 'string') return res.status(400).json({ error: 'Invalid team selection' });
         const teamIds = ids.split(',').map(id => id.trim()).filter(Boolean);
@@ -16,17 +18,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           return res.status(400).json({ error: 'Invalid team selection' });
         }
         params.push(teamIds);
-        conditions.push('id = ANY(
+        conditions.push(`id = ANY(${placeholder(params.length)}::text[])`);
       }
       if (league) {
         params.push(league);
-        conditions.push('LOWER(league) = LOWER(
+        conditions.push(`LOWER(league) = LOWER(${placeholder(params.length)})`);
       }
       if (season) {
         params.push(season);
         conditions.push(season === '2025'
-          ? '(season = 
-          : 'season = );
+          ? `(season = ${placeholder(params.length)} OR season IS NULL)`
+          : `season = ${placeholder(params.length)}`);
       }
       if (conditions.length) query += ' WHERE ' + conditions.join(' AND ');
       query += ' ORDER BY name ASC';

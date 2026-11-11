@@ -175,6 +175,21 @@ export const deleteLeague = async (id: string, season?: string) => {
 const PENDING_MATCHES_KEY = 'dugout_pending_sync_matches';
 const PENDING_TEAMS_KEY = 'dugout_pending_sync_teams';
 const SYNC_CONFLICTS_KEY = 'dugout_scoring_sync_conflicts';
+
+// UI notices are deliberately separate from scoring conflicts. A short Wi-Fi
+// interruption must never block the scoring controls.
+export type ScoringSaveState = 'saving' | 'saved' | 'offline' | 'attention';
+const publishScoringSaveState = (matchId: string, state: ScoringSaveState) => {
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('dugout:scoring-save-state', { detail: { matchId, state } }));
+  }
+};
+export const hasPendingMatchSync = (matchId: string): boolean => {
+  try {
+    const pending = JSON.parse(localStorage.getItem(PENDING_MATCHES_KEY) || '{}');
+    return Object.prototype.hasOwnProperty.call(pending, matchId);
+  } catch { return false; }
+};
 const knownMatchRevisions = new Map<string, number>();
 const recordRevision = (match: Match): Match => {
   if (typeof match.revision === 'number' && Number.isSafeInteger(match.revision)) {
@@ -194,6 +209,7 @@ const markScoringSyncWarning = (id: string, message: string) => {
     items[id] = message;
     localStorage.setItem(SYNC_CONFLICTS_KEY, JSON.stringify(items));
     window.dispatchEvent(new CustomEvent('dugout:scoring-sync-warning', { detail: { matchId: id, message } }));
+    publishScoringSaveState(id, 'attention');
   } catch { /* Retain the original pending snapshot even if warning storage fails. */ }
 };
 const clearScoringSyncWarning = (id: string) => {
@@ -350,6 +366,7 @@ const performOfflineSync = async (): Promise<void> => {
                 else localStorage.removeItem(PENDING_MATCHES_KEY);
                 localStorage.setItem(`dugout_match_${matchId}`, JSON.stringify(saved));
                 clearScoringSyncWarning(matchId);
+                publishScoringSaveState(matchId, 'saved');
               } else {
                 // Another snapshot replaced this one during the request.
                 // Never overwrite the local cache or erase unsent pitches.
@@ -365,6 +382,7 @@ const performOfflineSync = async (): Promise<void> => {
           } catch (err) {
             // Keep the saved pitches in the queue for the next reconnect.
             console.warn('Queued scoring will retry when connected', err);
+            publishScoringSaveState(matchId, 'offline');
           }
         });
       }
@@ -1069,6 +1087,7 @@ export const updateMatch = (match: Match, options?: { requireServerSave?: boolea
 const performMatchUpdate = async (match: Match, options?: { requireServerSave?: boolean }): Promise<Match> => {
     const revision = knownMatchRevisions.get(match.id) ?? match.revision ?? 0;
     const outgoing: Match = { ...match, revision };
+    publishScoringSaveState(match.id, 'saving');
     // Only optimistic-cache offline pitch updates; explicit confirmed saves must wait for Neon.
     if (!options?.requireServerSave && typeof window !== 'undefined') {
         try {
@@ -1114,6 +1133,9 @@ const performMatchUpdate = async (match: Match, options?: { requireServerSave?: 
                     else if (saved.status === 'IN_PROGRESS') localStorage.setItem('dugout_active_match_id', saved.id);
                 } catch (e) {}
             }
+            if (!hasPendingMatchSync(match.id) && !getScoringSyncWarning(match.id)) {
+                publishScoringSaveState(match.id, 'saved');
+            }
             return saved;
         } else {
             const details = await res.json().catch(() => ({}));
@@ -1123,17 +1145,20 @@ const performMatchUpdate = async (match: Match, options?: { requireServerSave?: 
                 rejected.saveRejected = true;
                 if (res.status === 409) markScoringSyncWarning(match.id,
                   'The game has newer scores than this device. Your latest change was not applied. Ask an admin to review before continuing.');
+                publishScoringSaveState(match.id, 'attention');
                 throw rejected;
             }
             if (options?.requireServerSave) {
                 throw new Error(details.error || `Failed to save match (HTTP ${res.status})`);
             }
             enqueuePendingMatchSync(outgoing);
+            publishScoringSaveState(match.id, 'offline');
         }
     } catch (err) {
         if (options?.requireServerSave || (err as any)?.saveRejected) throw err;
         console.warn('Network sync failed (phone offline/disconnected), match saved in local storage and queued for background sync', err);
         enqueuePendingMatchSync(outgoing);
+        publishScoringSaveState(match.id, 'offline');
     }
     return match;
 };

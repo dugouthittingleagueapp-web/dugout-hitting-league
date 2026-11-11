@@ -426,20 +426,55 @@ export const getTeams = async (league: AgeGroup | null, season: string): Promise
 export const getMatchTeams = async (homeTeamId: string, awayTeamId: string): Promise<Team[]> => {
   const ids = [...new Set([homeTeamId, awayTeamId].filter(Boolean))];
   if (!ids.length) return [];
+  const found = new Map<string, Team>();
+
+  // Always attempt the targeted server read first: never rely on stale roster
+  // caches when the current game teams are available in Neon.
   try {
     const res = await apiFetch(`/api/teams?ids=${encodeURIComponent(ids.join(','))}`);
-    if (res.ok) return (await res.json()).map(mapTeamFromDB);
+    if (res.ok) {
+      const teams: Team[] = (await res.json()).map(mapTeamFromDB);
+      for (const team of teams) found.set(team.id, team);
+    }
   } catch (e) {
     console.warn('Could not refresh game rosters, using saved copies when available', e);
   }
-  // Preserve offline roster access when the network isn't available.
-  if (typeof window === 'undefined') return [];
-  return ids.flatMap(id => {
+
+  // The legacy full-directory call merged archived 2025 rosters. Keep that
+  // behavior for spectator game history without sending all teams over Neon.
+  for (const team of ARCHIVE_2025_TEAMS) {
+    if (ids.includes(team.id) && !found.has(team.id)) found.set(team.id, team);
+  }
+
+  if (typeof window !== 'undefined') {
+    // A spectator may have opened the dashboard before this game. Use the
+    // already downloaded team list for IDs absent from the targeted query.
     try {
-      const raw = localStorage.getItem(`dugout_team_${id}`);
-      return raw ? [JSON.parse(raw) as Team] : [];
-    } catch (e) { return []; }
-  });
+      const raw = localStorage.getItem('dugout_all_teams_cache');
+      if (raw) {
+        const cachedTeams: Team[] = JSON.parse(raw);
+        for (const team of cachedTeams) {
+          if (ids.includes(team.id) && !found.has(team.id)) found.set(team.id, team);
+        }
+      }
+    } catch (e) {}
+
+    for (const id of ids) {
+      if (!found.has(id)) {
+        try {
+          const raw = localStorage.getItem(`dugout_team_${id}`);
+          if (raw) found.set(id, JSON.parse(raw) as Team);
+        } catch (e) {}
+      }
+    }
+    // Save only authoritative lookup results or resolved fallbacks for a
+    // subsequent offline visit.
+    for (const team of found.values()) {
+      try { localStorage.setItem(`dugout_team_${team.id}`, JSON.stringify(team)); } catch (e) {}
+    }
+  }
+
+  return ids.flatMap(id => found.has(id) ? [found.get(id)!] : []);
 };
 
 export const getAllTeams = async (): Promise<Team[]> => {

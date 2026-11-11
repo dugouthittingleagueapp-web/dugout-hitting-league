@@ -137,11 +137,11 @@ const ScoringBoardContent: React.FC<ScoreboardProps> = ({ matchId, onExit, isRea
 
   const spectatorTeamsRef = useRef<{ home?: Team; away?: Team }>({});
   const loadMatchData = async (refreshTeams = true) => {
-      const m = await storage.getMatch(matchId);
+      const m = await storage.getMatch(matchId, { spectator: isReadOnly });
       if (m) {
         const cached = spectatorTeamsRef.current;
         const needTeams = refreshTeams || cached.home?.id !== m.homeTeamId || cached.away?.id !== m.awayTeamId;
-        const allTeams = needTeams ? await storage.getAllTeams() : [];
+        const allTeams = needTeams ? await storage.getMatchTeams(m.homeTeamId, m.awayTeamId) : [];
         let home = needTeams ? allTeams.find(t => t.id === m.homeTeamId) : cached.home;
         let away = needTeams ? allTeams.find(t => t.id === m.awayTeamId) : cached.away;
 

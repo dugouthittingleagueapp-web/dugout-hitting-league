@@ -52,11 +52,11 @@ describe('Incremental dashboard refresh', () => {
   });
 
   it('keeps practice IDs and exclusion rules consistent with the full schedule', async () => {
-    query.mockResolvedValueOnce({ rows: [{ id: 'practice-game', revision: 1, is_practice: true }] });
-    query.mockResolvedValueOnce({ rows: [{ id: 'practice-game', revision: 1, is_practice: true, innings: [] }] });
+    query.mockResolvedValueOnce({ rows: [{ id: 'game-practice', revision: 1, is_practice: true }] });
+    query.mockResolvedValueOnce({ rows: [{ id: 'game-practice', revision: 1, is_practice: true, innings: [] }] });
     const res = response();
     await deltaHandler(post({}) as any, res as any);
-    expect(res.body.changed[0].id).toBe('practice-practice-game');
+    expect(res.body.changed[0].id).toBe('practice-game-practice');
     expect(query).toHaveBeenCalledTimes(2);
   });
 

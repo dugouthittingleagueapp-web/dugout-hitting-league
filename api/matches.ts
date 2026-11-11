@@ -50,6 +50,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         return res.status(200).json(row);
       }
 
+      // Dashboard viewers already have the complete match list. Compare
+      // lightweight (id, revision) pairs before transferring inning histories.
+      const dashboardSignature = req.query.dashboardSignature;
+      const wantsConditionalList = typeof dashboardSignature === 'string' &&
+        /^[0-9a-f]{64}$/.test(dashboardSignature);
+
       let query = 'SELECT * FROM matches';
       const params: any[] = [];
       let paramCount = 1;
@@ -80,8 +86,29 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         query += ' WHERE ' + conditions.join(' AND ');
       }
       
+      if (wantsConditionalList) {
+        const lightQuery = query.replace('SELECT * FROM matches', 'SELECT id, revision FROM matches') +
+          ' ORDER BY id ASC';
+        const current = await pool.query(lightQuery, params);
+        const signature = crypto.createHash('sha256')
+          .update(JSON.stringify(current.rows.map(row => [String(row.id), String(row.revision ?? 0)])))
+          .digest('hex');
+        if (signature === dashboardSignature) {
+          res.setHeader('Cache-Control', 'private, no-store');
+          res.setHeader('X-Dashboard-Signature', signature);
+          return res.status(304).end();
+        }
+      }
+
       query += ' ORDER BY date ASC, start_time ASC, id ASC';
       const { rows } = await pool.query(query, params);
+      // Supply the signature on a full response so subsequent dashboard
+      // refreshes need only fetch the small revision list.
+      const signatureRows = rows.map(row => [String(row.id), String(row.revision ?? 0)])
+        .sort((a, b) => a[0].localeCompare(b[0]));
+      const signature = crypto.createHash('sha256').update(JSON.stringify(signatureRows)).digest('hex');
+      res.setHeader('X-Dashboard-Signature', signature);
+      res.setHeader('Cache-Control', 'private, no-store');
       const mappedRows = rows.map(row => {
         if (row.innings && typeof row.innings === 'string') row.innings = JSON.parse(row.innings);
         if (row.tie_breaker && typeof row.tie_breaker === 'string') row.tieBreaker = JSON.parse(row.tie_breaker);

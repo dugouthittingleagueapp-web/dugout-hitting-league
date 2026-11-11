@@ -1262,14 +1262,25 @@ export const Scoreboard: React.FC<ScoreboardProps> = (props) => {
   const [access, setAccess] = useState<'checking' | 'granted' | 'locked' | 'error'>('checking');
   const [message, setMessage] = useState('');
   const [syncWarning, setSyncWarning] = useState<string | null>(() => storage.getScoringSyncWarning(props.matchId));
+  const [saveState, setSaveState] = useState<storage.ScoringSaveState>(() =>
+    storage.hasPendingMatchSync(props.matchId) ? 'offline' : 'saved');
   useEffect(() => {
     setSyncWarning(storage.getScoringSyncWarning(props.matchId));
     const onWarning = (event: Event) => {
       const detail = (event as CustomEvent<{ matchId: string; message: string }>).detail;
       if (detail?.matchId === props.matchId) setSyncWarning(detail.message);
     };
+    const onSaveState = (event: Event) => {
+      const detail = (event as CustomEvent<{ matchId: string; state: storage.ScoringSaveState }>).detail;
+      if (detail?.matchId === props.matchId) setSaveState(detail.state);
+    };
+    setSaveState(storage.hasPendingMatchSync(props.matchId) ? 'offline' : 'saved');
     window.addEventListener('dugout:scoring-sync-warning', onWarning);
-    return () => window.removeEventListener('dugout:scoring-sync-warning', onWarning);
+    window.addEventListener('dugout:scoring-save-state', onSaveState);
+    return () => {
+      window.removeEventListener('dugout:scoring-sync-warning', onWarning);
+      window.removeEventListener('dugout:scoring-save-state', onSaveState);
+    };
   }, [props.matchId]);
   const isSpectator = props.isReadOnly || props.userRole === 'fan';
 
@@ -1296,14 +1307,30 @@ export const Scoreboard: React.FC<ScoreboardProps> = (props) => {
     return (
       <div className="min-h-[60vh] flex items-center justify-center px-4">
         <div className="max-w-md w-full rounded-2xl border border-amber-500 p-6 text-center space-y-4">
-          <h2 className="text-xl font-bold">Scoring needs attention</h2>
+          <h2 className="text-xl font-bold">Scores need checking</h2>
           <p>{syncWarning}</p>
-          <button type="button" onClick={() => props.onExit()} className="px-4 py-3 rounded-lg bg-blue-600 text-white font-semibold">Back to schedule</button>
+          <button type="button" onClick={() => void storage.syncOfflineData()} className="px-4 py-3 rounded-lg bg-blue-600 text-white font-semibold">Try syncing again</button>
+          <button type="button" onClick={() => props.onExit()} className="px-4 py-3 rounded-lg border border-gray-400">Back to schedule</button>
         </div>
       </div>
     );
   }
-  if (access === 'granted') return <ScoringBoardContent {...props} />;
+  if (access === 'granted') return (
+    <div className="relative">
+      <div role="status" aria-live="polite" className="sticky top-0 z-30 flex items-center justify-center gap-2 bg-white/95 dark:bg-slate-900/95 px-3 py-1.5 text-xs font-semibold text-slate-700 dark:text-slate-200 border-b border-slate-200 dark:border-slate-700">
+        {saveState === 'saving' && <span>Saving scores…</span>}
+        {saveState === 'saved' && <span>✓ All scores saved</span>}
+        {saveState === 'offline' && (
+          <>
+            <span>Connection interrupted. Scores are waiting to sync.</span>
+            <button type="button" onClick={() => void storage.syncOfflineData()} className="underline underline-offset-2">Try again</button>
+          </>
+        )}
+        {saveState === 'attention' && <span>Some scores need checking before you continue.</span>}
+      </div>
+      <ScoringBoardContent {...props} />
+    </div>
+  );
   return (
     <div className="min-h-[60vh] flex items-center justify-center px-4">
       <div className="max-w-md w-full rounded-2xl border border-gray-300 dark:border-gray-700 p-6 text-center space-y-4">

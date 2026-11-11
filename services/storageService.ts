@@ -700,6 +700,45 @@ export const getMatches = async (league: AgeGroup, season: string, options?: { e
   try {
     const url = `/api/matches?league=${encodeURIComponent(league)}&season=${encodeURIComponent(season)}${excludePractice ? '&excludePractice=true' : ''}`;
     const cachedList = matchListCache.get(url);
+    // A normal dashboard refresh should transfer only games that changed,
+    // not every previous inning whenever another umpire scores a pitch.
+    // Preserve the existing full-list route as a safe fallback.
+    if (cachedList && season !== '2025') {
+      try {
+        const versions = Object.fromEntries(cachedList.matches.map(match => [match.id, match.revision ?? 0]));
+        const deltaRes = await apiFetch('/api/matches-delta', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ league, season, excludePractice, versions })
+        });
+        if (deltaRes.ok) {
+          const delta = await deltaRes.json();
+          if (Array.isArray(delta.changed) && Array.isArray(delta.removedIds) &&
+              typeof delta.signature === 'string' && /^[0-9a-f]{64}$/.test(delta.signature)) {
+            if (delta.changed.length === 0 && delta.removedIds.length === 0) {
+              matchListCache.set(url, { signature: delta.signature, matches: cachedList.matches });
+              return cachedList.matches;
+            }
+            const byId = new Map(cachedList.matches.map(match => [match.id, match]));
+            for (const id of delta.removedIds) byId.delete(id);
+            for (const row of delta.changed) {
+              const updated = recordRevision(mapMatchFromDB(row));
+              byId.set(updated.id, updated);
+            }
+            const mapped = sortMatchesChronologically([...byId.values()]);
+            matchListCache.set(url, { signature: delta.signature, matches: mapped });
+            if (typeof window !== 'undefined' && !excludePractice) {
+              try {
+                localStorage.setItem(`dugout_matches_${season}_${league}`, JSON.stringify(mapped));
+              } catch (e) {}
+            }
+            return mapped;
+          }
+        }
+      } catch (err) {
+        console.warn('Incremental dashboard refresh unavailable; retrying normal load', err);
+      }
+    }
     const conditional = cachedList ? `${url}&dashboardSignature=${cachedList.signature}` : url;
     const res = await apiFetch(conditional);
     if (res.status === 304 && cachedList) return cachedList.matches;

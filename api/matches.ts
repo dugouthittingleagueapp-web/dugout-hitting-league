@@ -19,6 +19,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const { league, id, season, excludePractice } = req.query;
       if (id) {
         const { rawId, strippedId } = cleanMatchId(id);
+        // Spectators keep a complete local snapshot for inning navigation.
+        // A cheap revision check avoids transferring every historical pitch
+        // when the game has not changed since their last refresh.
+        const spectatorRevision = req.query.spectatorRevision;
+        if (typeof spectatorRevision === 'string' && /^\d+$/.test(spectatorRevision)) {
+          const current = await pool.query(
+            'SELECT revision FROM matches WHERE id::text = $1 OR id::text = $2 LIMIT 1',
+            [rawId, strippedId]
+          );
+          if (current.rows.length && String(current.rows[0].revision) === spectatorRevision) {
+            res.setHeader('Cache-Control', 'private, no-store');
+            return res.status(304).end();
+          }
+        }
         const { rows } = await pool.query(
           'SELECT * FROM matches WHERE id::text = $1 OR id::text = $2 LIMIT 1',
           [rawId, strippedId]

@@ -29,7 +29,7 @@ describe('Offline reconnect safety', () => {
     vi.stubGlobal('window', { dispatchEvent: vi.fn() });
     vi.stubGlobal('navigator', { onLine: true });
   });
-  afterEach(() => vi.unstubAllGlobals());
+  afterEach(() => { vi.unstubAllGlobals(); });
 
   it('serializes reconnect replay before the next live score and uses the latest revision', async () => {
     const id = 'reconnect-serialized';

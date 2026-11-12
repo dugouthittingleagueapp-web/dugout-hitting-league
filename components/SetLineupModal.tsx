@@ -4,6 +4,7 @@ import { Match, Team, Player } from '../types';
 import { applyLineupToMatch, moveBatterUp, moveBatterDown, formatFullPlayerName, swapHomeAndAway } from '../utils/lineupHelper';
 import * as storage from '../services/storageService';
 import { detectForfeit, getUnknownLineupIds } from '../services/matchHelpers';
+import { removeDraftLineupPlayer, isPlayableLineup, incompleteLineupMessage } from '../utils/lineupDraft';
 import { explainSaveError } from '../utils/friendlyErrors';
 
 interface SetLineupModalProps {
@@ -113,12 +114,10 @@ export const SetLineupModal: React.FC<SetLineupModalProps> = ({
   };
 
   const handleRemoveFromLineup = (playerId: string) => {
-    if (currentLineup.length <= 2) {
-      setErrorMessage('A team must have at least 2 players in the lineup (Ghost Mode requires 2 batters).');
-      return;
-    }
+    // Draft edits may temporarily have fewer than two batters while regulars
+    // are replaced by subs. Saving still enforces the 2–3 batter rule.
     setErrorMessage(null);
-    setCurrentLineup(prev => prev.filter(id => id !== playerId));
+    setCurrentLineup(prev => removeDraftLineupPlayer(prev.map(id => ({ id })), playerId).map(player => player.id));
   };
 
   const handleAddToLineup = (playerId: string) => {
@@ -210,13 +209,13 @@ export const SetLineupModal: React.FC<SetLineupModalProps> = ({
 
   // Validation & Save
   const handleSave = async (andStartScoring = false) => {
-    if (homeLineup.length < 2 || homeLineup.length > 3) {
-      setErrorMessage(`${homeTeam.name} must have 2 or 3 batters.`);
+    if (!isPlayableLineup(homeLineup)) {
+      setErrorMessage(incompleteLineupMessage(homeTeam.name));
       setActiveSide('home');
       return;
     }
-    if (awayLineup.length < 2 || awayLineup.length > 3) {
-      setErrorMessage(`${awayTeam.name} must have 2 or 3 batters.`);
+    if (!isPlayableLineup(awayLineup)) {
+      setErrorMessage(incompleteLineupMessage(awayTeam.name));
       setActiveSide('away');
       return;
     }
@@ -387,10 +386,15 @@ export const SetLineupModal: React.FC<SetLineupModalProps> = ({
                 Active Batting Order
               </span>
               <span className="text-[11px] font-bold text-slate-500 font-sans">
-                {currentLineup.length === 3 ? '3-Player Standard (10 pitches each)' : '2-Player Ghost Mode (15 pitches each)'}
+                {currentLineup.length === 3 ? '3-Player Standard (10 pitches each)' : currentLineup.length === 2 ? '2-Player Ghost Mode (15 pitches each when facing 3)' : 'Add batters before saving'}
               </span>
             </div>
 
+            {currentLineup.length < 2 && (
+              <p role="status" className="mb-2 rounded-lg border border-amber-300 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/30 px-3 py-2 text-xs font-semibold text-amber-800 dark:text-amber-300">
+                {incompleteLineupMessage(currentTeam.name)} You can remove regulars first, then add substitutes below.
+              </p>
+            )}
             <div className="space-y-2.5">
               {currentLineup.map((playerId, index) => {
                 const slotLabel = index === 0 ? '1st Batter' : index === 1 ? '2nd Batter' : '3rd Batter';
@@ -439,11 +443,11 @@ export const SetLineupModal: React.FC<SetLineupModalProps> = ({
                           <span className="hidden sm:inline">Down</span>
                         </button>
 
-                        {currentLineup.length > 2 && (
+                        {(
                           <button
                             type="button"
                             onClick={() => handleRemoveFromLineup(playerId)}
-                            title="Remove from starting lineup (Switch to Ghost Mode)"
+                            title="Remove from lineup while choosing regular players or substitutes"
                             className="p-1 rounded-lg border border-red-200 dark:border-red-900/50 bg-red-50 dark:bg-red-950/30 text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/40 transition-colors"
                           >
                             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">

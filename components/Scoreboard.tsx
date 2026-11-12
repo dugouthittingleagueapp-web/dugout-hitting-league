@@ -308,6 +308,15 @@ const ScoringBoardContent: React.FC<ScoreboardProps & { saveState?: storage.Scor
               }
           }
       }
+      // Final-game corrections must be confirmed by the server before display.
+      if (match.isComplete) {
+        try {
+          setMatch(await storage.updateMatch(newMatch, { requireServerSave: true }));
+        } catch (err) {
+          alert(explainSaveError(err, 'match'));
+        }
+        return;
+      }
       setMatch(newMatch);
       await storage.updateMatch(newMatch).catch(err => {
         console.error('Undo failed:', err);
@@ -330,6 +339,16 @@ const ScoringBoardContent: React.FC<ScoreboardProps & { saveState?: storage.Scor
     const existingValue = teamData.playerScores[lineupIdx].pitches[pitchIdx].points;
     const isEdit = existingValue !== null;
     const newMatch = withPitchScore(match, targetInningIdx, side, lineupIdx, pitchIdx, val);
+    if (match.isComplete) {
+      // Do not optimistically show or queue changes to official final results.
+      try {
+        setMatch(await storage.updateMatch(newMatch, { requireServerSave: true }));
+      } catch (err) {
+        alert(explainSaveError(err, 'match'));
+      }
+      setActiveCell(null);
+      return;
+    }
     setMatch(newMatch); 
     
     // Automated Completion Flow Check
@@ -402,6 +421,15 @@ const ScoringBoardContent: React.FC<ScoreboardProps & { saveState?: storage.Scor
       if (side === 'home') cur.homeScores[pitchIdx] = val; else cur.awayScores[pitchIdx] = val;
       if (!newMatch.isComplete) {
         newMatch.status = 'IN_PROGRESS';
+      }
+      if (match.isComplete) {
+        try {
+          setMatch(await storage.updateMatch(newMatch, { requireServerSave: true }));
+        } catch (err) {
+          alert(explainSaveError(err, 'match'));
+        }
+        setActiveCell(null);
+        return;
       }
       setMatch(newMatch);
       

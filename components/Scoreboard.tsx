@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { Match, Team, TieBreakerRound, Player } from '../types';
+import { Match, Team, Player } from '../types';
 import * as storage from '../services/storageService';
 import { ScoreInput } from './ScoreInput';
 import { applyLineupToMatch, getUnsafeLineupChangeReason, formatFullPlayerName, getMatchStatus, moveBatterUp, moveBatterDown } from '../utils/lineupHelper';
@@ -11,6 +11,7 @@ import { withPitchScore } from '../utils/pitchUpdate';
 import { calculateTeamInningTotal, calculateTeamGameTotal as getTeamGameTotal } from '../utils/scoreTotals';
 import { getLiveInningIndex } from '../utils/liveInning';
 import { useScreenWakeLock } from '../hooks/useScreenWakeLock';
+import { prepareFinalizedMatch, getFinalizationDecision, getFinalizationMessage, createNextTieBreakerRound, appendTieBreakerRound } from '../utils/gameFinalization';
 import { resolveLineupPlayer } from '../utils/lineupPlayerLookup';
 
 interface ScoreboardProps {
@@ -82,48 +83,41 @@ const ScoringBoardContent: React.FC<ScoreboardProps & { saveState?: storage.Scor
       onExit({ savedPractice: false });
   };
 
-  const handleExitAndFinalize = async (forceTie: boolean = false) => {
+  const finalizeMatch = async (source: 'exit' | 'finish', forceTie = false) => {
       if (isReadOnly || !match) return;
-      const hT = calculateTeamGameTotal('home', match);
-      const aT = calculateTeamGameTotal('away', match);
-
-      if (hT === aT && !forceTie && (!match.tieBreaker || match.tieBreaker.length === 0)) {
+      const decision = getFinalizationDecision(match, source, forceTie);
+      if (decision === 'confirm-tie') {
           setConfirmTieExit(true);
           return;
       }
+      if (decision === 'start-extras') {
+          setShowFinishModal(false);
+          setShowTieBreakerSetup(true);
+          return;
+      }
 
-      const finalizedMatch: Match = {
-          ...match,
-          isComplete: true,
-          status: 'FINAL'
-      };
+      // A failed server save must never navigate away or clear the active game.
       try {
-          const saved = await storage.updateMatch(finalizedMatch, { requireServerSave: true });
+          const saved = await storage.updateMatch(prepareFinalizedMatch(match), { requireServerSave: true });
           setMatch(saved);
       } catch (err: any) {
           alert(explainSaveError(err, 'finalize'));
           return;
       }
       try {
-          if (typeof window !== 'undefined') {
-              localStorage.removeItem('dugout_active_match_id');
-          }
+          if (typeof window !== 'undefined') localStorage.removeItem('dugout_active_match_id');
       } catch (e) {}
       setShowExitMenuModal(false);
       setConfirmTieExit(false);
       setShowFinishModal(false);
-
-      const homeName = teams.home?.name || 'Home Team';
-      const awayName = teams.away?.name || 'Away Team';
-      const isPractice = !!(match.isPractice || match.is_practice);
       onExit({
           finalizedMatch: true,
           matchId: match.id,
-          message: isPractice
-              ? `Practice Match Completed! Final Score: ${homeName} ${hT} - ${awayName} ${aT}. Stored on schedule.`
-              : `Match Finalized! Final Score: ${homeName} ${hT} - ${awayName} ${aT}. Official stats and standings recorded.`
+          message: getFinalizationMessage(match, teams, source)
       });
   };
+
+  const handleExitAndFinalize = (forceTie = false) => finalizeMatch('exit', forceTie);
 
   const formatName = (p: { name: string, lastName?: string } | undefined) => {
       if (!p) return 'Unknown';
@@ -243,27 +237,8 @@ const ScoringBoardContent: React.FC<ScoreboardProps & { saveState?: storage.Scor
 
   const startTieBreakerRound = async () => {
       if (!match || !teams.home || !teams.away || !tbHomePlayerId || !tbAwayPlayerId) return;
-      let nextLimit = 5;
-      let roundNum = 1;
-      if (match.tieBreaker && match.tieBreaker.length > 0) {
-          const lastRound = match.tieBreaker[match.tieBreaker.length - 1];
-          roundNum = lastRound.roundNumber + 1;
-          if (lastRound.pitchLimit === 5) nextLimit = 3;
-          else nextLimit = 1;
-      }
-      const newRound: TieBreakerRound = {
-          roundNumber: roundNum,
-          pitchLimit: nextLimit,
-          homePlayerId: tbHomePlayerId,
-          awayPlayerId: tbAwayPlayerId,
-          homeScores: Array(nextLimit).fill(null),
-          awayScores: Array(nextLimit).fill(null)
-      };
-      const updatedMatch: Match = JSON.parse(JSON.stringify(match));
-      if (!updatedMatch.tieBreaker) updatedMatch.tieBreaker = [];
-      updatedMatch.tieBreaker.push(newRound);
-      updatedMatch.isComplete = false;
-      updatedMatch.status = 'IN_PROGRESS';
+      const round = createNextTieBreakerRound(match.tieBreaker, tbHomePlayerId, tbAwayPlayerId);
+      const updatedMatch = appendTieBreakerRound(match, round);
       setMatch(updatedMatch);
       await storage.updateMatch(updatedMatch);
       setShowTieBreakerSetup(false);
@@ -400,36 +375,7 @@ const ScoringBoardContent: React.FC<ScoreboardProps & { saveState?: storage.Scor
   };
 
   const confirmCompleteGame = async () => {
-    if (isReadOnly || !match) return;
-    const hT = calculateTeamGameTotal('home', match);
-    const aT = calculateTeamGameTotal('away', match);
-    if (hT === aT) {
-        setShowFinishModal(false);
-        setShowTieBreakerSetup(true);
-        return;
-    }
-    const newMatch: Match = { ...match, isComplete: true, status: 'FINAL' };
-    try {
-        const saved = await storage.updateMatch(newMatch, { requireServerSave: true });
-        setMatch(saved);
-    } catch (err: any) {
-        alert(explainSaveError(err, 'finalize'));
-        return;
-    }
-    try {
-        if (typeof window !== 'undefined') localStorage.removeItem('dugout_active_match_id');
-    } catch (e) {}
-    setShowFinishModal(false);
-    const homeName = teams.home?.name || 'Home Team';
-    const awayName = teams.away?.name || 'Away Team';
-    const isPractice = !!(match.isPractice || match.is_practice);
-    onExit({
-        finalizedMatch: true,
-        matchId: match.id,
-        message: isPractice
-            ? `Practice Match Completed! Final Score: ${homeName} ${hT} - ${awayName} ${aT}. Stored on schedule.`
-            : `Match Finalized! Final Score: ${homeName} ${hT} - ${awayName} ${aT}. Standings and stats updated.`
-    });
+    await finalizeMatch('finish');
   };
 
   const handleToggleComplete = async () => {

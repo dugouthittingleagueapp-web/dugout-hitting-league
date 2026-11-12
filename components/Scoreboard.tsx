@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import { Match, Team, TieBreakerRound, Player } from '../types';
 import * as storage from '../services/storageService';
 import { ScoreInput } from './ScoreInput';
-import { applyLineupToMatch, getUnsafeLineupChangeReason, formatFullPlayerName, getMatchStatus } from '../utils/lineupHelper';
+import { applyLineupToMatch, getUnsafeLineupChangeReason, formatFullPlayerName, getMatchStatus, moveBatterUp, moveBatterDown } from '../utils/lineupHelper';
 import { isPlaceholderPlayerName } from '../utils/statsEditorHelper.js';
 import { detectForfeit, getUnknownLineupIds } from '../services/matchHelpers';
 import { explainSaveError } from '../utils/friendlyErrors';
@@ -11,6 +11,7 @@ import { withPitchScore } from '../utils/pitchUpdate';
 import { calculateTeamInningTotal, calculateTeamGameTotal as getTeamGameTotal } from '../utils/scoreTotals';
 import { getLiveInningIndex } from '../utils/liveInning';
 import { useScreenWakeLock } from '../hooks/useScreenWakeLock';
+import { resolveLineupPlayer } from '../utils/lineupPlayerLookup';
 
 interface ScoreboardProps {
   matchId: string;
@@ -599,39 +600,8 @@ const ScoringBoardContent: React.FC<ScoreboardProps & { saveState?: storage.Scor
     const isTwoPlayerGhostMode = inningData.playerScores.length === 2 && inningData.playerScores[0].pitches.length >= 15;
     const canEdit = !isReadOnly && (!match.isComplete || userRole === 'admin');
 
-    // Resolve lineup entries against both teams and tolerate legacy records that
-    // stored a player name (or a differently typed ID) instead of the roster ID.
-    // The match's batting side remains unchanged; this is only player identity lookup.
-    const findPlayer = (id: string) => {
-        const allPlayers = [
-            ...(team.players || []),
-            ...(team.subs || []),
-            ...(teams.home?.players || []),
-            ...(teams.home?.subs || []),
-            ...(teams.away?.players || []),
-            ...(teams.away?.subs || [])
-        ];
-        const key = String(id ?? '').trim();
-        if (!key) return undefined;
-
-        const byExactId = allPlayers.find(p => String(p.id ?? '').trim() === key);
-        if (byExactId) return byExactId;
-
-        const normalizedKey = key.toLocaleLowerCase();
-        const byNormalizedId = allPlayers.find(
-            p => String(p.id ?? '').trim().toLocaleLowerCase() === normalizedKey
-        );
-        if (byNormalizedId) return byNormalizedId;
-
-        // Older lineup records may contain the display name rather than player.id.
-        return allPlayers.find(p => {
-            const first = String(p.name || '').trim();
-            const last = String(p.lastName || '').trim();
-            const full = `${first} ${last}`.trim();
-            return [first, full, `${first} ${last ? `${last.charAt(0)}.` : ''}`.trim()]
-                .some(name => name && name.toLocaleLowerCase() === normalizedKey);
-        });
-    };
+    const findPlayer = (id: string) =>
+        resolveLineupPlayer(id, team, teams.home, teams.away);
 
     const renderRow = (playerScore: any, lineupIdx: number, player: any, pitchStartIndex: number, pitchEndIndex: number, isGhostRow = false) => {
          const visiblePitches = playerScore.pitches.slice(pitchStartIndex, pitchEndIndex);
@@ -966,11 +936,7 @@ const ScoringBoardContent: React.FC<ScoreboardProps & { saveState?: storage.Scor
                                                               disabled={idx === 0}
                                                               onClick={() => {
                                                                   if (idx <= 0) return;
-                                                                  const copy = [...lineup];
-                                                                  const temp = copy[idx - 1];
-                                                                  copy[idx - 1] = copy[idx];
-                                                                  copy[idx] = temp;
-                                                                  saveRosterChange(rosterSide!, copy);
+                                                                  saveRosterChange(rosterSide!, moveBatterUp(lineup, idx));
                                                               }}
                                                               title="Move up in batting order"
                                                               className="p-1 rounded bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300 disabled:opacity-30 disabled:cursor-not-allowed hover:bg-slate-100 dark:hover:bg-slate-700"
@@ -982,11 +948,7 @@ const ScoringBoardContent: React.FC<ScoreboardProps & { saveState?: storage.Scor
                                                               disabled={idx === lineup.length - 1}
                                                               onClick={() => {
                                                                   if (idx >= lineup.length - 1) return;
-                                                                  const copy = [...lineup];
-                                                                  const temp = copy[idx + 1];
-                                                                  copy[idx + 1] = copy[idx];
-                                                                  copy[idx] = temp;
-                                                                  saveRosterChange(rosterSide!, copy);
+                                                                  saveRosterChange(rosterSide!, moveBatterDown(lineup, idx));
                                                               }}
                                                               title="Move down in batting order"
                                                               className="p-1 rounded bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300 disabled:opacity-30 disabled:cursor-not-allowed hover:bg-slate-100 dark:hover:bg-slate-700"

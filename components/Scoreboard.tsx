@@ -13,6 +13,7 @@ import { getLiveInningIndex } from '../utils/liveInning';
 import { useScreenWakeLock } from '../hooks/useScreenWakeLock';
 import { prepareFinalizedMatch, getFinalizationDecision, getFinalizationMessage, createNextTieBreakerRound, appendTieBreakerRound } from '../utils/gameFinalization';
 import { resolveLineupPlayer } from '../utils/lineupPlayerLookup';
+import { isFinishedScoringLockError } from '../utils/scoringAccess';
 
 interface ScoreboardProps {
   matchId: string;
@@ -1122,7 +1123,7 @@ const ScoringBoardContent: React.FC<ScoreboardProps & { saveState?: storage.Scor
  * session has secured ownership. Spectators remain read-only as before.
  */
 export const Scoreboard: React.FC<ScoreboardProps> = (props) => {
-  const [access, setAccess] = useState<'checking' | 'granted' | 'locked' | 'error'>('checking');
+  const [access, setAccess] = useState<'checking' | 'granted' | 'locked' | 'error' | 'finished'>('checking');
   const [message, setMessage] = useState('');
   const [syncWarning, setSyncWarning] = useState<string | null>(() => storage.getScoringSyncWarning(props.matchId));
   const [saveState, setSaveState] = useState<storage.ScoringSaveState>(() =>
@@ -1155,6 +1156,13 @@ export const Scoreboard: React.FC<ScoreboardProps> = (props) => {
       setMessage('');
     } catch (err) {
       const msg = err instanceof Error ? err.message : '';
+      // A completed game is viewable, but must not acquire a scoring lock.
+      // Also handles a direct page refresh before the dashboard match list loads.
+      if (props.userRole === 'umpire' && isFinishedScoringLockError(msg)) {
+        setAccess('finished');
+        setMessage('');
+        return;
+      }
       setMessage(msg || 'We could not check who is scoring. Please try again.');
       setAccess(/another umpire|already scoring|transfer control/i.test(msg) ? 'locked' : 'error');
     }
@@ -1165,7 +1173,9 @@ export const Scoreboard: React.FC<ScoreboardProps> = (props) => {
     void checkAccess();
   }, [props.matchId, isSpectator]);
 
-  if (isSpectator) return <ScoringBoardContent {...props} />;
+  if (isSpectator || (props.userRole === 'umpire' && access === 'finished')) {
+    return <ScoringBoardContent {...props} isReadOnly />;
+  }
   if (syncWarning) {
     return (
       <div className="min-h-[60vh] flex items-center justify-center px-4">

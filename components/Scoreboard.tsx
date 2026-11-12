@@ -36,6 +36,21 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
   const [confirmTieExit, setConfirmTieExit] = useState(false);
   const [loading, setLoading] = useState(true);
   const [savingRoster, setSavingRoster] = useState(false);
+  const [saveStatus, setSaveStatus] = useState<'ready' | 'saving' | 'saved' | 'pending'>('ready');
+  const saveSequenceRef = useRef(0);
+
+  // Confirm only the latest pitch after the server acknowledges it.
+  const saveScoringChange = (updatedMatch: Match) => {
+    const sequence = ++saveSequenceRef.current;
+    setSaveStatus('saving');
+    void storage.updateMatch(updatedMatch, {
+      onSyncStatus: (result) => {
+        if (sequence === saveSequenceRef.current) setSaveStatus(result);
+      }
+    }).catch(() => {
+      if (sequence === saveSequenceRef.current) setSaveStatus('pending');
+    });
+  };
   
   const [activeCell, setActiveCell] = useState<{ side: 'home' | 'away'; lineupIdx: number; pitchIdx: number; roundIdx?: number } | null>(null);
   const [showResetConfirmModal, setShowResetConfirmModal] = useState(false);
@@ -168,6 +183,7 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
         }
 
         setMatch(m);
+        if (!isReadOnly && storage.hasPendingMatchSync(m.id)) setSaveStatus('pending');
         spectatorTeamsRef.current = { home, away };
         if (needTeams) setTeams({ home, away });
         
@@ -375,7 +391,7 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
           }
       }
       setMatch(newMatch);
-      await storage.updateMatch(newMatch).catch(err => console.error("Undo failed", err));
+      saveScoringChange(newMatch);
   };
 
   const handleScoreUpdate = async (
@@ -436,7 +452,7 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
             }
         }
     }
-    await storage.updateMatch(newMatch).catch(err => console.error(err));
+    saveScoringChange(newMatch);
   };
 
   const confirmCompleteGame = async () => {
@@ -512,7 +528,7 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
           if (!isEdit && pitchIdx < limit - 1) next = { side, lineupIdx: 0, pitchIdx: pitchIdx + 1, roundIdx };
           setActiveCell(next);
       }
-      await storage.updateMatch(newMatch);
+      saveScoringChange(newMatch);
   };
 
 
@@ -704,7 +720,7 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
                         {visiblePitches.map((pitch: any, idx: number) => {
                             const realIdx = pitchStartIndex + idx;
                             return (
-                                <ScoreInput key={realIdx} pitchNumber={isGhostRow ? pitchStartIndex+idx+1 : realIdx+1} value={pitch.points} pitchesRemaining={pitchesLeft} readOnly={isReadOnly || (match.isComplete && userRole !== 'admin')} isEditing={activeCell?.side === side && activeCell.lineupIdx === lineupIdx && activeCell.pitchIdx === realIdx} onOpen={() => setActiveCell({ side, lineupIdx, pitchIdx: realIdx })} onClose={() => setActiveCell(null)} onChange={(val) => handleScoreUpdate(side, lineupIdx, realIdx, val)} onUndo={realIdx > 0 ? () => handleUndo(side, lineupIdx, realIdx) : undefined} />
+                                <ScoreInput saveStatus={saveStatus} key={realIdx} pitchNumber={isGhostRow ? pitchStartIndex+idx+1 : realIdx+1} value={pitch.points} pitchesRemaining={pitchesLeft} readOnly={isReadOnly || (match.isComplete && userRole !== 'admin')} isEditing={activeCell?.side === side && activeCell.lineupIdx === lineupIdx && activeCell.pitchIdx === realIdx} onOpen={() => setActiveCell({ side, lineupIdx, pitchIdx: realIdx })} onClose={() => setActiveCell(null)} onChange={(val) => handleScoreUpdate(side, lineupIdx, realIdx, val)} onUndo={realIdx > 0 ? () => handleUndo(side, lineupIdx, realIdx) : undefined} />
                             );
                         })}
                     </div>
@@ -734,10 +750,10 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
                         </td>
                         <td className="px-0.5 sm:px-2 py-1 sm:py-2"><div className="flex w-full landscape:justify-between items-center gap-1 sm:gap-2 justify-start overflow-x-auto scrollbar-hide py-1 touch-auto">
                                 {inningData.playerScores[0].pitches.slice(10, 15).map((pitch, idx) => (
-                                    <ScoreInput key={`p1-${10+idx}`} pitchNumber={11+idx} value={pitch.points} pitchesRemaining={15 - inningData.playerScores[0].pitches.filter((p:any) => p.points !== null).length} readOnly={isReadOnly || (match.isComplete && userRole !== 'admin')} isEditing={activeCell?.side === side && activeCell.lineupIdx === 0 && activeCell.pitchIdx === 10+idx} onOpen={() => setActiveCell({ side, lineupIdx: 0, pitchIdx: 10+idx })} onClose={() => setActiveCell(null)} onChange={(val) => handleScoreUpdate(side, 0, 10+idx, val)} onUndo={() => handleUndo(side, 0, 10+idx)} />
+                                    <ScoreInput saveStatus={saveStatus} key={`p1-${10+idx}`} pitchNumber={11+idx} value={pitch.points} pitchesRemaining={15 - inningData.playerScores[0].pitches.filter((p:any) => p.points !== null).length} readOnly={isReadOnly || (match.isComplete && userRole !== 'admin')} isEditing={activeCell?.side === side && activeCell.lineupIdx === 0 && activeCell.pitchIdx === 10+idx} onOpen={() => setActiveCell({ side, lineupIdx: 0, pitchIdx: 10+idx })} onClose={() => setActiveCell(null)} onChange={(val) => handleScoreUpdate(side, 0, 10+idx, val)} onUndo={() => handleUndo(side, 0, 10+idx)} />
                                 ))}<div className="w-px h-10 sm:h-14 bg-slate-300 dark:bg-slate-700 mx-1"></div>
                                 {inningData.playerScores[1].pitches.slice(10, 15).map((pitch, idx) => (
-                                    <ScoreInput key={`p2-${10+idx}`} pitchNumber={11+idx} value={pitch.points} pitchesRemaining={15 - inningData.playerScores[1].pitches.filter((p:any) => p.points !== null).length} readOnly={isReadOnly || (match.isComplete && userRole !== 'admin')} isEditing={activeCell?.side === side && activeCell.lineupIdx === 1 && activeCell.pitchIdx === 10+idx} onOpen={() => setActiveCell({ side, lineupIdx: 1, pitchIdx: 10+idx })} onClose={() => setActiveCell(null)} onChange={(val) => handleScoreUpdate(side, 1, 10+idx, val)} onUndo={() => handleUndo(side, 1, 10+idx)} />
+                                    <ScoreInput saveStatus={saveStatus} key={`p2-${10+idx}`} pitchNumber={11+idx} value={pitch.points} pitchesRemaining={15 - inningData.playerScores[1].pitches.filter((p:any) => p.points !== null).length} readOnly={isReadOnly || (match.isComplete && userRole !== 'admin')} isEditing={activeCell?.side === side && activeCell.lineupIdx === 1 && activeCell.pitchIdx === 10+idx} onOpen={() => setActiveCell({ side, lineupIdx: 1, pitchIdx: 10+idx })} onClose={() => setActiveCell(null)} onChange={(val) => handleScoreUpdate(side, 1, 10+idx, val)} onUndo={() => handleUndo(side, 1, 10+idx)} />
                                 ))}</div></td>
                         <td className="px-1 sm:px-3 py-1 sm:py-2 text-center align-middle border-l border-slate-200 dark:border-slate-700 bg-slate-50/30 dark:bg-slate-900/30">
                              <div className="text-sm sm:text-base font-sans tabular-nums font-bold text-slate-800 dark:text-slate-200 w-5 sm:w-8">{inningData.playerScores[0].pitches.slice(10, 15).reduce((s,p)=>s+(p.points||0),0) + inningData.playerScores[1].pitches.slice(10, 15).reduce((s,p)=>s+(p.points||0),0)}</div>
@@ -781,7 +797,7 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
                                         );
                                     })()}
                                 </td>
-                                <td className="px-2 py-3"><div className="flex gap-2">{round.awayScores.map((s, pI) => (<ScoreInput key={pI} pitchNumber={pI+1} value={s} readOnly={isReadOnly || (match.isComplete && userRole !== 'admin')} isEditing={activeCell?.side === 'away' && activeCell?.roundIdx === idx && activeCell?.pitchIdx === pI} onOpen={() => setActiveCell({ side: 'away', lineupIdx: 0, pitchIdx: pI, roundIdx: idx })} onClose={() => setActiveCell(null)} onChange={v => handleTieBreakerScore(idx, 'away', pI, v)} onUndo={() => handleUndo('away', 0, pI, idx)} />))}</div></td>
+                                <td className="px-2 py-3"><div className="flex gap-2">{round.awayScores.map((s, pI) => (<ScoreInput saveStatus={saveStatus} key={pI} pitchNumber={pI+1} value={s} readOnly={isReadOnly || (match.isComplete && userRole !== 'admin')} isEditing={activeCell?.side === 'away' && activeCell?.roundIdx === idx && activeCell?.pitchIdx === pI} onOpen={() => setActiveCell({ side: 'away', lineupIdx: 0, pitchIdx: pI, roundIdx: idx })} onClose={() => setActiveCell(null)} onChange={v => handleTieBreakerScore(idx, 'away', pI, v)} onUndo={() => handleUndo('away', 0, pI, idx)} />))}</div></td>
                                 <td className="px-4 py-3 font-bold text-xl text-center tabular-nums">{aS}</td>
                             </tr>
                             <tr className="bg-red-50/10">
@@ -801,7 +817,7 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
                                         );
                                     })()}
                                 </td>
-                                <td className="px-2 py-3"><div className="flex gap-2">{round.homeScores.map((s, pI) => (<ScoreInput key={pI} pitchNumber={pI+1} value={s} readOnly={isReadOnly || (match.isComplete && userRole !== 'admin')} isEditing={activeCell?.side === 'home' && activeCell?.roundIdx === idx && activeCell?.pitchIdx === pI} onOpen={() => setActiveCell({ side: 'home', lineupIdx: 0, pitchIdx: pI, roundIdx: idx })} onClose={() => setActiveCell(null)} onChange={v => handleTieBreakerScore(idx, 'home', pI, v)} onUndo={() => handleUndo('home', 0, pI, idx)} />))}</div></td>
+                                <td className="px-2 py-3"><div className="flex gap-2">{round.homeScores.map((s, pI) => (<ScoreInput saveStatus={saveStatus} key={pI} pitchNumber={pI+1} value={s} readOnly={isReadOnly || (match.isComplete && userRole !== 'admin')} isEditing={activeCell?.side === 'home' && activeCell?.roundIdx === idx && activeCell?.pitchIdx === pI} onOpen={() => setActiveCell({ side: 'home', lineupIdx: 0, pitchIdx: pI, roundIdx: idx })} onClose={() => setActiveCell(null)} onChange={v => handleTieBreakerScore(idx, 'home', pI, v)} onUndo={() => handleUndo('home', 0, pI, idx)} />))}</div></td>
                                 <td className="px-4 py-3 font-bold text-xl text-center tabular-nums">{hS}</td>
                             </tr>
                          </tbody></table></div>
@@ -923,7 +939,15 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
           </div>
         </div>
 
-        <div className="flex overflow-x-auto scrollbar-hide border-t touch-auto">
+        {!isReadOnly && userRole !== 'fan' && (
+           <div role="status" aria-live="polite" className="flex items-center justify-end px-4 py-1.5 border-t border-slate-200 dark:border-slate-800 text-[11px] sm:text-xs font-bold font-sans">
+             {saveStatus === 'saved' && <span className="text-emerald-700 dark:text-emerald-400">✓ Saved</span>}
+             {saveStatus === 'saving' && <span className="text-blue-700 dark:text-blue-400">Saving…</span>}
+             {saveStatus === 'pending' && <span className="text-amber-700 dark:text-amber-400">Waiting to reconnect — score kept on this device</span>}
+             {saveStatus === 'ready' && <span className="text-slate-500 dark:text-slate-400">Ready to score</span>}
+           </div>
+         )}
+         <div className="flex overflow-x-auto scrollbar-hide border-t touch-auto">
             {match.innings.map((ing, idx) => (
                 <button key={ing.number} onClick={() => setActiveInningIdx(idx)} className={`flex-1 py-3 text-xs font-bold uppercase tracking-wider border-b-2 transition-colors min-w-[80px] ${idx === activeInningIdx ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-400'}`}>Inning {ing.number}</button>
             ))}

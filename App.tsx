@@ -405,6 +405,12 @@ const App: React.FC = () => {
 
   const handleScoreboardExit = async (options?: { endedPractice?: boolean; deletedPractice?: boolean; matchId?: string; savedPractice?: boolean; finalizedMatch?: boolean; message?: string }) => {
       const targetMatchId = options?.matchId || state.currentMatchId;
+      // Finished-game admin corrections use a real scoring lock. Release it
+      // when returning to the schedule so another admin isn't blocked.
+      if (userRole === 'admin' && targetMatchId &&
+          matches.some(m => m.id === targetMatchId && (m.isComplete || m.status === 'FINAL'))) {
+          await storage.requestScoringLock(targetMatchId, 'release').catch(() => {});
+      }
       safeStorage.removeItem('dugout_active_match_id');
       setResumeMatch(null);
 

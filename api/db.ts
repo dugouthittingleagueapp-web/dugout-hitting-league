@@ -1,34 +1,27 @@
-
 import pg from 'pg';
 
-// 1. Get the connection string from env
-let connString = process.env.DATABASE_URL || process.env.POSTGRES_URL || "";
-
-// 2. Sanitize the string (Fixes "Invalid URL" errors caused by copy-pasting)
-// Remove leading/trailing whitespace
-connString = connString.trim();
-// Remove surrounding quotes if they exist (common .env mistake)
-if ((connString.startsWith('"') && connString.endsWith('"')) || 
-    (connString.startsWith("'") && connString.endsWith("'"))) {
-  connString = connString.slice(1, -1);
+// Prefer the Vercel/Neon DATABASE_URL; keep POSTGRES_URL for legacy deployments.
+const configuredUrl = process.env.DATABASE_URL || process.env.POSTGRES_URL;
+if (!configuredUrl?.trim()) {
+  throw new Error('[DB] Database connection is not configured.');
 }
 
-if (!connString) {
-  console.error("[DB] CRITICAL: No DATABASE_URL found in environment variables.");
-}
+const cleanedUrl = configuredUrl.trim().replace(/^(['"])(.*)\1$/, '$2');
+const databaseUrl = new URL(cleanedUrl);
 
-// 3. Initialize Pool
+// Explicit certificate + hostname verification. Avoid ssl: { rejectUnauthorized: false },
+// which can disable identity verification depending on the connection-string options.
+databaseUrl.searchParams.delete('uselibpqcompat');
+databaseUrl.searchParams.set('sslmode', 'verify-full');
+
 const pool = new pg.Pool({
-  connectionString: connString,
-  ssl: {
-    rejectUnauthorized: false // Required for Neon/Vercel connections
-  },
-  connectionTimeoutMillis: 5000, // Fail fast if cannot connect
+  connectionString: databaseUrl.toString(),
+  connectionTimeoutMillis: 5000,
 });
 
-// 4. Error Handling
 pool.on('error', (err) => {
-  console.error('[DB] Unexpected error on idle client', err);
+  // Do not emit the connection string or credentials.
+  console.error('[DB] Unexpected error on idle client:', err.message);
 });
 
 export default pool;

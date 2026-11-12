@@ -13,11 +13,12 @@ import { PracticeSetupModal } from './components/PracticeSetupModal';
 import { MatchStatsEditorModal } from './components/MatchStatsEditorModal';
 import * as storage from './services/storageService';
 import { getMatchStatus, findCurrentOrUpcomingWeekId } from './utils/lineupHelper';
-import { detectForfeit, isForfeitMatch, getForfeitingTeamId } from './services/matchHelpers';
+import { detectForfeit } from './services/matchHelpers';
 import { calculateLeagueStandings } from './utils/leagueStandings';
 import { calculateWeeklyLeaders } from './utils/weeklyLeaders';
 import { getMatchScores } from './utils/scoreTotals';
 import { groupMatchesByWeek } from './utils/scheduleWeeks';
+import { calculateSeasonStats, attachSeasonTeamNames } from './utils/seasonStats';
 
 const INACTIVITY_LIMIT = 3 * 60 * 60 * 1000; // 3 hours
 
@@ -797,59 +798,15 @@ const App: React.FC = () => {
     [matches, leagueTeams, state.currentLeague]
   );
 
-  // --- NEW: Season Stats Calculation ---
-  const seasonStats = useMemo(() => {
-      if (!state.currentLeague) return [];
-      const aggStats = new Map<string, PlayerStats>();
-      
-      matches.forEach(m => {
-          // Strict Stats Isolation: Practice matches never affect official season stats or leaderboards
-          if (m.isPractice || m.is_practice || !m.isComplete || (m.league && !storage.leaguesMatch(m.league, state.currentLeague))) return;
-          const home = teams.find(t => t.id === m.homeTeamId);
-          const away = teams.find(t => t.id === m.awayTeamId);
-          if (!home || !away) return;
-          
-          const isForfeit = isForfeitMatch(m);
-          const forfeitingId = getForfeitingTeamId(m);
+  const seasonStats = useMemo(
+    () => calculateSeasonStats(matches, teams, state.currentLeague, storage.calculateMatchStats, storage.leaguesMatch),
+    [matches, teams, state.currentLeague]
+  );
 
-          const mStats = storage.calculateMatchStats(m, home, away);
-          mStats.forEach(s => {
-              if (s.playerId.startsWith('ghost-')) return;
-              if (isForfeit && forfeitingId) {
-                  const forfeitingTeam = forfeitingId === home.id ? home : (forfeitingId === away.id ? away : null);
-                  const isForfeitingPlayer = forfeitingTeam && [...(forfeitingTeam.players || []), ...(forfeitingTeam.subs || [])].some(p => p.id === s.playerId);
-                  if (isForfeitingPlayer) return; // Completely exclude forfeiting team player stats
-              }
-              if (!aggStats.has(s.playerId)) {
-                  aggStats.set(s.playerId, { ...s });
-              } else {
-                  const curr = aggStats.get(s.playerId)!;
-                  curr.totalPoints += s.totalPoints;
-                  curr.hits4 += s.hits4;
-                  curr.hits3 += s.hits3;
-                  curr.hits2 += s.hits2;
-                  curr.hits1 += s.hits1;
-                  curr.pitchesSeen += s.pitchesSeen;
-              }
-          });
-      });
-      return Array.from(aggStats.values());
-  }, [matches, teams, state.currentLeague]);
-
-  const seasonStatsWithTeam = useMemo(() => {
-      const map = new Map<string, string>();
-      teams.forEach(t => {
-          [...(t.players || []), ...(t.subs || [])].forEach(p => {
-              map.set(p.id, t.name);
-              if (p.name) map.set(p.name.trim().toLowerCase(), t.name);
-          });
-      });
-      return seasonStats.map(s => ({
-          ...s,
-          teamName: map.get(s.playerId) || map.get(s.name.trim().toLowerCase()) || ''
-      }));
-  }, [seasonStats, teams]);
-
+  const seasonStatsWithTeam = useMemo(
+    () => attachSeasonTeamNames(seasonStats, teams),
+    [seasonStats, teams]
+  );
 
   const navbarProps = {
       currentLeague: state.currentLeague,

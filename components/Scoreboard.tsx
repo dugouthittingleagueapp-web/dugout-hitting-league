@@ -9,6 +9,8 @@ import { detectForfeit, getUnknownLineupIds } from '../services/matchHelpers';
 import { explainSaveError } from '../utils/friendlyErrors';
 import { withPitchScore } from '../utils/pitchUpdate';
 import { calculateTeamInningTotal, calculateTeamGameTotal as getTeamGameTotal } from '../utils/scoreTotals';
+import { getLiveInningIndex } from '../utils/liveInning';
+import { useScreenWakeLock } from '../hooks/useScreenWakeLock';
 
 interface ScoreboardProps {
   matchId: string;
@@ -17,17 +19,6 @@ interface ScoreboardProps {
   userRole?: 'fan' | 'umpire' | 'admin';
   onPlayerClick?: (playerName: string) => void;
 }
-
-const getLiveInningIndex = (m: Match): number => {
-    if (m.tieBreaker && m.tieBreaker.length > 0) return 6;
-    for (let i = 0; i < 6; i++) {
-        const ing = m.innings[i];
-        const isHomeDone = ing.home.playerScores.every(p => p.pitches.every(pt => pt.points !== null));
-        const isAwayDone = ing.away.playerScores.every(p => p.pitches.every(pt => pt.points !== null));
-        if (!isHomeDone || !isAwayDone) return i;
-    }
-    return 5;
-};
 
 const ScoringBoardContent: React.FC<ScoreboardProps & { saveState?: storage.ScoringSaveState; onRetrySync?: () => void }> = ({ matchId, onExit, isReadOnly = false, userRole = 'fan', onPlayerClick, saveState, onRetrySync }) => {
   const [match, setMatch] = useState<Match | null>(null);
@@ -202,25 +193,7 @@ const ScoringBoardContent: React.FC<ScoreboardProps & { saveState?: storage.Scor
       }
   };
 
-  useEffect(() => {
-      let wakeLock: any = null;
-      const requestWakeLock = async () => {
-          try {
-              if ('wakeLock' in navigator) {
-                  wakeLock = await (navigator as any).wakeLock.request('screen');
-              }
-          } catch (err) {}
-      };
-      requestWakeLock();
-      const handleVisibilityChange = () => {
-          if (document.visibilityState === 'visible') requestWakeLock();
-      };
-      document.addEventListener('visibilitychange', handleVisibilityChange);
-      return () => {
-          document.removeEventListener('visibilitychange', handleVisibilityChange);
-          if (wakeLock) wakeLock.release().catch(() => {});
-      };
-  }, []);
+  useScreenWakeLock();
 
   useEffect(() => {
     const init = async () => {

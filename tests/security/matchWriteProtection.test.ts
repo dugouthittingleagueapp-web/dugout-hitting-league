@@ -35,7 +35,7 @@ const makeResponse = () => {
 };
 
 describe('Match PUT protects game classification and scheduled scoring', () => {
-  let query: ReturnType<typeof vi.fn<(sql: string) => Promise<{ rows: any[] }>>>;
+  let query: ReturnType<typeof vi.fn>;
   let release: ReturnType<typeof vi.fn>;
   let match: Record<string, unknown>;
   beforeEach(() => {
@@ -49,7 +49,8 @@ describe('Match PUT protects game classification and scheduled scoring', () => {
       innings: blank(),
       tie_breaker: null,
     };
-    query = vi.fn(async (sql: string) => {
+    query = vi.fn(async (...args: any[]) => {
+      const sql = String(args[0]);
       if (sql === 'BEGIN' || sql === 'ROLLBACK' || sql === 'COMMIT') return { rows: [] };
       if (sql.includes('FROM matches') && sql.includes('FOR UPDATE')) return { rows: [match] };
       if (sql.includes('FROM scoring_locks')) return { rows: [] };

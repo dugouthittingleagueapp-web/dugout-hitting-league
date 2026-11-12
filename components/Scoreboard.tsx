@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { Match, Inning, Team, TieBreakerRound, Player } from '../types';
+import { Match, Team, TieBreakerRound, Player } from '../types';
 import * as storage from '../services/storageService';
 import { ScoreInput } from './ScoreInput';
 import { applyLineupToMatch, getUnsafeLineupChangeReason, formatFullPlayerName, getMatchStatus } from '../utils/lineupHelper';
@@ -8,6 +8,7 @@ import { isPlaceholderPlayerName } from '../utils/statsEditorHelper.js';
 import { detectForfeit, getUnknownLineupIds } from '../services/matchHelpers';
 import { explainSaveError } from '../utils/friendlyErrors';
 import { withPitchScore } from '../utils/pitchUpdate';
+import { calculateTeamInningTotal, calculateTeamGameTotal as getTeamGameTotal } from '../utils/scoreTotals';
 
 interface ScoreboardProps {
   matchId: string;
@@ -262,28 +263,9 @@ const ScoringBoardContent: React.FC<ScoreboardProps & { saveState?: storage.Scor
       };
   }, [matchId, isReadOnly]);
 
-  const calculateTeamInningTotal = (side: 'home' | 'away', inning?: Inning) => {
-    if (!inning) return 0;
-    const teamData = side === 'home' ? inning.home : inning.away;
-    if (!teamData?.playerScores) return 0;
-    return teamData.playerScores.reduce((sum, player) => sum + player.pitches.reduce((pSum, pitch) => pSum + (pitch.points || 0), 0), 0);
-  };
-
-  const calculateTeamGameTotal = (side: 'home' | 'away', matchData?: Match | null) => {
-    const target = matchData || match;
-    if (!target?.innings) return 0;
-    const baseScore = target.innings.reduce((sum, inning) => sum + calculateTeamInningTotal(side, inning), 0);
-    let tieScore = 0;
-    if (target.tieBreaker && Array.isArray(target.tieBreaker)) {
-        target.tieBreaker.forEach(round => {
-            const scores = side === 'home' ? round.homeScores : round.awayScores;
-            if (Array.isArray(scores)) {
-                tieScore += scores.reduce<number>((a, b) => (a || 0) + (b || 0), 0);
-            }
-        });
-    }
-    return baseScore + tieScore;
-  };
+  // Keep the current-game fallback used by the scoring controls.
+  const calculateTeamGameTotal = (side: 'home' | 'away', matchData?: Match | null): number =>
+    getTeamGameTotal(side, matchData || match);
 
   const startTieBreakerRound = async () => {
       if (!match || !teams.home || !teams.away || !tbHomePlayerId || !tbAwayPlayerId) return;

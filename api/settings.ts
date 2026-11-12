@@ -1,5 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import pool from './db.js';
+import { configuredLoginCredential } from './passwordPolicy.js';
 import { 
   comparePassword, 
   hashPassword, 
@@ -69,16 +70,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const adminRes = await pool.query("SELECT value FROM app_settings WHERE key = 'admin_password'");
         const umpireRes = await pool.query("SELECT value FROM app_settings WHERE key = 'umpire_password'");
         
-        const storedAdmin = adminRes.rows[0]?.value || process.env.ADMIN_PASSWORD || 'admin';
-        const storedUmpire = umpireRes.rows[0]?.value || process.env.UMPIRE_PASSWORD || 'umpire';
+        const storedAdmin = configuredLoginCredential(adminRes.rows[0]?.value, process.env.ADMIN_PASSWORD);
+        const storedUmpire = configuredLoginCredential(umpireRes.rows[0]?.value, process.env.UMPIRE_PASSWORD);
 
         // 2. Check Admin Password (or env override for recovery)
         const isAdminEnvMatch = process.env.ADMIN_PASSWORD && cleanPw === process.env.ADMIN_PASSWORD;
-        const isAdminMatch = isAdminEnvMatch || await comparePassword(cleanPw, storedAdmin);
+        const isAdminMatch = !!isAdminEnvMatch || (storedAdmin ? await comparePassword(cleanPw, storedAdmin) : false);
 
         if (isAdminMatch) {
           // Automatic upgrade from legacy plaintext to bcrypt
-          if (!/^\$2[aby]\$\d{2}\$/.test(storedAdmin)) {
+          if (storedAdmin && !/^\$2[aby]\$\d{2}\$/.test(storedAdmin)) {
             const hashed = await hashPassword(cleanPw);
             await pool.query("UPDATE app_settings SET value = $1 WHERE key = 'admin_password'", [hashed]).catch(console.error);
           }
@@ -90,11 +91,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
         // 3. Check Umpire Password (or env override for recovery)
         const isUmpireEnvMatch = process.env.UMPIRE_PASSWORD && cleanPw === process.env.UMPIRE_PASSWORD;
-        const isUmpireMatch = isUmpireEnvMatch || await comparePassword(cleanPw, storedUmpire);
+        const isUmpireMatch = !!isUmpireEnvMatch || (storedUmpire ? await comparePassword(cleanPw, storedUmpire) : false);
 
         if (isUmpireMatch) {
           // Automatic upgrade from legacy plaintext to bcrypt
-          if (!/^\$2[aby]\$\d{2}\$/.test(storedUmpire)) {
+          if (storedUmpire && !/^\$2[aby]\$\d{2}\$/.test(storedUmpire)) {
             const hashed = await hashPassword(cleanPw);
             await pool.query("UPDATE app_settings SET value = $1 WHERE key = 'umpire_password'", [hashed]).catch(console.error);
           }

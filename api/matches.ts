@@ -1,6 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import crypto from 'crypto';
 import pool from './db.js';
+import { changesPracticeClassification, hasRecordedScores } from '../server/matchWritePolicy.js';
 import { requireRole, getAuthFromRequest } from './auth.js';
 
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -317,12 +318,22 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       try {
         await client.query('BEGIN');
         const target = await client.query(
-          'SELECT id, status, is_complete, revision FROM matches WHERE id::text = $1 OR id::text = $2 FOR UPDATE',
+          'SELECT id, status, is_complete, revision, is_practice, innings, tie_breaker FROM matches WHERE id::text = $1 OR id::text = $2 FOR UPDATE',
           [rawId, strippedId]
         );
         if (!target.rows.length) {
           await client.query('ROLLBACK');
           return res.status(404).json({ error: 'Game not found. No changes were saved.' });
+        }
+        // Official/practice identity is set at game creation. Never let a PUT
+        // turn a protected official game into a deletable practice game (or
+        // a practice game into official statistics).
+        if (changesPracticeClassification(target.rows[0].is_practice, practiceFlag)) {
+          await client.query('ROLLBACK');
+          return res.status(403).json({
+            code: 'GAME_TYPE_LOCKED',
+            error: 'This game is already saved as official or practice. Its game type cannot be changed.'
+          });
         }
         // Completed results may only be corrected by admins. A correction
         // does not reopen the game; changes still require a matching revision
@@ -341,7 +352,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
         const scoringStarted = target.rows[0].status === 'IN_PROGRESS' ||
           status === 'IN_PROGRESS' || target.rows[0].is_complete === true ||
-          isComplete === true;
+          isComplete === true ||
+          hasRecordedScores(target.rows[0].innings, target.rows[0].tie_breaker) ||
+          hasRecordedScores(innings, tieBreaker);
         if ((scoringStarted || !!owner) && (!owner || !token || tokenHash !== owner)) {
           await client.query('ROLLBACK');
           return res.status(423).json({

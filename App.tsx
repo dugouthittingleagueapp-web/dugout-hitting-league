@@ -17,6 +17,7 @@ import { detectForfeit, isForfeitMatch, getForfeitingTeamId } from './services/m
 import { calculateLeagueStandings } from './utils/leagueStandings';
 import { calculateWeeklyLeaders } from './utils/weeklyLeaders';
 import { getMatchScores } from './utils/scoreTotals';
+import { groupMatchesByWeek } from './utils/scheduleWeeks';
 
 const INACTIVITY_LIMIT = 3 * 60 * 60 * 1000; // 3 hours
 
@@ -44,19 +45,6 @@ const safeStorage = {
             // ignore
         }
     }
-};
-
-// Helper to get ISO Week Key (YYYY-Www) with zero-padded week to ensure natural chronological sorting
-const getWeekKey = (dateStr: string) => {
-    const d = new Date(dateStr);
-    d.setHours(0, 0, 0, 0);
-    // Set to nearest Thursday: current date + 4 - current day number
-    // Make Sunday's day number 7
-    d.setDate(d.getDate() + 4 - (d.getDay() || 7));
-    const yearStart = new Date(d.getFullYear(), 0, 1);
-    const weekNo = Math.ceil(( ( (d.getTime() - yearStart.getTime()) / 86400000) + 1) / 7);
-    const paddedWeek = String(weekNo).padStart(2, '0');
-    return `${d.getFullYear()}-W${paddedWeek}`;
 };
 
 const App: React.FC = () => {
@@ -470,27 +458,11 @@ const App: React.FC = () => {
       }
   };
 
-  // --- Week Calculation Logic ---
-  const activeWeeks = useMemo(() => {
-      if (!state.currentLeague) return [];
-      
-      const weeksMap = new Map<string, Match[]>();
-      matches.forEach(m => {
-          if (m.league && !storage.leaguesMatch(m.league, state.currentLeague)) return;
-          const key = getWeekKey(m.date);
-          if (!weeksMap.has(key)) weeksMap.set(key, []);
-          weeksMap.get(key)!.push(m);
-      });
-
-      // Sort weeks chronologically by ID (YYYY-Www sorts naturally)
-      const sortedKeys = Array.from(weeksMap.keys()).sort();
-      
-      return sortedKeys.map((key, index) => ({
-          id: key,
-          label: `Week ${index + 1}`,
-          matches: storage.sortMatchesChronologically(weeksMap.get(key)!)
-      }));
-  }, [matches, state.currentLeague, userRole]);
+  // Week grouping is shared with schedule tests and independent of React rendering.
+  const activeWeeks = useMemo(
+    () => groupMatchesByWeek(matches, state.currentLeague, storage.leaguesMatch),
+    [matches, state.currentLeague]
+  );
 
   // Track league changes so schedule view auto-advances when switching leagues or on initial mount
   const lastLeagueRef = useRef<string | null>(null);

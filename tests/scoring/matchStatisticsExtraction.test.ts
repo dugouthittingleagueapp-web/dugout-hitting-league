@@ -15,7 +15,7 @@ const away: Team = {
 const pitches = (values: (number | null)[]) => values.map(points => ({ points }));
 const game = (options: Partial<Match> = {}): Match => ({
   id: 'stats-game', league: '11U', season: '2026', date: '2026-11-11',
-  homeTeamId: 'home', awayTeamId: 'away', isComplete: true, status: 'FINAL',
+  homeTeamId: 'home', awayTeamId: 'away', isComplete: true, is_practice: false, status: 'FINAL',
   innings: [{
     number: 1,
     home: { teamId: 'home', playerScores: [

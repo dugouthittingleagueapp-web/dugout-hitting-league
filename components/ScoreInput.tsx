@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { triggerHaptic } from '../utils/feedback';
 
 interface ScoreInputProps {
+  saveStatus?: 'ready' | 'saving' | 'saved' | 'pending';
   pitchNumber: number;
   value: number | null;
   pitchesRemaining?: number;
@@ -15,6 +16,7 @@ interface ScoreInputProps {
 }
 
 export const ScoreInput: React.FC<ScoreInputProps> = ({ 
+  saveStatus = 'ready',
   pitchNumber, 
   value, 
   pitchesRemaining, 
@@ -124,6 +126,11 @@ export const ScoreInput: React.FC<ScoreInputProps> = ({
                 onTouchMove={e => e.stopPropagation()}
             >
                 <div className="mb-4 sm:mb-6">
+                    <div className="flex justify-between items-center gap-2 mb-2">
+                         <span role="status" aria-live="polite" className={`text-xs font-bold font-sans ${saveStatus === 'saved' ? 'text-emerald-700 dark:text-emerald-400' : saveStatus === 'pending' ? 'text-amber-700 dark:text-amber-400' : 'text-slate-500 dark:text-slate-400'}`}>
+                           {saveStatus === 'saved' ? '✓ Saved' : saveStatus === 'saving' ? 'Saving…' : saveStatus === 'pending' ? 'Waiting to reconnect' : 'Ready'}
+                         </span>
+                    </div>
                     <div className="flex justify-between items-center gap-2 mb-2">
                          <div className="bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 text-xs sm:text-sm font-bold px-3 py-1 rounded-full font-sans">
                            Pitch #{pitchNumber}

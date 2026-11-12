@@ -178,13 +178,6 @@ const serializeMatchOperation = <T>(id: string, operation: () => Promise<T>): Pr
     return write;
 };
 
-export const syncOfflineData = createOfflineSynchronizer({
-  apiFetch,
-  serializeMatchOperation,
-  matchWriteHeaders,
-  recordRevision,
-});
-
 const scoringTokenKey = (id: string) => `dugout_scoring_token_${id}`;
 export const getScoringToken = (id: string): string | null => {
   try { return sessionStorage.getItem(scoringTokenKey(id)); } catch { return null; }
@@ -213,6 +206,13 @@ export const requestScoringLock = async (id: string, action: 'acquire' | 'takeov
   return result;
 };
 
+
+export const syncOfflineData = createOfflineSynchronizer({
+  apiFetch,
+  serializeMatchOperation,
+  matchWriteHeaders,
+  recordRevision,
+});
 
 // Automatic listener to sync queued items once internet reconnects
 if (typeof window !== 'undefined') {

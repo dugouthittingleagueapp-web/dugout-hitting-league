@@ -324,6 +324,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           await client.query('ROLLBACK');
           return res.status(404).json({ error: 'Game not found. No changes were saved.' });
         }
+        // Completed results may only be corrected by admins. A correction
+        // does not reopen the game; changes still require a matching revision
+        // and the admin's scoring lock, just like other pitch writes.
+        if (target.rows[0].is_complete === true && role !== 'admin') {
+          await client.query('ROLLBACK');
+          return res.status(403).json({ error: 'This game is finished. Only an admin can correct its scores.' });
+        }
         const lock = await client.query(
           'SELECT token_hash FROM scoring_locks WHERE match_id = $1',
           [String(target.rows[0].id)]
@@ -363,7 +370,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         }
         const result = await client.query(queryUpdate, values);
         row = result.rows[0];
-        if (row?.is_complete) {
+        // Finalizing an active game releases its scoring lock. Admin score
+        // corrections on an ALREADY finalized game retain the lock so multiple
+        // confirmed corrections remain possible in the same editing session.
+        if (row?.is_complete && !target.rows[0].is_complete) {
           await client.query('DELETE FROM scoring_locks WHERE match_id = $1', [String(row.id)]);
         }
         await client.query('COMMIT');

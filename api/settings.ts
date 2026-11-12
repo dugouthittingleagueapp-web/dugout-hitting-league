@@ -75,11 +75,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
         // 2. Check Admin Password (or env override for recovery)
         const isAdminEnvMatch = process.env.ADMIN_PASSWORD && cleanPw === process.env.ADMIN_PASSWORD;
-        const isAdminMatch = !!isAdminEnvMatch || (storedAdmin ? await comparePassword(cleanPw, storedAdmin) : false);
+        const isAdminStoredMatch = storedAdmin ? await comparePassword(cleanPw, storedAdmin) : false;
+        const isAdminMatch = !!isAdminEnvMatch || isAdminStoredMatch;
 
         if (isAdminMatch) {
           // Automatic upgrade from legacy plaintext to bcrypt
-          if (storedAdmin && !/^\$2[aby]\$\d{2}\$/.test(storedAdmin)) {
+          if (isAdminStoredMatch && storedAdmin && !/^\$2[aby]\$\d{2}\$/.test(storedAdmin)) {
             const hashed = await hashPassword(cleanPw);
             await pool.query("UPDATE app_settings SET value = $1 WHERE key = 'admin_password'", [hashed]).catch(console.error);
           }
@@ -91,11 +92,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
         // 3. Check Umpire Password (or env override for recovery)
         const isUmpireEnvMatch = process.env.UMPIRE_PASSWORD && cleanPw === process.env.UMPIRE_PASSWORD;
-        const isUmpireMatch = !!isUmpireEnvMatch || (storedUmpire ? await comparePassword(cleanPw, storedUmpire) : false);
+        const isUmpireStoredMatch = storedUmpire ? await comparePassword(cleanPw, storedUmpire) : false;
+        const isUmpireMatch = !!isUmpireEnvMatch || isUmpireStoredMatch;
 
         if (isUmpireMatch) {
           // Automatic upgrade from legacy plaintext to bcrypt
-          if (storedUmpire && !/^\$2[aby]\$\d{2}\$/.test(storedUmpire)) {
+          if (isUmpireStoredMatch && storedUmpire && !/^\$2[aby]\$\d{2}\$/.test(storedUmpire)) {
             const hashed = await hashPassword(cleanPw);
             await pool.query("UPDATE app_settings SET value = $1 WHERE key = 'umpire_password'", [hashed]).catch(console.error);
           }

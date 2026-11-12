@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { configuredLoginCredential, requiredInitialPassword } from '../../api/passwordPolicy';
+import { configuredLoginCredential, requiredInitialPassword } from '../../server/passwordPolicy';
 
 describe('server login credentials', () => {
   it('never accepts public default passwords when neither database nor environment is configured', () => {

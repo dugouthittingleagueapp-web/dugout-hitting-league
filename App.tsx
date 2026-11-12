@@ -1040,7 +1040,7 @@ const App: React.FC = () => {
             {state.view === 'admin' && (
                 <div className="flex-1 bg-slate-50 dark:bg-slate-950 text-slate-800 dark:text-slate-200 w-full">
                     <AdminDashboard 
-                        onBack={() => setState({ ...state, view: 'league_select' })} 
+                        onBack={() => { setMenuOpen(false); setState(previous => ({ ...previous, view: 'league_select', currentLeague: null, currentMatchId: null })); }} 
                         onBrowseArchive={(archiveSeason) => setState(s => ({ ...s, season: archiveSeason, view: 'league_select', currentLeague: null }))}
                         onStartPractice={() => setShowPracticeModal(true)}
                         onSeasonUpdated={async () => {

@@ -48,7 +48,7 @@ describe('Isolated offline synchronizer', () => {
     enqueuePendingTeamSync(team);
     let finish!: (value: Response) => void;
     const waiting = new Promise<Response>(resolve => { finish = resolve; });
-    const apiFetch = vi.fn(async () => waiting);
+    const apiFetch = vi.fn(async (_url: string, _init?: RequestInit) => waiting);
     const reconnect = createOfflineSynchronizer(dependencies(apiFetch));
 
     const first = reconnect();
@@ -68,7 +68,7 @@ describe('Isolated offline synchronizer', () => {
     enqueuePendingMatchSync(earlier);
     let finish!: (value: Response) => void;
     const waiting = new Promise<Response>(resolve => { finish = resolve; });
-    const apiFetch = vi.fn(async () => waiting);
+    const apiFetch = vi.fn(async (_url: string, _init?: RequestInit) => waiting);
     const reconnect = createOfflineSynchronizer(dependencies(apiFetch));
 
     const replay = reconnect();

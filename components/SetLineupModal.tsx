@@ -363,6 +363,9 @@ export const SetLineupModal: React.FC<SetLineupModalProps> = ({
           )}
 
           {(() => {
+            // Do not show an alarming forfeit warning while a draft is incomplete.
+            // The real rule is evaluated once both lineups are playable.
+            if (!isPlayableLineup(homeLineup) || !isPlayableLineup(awayLineup)) return null;
             const liveForfeit = detectForfeit(homeTeam, awayTeam, homeLineup, awayLineup);
             if (!liveForfeit.isForfeit) return null;
             return (

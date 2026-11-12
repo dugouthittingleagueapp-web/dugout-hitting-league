@@ -15,6 +15,7 @@ import * as storage from './services/storageService';
 import { getMatchStatus, findCurrentOrUpcomingWeekId } from './utils/lineupHelper';
 import { detectForfeit, isForfeitMatch, getForfeitingTeamId } from './services/matchHelpers';
 import { calculateLeagueStandings } from './utils/leagueStandings';
+import { getMatchScores } from './utils/scoreTotals';
 
 const INACTIVITY_LIMIT = 3 * 60 * 60 * 1000; // 3 hours
 
@@ -1014,33 +1015,6 @@ const App: React.FC = () => {
       setMenuOpen: setIsMenuOpen,
   };
   
-  // Helper to get total scores for display
-  const getMatchScores = (m: Match) => {
-      const getSideScore = (side: 'home' | 'away') => {
-          let total = 0;
-          (m.innings || []).forEach(ing => {
-              const teamData = side === 'home' ? ing?.home : ing?.away;
-              if (teamData?.playerScores) {
-                  teamData.playerScores.forEach(p => {
-                      (p.pitches || []).forEach(pt => {
-                          if (pt && pt.points !== null) total += pt.points;
-                      });
-                  });
-              }
-          });
-          if (m.tieBreaker && Array.isArray(m.tieBreaker)) {
-              m.tieBreaker.forEach(tb => {
-                  const scores = side === 'home' ? tb?.homeScores : tb?.awayScores;
-                  if (Array.isArray(scores)) {
-                      scores.forEach(s => { if(s !== null) total += s; });
-                  }
-              });
-          }
-          return total;
-      };
-      return { home: getSideScore('home'), away: getSideScore('away') };
-  };
-
   return (
     <div className="h-[100dvh] w-full overflow-hidden bg-slate-100 dark:bg-slate-950 text-slate-900 dark:text-slate-200 flex flex-col font-sans relative transition-colors duration-500">
         {/* Background Texture */}

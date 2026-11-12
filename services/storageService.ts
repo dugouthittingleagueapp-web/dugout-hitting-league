@@ -8,6 +8,7 @@ import { coalesceInFlightGet } from '../utils/requestCoalescer';
 import { mapMatchFromDB, mapTeamFromDB } from '../utils/dbMappers';
 import { calculateMatchStats } from '../utils/matchStatistics';
 import { aggregateTeamPlayerStats } from '../utils/teamPlayerStats';
+import { mergeAvailableSeasons } from '../utils/availableSeasons';
 export { calculateMatchStats } from '../utils/matchStatistics';
 import { leaguesMatch, normalizeLeague } from '../utils/leagueNames';
 export { leaguesMatch, normalizeLeague } from '../utils/leagueNames';
@@ -1222,8 +1223,7 @@ export const getCurrentSeason = async (): Promise<string> => {
             if (typeof window !== 'undefined') {
                 try { localStorage.setItem('dugout_current_season', season); } catch (e) {}
                 const list = Array.isArray(data.seasons) ? data.seasons : [];
-                const merged = Array.from(new Set([...list, '2026', '2025', season]))
-                    .sort((a, b) => b.localeCompare(a, undefined, { numeric: true }));
+                const merged = mergeAvailableSeasons(list, season);
                 try { localStorage.setItem('dugout_available_seasons', JSON.stringify(merged)); } catch (e) {}
             }
             return season;
@@ -1247,8 +1247,7 @@ export const getAvailableSeasons = async (): Promise<string[]> => {
         if (res.ok) {
             const data = await res.json();
             const list = Array.isArray(data.seasons) ? data.seasons : [];
-            const merged = Array.from(new Set([...list, '2026', '2025', data.currentSeason || defaultSeason]))
-                .sort((a, b) => b.localeCompare(a, undefined, { numeric: true }));
+            const merged = mergeAvailableSeasons(list, data.currentSeason || defaultSeason);
             if (typeof window !== 'undefined') {
                 try { localStorage.setItem('dugout_available_seasons', JSON.stringify(merged)); } catch (e) {}
             }
@@ -1263,15 +1262,14 @@ export const getAvailableSeasons = async (): Promise<string[]> => {
             if (cached) {
                 const parsed = JSON.parse(cached);
                 if (Array.isArray(parsed) && parsed.length > 0) {
-                    const merged = Array.from(new Set([...parsed, '2026', '2025', defaultSeason]))
-                        .sort((a, b) => b.localeCompare(a, undefined, { numeric: true }));
+                    const merged = mergeAvailableSeasons(parsed, defaultSeason);
                     localStorage.setItem('dugout_available_seasons', JSON.stringify(merged));
                     return merged;
                 }
             }
         } catch (e) {}
     }
-    const mergedFallback = Array.from(new Set([defaultSeason, '2026', '2025'])).sort((a, b) => b.localeCompare(a, undefined, { numeric: true }));
+    const mergedFallback = mergeAvailableSeasons([], defaultSeason);
     if (typeof window !== 'undefined') {
         try { localStorage.setItem('dugout_available_seasons', JSON.stringify(mergedFallback)); } catch (e) {}
     }
@@ -1285,7 +1283,7 @@ export const updateCurrentSeason = async (season: string) => {
             localStorage.setItem('dugout_current_season', season);
             const cached = localStorage.getItem('dugout_available_seasons');
             const list = cached ? JSON.parse(cached) : [];
-            const merged = Array.from(new Set([...list, season, '2026', '2025'])).sort((a, b) => b.localeCompare(a, undefined, { numeric: true }));
+            const merged = mergeAvailableSeasons(list, season);
             localStorage.setItem('dugout_available_seasons', JSON.stringify(merged));
         } catch (e) {}
     }

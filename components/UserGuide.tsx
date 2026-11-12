@@ -16,12 +16,12 @@ export const UserGuide: React.FC<UserGuideProps> = ({ onClose }) => {
   }, []);
 
   return (
-    <div className="fixed inset-0 z-[3000] flex items-center justify-center bg-slate-900/80 backdrop-blur-sm animate-in fade-in duration-200 overflow-y-auto print:bg-white print:fixed print:inset-0 print:z-[10000] print:block">
+    <div className="fixed inset-0 z-[3000] flex items-start justify-center bg-slate-900/80 backdrop-blur-sm animate-in fade-in duration-200 overflow-hidden print:bg-white print:fixed print:inset-0 print:z-[10000] print:block print:overflow-visible">
       {/* Modal Container */}
-      <div className="bg-white dark:bg-slate-950 w-full max-w-4xl min-h-screen sm:min-h-fit sm:my-8 sm:rounded-2xl shadow-2xl flex flex-col relative print:shadow-none print:w-full print:max-w-none print:my-0 print:rounded-none print:text-black print:bg-white">
+      <div className="bg-white dark:bg-slate-950 w-full max-w-4xl h-[100dvh] sm:h-[calc(100dvh-2rem)] sm:my-4 sm:rounded-2xl shadow-2xl flex flex-col relative overflow-hidden print:shadow-none print:w-full print:max-w-none print:h-auto print:my-0 print:rounded-none print:text-black print:bg-white print:overflow-visible">
         
         {/* Header (Hidden on print) */}
-        <div className="p-6 border-b border-slate-200 dark:border-slate-800 flex justify-between items-center sticky top-0 bg-white dark:bg-slate-950 z-10 rounded-t-2xl print:hidden">
+        <div className="shrink-0 p-6 border-b border-slate-200 dark:border-slate-800 flex justify-between items-center bg-white dark:bg-slate-950 z-10 rounded-t-2xl print:hidden">
           <h2 className="text-2xl font-black uppercase italic text-slate-900 dark:text-white font-sans">Operational Guide</h2>
           <div className="flex gap-3">
              <button onClick={handlePrint} className="px-4 py-2 bg-blue-600 text-white font-bold rounded-lg hover:bg-blue-700 transition-colors shadow-lg shadow-blue-900/20 font-sans flex items-center gap-2">
@@ -35,7 +35,7 @@ export const UserGuide: React.FC<UserGuideProps> = ({ onClose }) => {
         </div>
 
         {/* Scrollable Content */}
-        <div className="p-8 sm:p-12 text-slate-800 dark:text-slate-300 font-sans space-y-8 print:p-0 print:text-black print:space-y-4 print:overflow-visible">
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-8 sm:p-12 text-slate-800 dark:text-slate-300 font-sans space-y-8 print:p-0 print:text-black print:space-y-4 print:overflow-visible print:h-auto">
             
             {/* Title for Print */}
             <div className="hidden print:block mb-8 border-b-2 border-black pb-4">

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { selectDatabaseConnectionString } from '../../api/databaseConnection';
+import { selectDatabaseConnectionString } from '../../server/databaseConnection';
 
 const productionUrl = 'postgresql://user:test@ep-purple-sea-a42guhf9.us-east-1.aws.neon.tech/neondb';
 const previewUrl = 'postgresql://user:test@ep-red-tree-a46hwgra-pooler.us-east-1.aws.neon.tech/neondb';

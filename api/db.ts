@@ -1,5 +1,5 @@
 import pg from 'pg';
-import { selectDatabaseConnectionString } from './databaseConnection.js';
+import { selectDatabaseConnectionString } from '../server/databaseConnection.js';
 
 // A deployed Vercel app must use its own environment-scoped Database_url.
 // The selector rejects an accidental Preview-to-Production connection before

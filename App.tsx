@@ -17,7 +17,7 @@ import { detectForfeit } from './services/matchHelpers';
 import { calculateLeagueStandings } from './utils/leagueStandings';
 import { calculateWeeklyLeaders } from './utils/weeklyLeaders';
 import { getMatchScores } from './utils/scoreTotals';
-import { groupMatchesByWeek } from './utils/scheduleWeeks';
+import { getWeekKey, groupMatchesByWeek } from './utils/scheduleWeeks';
 import { calculateSeasonStats, attachSeasonTeamNames } from './utils/seasonStats';
 
 const INACTIVITY_LIMIT = 3 * 60 * 60 * 1000; // 3 hours

@@ -125,7 +125,11 @@ export const migrations: Migration[] = [
       const adminRes = await client.query("SELECT value FROM app_settings WHERE key = 'admin_password';");
       const currentAdmin = adminRes.rows[0]?.value;
       if (!currentAdmin) {
-        const initialHash = await hashPassword(process.env.ADMIN_PASSWORD || 'admin');
+        const configuredPassword = process.env.ADMIN_PASSWORD;
+        if (!configuredPassword) {
+          throw new Error('[MIGRATIONS] Missing ADMIN_PASSWORD; refusing to create a predictable password.');
+        }
+        const initialHash = await hashPassword(configuredPassword);
         await client.query("INSERT INTO app_settings (key, value) VALUES ('admin_password', $1);", [initialHash]);
       } else if (!/^\$2[aby]\$\d{2}\$/.test(currentAdmin)) {
         // Upgrade legacy plaintext to secure bcrypt hash
@@ -136,7 +140,11 @@ export const migrations: Migration[] = [
       const umpireRes = await client.query("SELECT value FROM app_settings WHERE key = 'umpire_password';");
       const currentUmpire = umpireRes.rows[0]?.value;
       if (!currentUmpire) {
-        const initialUmpireHash = await hashPassword(process.env.UMPIRE_PASSWORD || 'umpire');
+        const configuredPassword = process.env.UMPIRE_PASSWORD;
+        if (!configuredPassword) {
+          throw new Error('[MIGRATIONS] Missing UMPIRE_PASSWORD; refusing to create a predictable password.');
+        }
+        const initialUmpireHash = await hashPassword(configuredPassword);
         await client.query("INSERT INTO app_settings (key, value) VALUES ('umpire_password', $1);", [initialUmpireHash]);
       } else if (!/^\$2[aby]\$\d{2}\$/.test(currentUmpire)) {
         // Upgrade legacy plaintext to secure bcrypt hash
@@ -166,6 +174,23 @@ export async function runMigrations(): Promise<{ applied: number; versions: numb
   const appliedVersions: number[] = [];
 
   try {
+    // Refuse to guess migration history on an existing database.
+    // A separate, reviewed baseline procedure must reconcile historical schemas first.
+    const status = await client.query(`
+      SELECT to_regclass('public.schema_migrations') IS NOT NULL AS tracked,
+             EXISTS (
+               SELECT 1 FROM information_schema.tables
+               WHERE table_schema = 'public'
+                 AND table_name IN ('leagues', 'teams', 'matches', 'app_settings')
+             ) AS existing_application
+    `);
+    if (!status.rows[0].tracked && status.rows[0].existing_application) {
+      throw new Error(
+        '[MIGRATIONS] Existing database has no migration history. ' +
+        'Refusing automatic changes: verify and baseline the schema first.'
+      );
+    }
+
     // 1. Ensure migrations version table exists
     await client.query(`
       CREATE TABLE IF NOT EXISTS schema_migrations (

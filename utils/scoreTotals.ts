@@ -24,3 +24,8 @@ export const calculateTeamGameTotal = (side: 'home' | 'away', matchData?: Match 
     return baseScore + tieScore;
 };
 
+/** Score summary shared by dashboard cards and the official scoring screen. */
+export const getMatchScores = (match: Match): { home: number; away: number } => ({
+  home: calculateTeamGameTotal('home', match),
+  away: calculateTeamGameTotal('away', match),
+});

@@ -29,7 +29,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       await client.query('ROLLBACK');
       return res.status(404).json({ error: 'Game not found. Return to the schedule and try again.' });
     }
-    if (match.rows[0].is_complete) {
+    // Only administrators may acquire scoring access to correct completed games.
+    // Umpires still receive the finished-game response and can view read-only.
+    if (match.rows[0].is_complete && role !== 'admin') {
       await client.query('ROLLBACK');
       return res.status(409).json({ error: 'This game is already finished.' });
     }

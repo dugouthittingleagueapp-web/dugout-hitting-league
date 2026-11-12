@@ -71,7 +71,7 @@ describe('Match PUT protects game classification and scheduled scoring', () => {
     await matchHandler(makeRequest({ isPractice: true, is_practice: true }) as any, response);
     expect(response.statusCode).toBe(403);
     expect(response.body.code).toBe('GAME_TYPE_LOCKED');
-    expect(query.mock.calls.some(([sql]) => String(sql).includes('UPDATE matches'))).toBe(false);
+    expect(query.mock.calls.some((call: any[]) => String(call[0]).includes('UPDATE matches'))).toBe(false);
     expect(query).toHaveBeenCalledWith('ROLLBACK');
     expect(release).toHaveBeenCalledOnce();
   });
@@ -81,7 +81,7 @@ describe('Match PUT protects game classification and scheduled scoring', () => {
     const response = makeResponse();
     await matchHandler(makeRequest({ isPractice: false, is_practice: false }, 'admin') as any, response);
     expect(response.statusCode).toBe(403);
-    expect(query.mock.calls.some(([sql]) => String(sql).includes('UPDATE matches'))).toBe(false);
+    expect(query.mock.calls.some((call: any[]) => String(call[0]).includes('UPDATE matches'))).toBe(false);
   });
 
   it('requires a scoring lock for a pitch result of zero even while SCHEDULED', async () => {
@@ -89,7 +89,7 @@ describe('Match PUT protects game classification and scheduled scoring', () => {
     await matchHandler(makeRequest({ innings: blank(0) }) as any, response);
     expect(response.statusCode).toBe(423);
     expect(response.body.code).toBe('SCORING_LOCKED');
-    expect(query.mock.calls.some(([sql]) => String(sql).includes('UPDATE matches'))).toBe(false);
+    expect(query.mock.calls.some((call: any[]) => String(call[0]).includes('UPDATE matches'))).toBe(false);
   });
 
   it('requires a scoring lock when a scheduled update tries to erase recorded pitches', async () => {
@@ -97,7 +97,7 @@ describe('Match PUT protects game classification and scheduled scoring', () => {
     const response = makeResponse();
     await matchHandler(makeRequest({ innings: blank() }) as any, response);
     expect(response.statusCode).toBe(423);
-    expect(query.mock.calls.some(([sql]) => String(sql).includes('UPDATE matches'))).toBe(false);
+    expect(query.mock.calls.some((call: any[]) => String(call[0]).includes('UPDATE matches'))).toBe(false);
   });
 
   it('requires a scoring lock to submit tie-breaker results from a SCHEDULED match', async () => {
@@ -110,7 +110,7 @@ describe('Match PUT protects game classification and scheduled scoring', () => {
     const response = makeResponse();
     await matchHandler(makeRequest({ innings: blank(), isPractice: false, is_practice: false }) as any, response);
     expect(response.statusCode).toBe(200);
-    expect(query.mock.calls.some(([sql]) => String(sql).includes('UPDATE matches'))).toBe(true);
+    expect(query.mock.calls.some((call: any[]) => String(call[0]).includes('UPDATE matches'))).toBe(true);
     expect(query).toHaveBeenCalledWith('COMMIT');
   });
 });

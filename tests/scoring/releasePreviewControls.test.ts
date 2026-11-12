@@ -24,6 +24,14 @@ describe('Consolidated release: scoring controls are not accidentally reverted',
     expect(storage).toContain("publishScoringSaveState(match.id, 'offline')");
   });
 
+  it('keeps the operational guide anchored at the top with its own scroll area', () => {
+    const guide = read('components/UserGuide.tsx');
+    expect(guide).toContain('flex items-start justify-center');
+    expect(guide).toContain('min-h-0 flex-1 overflow-y-auto');
+    expect(guide).toContain('h-[100dvh]');
+    expect(guide).not.toContain('flex items-center justify-center bg-slate-900/80');
+  });
+
   it('refuses unknown migration history in existing databases', () => {
     const migrations = read('api/migrations.ts');
     expect(migrations).toContain("to_regclass('public.schema_migrations')");

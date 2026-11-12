@@ -1269,11 +1269,20 @@ export const getTeamStats = async (team: Team, league: AgeGroup, season: string)
 };
 
 // Settings & Admin
+// Passwords are checked by the server only. Existing logged-in scoring
+// sessions and their offline pitch queues are managed separately.
+const clearLegacyCachedPasswords = (): void => {
+    if (typeof window === 'undefined') return;
+    try {
+        localStorage.removeItem('dugout_cached_admin_pw');
+        localStorage.removeItem('dugout_cached_umpire_pw');
+    } catch (e) {}
+};
+
 export const verifyPassword = async (password: string): Promise<{success: boolean, role?: 'admin'|'umpire', error?: string}> => {
     const trimmed = (password || '').trim();
-    if (!trimmed) {
-        return { success: false, error: 'Password cannot be empty' };
-    }
+    clearLegacyCachedPasswords();
+    if (!trimmed) return { success: false, error: 'Please enter a password.' };
 
     try {
         const res = await apiFetch('/api/settings', {
@@ -1282,69 +1291,50 @@ export const verifyPassword = async (password: string): Promise<{success: boolea
             body: JSON.stringify({ action: 'verify', password: trimmed })
         });
         const data = await res.json().catch(() => ({}));
-        if (res.ok && data.success && data.role) {
+        if (res.ok && data.success && (data.role === 'admin' || data.role === 'umpire') && data.token) {
             if (typeof window !== 'undefined') {
                 try {
-                    if (data.token) {
-                        sessionStorage.setItem('dugout_auth_token', data.token);
-                        localStorage.setItem('dugout_auth_token', data.token);
-                    }
+                    sessionStorage.setItem('dugout_auth_token', data.token);
+                    localStorage.setItem('dugout_auth_token', data.token);
                 } catch (e) {}
             }
             return { success: true, role: data.role };
         }
-        if (data.error && !res.ok && res.status !== 500) {
-            return { success: false, error: data.error };
-        }
+        if (res.status === 401) return { success: false, error: 'Incorrect password. Please try again.' };
+        if (res.status >= 500) return { success: false, error: 'Login is temporarily unavailable. Check your connection and try again.' };
+        return { success: false, error: data.error || 'Unable to sign in. Please try again.' };
     } catch (err) {
-        console.warn('Network verifyPassword failed, falling back to cached authentication', err);
+        console.warn('Unable to verify login with the server', err);
+        return { success: false, error: 'Unable to reach the server. Check your connection and try again.' };
     }
-
-    // Offline / Network Failure Fallback
-    try {
-        const cachedAdmin = (typeof window !== 'undefined' ? localStorage.getItem('dugout_cached_admin_pw') : null) || 'admin';
-        const cachedUmpire = (typeof window !== 'undefined' ? localStorage.getItem('dugout_cached_umpire_pw') : null) || 'umpire';
-        if (trimmed.toLowerCase() === cachedAdmin.toLowerCase()) {
-            return { success: true, role: 'admin' };
-        }
-        if (trimmed.toLowerCase() === cachedUmpire.toLowerCase()) {
-            return { success: true, role: 'umpire' };
-        }
-    } catch (e) {}
-
-    return { success: false, error: 'Incorrect password' };
 };
 
 export const updateAdminPassword = async (password: string) => {
     const trimmed = password.trim();
-    if (typeof window !== 'undefined') {
-        try { localStorage.setItem('dugout_cached_admin_pw', trimmed); } catch (e) {}
-    }
-    const res = await apiFetch('/api/settings', { 
-        method: 'POST', 
-        headers: { 'Content-Type': 'application/json' }, 
-        body: JSON.stringify({ action: 'update_password', password: trimmed }) 
+    const res = await apiFetch('/api/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'update_password', password: trimmed })
     });
     if (!res.ok) {
         const err = await res.json().catch(() => ({}));
         throw new Error(err.error || 'Failed to update admin password');
     }
+    clearLegacyCachedPasswords();
 };
 
 export const updateUmpirePassword = async (password: string) => {
     const trimmed = password.trim();
-    if (typeof window !== 'undefined') {
-        try { localStorage.setItem('dugout_cached_umpire_pw', trimmed); } catch (e) {}
-    }
-    const res = await apiFetch('/api/settings', { 
-        method: 'POST', 
-        headers: { 'Content-Type': 'application/json' }, 
-        body: JSON.stringify({ action: 'update_umpire_password', password: trimmed }) 
+    const res = await apiFetch('/api/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'update_umpire_password', password: trimmed })
     });
     if (!res.ok) {
         const err = await res.json().catch(() => ({}));
         throw new Error(err.error || 'Failed to update umpire password');
     }
+    clearLegacyCachedPasswords();
 };
 
 export const logout = async (): Promise<void> => {

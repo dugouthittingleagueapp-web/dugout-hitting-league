@@ -21,6 +21,8 @@ export type DatabaseEnvironment = {
 const PRODUCTION_HOST = 'ep-purple-sea-a42guhf9.us-east-1.aws.neon.tech';
 const SCORING_PREVIEW_HOST = 'ep-red-tree-a46hwgra.us-east-1.aws.neon.tech';
 const SCORING_PREVIEW_BRANCH = 'refactor/network-and-sync-foundation';
+const CONSOLIDATED_REVIEW_BRANCH = 'review/consolidated-final-nov12';
+const CONSOLIDATED_REVIEW_HOST = 'ep-divine-smoke-a4lyo8af.us-east-1.aws.neon.tech';
 
 const normalizeUrl = (value: string): string =>
   value.trim().replace(/^(['"])(.*)\1$/, '$2').trim();
@@ -61,6 +63,9 @@ export const selectDatabaseConnectionString = (environment: DatabaseEnvironment)
         (!environment.VERCEL_GIT_COMMIT_REF ||
           environment.VERCEL_GIT_COMMIT_REF === SCORING_PREVIEW_BRANCH)) {
       assertExpectedHost(scopedUrl, SCORING_PREVIEW_HOST, 'Scoring Preview');
+    } else if (vercelEnvironment === 'preview' &&
+        environment.VERCEL_GIT_COMMIT_REF === CONSOLIDATED_REVIEW_BRANCH) {
+      assertExpectedHost(scopedUrl, CONSOLIDATED_REVIEW_HOST, 'Consolidated Review Preview');
     }
     return scopedUrl;
   }

@@ -1338,6 +1338,7 @@ export const updateUmpirePassword = async (password: string) => {
 };
 
 export const logout = async (): Promise<void> => {
+    clearLegacyCachedPasswords();
     if (typeof window !== 'undefined') {
         try {
             sessionStorage.removeItem('dugout_auth_token');
@@ -1355,6 +1356,7 @@ export const logout = async (): Promise<void> => {
 };
 
 export const checkAuthSession = async (): Promise<{ authenticated: boolean; role?: 'admin' | 'umpire' }> => {
+    clearLegacyCachedPasswords();
     try {
         const res = await apiFetch('/api/settings', {
             method: 'POST',

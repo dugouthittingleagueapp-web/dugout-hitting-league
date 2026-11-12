@@ -1,5 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import * as storage from '../services/storageService';
 import { Team, League } from '../types';
 import { UserGuide } from './UserGuide';
@@ -260,7 +261,7 @@ export const AdminDashboard: React.FC<{
   return (
     <div className="max-w-5xl mx-auto px-3 sm:px-6 py-4 sm:py-6 pb-24 w-full font-sans">
       {/* Top Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-5 sm:mb-8">
+      <div className="relative z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-5 sm:mb-8">
           <div>
               <div className="flex items-center gap-2">
                 <h2 className="text-xl sm:text-3xl font-black text-slate-900 dark:text-white font-sans tracking-tight">Admin Dashboard</h2>
@@ -283,13 +284,15 @@ export const AdminDashboard: React.FC<{
                   </button>
               )}
               <button 
+                  type="button"
                   onClick={() => setShowGuide(true)} 
                   className="px-3 py-1.5 sm:px-4 sm:py-2 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 hover:bg-blue-200 dark:hover:bg-blue-900/50 rounded-lg text-xs sm:text-sm font-bold font-sans transition-colors cursor-pointer"
               >
                   Guide
               </button>
               <button 
-                  onClick={onBack} 
+                  type="button"
+                  onClick={() => onBack()} 
                   className="px-3 py-1.5 sm:px-4 sm:py-2 bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 rounded-lg text-slate-700 dark:text-slate-300 text-xs sm:text-sm font-bold font-sans transition-colors cursor-pointer"
               >
                   ← Exit Admin
@@ -325,7 +328,7 @@ export const AdminDashboard: React.FC<{
                         <select
                             value={selectedSeason}
                             onChange={(e) => handleSwitchViewSeason(e.target.value)}
-                            className="bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-white font-bold py-2.5 px-4 pr-10 rounded-xl shadow-sm text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer font-sans"
+                            className="relative z-10 bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-white font-bold py-2.5 px-4 pr-5 rounded-xl shadow-sm text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer font-sans"
                             aria-label="Select League Year"
                         >
                             {Array.from(new Set([...allSeasons, '2026', '2025'])).sort((a, b) => b.localeCompare(a, undefined, { numeric: true })).map(s => (
@@ -334,9 +337,6 @@ export const AdminDashboard: React.FC<{
                                 </option>
                             ))}
                         </select>
-                        <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-slate-500">
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path></svg>
-                        </div>
                     </div>
 
                     {selectedSeason !== currentSeason && (
@@ -640,7 +640,7 @@ export const AdminDashboard: React.FC<{
         </section>
       </div>
 
-      {showGuide && <UserGuide onClose={() => setShowGuide(false)} />}
+      {showGuide && createPortal(<UserGuide onClose={() => setShowGuide(false)} />, document.body)}
       
       {showScheduleImportModal && (
         <ScheduleImportModal 

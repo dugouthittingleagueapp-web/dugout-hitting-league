@@ -829,20 +829,6 @@ const ScoringBoardContent: React.FC<ScoreboardProps & { saveState?: storage.Scor
               </div>
             )}
             
-            {/* Exit & Finalize Fast Action in Header */}
-            {!match.isComplete && !isReadOnly && userRole !== 'fan' && (
-              <button 
-                type="button"
-                onClick={() => handleExitAndFinalize(false)} 
-                className="text-[11px] sm:text-xs font-bold px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-lg sm:rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white transition-all cursor-pointer whitespace-nowrap shadow-sm flex items-center gap-1.5 active:scale-95"
-                title="Finalize match and complete session"
-              >
-                <span>🏁</span>
-                <span className="hidden sm:inline">Exit & Finalize</span>
-                <span className="sm:hidden">Finalize</span>
-              </button>
-            )}
-
             {match.isPractice && !isReadOnly && (
               <button 
                 type="button"

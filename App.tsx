@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { AgeGroup, AppState, Match, Team, Player, League, PlayerStats, Inning, TieBreakerRound } from './types';
+import { AgeGroup, AppState, Match, Team, Player, League, PlayerStats } from './types';
 import { Navbar } from './components/Navbar';
 import { TeamManagement } from './components/TeamManagement';
 import { Scoreboard } from './components/Scoreboard';
@@ -14,6 +14,7 @@ import { MatchStatsEditorModal } from './components/MatchStatsEditorModal';
 import * as storage from './services/storageService';
 import { getMatchStatus, findCurrentOrUpcomingWeekId } from './utils/lineupHelper';
 import { detectForfeit, isForfeitMatch, getForfeitingTeamId } from './services/matchHelpers';
+import { calculateLeagueStandings } from './utils/leagueStandings';
 
 const INACTIVITY_LIMIT = 3 * 60 * 60 * 1000; // 3 hours
 
@@ -933,101 +934,10 @@ const App: React.FC = () => {
 
   const leagueTeams = teams.filter(t => storage.leaguesMatch(t.league, state.currentLeague));
 
-  // --- NEW: Standings Calculation ---
-  const standings = useMemo(() => {
-    if (!state.currentLeague) return [];
-    
-    // Initialize stats for all teams in the current league
-    const stats = new Map<string, { id: string, name: string, gp: number, w: number, l: number, t: number, pf: number, pa: number }>();
-    leagueTeams.forEach(t => {
-      stats.set(t.id, { id: t.id, name: t.name, gp: 0, w: 0, l: 0, t: 0, pf: 0, pa: 0 });
-    });
-
-    matches.forEach(m => {
-      // Strict Stats Isolation: Practice matches never affect official league standings
-      if (m.isPractice || m.is_practice || !m.isComplete || (m.league && !storage.leaguesMatch(m.league, state.currentLeague))) return;
-      
-      const getScore = (innings: Inning[], side: 'home' | 'away', tb?: TieBreakerRound[]) => {
-         let score = (innings || []).reduce((acc, ing) => {
-             const team = side === 'home' ? ing?.home : ing?.away;
-             if (!team?.playerScores) return acc;
-             return acc + team.playerScores.reduce((pAcc, p) => pAcc + (p?.pitches || []).reduce((piAcc, pi) => piAcc + (pi?.points || 0), 0), 0);
-         }, 0);
-         if(tb && Array.isArray(tb)) {
-             tb.forEach(r => {
-                 const rScore = side === 'home' ? r?.homeScores : r?.awayScores;
-                 if (Array.isArray(rScore)) {
-                     score += rScore.reduce<number>((a, b) => (a || 0) + (b || 0), 0);
-                 }
-             });
-         }
-         return score;
-      };
-
-      const hScore = getScore(m.innings, 'home', m.tieBreaker);
-      const aScore = getScore(m.innings, 'away', m.tieBreaker);
-
-      const isForfeit = isForfeitMatch(m);
-      const forfeitingId = getForfeitingTeamId(m);
-
-      if (isForfeit && forfeitingId) {
-          // Automatic Forfeit Win/Loss Outcome & Asymmetrical Stats:
-          // Non-forfeiting team gets an automatic win. Points scored count for compliant team.
-          // Forfeiting team gets an automatic loss. Forfeiting team points are completely excluded (pf = 0).
-          const isHomeForfeiting = forfeitingId === m.homeTeamId;
-          const homeRec = stats.get(m.homeTeamId);
-          const awayRec = stats.get(m.awayTeamId);
-
-          if (homeRec) {
-              homeRec.gp++;
-              if (isHomeForfeiting) {
-                  homeRec.l++;
-                  homeRec.pf += 0; // forfeiting team hitting points completely excluded
-                  homeRec.pa += aScore;
-              } else {
-                  homeRec.w++;
-                  homeRec.pf += hScore; // compliant team hitting points intact
-                  homeRec.pa += 0; // opponent forfeiting points excluded
-              }
-          }
-
-          if (awayRec) {
-              awayRec.gp++;
-              if (isHomeForfeiting) {
-                  awayRec.w++;
-                  awayRec.pf += aScore; // compliant team hitting points intact
-                  awayRec.pa += 0; // opponent forfeiting points excluded
-              } else {
-                  awayRec.l++;
-                  awayRec.pf += 0; // forfeiting team hitting points completely excluded
-                  awayRec.pa += hScore;
-              }
-          }
-          return;
-      }
-
-      const update = (id: string, s: number, os: number) => {
-          if (!stats.has(id)) return;
-          const rec = stats.get(id)!;
-          rec.gp++;
-          rec.pf += s;
-          rec.pa += os;
-          if (s > os) rec.w++;
-          else if (s < os) rec.l++;
-          else rec.t++;
-      };
-      
-      update(m.homeTeamId, hScore, aScore);
-      update(m.awayTeamId, aScore, hScore);
-    });
-
-    return Array.from(stats.values()).sort((a, b) => {
-        if (a.w !== b.w) return b.w - a.w;
-        if (a.t !== b.t) return b.t - a.t;
-        if (a.pf !== b.pf) return b.pf - a.pf;
-        return a.pa - b.pa;
-    });
-  }, [matches, leagueTeams, state.currentLeague]);
+  const standings = useMemo(
+    () => calculateLeagueStandings(matches, leagueTeams, state.currentLeague),
+    [matches, leagueTeams, state.currentLeague]
+  );
 
   // --- NEW: Season Stats Calculation ---
   const seasonStats = useMemo(() => {

@@ -1,5 +1,6 @@
 import pool from './db.js';
 import { hashPassword } from './auth.js';
+import { requiredInitialPassword } from './passwordPolicy.js';
 
 export interface Migration {
   version: number;
@@ -125,7 +126,7 @@ export const migrations: Migration[] = [
       const adminRes = await client.query("SELECT value FROM app_settings WHERE key = 'admin_password';");
       const currentAdmin = adminRes.rows[0]?.value;
       if (!currentAdmin) {
-        const initialHash = await hashPassword(process.env.ADMIN_PASSWORD || 'admin');
+        const initialHash = await hashPassword(requiredInitialPassword('admin', process.env.ADMIN_PASSWORD));
         await client.query("INSERT INTO app_settings (key, value) VALUES ('admin_password', $1);", [initialHash]);
       } else if (!/^\$2[aby]\$\d{2}\$/.test(currentAdmin)) {
         // Upgrade legacy plaintext to secure bcrypt hash
@@ -136,7 +137,7 @@ export const migrations: Migration[] = [
       const umpireRes = await client.query("SELECT value FROM app_settings WHERE key = 'umpire_password';");
       const currentUmpire = umpireRes.rows[0]?.value;
       if (!currentUmpire) {
-        const initialUmpireHash = await hashPassword(process.env.UMPIRE_PASSWORD || 'umpire');
+        const initialUmpireHash = await hashPassword(requiredInitialPassword('umpire', process.env.UMPIRE_PASSWORD));
         await client.query("INSERT INTO app_settings (key, value) VALUES ('umpire_password', $1);", [initialUmpireHash]);
       } else if (!/^\$2[aby]\$\d{2}\$/.test(currentUmpire)) {
         // Upgrade legacy plaintext to secure bcrypt hash

@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import pool from './db.js';
-import { configuredLoginCredential } from './passwordPolicy.js';
+import { configuredLoginCredential } from '../server/passwordPolicy.js';
 import { 
   comparePassword, 
   hashPassword, 

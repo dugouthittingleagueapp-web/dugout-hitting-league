@@ -187,6 +187,24 @@ export async function runMigrations(): Promise<{ applied: number; versions: numb
   const appliedVersions: number[] = [];
 
   try {
+    // A live database may predate this migration runner. Creating an empty
+    // history table and re-running every migration could change legacy data.
+    // Require a reviewed, one-time baseline before any automatic updates.
+    const history = await client.query(`
+      SELECT to_regclass('public.schema_migrations') IS NOT NULL AS tracked,
+             EXISTS (
+               SELECT 1 FROM information_schema.tables
+               WHERE table_schema = 'public'
+                 AND table_name IN ('leagues', 'teams', 'matches', 'app_settings')
+             ) AS existing_application
+    `);
+    if (!history.rows[0].tracked && history.rows[0].existing_application) {
+      throw new Error(
+        '[MIGRATIONS] Database already contains league data without migration history. ' +
+        'Refusing automatic changes until a reviewed baseline is recorded.'
+      );
+    }
+
     // 1. Ensure migrations version table exists
     await client.query(`
       CREATE TABLE IF NOT EXISTS schema_migrations (

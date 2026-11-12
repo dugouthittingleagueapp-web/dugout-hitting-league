@@ -3,6 +3,7 @@ import { selectDatabaseConnectionString } from '../../server/databaseConnection'
 
 const productionUrl = 'postgresql://user:test@ep-purple-sea-a42guhf9.us-east-1.aws.neon.tech/neondb';
 const previewUrl = 'postgresql://user:test@ep-red-tree-a46hwgra-pooler.us-east-1.aws.neon.tech/neondb';
+const consolidatedUrl = 'postgresql://user:test@ep-divine-smoke-a4lyo8af-pooler.us-east-1.aws.neon.tech/neondb';
 const sharedIntegrationUrl = 'postgresql://user:test@ep-purple-sea-a42guhf9.us-east-1.aws.neon.tech/neondb';
 
 describe('Environment-isolated Neon database routing', () => {
@@ -14,6 +15,20 @@ describe('Environment-isolated Neon database routing', () => {
       DATABASE_URL: sharedIntegrationUrl,
       POSTGRES_URL: sharedIntegrationUrl,
     })).toBe(previewUrl);
+  });
+
+  it('accepts only the isolated consolidated review database for its Preview branch', () => {
+    expect(selectDatabaseConnectionString({
+      VERCEL_ENV: 'preview',
+      VERCEL_GIT_COMMIT_REF: 'review/consolidated-final-nov12',
+      Database_url: consolidatedUrl,
+      DATABASE_URL: productionUrl,
+    })).toBe(consolidatedUrl);
+    expect(() => selectDatabaseConnectionString({
+      VERCEL_ENV: 'preview',
+      VERCEL_GIT_COMMIT_REF: 'review/consolidated-final-nov12',
+      Database_url: productionUrl,
+    })).toThrow(/unexpected Neon endpoint/);
   });
 
   it('rejects shared Vercel database URLs when the scoped URL is missing', () => {

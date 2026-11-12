@@ -35,7 +35,7 @@ const makeResponse = () => {
 };
 
 describe('Match PUT protects game classification and scheduled scoring', () => {
-  let query: ReturnType<typeof vi.fn>;
+  let query: ReturnType<typeof vi.fn<(sql: string) => Promise<{ rows: any[] }>>>;
   let release: ReturnType<typeof vi.fn>;
   let match: Record<string, unknown>;
   beforeEach(() => {

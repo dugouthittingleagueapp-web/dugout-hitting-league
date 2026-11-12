@@ -4,14 +4,14 @@ import { mapMatchFromDB } from '../utils/dbMappers';
 // Browser-only pending writes and save warnings. These keys stay unchanged
 // so a deployment cannot make existing offline scores inaccessible.
 // Offline Sync Queue Keys
-const PENDING_MATCHES_KEY = 'dugout_pending_sync_matches';
+export const PENDING_MATCHES_KEY = 'dugout_pending_sync_matches';
 const PENDING_TEAMS_KEY = 'dugout_pending_sync_teams';
 const SYNC_CONFLICTS_KEY = 'dugout_scoring_sync_conflicts';
 
 // UI notices are deliberately separate from scoring conflicts. A short Wi-Fi
 // interruption must never block the scoring controls.
 export type ScoringSaveState = 'saving' | 'saved' | 'offline' | 'attention';
-const publishScoringSaveState = (matchId: string, state: ScoringSaveState) => {
+export const publishScoringSaveState = (matchId: string, state: ScoringSaveState) => {
   if (typeof window !== 'undefined') {
     window.dispatchEvent(new CustomEvent('dugout:scoring-save-state', { detail: { matchId, state } }));
   }
@@ -26,7 +26,7 @@ export const hasPendingMatchSync = (matchId: string): boolean => {
 // A newer successful write from this same device can supersede an older
 // offline snapshot, but only when every recorded pitch in the old snapshot
 // is present unchanged in the newer saved game.
-const containsEarlierScores = (earlier: Match, later: Match): boolean => {
+export const containsEarlierScores = (earlier: Match, later: Match): boolean => {
   if (earlier.id !== later.id || earlier.homeTeamId !== later.homeTeamId ||
       earlier.awayTeamId !== later.awayTeamId) return false;
   return (earlier.innings || []).every((inning, inningIndex) => {
@@ -51,7 +51,7 @@ export const getScoringSyncWarning = (id: string): string | null => {
     return items[id] || null;
   } catch { return null; }
 };
-const markScoringSyncWarning = (id: string, message: string) => {
+export const markScoringSyncWarning = (id: string, message: string) => {
   try {
     const items: Record<string, string> = JSON.parse(localStorage.getItem(SYNC_CONFLICTS_KEY) || '{}');
     items[id] = message;
@@ -60,7 +60,7 @@ const markScoringSyncWarning = (id: string, message: string) => {
     publishScoringSaveState(id, 'attention');
   } catch { /* Retain the original pending snapshot even if warning storage fails. */ }
 };
-const clearScoringSyncWarning = (id: string) => {
+export const clearScoringSyncWarning = (id: string) => {
   try {
     const items: Record<string, string> = JSON.parse(localStorage.getItem(SYNC_CONFLICTS_KEY) || '{}');
     delete items[id];

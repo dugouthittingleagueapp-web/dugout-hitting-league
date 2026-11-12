@@ -423,7 +423,9 @@ export const MatchSetup: React.FC<MatchSetupProps> = ({ homeTeam, awayTeam, onSt
       </div>
 
       <div className="space-y-6">
-        {forfeitEval.isForfeit && (
+        {isPlayableLineup(effectiveHomeLineup.map(p => p.id)) &&
+          isPlayableLineup(effectiveAwayLineup.map(p => p.id)) &&
+          forfeitEval.isForfeit && (
           <div className="bg-red-50 dark:bg-red-950/30 border-2 border-red-500/60 rounded-xl p-4 text-xs font-sans text-red-900 dark:text-red-200 shadow-md animate-in fade-in">
             <div className="flex items-center gap-2 mb-2 font-black text-sm text-red-600 dark:text-red-400 uppercase tracking-wider">
               <span>⚠️</span>

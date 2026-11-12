@@ -167,6 +167,17 @@ export const deleteLeague = async (id: string, season?: string) => {
 const PENDING_MATCHES_KEY = 'dugout_pending_sync_matches';
 const PENDING_TEAMS_KEY = 'dugout_pending_sync_teams';
 
+// Do not show a false "Saved" checkmark for offline changes awaiting upload.
+export const hasPendingMatchSync = (matchId: string): boolean => {
+  if (typeof window === 'undefined') return false;
+  try {
+    const raw = localStorage.getItem(PENDING_MATCHES_KEY);
+    return !!raw && Object.prototype.hasOwnProperty.call(JSON.parse(raw), matchId);
+  } catch {
+    return false;
+  }
+};
+
 export const enqueuePendingMatchSync = (match: Match) => {
   if (typeof window === 'undefined') return;
   try {
@@ -868,7 +879,7 @@ export const calculateTeamGameTotal = (side: 'home' | 'away', matchData?: Match 
 // overwriting a newer pitch or lineup update in Neon.
 const matchWriteQueues = new Map<string, Promise<void>>();
 
-export const updateMatch = (match: Match, options?: { requireServerSave?: boolean }): Promise<Match> => {
+export const updateMatch = (match: Match, options?: { requireServerSave?: boolean; onSyncStatus?: (status: 'saved' | 'pending') => void }): Promise<Match> => {
     const previous = matchWriteQueues.get(match.id) || Promise.resolve();
     const write = previous.catch(() => {}).then(() => performMatchUpdate(match, options));
     const settled = write.then(() => {}, () => {});
@@ -879,7 +890,7 @@ export const updateMatch = (match: Match, options?: { requireServerSave?: boolea
     return write;
 };
 
-const performMatchUpdate = async (match: Match, options?: { requireServerSave?: boolean }): Promise<Match> => {
+const performMatchUpdate = async (match: Match, options?: { requireServerSave?: boolean; onSyncStatus?: (status: 'saved' | 'pending') => void }): Promise<Match> => {
     // Only optimistic-cache offline pitch updates; explicit confirmed saves must wait for Neon.
     if (!options?.requireServerSave && typeof window !== 'undefined') {
         try {
@@ -902,6 +913,7 @@ const performMatchUpdate = async (match: Match, options?: { requireServerSave?: 
             dequeuePendingMatchSync(match.id);
             const data = await res.json();
             const saved = mapMatchFromDB(data);
+            options?.onSyncStatus?.('saved');
             if (options?.requireServerSave && typeof window !== 'undefined') {
                 try {
                     localStorage.setItem(`dugout_match_${saved.id}`, JSON.stringify(saved));
@@ -916,11 +928,13 @@ const performMatchUpdate = async (match: Match, options?: { requireServerSave?: 
                 throw new Error(details.error || `Failed to save match (HTTP ${res.status})`);
             }
             enqueuePendingMatchSync(match);
+            options?.onSyncStatus?.('pending');
         }
     } catch (err) {
         if (options?.requireServerSave) throw err;
         console.warn('Network sync failed (phone offline/disconnected), match saved in local storage and queued for background sync', err);
         enqueuePendingMatchSync(match);
+        options?.onSyncStatus?.('pending');
     }
     return match;
 };

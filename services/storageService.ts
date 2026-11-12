@@ -6,7 +6,8 @@ import { sortMatchesChronologically } from '../utils/matchSort';
 import { detectForfeit, isForfeitMatch, getForfeitingTeamId } from './matchHelpers';
 import { coalesceInFlightGet } from '../utils/requestCoalescer';
 import { mapMatchFromDB, mapTeamFromDB } from '../utils/dbMappers';
-import { calculateTeamInningTotal, calculateTeamGameTotal } from '../utils/scoreTotals';
+import { leaguesMatch, normalizeLeague } from '../utils/leagueNames';
+export { leaguesMatch, normalizeLeague } from '../utils/leagueNames';
 export { calculateTeamInningTotal, calculateTeamGameTotal } from '../utils/scoreTotals';
 import {
   PENDING_MATCHES_KEY,
@@ -31,15 +32,6 @@ export {
 export type { ScoringSaveState } from './offlineSync';
 
 export { sortMatchesChronologically };
-
-export const normalizeLeague = (league?: string | null): string => {
-  return (league || '').trim().toLowerCase();
-};
-
-export const leaguesMatch = (leagueA?: string | null, leagueB?: string | null): boolean => {
-  if (!leagueA || !leagueB) return false;
-  return normalizeLeague(leagueA) === normalizeLeague(leagueB);
-};
 
 // Helper to format name as First L.
 const formatName = (p: { name: string, lastName?: string }) => 

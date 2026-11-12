@@ -1,6 +1,6 @@
 import pool from './db.js';
 import { hashPassword } from './auth.js';
-import { requiredInitialPassword } from './passwordPolicy.js';
+import { requiredInitialPassword } from '../server/passwordPolicy.js';
 
 export interface Migration {
   version: number;

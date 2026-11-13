@@ -1819,7 +1819,8 @@ const App: React.FC = () => {
         <PracticeSetupModal
             isOpen={showPracticeModal}
             onClose={() => setShowPracticeModal(false)}
-            currentLeague={state.currentLeague || (leagues[0]?.id as AgeGroup) || '7-9'}
+            currentLeague={state.view === 'admin' ? '' : (state.currentLeague || (leagues[0]?.id as AgeGroup) || '7-9')}
+            allowLeagueSelection={state.view === 'admin'}
             season={state.season}
             teams={leagueTeams.length > 0 ? leagueTeams : teams.filter(t => storage.leaguesMatch(t.league, state.currentLeague || (leagues[0]?.id as AgeGroup) || '7-9'))}
             onStartPractice={handleStartPractice}

@@ -35,6 +35,19 @@ describe('Consolidated release: scoring controls are not accidentally reverted',
     expect(app).toContain("view: 'league_select', currentLeague: null, currentMatchId: null");
   });
 
+  it('lets Admin pick a league for practice without changing league-dashboard practice setup', () => {
+    const app = read('App.tsx');
+    const modal = read('components/PracticeSetupModal.tsx');
+    expect(app).toContain("allowLeagueSelection={state.view === 'admin'}");
+    expect(modal).toContain('storage.getLeagues(season), storage.getTeams(null, season)');
+    expect(modal).toContain('id="practice-league-select"');
+    expect(modal).toContain("setSelectedPracticeLeague(event.target.value)");
+    expect(modal).toContain("storage.leaguesMatch(team.league, selectedPracticeLeague)");
+    expect(modal).toContain("league: effectiveLeague");
+    expect(modal).toContain('Practice games do not count toward official standings');
+    expect(modal).not.toContain('automatically deleted on exit');
+  });
+
   it('keeps the operational guide anchored at the top with its own scroll area', () => {
     const guide = read('components/UserGuide.tsx');
     expect(guide).toContain('flex items-start justify-center');

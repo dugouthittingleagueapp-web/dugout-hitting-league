@@ -7,7 +7,7 @@ import { applyLineupToMatch, getUnsafeLineupChangeReason, formatFullPlayerName, 
 import { isPlaceholderPlayerName } from '../utils/statsEditorHelper.js';
 import { detectForfeit, getUnknownLineupIds } from '../services/matchHelpers';
 import { explainSaveError } from '../utils/friendlyErrors';
-import { withPitchScore } from '../utils/pitchUpdate';
+import { setPitchScore, setTieBreakerPitchScore } from '../utils/scorePatches';
 import { calculateTeamInningTotal, calculateTeamGameTotal as getTeamGameTotal } from '../utils/scoreTotals';
 import { getLiveInningIndex } from '../utils/liveInning';
 import { useScreenWakeLock } from '../hooks/useScreenWakeLock';
@@ -290,24 +290,11 @@ const ScoringBoardContent: React.FC<ScoreboardProps & { saveState?: storage.Scor
       if (!match) return;
       const prevPitchIdx = currentPitchIdx - 1;
       if (prevPitchIdx < 0) return;
-      const newMatch: Match = JSON.parse(JSON.stringify(match));
-      if (roundIdx !== undefined && newMatch.tieBreaker) {
-          const round = newMatch.tieBreaker[roundIdx];
-          if (round) {
-              if (side === 'home') round.homeScores[prevPitchIdx] = null;
-              else round.awayScores[prevPitchIdx] = null;
-              setActiveCell({ side, lineupIdx: 0, pitchIdx: prevPitchIdx, roundIdx });
-          }
-      } else {
-          const inning = newMatch.innings?.[activeInningIdx];
-          if (inning) {
-              const teamData = side === 'home' ? inning.home : inning.away;
-              if (teamData?.playerScores?.[lineupIdx]?.pitches?.[prevPitchIdx]) {
-                  teamData.playerScores[lineupIdx].pitches[prevPitchIdx].points = null;
-                  setActiveCell({ side, lineupIdx, pitchIdx: prevPitchIdx });
-              }
-          }
-      }
+      const newMatch = roundIdx !== undefined
+        ? setTieBreakerPitchScore(match, roundIdx, side, prevPitchIdx, null)
+        : setPitchScore(match, activeInningIdx, side, lineupIdx, prevPitchIdx, null);
+      if (newMatch === match) return;
+      setActiveCell({ side, lineupIdx: roundIdx !== undefined ? 0 : lineupIdx, pitchIdx: prevPitchIdx, ...(roundIdx !== undefined ? { roundIdx } : {}) });
       // Final-game corrections must be confirmed by the server before display.
       if (match.isComplete) {
         try {
@@ -338,7 +325,8 @@ const ScoringBoardContent: React.FC<ScoreboardProps & { saveState?: storage.Scor
     if (!teamData?.playerScores?.[lineupIdx]?.pitches?.[pitchIdx]) return;
     const existingValue = teamData.playerScores[lineupIdx].pitches[pitchIdx].points;
     const isEdit = existingValue !== null;
-    const newMatch = withPitchScore(match, targetInningIdx, side, lineupIdx, pitchIdx, val);
+    const newMatch = setPitchScore(match, targetInningIdx, side, lineupIdx, pitchIdx, val);
+    if (newMatch === match) return;
     if (match.isComplete) {
       // Do not optimistically show or queue changes to official final results.
       try {
@@ -411,17 +399,16 @@ const ScoringBoardContent: React.FC<ScoreboardProps & { saveState?: storage.Scor
   };
 
   const handleTieBreakerScore = async (roundIdx: number, side: 'home'|'away', pitchIdx: number, val: number) => {
-      if(!match?.tieBreaker) return;
-      const newMatch: Match = JSON.parse(JSON.stringify(match));
-      const cur = newMatch.tieBreaker?.[roundIdx];
+      if(isReadOnly || !match?.tieBreaker) return;
+      const cur = match.tieBreaker[roundIdx];
       if (!cur) return;
       const limit = cur.pitchLimit;
-      const existing = side === 'home' ? cur.homeScores[pitchIdx] : cur.awayScores[pitchIdx];
+      const scores = side === 'home' ? cur.homeScores : cur.awayScores;
+      const existing = scores[pitchIdx];
+      if (existing === undefined) return;
       const isEdit = existing !== null;
-      if (side === 'home') cur.homeScores[pitchIdx] = val; else cur.awayScores[pitchIdx] = val;
-      if (!newMatch.isComplete) {
-        newMatch.status = 'IN_PROGRESS';
-      }
+      const newMatch = setTieBreakerPitchScore(match, roundIdx, side, pitchIdx, val);
+      if (newMatch === match) return;
       if (match.isComplete) {
         try {
           setMatch(await storage.updateMatch(newMatch, { requireServerSave: true }));

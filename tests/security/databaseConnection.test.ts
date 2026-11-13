@@ -4,6 +4,7 @@ import { selectDatabaseConnectionString } from '../../server/databaseConnection'
 const productionUrl = 'postgresql://user:test@ep-purple-sea-a42guhf9.us-east-1.aws.neon.tech/neondb';
 const previewUrl = 'postgresql://user:test@ep-red-tree-a46hwgra-pooler.us-east-1.aws.neon.tech/neondb';
 const consolidatedUrl = 'postgresql://user:test@ep-divine-smoke-a4lyo8af-pooler.us-east-1.aws.neon.tech/neondb';
+const rehearsalUrl = 'postgresql://user:test@ep-divine-hill-a468bxzz-pooler.us-east-1.aws.neon.tech/neondb';
 const sharedIntegrationUrl = 'postgresql://user:test@ep-purple-sea-a42guhf9.us-east-1.aws.neon.tech/neondb';
 
 describe('Environment-isolated Neon database routing', () => {
@@ -28,6 +29,25 @@ describe('Environment-isolated Neon database routing', () => {
       VERCEL_ENV: 'preview',
       VERCEL_GIT_COMMIT_REF: 'review/consolidated-final-nov12',
       Database_url: productionUrl,
+    })).toThrow(/unexpected Neon endpoint/);
+  });
+
+  it('permits only the upgraded rehearsal database on the dedicated Preview', () => {
+    expect(selectDatabaseConnectionString({
+      VERCEL_ENV: 'preview',
+      VERCEL_GIT_COMMIT_REF: 'review/rehearsal-scoring-nov13',
+      Database_url: rehearsalUrl,
+      DATABASE_URL: productionUrl,
+    })).toBe(rehearsalUrl);
+    expect(() => selectDatabaseConnectionString({
+      VERCEL_ENV: 'preview',
+      VERCEL_GIT_COMMIT_REF: 'review/rehearsal-scoring-nov13',
+      Database_url: productionUrl,
+    })).toThrow(/unexpected Neon endpoint/);
+    expect(() => selectDatabaseConnectionString({
+      VERCEL_ENV: 'preview',
+      VERCEL_GIT_COMMIT_REF: 'review/rehearsal-scoring-nov13',
+      Database_url: consolidatedUrl,
     })).toThrow(/unexpected Neon endpoint/);
   });
 

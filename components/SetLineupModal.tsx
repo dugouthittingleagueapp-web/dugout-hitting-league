@@ -123,7 +123,7 @@ export const SetLineupModal: React.FC<SetLineupModalProps> = ({
   const handleAddToLineup = (playerId: string) => {
     if (currentLineup.includes(playerId)) return;
     if (currentLineup.length >= 3) {
-      setErrorMessage('Youth 3v3 lineup maximum is 3 active batters.');
+      setErrorMessage('You can have up to 3 players batting at once.');
       return;
     }
     setErrorMessage(null);
@@ -224,11 +224,11 @@ export const SetLineupModal: React.FC<SetLineupModalProps> = ({
     const invalidAwayIds = getUnknownLineupIds(awayTeam, awayLineup);
     if (invalidHomeIds.length || invalidAwayIds.length) {
       setActiveSide(invalidAwayIds.length ? 'away' : 'home');
-      setErrorMessage('The saved lineup contains players no longer on this team roster. Choose valid roster players or registered substitutes before saving.');
+      setErrorMessage("One of these players isn't on the team list. Please choose players from the list below.");
       return;
     }
     if (new Set(homeLineup).size !== homeLineup.length || new Set(awayLineup).size !== awayLineup.length) {
-      setErrorMessage('A batter cannot appear twice in the same lineup.');
+      setErrorMessage('You picked the same player twice. Please choose a different player.');
       return;
     }
 

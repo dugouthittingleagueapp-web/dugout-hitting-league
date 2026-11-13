@@ -14,13 +14,28 @@
 - Added Preview database routing test, single-Exit/save-indicator regression test and student-umpire message guidelines.
 - Reused the baseline's already-implemented TLS certificate verification and strong password/secret rules, rather than replacing them with older implementations.
 
-## Other branches reviewed, intentionally NOT blindly merged
-- `fix/restore-scoring-save-indicators`: older-base implementation; the current baseline already has a more complete save-state protocol and one Exit button. Do not overwrite it.
-- `safety/migration-tls-review-nov12`: older-base implementation; its reviewed migration guard/baseline design was adapted, while keeping the newer baseline's TLS and password policies.
-- `refactor/lightweight-dashboard-sync`, `perf/score-button-inp`: divergent work on incremental dashboard refresh, latency, and score patching. Similar fixes already exist in baseline; branch-only changes need their own parity/performance review, not automatic merging.
-- `feat/atomic-pitch-sync` and `feature/atomic-pitch-sync`: two **different** experimental individual-pitch API implementations. Each explicitly requires database/device concurrency and offline tests. Enabling either without rehearsing migration and reconciliation could put scores at risk; they are **deferred**, not silently treated as included.
-- `fix/nov9-lineup-forfeit-umpire`: ancestor/older fixes already incorporated in development baseline.
-- `main`: old deployed Production; intentionally not used as the Preview base.
+## Complete GitHub branch audit (2026-11-13)
+
+All ten currently listed branches were compared against this consolidated review branch. The following classifications are based on inspected source files and open PR descriptions, not simply on commit counts.
+
+| Branch / preview work | Disposition in consolidated preview |
+| --- | --- |
+| `main` | Older Production release; all ancestors retained in review history, no Production changes |
+| `fix/nov9-lineup-forfeit-umpire` | Earlier merged fix already included in foundation |
+| `refactor/network-and-sync-foundation` | Direct foundation; scoring locks, offline safeguards, guide, admin and saved indicators retained |
+| `fix/restore-scoring-save-indicators` | Alternate older-base implementation superseded by foundation's more complete status events. The ✓ confirmation, saving, offline and attention states remain present |
+| `safety/migration-tls-review-nov12` | Schema-baseline guard and manual six-migration baseline incorporated; newer foundation's TLS and credential protection retained instead of copying legacy files |
+| `refactor/lightweight-dashboard-sync` | Functional goal already covered by foundation's `api/matches-delta.ts`, 304 dashboard signatures, match revision cache, and tests; no duplicate polling hook |
+| `perf/score-button-inp` | Previously incomplete: now integrated tested immutable 0–4 score, undo, tie-break helpers and removed duplicate haptic. Existing safe save/revision handling retained |
+| `feature/atomic-pitch-sync` | **Experimental and excluded:** competing `/api/pitches` implementation; requires multi-device + outage safety tests |
+| `feat/atomic-pitch-sync` | **Experimental and excluded:** competing `/api/pitch` implementation; requires same independent safety tests. Cannot safely include both competing APIs |
+| `review/consolidated-final-nov12` | Current review build; contains the above verified stable features plus isolated Neon preview, guide scroll, admin button priority and regression tests |
+
+### Additional friendly umpire wording
+Easy-to-understand roster and practice-game alerts were carried over from the atomic feature branch independently of its untested pitch-saving protocol. Lineup minimum-player logic was deliberately left untouched so the previously repaired one-regular-plus-subs workflow is not reverted.
+
+### No false 100% promise
+An identical cherry-pick of every branch would overwrite later security and scoring controls or enable incompatible draft APIs. This review includes safe features and **records all excluded experimental branches**; it does not assert that all untested code is release-ready.
 
 ## Preview QA
 - Automated TypeScript, Vitest, Vite and Vercel build must pass on the final review SHA.

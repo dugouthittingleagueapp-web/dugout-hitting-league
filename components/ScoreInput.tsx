@@ -163,7 +163,7 @@ export const ScoreInput: React.FC<ScoreInputProps> = ({
                           <button 
                             key={score} 
                             type="button"
-                            onPointerDown={() => triggerHaptic('score')}
+                            
                             onClick={() => handleSelect(score)} 
                             aria-label={`Score ${score}`}
                             aria-pressed={isSelected} 

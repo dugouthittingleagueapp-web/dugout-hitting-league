@@ -23,8 +23,6 @@ const SCORING_PREVIEW_HOST = 'ep-red-tree-a46hwgra.us-east-1.aws.neon.tech';
 const SCORING_PREVIEW_BRANCH = 'refactor/network-and-sync-foundation';
 const CONSOLIDATED_REVIEW_BRANCH = 'review/consolidated-final-nov12';
 const CONSOLIDATED_REVIEW_HOST = 'ep-divine-smoke-a4lyo8af.us-east-1.aws.neon.tech';
-const REHEARSAL_BRANCH = 'review/rehearsal-scoring-nov13';
-const REHEARSAL_HOST = 'ep-divine-hill-a468bxzz.us-east-1.aws.neon.tech';
 
 const normalizeUrl = (value: string): string =>
   value.trim().replace(/^(['"])(.*)\1$/, '$2').trim();
@@ -68,9 +66,6 @@ export const selectDatabaseConnectionString = (environment: DatabaseEnvironment)
     } else if (vercelEnvironment === 'preview' &&
         environment.VERCEL_GIT_COMMIT_REF === CONSOLIDATED_REVIEW_BRANCH) {
       assertExpectedHost(scopedUrl, CONSOLIDATED_REVIEW_HOST, 'Consolidated Review Preview');
-    } else if (vercelEnvironment === 'preview' &&
-        environment.VERCEL_GIT_COMMIT_REF === REHEARSAL_BRANCH) {
-      assertExpectedHost(scopedUrl, REHEARSAL_HOST, 'Scoring Rehearsal Preview');
     }
     return scopedUrl;
   }

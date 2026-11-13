@@ -261,7 +261,7 @@ export const AdminDashboard: React.FC<{
   return (
     <div className="max-w-5xl mx-auto px-3 sm:px-6 py-4 sm:py-6 pb-24 w-full font-sans">
       {/* Top Header */}
-      <div className="relative z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-5 sm:mb-8">
+      <div className="relative z-[1200] flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-5 sm:mb-8 pointer-events-auto">
           <div>
               <div className="flex items-center gap-2">
                 <h2 className="text-xl sm:text-3xl font-black text-slate-900 dark:text-white font-sans tracking-tight">Admin Dashboard</h2>
@@ -285,15 +285,15 @@ export const AdminDashboard: React.FC<{
               )}
               <button 
                   type="button"
-                  onClick={() => setShowGuide(true)} 
-                  className="px-3 py-1.5 sm:px-4 sm:py-2 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 hover:bg-blue-200 dark:hover:bg-blue-900/50 rounded-lg text-xs sm:text-sm font-bold font-sans transition-colors cursor-pointer"
+                  onClick={(event) => { event.preventDefault(); event.stopPropagation(); setShowGuide(true); }} 
+                  className="relative z-[1201] pointer-events-auto px-3 py-1.5 sm:px-4 sm:py-2 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 hover:bg-blue-200 dark:hover:bg-blue-900/50 rounded-lg text-xs sm:text-sm font-bold font-sans transition-colors cursor-pointer"
               >
                   Guide
               </button>
               <button 
                   type="button"
-                  onClick={() => onBack()} 
-                  className="px-3 py-1.5 sm:px-4 sm:py-2 bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 rounded-lg text-slate-700 dark:text-slate-300 text-xs sm:text-sm font-bold font-sans transition-colors cursor-pointer"
+                  onClick={(event) => { event.preventDefault(); event.stopPropagation(); onBack(); }} 
+                  className="relative z-[1201] pointer-events-auto px-3 py-1.5 sm:px-4 sm:py-2 bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 rounded-lg text-slate-700 dark:text-slate-300 text-xs sm:text-sm font-bold font-sans transition-colors cursor-pointer"
               >
                   ← Exit Admin
               </button>

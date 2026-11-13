@@ -57,7 +57,7 @@ describe('Every UI screen has connected controls', () => {
     let checked = 0;
     for (const path of uiFiles) {
       const missing = openingTags(read(path), 'button')
-        .filter(({ tag }) => !/\\bonClick\\s*=/.test(tag) && !/\\btype\\s*=\\s*["']submit["']/.test(tag))
+        .filter(({ tag }) => !/\bonClick\s*=/.test(tag) && !/\btype\s*=\s*["']submit["']/.test(tag))
         .map(({ line }) => `${path}:${line}`);
       expect(missing, `Buttons without an action in ${path}`).toEqual([]);
       checked += openingTags(read(path), 'button').length;
@@ -69,7 +69,7 @@ describe('Every UI screen has connected controls', () => {
     let checked = 0;
     for (const path of uiFiles) {
       const missing = openingTags(read(path), 'select')
-        .filter(({ tag }) => !/\\bonChange\\s*=/.test(tag))
+        .filter(({ tag }) => !/\bonChange\s*=/.test(tag))
         .map(({ line }) => `${path}:${line}`);
       expect(missing, `Dropdowns without an action in ${path}`).toEqual([]);
       checked += openingTags(read(path), 'select').length;
@@ -80,7 +80,7 @@ describe('Every UI screen has connected controls', () => {
   it('connects forms to submit handlers', () => {
     for (const path of uiFiles) {
       const missing = openingTags(read(path), 'form')
-        .filter(({ tag }) => !/\\bonSubmit\\s*=/.test(tag))
+        .filter(({ tag }) => !/\bonSubmit\s*=/.test(tag))
         .map(({ line }) => `${path}:${line}`);
       expect(missing, `Forms without a submit handler in ${path}`).toEqual([]);
     }

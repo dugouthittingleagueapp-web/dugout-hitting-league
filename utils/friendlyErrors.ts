@@ -39,7 +39,7 @@ export const explainSaveError = (
   if (/\b(404|match not found|team not found)\b/i.test(raw)) {
     return 'We could not find this game or team. Please ask the person running the league to check it. Do not create another game.';
   }
-  if (/\\b(423|scoring_locked)\\b|another umpire|scoring is not ready|transfer control/i.test(raw)) {
+  if (/\b(423|scoring_locked)\b|another umpire|scoring is not ready|transfer control/i.test(raw)) {
     return 'Another umpire is scoring this game. Your latest change was not confirmed. Keep this page open and ask the person running the league to help.';
   }
   if (/\b(409|428|conflict|another device|lineup or pitch has changed)\b/i.test(raw)) {

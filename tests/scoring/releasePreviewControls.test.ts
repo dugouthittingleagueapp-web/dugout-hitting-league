@@ -24,6 +24,17 @@ describe('Consolidated release: scoring controls are not accidentally reverted',
     expect(storage).toContain("publishScoringSaveState(match.id, 'offline')");
   });
 
+  it('keeps Guide and Exit Admin clickable above the navigation overlay', () => {
+    const admin = read('components/AdminDashboard.tsx');
+    const app = read('App.tsx');
+    expect(admin).toContain('relative z-[1200]');
+    expect(admin).toContain('relative z-[1201] pointer-events-auto');
+    expect(admin).toContain('setShowGuide(true)');
+    expect(admin).toContain('event.stopPropagation(); onBack();');
+    expect(admin).toContain('createPortal(<UserGuide onClose={() => setShowGuide(false)} />, document.body)');
+    expect(app).toContain("view: 'league_select', currentLeague: null, currentMatchId: null");
+  });
+
   it('keeps the operational guide anchored at the top with its own scroll area', () => {
     const guide = read('components/UserGuide.tsx');
     expect(guide).toContain('flex items-start justify-center');

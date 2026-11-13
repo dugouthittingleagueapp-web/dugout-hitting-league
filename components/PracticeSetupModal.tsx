@@ -313,7 +313,7 @@ export const PracticeSetupModal: React.FC<PracticeSetupModalProps> = ({
           {/* Roster Size / Format Preset */}
           <div>
             <label className="text-xs font-black uppercase tracking-wider text-slate-500 dark:text-slate-400 block mb-2">
-              Step 2: Simulation Format
+              {allowLeagueSelection ? 'Step 3: Simulation Format' : 'Step 2: Simulation Format'}
             </label>
             <div className="grid grid-cols-3 gap-2">
               <button

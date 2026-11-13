@@ -110,7 +110,7 @@ export const MatchSetup: React.FC<MatchSetupProps> = ({ homeTeam, awayTeam, onSt
       const setter = subSide === 'left' ? setLeftSideLineup : setRightSideLineup;
       
       if (list.find(p => p.id === player.id)) {
-          alert("Player already in lineup");
+          alert("That player is already batting. Please pick someone else.");
           return;
       }
       
@@ -129,12 +129,12 @@ export const MatchSetup: React.FC<MatchSetupProps> = ({ homeTeam, awayTeam, onSt
           return;
       }
       if (isPlaceholderPlayerName(trimmed)) {
-          alert("Please enter the player's actual name rather than a generic placeholder like 'Sub' or 'Player 1' so their stats can be credited.");
+          alert("Please enter the player's name, like Jack S., so we can keep their scores together.");
           return;
       }
       const list = subSide === 'left' ? getLeftSideLineup() : getRightSideLineup();
       if (list.some(p => p.name.toLowerCase() === trimmed.toLowerCase())) {
-          alert("A player with this name is already in the lineup");
+          alert("A player with that name is already batting. Please check before adding them again.");
           return;
       }
       const newPlayer: Player = { id: storage.generateUUID(), name: trimmed };
@@ -145,11 +145,11 @@ export const MatchSetup: React.FC<MatchSetupProps> = ({ homeTeam, awayTeam, onSt
     if (!editingPlayer) return;
     const trimmed = editingPlayer.name.trim();
     if (!trimmed) {
-      alert("Player name cannot be empty");
+      alert("Please enter a player name.");
       return;
     }
     if (isPlaceholderPlayerName(trimmed)) {
-      alert("Please enter a real player name instead of a placeholder.");
+      alert("Please enter the player's name, like Jack S.");
       return;
     }
 

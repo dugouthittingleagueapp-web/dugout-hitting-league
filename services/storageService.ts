@@ -923,11 +923,14 @@ export const updateMatch = (match: Match, options?: { requireServerSave?: boolea
 const performMatchUpdate = async (match: Match, options?: { requireServerSave?: boolean }): Promise<Match> => {
     const revision = knownMatchRevisions.get(match.id) ?? match.revision ?? 0;
     const outgoing: Match = { ...match, revision };
+    // Reuse the same snapshot for offline recovery and the server request.
+    // The scoring path should not stringify an entire game twice per pitch.
+    const serializedOutgoing = JSON.stringify(outgoing);
     publishScoringSaveState(match.id, 'saving');
     // Only optimistic-cache offline pitch updates; explicit confirmed saves must wait for Neon.
     if (!options?.requireServerSave && typeof window !== 'undefined') {
         try {
-            localStorage.setItem(`dugout_match_${match.id}`, JSON.stringify(outgoing));
+            localStorage.setItem(`dugout_match_${match.id}`, serializedOutgoing);
             if (!match.isComplete && match.status === 'IN_PROGRESS') {
                 localStorage.setItem('dugout_active_match_id', match.id);
             } else if (match.isComplete) {
@@ -940,7 +943,7 @@ const performMatchUpdate = async (match: Match, options?: { requireServerSave?: 
         const res = await apiFetch('/api/matches', {
             method: 'PUT',
             headers: matchWriteHeaders(match.id),
-            body: JSON.stringify(outgoing)
+            body: serializedOutgoing
         });
         if (res.ok) {
             // A successful write must not erase a different, newer offline

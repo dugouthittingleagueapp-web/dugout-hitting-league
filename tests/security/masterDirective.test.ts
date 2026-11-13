@@ -25,6 +25,8 @@ describe('MASTER ENGINEERING DIRECTIVE — Security & Architecture Audit', () =>
   };
 
   beforeEach(() => {
+    // Tests use their own private signing key, never the production key.
+    vi.stubEnv('SESSION_SECRET', 'unit-test-only-session-secret-not-for-live-use-2026');
     mockStorage = {};
     if (typeof (global as any).window === 'undefined') {
       (global as any).window = global;
@@ -35,6 +37,7 @@ describe('MASTER ENGINEERING DIRECTIVE — Security & Architecture Audit', () =>
 
   afterEach(() => {
     vi.restoreAllMocks();
+    vi.unstubAllEnvs();
   });
 
   // Test teams

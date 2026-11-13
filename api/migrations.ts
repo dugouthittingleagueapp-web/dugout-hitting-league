@@ -1,5 +1,6 @@
 import pool from './db.js';
 import { hashPassword } from './auth.js';
+import { requiredInitialPassword } from '../server/passwordPolicy.js';
 
 export interface Migration {
   version: number;
@@ -125,7 +126,7 @@ export const migrations: Migration[] = [
       const adminRes = await client.query("SELECT value FROM app_settings WHERE key = 'admin_password';");
       const currentAdmin = adminRes.rows[0]?.value;
       if (!currentAdmin) {
-        const initialHash = await hashPassword(process.env.ADMIN_PASSWORD || 'admin');
+        const initialHash = await hashPassword(requiredInitialPassword('admin', process.env.ADMIN_PASSWORD));
         await client.query("INSERT INTO app_settings (key, value) VALUES ('admin_password', $1);", [initialHash]);
       } else if (!/^\$2[aby]\$\d{2}\$/.test(currentAdmin)) {
         // Upgrade legacy plaintext to secure bcrypt hash
@@ -136,7 +137,7 @@ export const migrations: Migration[] = [
       const umpireRes = await client.query("SELECT value FROM app_settings WHERE key = 'umpire_password';");
       const currentUmpire = umpireRes.rows[0]?.value;
       if (!currentUmpire) {
-        const initialUmpireHash = await hashPassword(process.env.UMPIRE_PASSWORD || 'umpire');
+        const initialUmpireHash = await hashPassword(requiredInitialPassword('umpire', process.env.UMPIRE_PASSWORD));
         await client.query("INSERT INTO app_settings (key, value) VALUES ('umpire_password', $1);", [initialUmpireHash]);
       } else if (!/^\$2[aby]\$\d{2}\$/.test(currentUmpire)) {
         // Upgrade legacy plaintext to secure bcrypt hash
@@ -154,6 +155,26 @@ export const migrations: Migration[] = [
       await client.query(`ALTER TABLE matches ADD COLUMN IF NOT EXISTS forfeit_reason TEXT;`);
       await client.query(`CREATE INDEX IF NOT EXISTS idx_matches_forfeit ON matches (is_forfeit);`);
     }
+  },
+  {
+    version: 5,
+    name: '005_exclusive_scoring_locks',
+    up: async (client) => {
+      await client.query(`
+        CREATE TABLE IF NOT EXISTS scoring_locks (
+          match_id TEXT PRIMARY KEY,
+          token_hash TEXT NOT NULL,
+          updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        );
+      `);
+    }
+  },
+  {
+    version: 6,
+    name: '006_match_revisions',
+    up: async (client) => {
+      await client.query(`ALTER TABLE matches ADD COLUMN IF NOT EXISTS revision BIGINT NOT NULL DEFAULT 0;`);
+    }
   }
 ];
 
@@ -166,6 +187,24 @@ export async function runMigrations(): Promise<{ applied: number; versions: numb
   const appliedVersions: number[] = [];
 
   try {
+    // A live database may predate this migration runner. Creating an empty
+    // history table and re-running every migration could change legacy data.
+    // Require a reviewed, one-time baseline before any automatic updates.
+    const history = await client.query(`
+      SELECT to_regclass('public.schema_migrations') IS NOT NULL AS tracked,
+             EXISTS (
+               SELECT 1 FROM information_schema.tables
+               WHERE table_schema = 'public'
+                 AND table_name IN ('leagues', 'teams', 'matches', 'app_settings')
+             ) AS existing_application
+    `);
+    if (!history.rows[0].tracked && history.rows[0].existing_application) {
+      throw new Error(
+        '[MIGRATIONS] Database already contains league data without migration history. ' +
+        'Refusing automatic changes until a reviewed baseline is recorded.'
+      );
+    }
+
     // 1. Ensure migrations version table exists
     await client.query(`
       CREATE TABLE IF NOT EXISTS schema_migrations (

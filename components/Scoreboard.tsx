@@ -1,12 +1,19 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { Match, Inning, Team, TieBreakerRound, Player } from '../types';
+import { Match, Team, Player } from '../types';
 import * as storage from '../services/storageService';
 import { ScoreInput } from './ScoreInput';
-import { applyLineupToMatch, getUnsafeLineupChangeReason, formatFullPlayerName, getMatchStatus } from '../utils/lineupHelper';
+import { applyLineupToMatch, getUnsafeLineupChangeReason, formatFullPlayerName, getMatchStatus, moveBatterUp, moveBatterDown } from '../utils/lineupHelper';
 import { isPlaceholderPlayerName } from '../utils/statsEditorHelper.js';
 import { detectForfeit, getUnknownLineupIds } from '../services/matchHelpers';
 import { explainSaveError } from '../utils/friendlyErrors';
+import { setPitchScore, setTieBreakerPitchScore } from '../utils/scorePatches';
+import { calculateTeamInningTotal, calculateTeamGameTotal as getTeamGameTotal } from '../utils/scoreTotals';
+import { getLiveInningIndex } from '../utils/liveInning';
+import { useScreenWakeLock } from '../hooks/useScreenWakeLock';
+import { prepareFinalizedMatch, getFinalizationDecision, getFinalizationMessage, createNextTieBreakerRound, appendTieBreakerRound } from '../utils/gameFinalization';
+import { resolveLineupPlayer } from '../utils/lineupPlayerLookup';
+import { isFinishedScoringLockError } from '../utils/scoringAccess';
 
 interface ScoreboardProps {
   matchId: string;
@@ -16,18 +23,7 @@ interface ScoreboardProps {
   onPlayerClick?: (playerName: string) => void;
 }
 
-const getLiveInningIndex = (m: Match): number => {
-    if (m.tieBreaker && m.tieBreaker.length > 0) return 6;
-    for (let i = 0; i < 6; i++) {
-        const ing = m.innings[i];
-        const isHomeDone = ing.home.playerScores.every(p => p.pitches.every(pt => pt.points !== null));
-        const isAwayDone = ing.away.playerScores.every(p => p.pitches.every(pt => pt.points !== null));
-        if (!isHomeDone || !isAwayDone) return i;
-    }
-    return 5;
-};
-
-export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadOnly = false, userRole = 'fan', onPlayerClick }) => {
+const ScoringBoardContent: React.FC<ScoreboardProps & { saveState?: storage.ScoringSaveState; onRetrySync?: () => void }> = ({ matchId, onExit, isReadOnly = false, userRole = 'fan', onPlayerClick, saveState, onRetrySync }) => {
   const [match, setMatch] = useState<Match | null>(null);
   const [teams, setTeams] = useState<{ home?: Team, away?: Team }>({});
   const [activeInningIdx, setActiveInningIdx] = useState(0); 
@@ -51,6 +47,7 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
 
   const activeInningRef = useRef(activeInningIdx);
   const lastLiveInningRef = useRef<number>(-1);
+  const spectatorCompletedRef = useRef(false);
 
   useEffect(() => {
       activeInningRef.current = activeInningIdx;
@@ -87,48 +84,41 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
       onExit({ savedPractice: false });
   };
 
-  const handleExitAndFinalize = async (forceTie: boolean = false) => {
+  const finalizeMatch = async (source: 'exit' | 'finish', forceTie = false) => {
       if (isReadOnly || !match) return;
-      const hT = calculateTeamGameTotal('home', match);
-      const aT = calculateTeamGameTotal('away', match);
-
-      if (hT === aT && !forceTie && (!match.tieBreaker || match.tieBreaker.length === 0)) {
+      const decision = getFinalizationDecision(match, source, forceTie);
+      if (decision === 'confirm-tie') {
           setConfirmTieExit(true);
           return;
       }
+      if (decision === 'start-extras') {
+          setShowFinishModal(false);
+          setShowTieBreakerSetup(true);
+          return;
+      }
 
-      const finalizedMatch: Match = {
-          ...match,
-          isComplete: true,
-          status: 'FINAL'
-      };
+      // A failed server save must never navigate away or clear the active game.
       try {
-          const saved = await storage.updateMatch(finalizedMatch, { requireServerSave: true });
+          const saved = await storage.updateMatch(prepareFinalizedMatch(match), { requireServerSave: true });
           setMatch(saved);
       } catch (err: any) {
           alert(explainSaveError(err, 'finalize'));
           return;
       }
       try {
-          if (typeof window !== 'undefined') {
-              localStorage.removeItem('dugout_active_match_id');
-          }
+          if (typeof window !== 'undefined') localStorage.removeItem('dugout_active_match_id');
       } catch (e) {}
       setShowExitMenuModal(false);
       setConfirmTieExit(false);
       setShowFinishModal(false);
-
-      const homeName = teams.home?.name || 'Home Team';
-      const awayName = teams.away?.name || 'Away Team';
-      const isPractice = !!(match.isPractice || match.is_practice);
       onExit({
           finalizedMatch: true,
           matchId: match.id,
-          message: isPractice
-              ? `Practice Match Completed! Final Score: ${homeName} ${hT} - ${awayName} ${aT}. Stored on schedule.`
-              : `Match Finalized! Final Score: ${homeName} ${hT} - ${awayName} ${aT}. Official stats and standings recorded.`
+          message: getFinalizationMessage(match, teams, source)
       });
   };
+
+  const handleExitAndFinalize = (forceTie = false) => finalizeMatch('exit', forceTie);
 
   const formatName = (p: { name: string, lastName?: string } | undefined) => {
       if (!p) return 'Unknown';
@@ -137,11 +127,12 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
 
   const spectatorTeamsRef = useRef<{ home?: Team; away?: Team }>({});
   const loadMatchData = async (refreshTeams = true) => {
-      const m = await storage.getMatch(matchId);
+      const m = await storage.getMatch(matchId, { spectator: isReadOnly });
       if (m) {
+        if (isReadOnly) spectatorCompletedRef.current = m.isComplete;
         const cached = spectatorTeamsRef.current;
         const needTeams = refreshTeams || cached.home?.id !== m.homeTeamId || cached.away?.id !== m.awayTeamId;
-        const allTeams = needTeams ? await storage.getAllTeams() : [];
+        const allTeams = needTeams ? await storage.getMatchTeams(m.homeTeamId, m.awayTeamId) : [];
         let home = needTeams ? allTeams.find(t => t.id === m.homeTeamId) : cached.home;
         let away = needTeams ? allTeams.find(t => t.id === m.awayTeamId) : cached.away;
 
@@ -198,30 +189,13 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
       }
   };
 
-  useEffect(() => {
-      let wakeLock: any = null;
-      const requestWakeLock = async () => {
-          try {
-              if ('wakeLock' in navigator) {
-                  wakeLock = await (navigator as any).wakeLock.request('screen');
-              }
-          } catch (err) {}
-      };
-      requestWakeLock();
-      const handleVisibilityChange = () => {
-          if (document.visibilityState === 'visible') requestWakeLock();
-      };
-      document.addEventListener('visibilitychange', handleVisibilityChange);
-      return () => {
-          document.removeEventListener('visibilitychange', handleVisibilityChange);
-          if (wakeLock) wakeLock.release().catch(() => {});
-      };
-  }, []);
+  useScreenWakeLock();
 
   useEffect(() => {
     const init = async () => {
         setLoading(true);
         lastLiveInningRef.current = -1;
+        spectatorCompletedRef.current = false;
         await loadMatchData();
         setLoading(false);
     };
@@ -237,6 +211,9 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
           inFlight = true;
           try {
               ticks++;
+              // Completed games rarely change. Check once per minute instead
+              // of every ten seconds; in-progress games still update live.
+              if (spectatorCompletedRef.current && ticks % 6 !== 0) return;
               await loadMatchData(ticks % 6 === 0);
           } finally {
               inFlight = false;
@@ -255,60 +232,14 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
       };
   }, [matchId, isReadOnly]);
 
-  useEffect(() => {
-      const handleOnline = () => {
-          storage.syncOfflineData();
-      };
-      window.addEventListener('online', handleOnline);
-      return () => window.removeEventListener('online', handleOnline);
-  }, []);
-
-  const calculateTeamInningTotal = (side: 'home' | 'away', inning?: Inning) => {
-    if (!inning) return 0;
-    const teamData = side === 'home' ? inning.home : inning.away;
-    if (!teamData?.playerScores) return 0;
-    return teamData.playerScores.reduce((sum, player) => sum + player.pitches.reduce((pSum, pitch) => pSum + (pitch.points || 0), 0), 0);
-  };
-
-  const calculateTeamGameTotal = (side: 'home' | 'away', matchData?: Match | null) => {
-    const target = matchData || match;
-    if (!target?.innings) return 0;
-    const baseScore = target.innings.reduce((sum, inning) => sum + calculateTeamInningTotal(side, inning), 0);
-    let tieScore = 0;
-    if (target.tieBreaker && Array.isArray(target.tieBreaker)) {
-        target.tieBreaker.forEach(round => {
-            const scores = side === 'home' ? round.homeScores : round.awayScores;
-            if (Array.isArray(scores)) {
-                tieScore += scores.reduce<number>((a, b) => (a || 0) + (b || 0), 0);
-            }
-        });
-    }
-    return baseScore + tieScore;
-  };
+  // Keep the current-game fallback used by the scoring controls.
+  const calculateTeamGameTotal = (side: 'home' | 'away', matchData?: Match | null): number =>
+    getTeamGameTotal(side, matchData || match);
 
   const startTieBreakerRound = async () => {
       if (!match || !teams.home || !teams.away || !tbHomePlayerId || !tbAwayPlayerId) return;
-      let nextLimit = 5;
-      let roundNum = 1;
-      if (match.tieBreaker && match.tieBreaker.length > 0) {
-          const lastRound = match.tieBreaker[match.tieBreaker.length - 1];
-          roundNum = lastRound.roundNumber + 1;
-          if (lastRound.pitchLimit === 5) nextLimit = 3;
-          else nextLimit = 1;
-      }
-      const newRound: TieBreakerRound = {
-          roundNumber: roundNum,
-          pitchLimit: nextLimit,
-          homePlayerId: tbHomePlayerId,
-          awayPlayerId: tbAwayPlayerId,
-          homeScores: Array(nextLimit).fill(null),
-          awayScores: Array(nextLimit).fill(null)
-      };
-      const updatedMatch: Match = JSON.parse(JSON.stringify(match));
-      if (!updatedMatch.tieBreaker) updatedMatch.tieBreaker = [];
-      updatedMatch.tieBreaker.push(newRound);
-      updatedMatch.isComplete = false;
-      updatedMatch.status = 'IN_PROGRESS';
+      const round = createNextTieBreakerRound(match.tieBreaker, tbHomePlayerId, tbAwayPlayerId);
+      const updatedMatch = appendTieBreakerRound(match, round);
       setMatch(updatedMatch);
       await storage.updateMatch(updatedMatch);
       setShowTieBreakerSetup(false);
@@ -349,33 +280,35 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
     setShowFinishModal(false);
     setShowTieBreakerSetup(false);
     setShowResetConfirmModal(false);
-    await storage.updateMatch(resetMatch).catch(console.error);
+    await storage.updateMatch(resetMatch).catch(err => {
+      console.error('Practice reset failed:', err);
+      alert(explainSaveError(err, 'match'));
+    });
   };
 
   const handleUndo = async (side: 'home' | 'away', lineupIdx: number, currentPitchIdx: number, roundIdx?: number) => {
       if (!match) return;
       const prevPitchIdx = currentPitchIdx - 1;
       if (prevPitchIdx < 0) return;
-      const newMatch: Match = JSON.parse(JSON.stringify(match));
-      if (roundIdx !== undefined && newMatch.tieBreaker) {
-          const round = newMatch.tieBreaker[roundIdx];
-          if (round) {
-              if (side === 'home') round.homeScores[prevPitchIdx] = null;
-              else round.awayScores[prevPitchIdx] = null;
-              setActiveCell({ side, lineupIdx: 0, pitchIdx: prevPitchIdx, roundIdx });
-          }
-      } else {
-          const inning = newMatch.innings?.[activeInningIdx];
-          if (inning) {
-              const teamData = side === 'home' ? inning.home : inning.away;
-              if (teamData?.playerScores?.[lineupIdx]?.pitches?.[prevPitchIdx]) {
-                  teamData.playerScores[lineupIdx].pitches[prevPitchIdx].points = null;
-                  setActiveCell({ side, lineupIdx, pitchIdx: prevPitchIdx });
-              }
-          }
+      const newMatch = roundIdx !== undefined
+        ? setTieBreakerPitchScore(match, roundIdx, side, prevPitchIdx, null)
+        : setPitchScore(match, activeInningIdx, side, lineupIdx, prevPitchIdx, null);
+      if (newMatch === match) return;
+      setActiveCell({ side, lineupIdx: roundIdx !== undefined ? 0 : lineupIdx, pitchIdx: prevPitchIdx, ...(roundIdx !== undefined ? { roundIdx } : {}) });
+      // Final-game corrections must be confirmed by the server before display.
+      if (match.isComplete) {
+        try {
+          setMatch(await storage.updateMatch(newMatch, { requireServerSave: true }));
+        } catch (err) {
+          alert(explainSaveError(err, 'match'));
+        }
+        return;
       }
       setMatch(newMatch);
-      await storage.updateMatch(newMatch).catch(err => console.error("Undo failed", err));
+      await storage.updateMatch(newMatch).catch(err => {
+        console.error('Undo failed:', err);
+        alert(explainSaveError(err, 'match'));
+      });
   };
 
   const handleScoreUpdate = async (
@@ -392,12 +325,17 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
     if (!teamData?.playerScores?.[lineupIdx]?.pitches?.[pitchIdx]) return;
     const existingValue = teamData.playerScores[lineupIdx].pitches[pitchIdx].points;
     const isEdit = existingValue !== null;
-    const newMatch: Match = JSON.parse(JSON.stringify(match));
-    const curInning = newMatch.innings[targetInningIdx];
-    const curTeamData = side === 'home' ? curInning.home : curInning.away;
-    curTeamData.playerScores[lineupIdx].pitches[pitchIdx].points = val;
-    if (!newMatch.isComplete) {
-      newMatch.status = 'IN_PROGRESS';
+    const newMatch = setPitchScore(match, targetInningIdx, side, lineupIdx, pitchIdx, val);
+    if (newMatch === match) return;
+    if (match.isComplete) {
+      // Do not optimistically show or queue changes to official final results.
+      try {
+        setMatch(await storage.updateMatch(newMatch, { requireServerSave: true }));
+      } catch (err) {
+        alert(explainSaveError(err, 'match'));
+      }
+      setActiveCell(null);
+      return;
     }
     setMatch(newMatch); 
     
@@ -436,40 +374,16 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
             }
         }
     }
-    await storage.updateMatch(newMatch).catch(err => console.error(err));
+    await storage.updateMatch(newMatch).catch(async err => {
+      console.error('Score could not be confirmed:', err);
+      alert(explainSaveError(err, 'match'));
+      const latest = await storage.getMatch(matchId);
+      if (latest) setMatch(latest);
+    });
   };
 
   const confirmCompleteGame = async () => {
-    if (isReadOnly || !match) return;
-    const hT = calculateTeamGameTotal('home', match);
-    const aT = calculateTeamGameTotal('away', match);
-    if (hT === aT) {
-        setShowFinishModal(false);
-        setShowTieBreakerSetup(true);
-        return;
-    }
-    const newMatch: Match = { ...match, isComplete: true, status: 'FINAL' };
-    try {
-        const saved = await storage.updateMatch(newMatch, { requireServerSave: true });
-        setMatch(saved);
-    } catch (err: any) {
-        alert(explainSaveError(err, 'finalize'));
-        return;
-    }
-    try {
-        if (typeof window !== 'undefined') localStorage.removeItem('dugout_active_match_id');
-    } catch (e) {}
-    setShowFinishModal(false);
-    const homeName = teams.home?.name || 'Home Team';
-    const awayName = teams.away?.name || 'Away Team';
-    const isPractice = !!(match.isPractice || match.is_practice);
-    onExit({
-        finalizedMatch: true,
-        matchId: match.id,
-        message: isPractice
-            ? `Practice Match Completed! Final Score: ${homeName} ${hT} - ${awayName} ${aT}. Stored on schedule.`
-            : `Match Finalized! Final Score: ${homeName} ${hT} - ${awayName} ${aT}. Standings and stats updated.`
-    });
+    await finalizeMatch('finish');
   };
 
   const handleToggleComplete = async () => {
@@ -485,16 +399,24 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
   };
 
   const handleTieBreakerScore = async (roundIdx: number, side: 'home'|'away', pitchIdx: number, val: number) => {
-      if(!match?.tieBreaker) return;
-      const newMatch: Match = JSON.parse(JSON.stringify(match));
-      const cur = newMatch.tieBreaker?.[roundIdx];
+      if(isReadOnly || !match?.tieBreaker) return;
+      const cur = match.tieBreaker[roundIdx];
       if (!cur) return;
       const limit = cur.pitchLimit;
-      const existing = side === 'home' ? cur.homeScores[pitchIdx] : cur.awayScores[pitchIdx];
+      const scores = side === 'home' ? cur.homeScores : cur.awayScores;
+      const existing = scores[pitchIdx];
+      if (existing === undefined) return;
       const isEdit = existing !== null;
-      if (side === 'home') cur.homeScores[pitchIdx] = val; else cur.awayScores[pitchIdx] = val;
-      if (!newMatch.isComplete) {
-        newMatch.status = 'IN_PROGRESS';
+      const newMatch = setTieBreakerPitchScore(match, roundIdx, side, pitchIdx, val);
+      if (newMatch === match) return;
+      if (match.isComplete) {
+        try {
+          setMatch(await storage.updateMatch(newMatch, { requireServerSave: true }));
+        } catch (err) {
+          alert(explainSaveError(err, 'match'));
+        }
+        setActiveCell(null);
+        return;
       }
       setMatch(newMatch);
       
@@ -512,7 +434,10 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
           if (!isEdit && pitchIdx < limit - 1) next = { side, lineupIdx: 0, pitchIdx: pitchIdx + 1, roundIdx };
           setActiveCell(next);
       }
-      await storage.updateMatch(newMatch);
+      await storage.updateMatch(newMatch).catch(err => {
+        console.error('Tie-breaker score could not be saved:', err);
+        alert(explainSaveError(err, 'match'));
+      });
   };
 
 
@@ -637,39 +562,8 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
     const isTwoPlayerGhostMode = inningData.playerScores.length === 2 && inningData.playerScores[0].pitches.length >= 15;
     const canEdit = !isReadOnly && (!match.isComplete || userRole === 'admin');
 
-    // Resolve lineup entries against both teams and tolerate legacy records that
-    // stored a player name (or a differently typed ID) instead of the roster ID.
-    // The match's batting side remains unchanged; this is only player identity lookup.
-    const findPlayer = (id: string) => {
-        const allPlayers = [
-            ...(team.players || []),
-            ...(team.subs || []),
-            ...(teams.home?.players || []),
-            ...(teams.home?.subs || []),
-            ...(teams.away?.players || []),
-            ...(teams.away?.subs || [])
-        ];
-        const key = String(id ?? '').trim();
-        if (!key) return undefined;
-
-        const byExactId = allPlayers.find(p => String(p.id ?? '').trim() === key);
-        if (byExactId) return byExactId;
-
-        const normalizedKey = key.toLocaleLowerCase();
-        const byNormalizedId = allPlayers.find(
-            p => String(p.id ?? '').trim().toLocaleLowerCase() === normalizedKey
-        );
-        if (byNormalizedId) return byNormalizedId;
-
-        // Older lineup records may contain the display name rather than player.id.
-        return allPlayers.find(p => {
-            const first = String(p.name || '').trim();
-            const last = String(p.lastName || '').trim();
-            const full = `${first} ${last}`.trim();
-            return [first, full, `${first} ${last ? `${last.charAt(0)}.` : ''}`.trim()]
-                .some(name => name && name.toLocaleLowerCase() === normalizedKey);
-        });
-    };
+    const findPlayer = (id: string) =>
+        resolveLineupPlayer(id, team, teams.home, teams.away);
 
     const renderRow = (playerScore: any, lineupIdx: number, player: any, pitchStartIndex: number, pitchEndIndex: number, isGhostRow = false) => {
          const visiblePitches = playerScore.pitches.slice(pitchStartIndex, pitchEndIndex);
@@ -704,7 +598,7 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
                         {visiblePitches.map((pitch: any, idx: number) => {
                             const realIdx = pitchStartIndex + idx;
                             return (
-                                <ScoreInput key={realIdx} pitchNumber={isGhostRow ? pitchStartIndex+idx+1 : realIdx+1} value={pitch.points} pitchesRemaining={pitchesLeft} readOnly={isReadOnly || (match.isComplete && userRole !== 'admin')} isEditing={activeCell?.side === side && activeCell.lineupIdx === lineupIdx && activeCell.pitchIdx === realIdx} onOpen={() => setActiveCell({ side, lineupIdx, pitchIdx: realIdx })} onClose={() => setActiveCell(null)} onChange={(val) => handleScoreUpdate(side, lineupIdx, realIdx, val)} onUndo={realIdx > 0 ? () => handleUndo(side, lineupIdx, realIdx) : undefined} />
+                                <ScoreInput saveState={saveState} onRetrySync={onRetrySync} key={realIdx} pitchNumber={isGhostRow ? pitchStartIndex+idx+1 : realIdx+1} value={pitch.points} pitchesRemaining={pitchesLeft} readOnly={isReadOnly || (match.isComplete && userRole !== 'admin')} isEditing={activeCell?.side === side && activeCell.lineupIdx === lineupIdx && activeCell.pitchIdx === realIdx} onOpen={() => setActiveCell({ side, lineupIdx, pitchIdx: realIdx })} onClose={() => setActiveCell(null)} onChange={(val) => handleScoreUpdate(side, lineupIdx, realIdx, val)} onUndo={realIdx > 0 ? () => handleUndo(side, lineupIdx, realIdx) : undefined} />
                             );
                         })}
                     </div>
@@ -734,10 +628,10 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
                         </td>
                         <td className="px-0.5 sm:px-2 py-1 sm:py-2"><div className="flex w-full landscape:justify-between items-center gap-1 sm:gap-2 justify-start overflow-x-auto scrollbar-hide py-1 touch-auto">
                                 {inningData.playerScores[0].pitches.slice(10, 15).map((pitch, idx) => (
-                                    <ScoreInput key={`p1-${10+idx}`} pitchNumber={11+idx} value={pitch.points} pitchesRemaining={15 - inningData.playerScores[0].pitches.filter((p:any) => p.points !== null).length} readOnly={isReadOnly || (match.isComplete && userRole !== 'admin')} isEditing={activeCell?.side === side && activeCell.lineupIdx === 0 && activeCell.pitchIdx === 10+idx} onOpen={() => setActiveCell({ side, lineupIdx: 0, pitchIdx: 10+idx })} onClose={() => setActiveCell(null)} onChange={(val) => handleScoreUpdate(side, 0, 10+idx, val)} onUndo={() => handleUndo(side, 0, 10+idx)} />
+                                    <ScoreInput saveState={saveState} onRetrySync={onRetrySync} key={`p1-${10+idx}`} pitchNumber={11+idx} value={pitch.points} pitchesRemaining={15 - inningData.playerScores[0].pitches.filter((p:any) => p.points !== null).length} readOnly={isReadOnly || (match.isComplete && userRole !== 'admin')} isEditing={activeCell?.side === side && activeCell.lineupIdx === 0 && activeCell.pitchIdx === 10+idx} onOpen={() => setActiveCell({ side, lineupIdx: 0, pitchIdx: 10+idx })} onClose={() => setActiveCell(null)} onChange={(val) => handleScoreUpdate(side, 0, 10+idx, val)} onUndo={() => handleUndo(side, 0, 10+idx)} />
                                 ))}<div className="w-px h-10 sm:h-14 bg-slate-300 dark:bg-slate-700 mx-1"></div>
                                 {inningData.playerScores[1].pitches.slice(10, 15).map((pitch, idx) => (
-                                    <ScoreInput key={`p2-${10+idx}`} pitchNumber={11+idx} value={pitch.points} pitchesRemaining={15 - inningData.playerScores[1].pitches.filter((p:any) => p.points !== null).length} readOnly={isReadOnly || (match.isComplete && userRole !== 'admin')} isEditing={activeCell?.side === side && activeCell.lineupIdx === 1 && activeCell.pitchIdx === 10+idx} onOpen={() => setActiveCell({ side, lineupIdx: 1, pitchIdx: 10+idx })} onClose={() => setActiveCell(null)} onChange={(val) => handleScoreUpdate(side, 1, 10+idx, val)} onUndo={() => handleUndo(side, 1, 10+idx)} />
+                                    <ScoreInput saveState={saveState} onRetrySync={onRetrySync} key={`p2-${10+idx}`} pitchNumber={11+idx} value={pitch.points} pitchesRemaining={15 - inningData.playerScores[1].pitches.filter((p:any) => p.points !== null).length} readOnly={isReadOnly || (match.isComplete && userRole !== 'admin')} isEditing={activeCell?.side === side && activeCell.lineupIdx === 1 && activeCell.pitchIdx === 10+idx} onOpen={() => setActiveCell({ side, lineupIdx: 1, pitchIdx: 10+idx })} onClose={() => setActiveCell(null)} onChange={(val) => handleScoreUpdate(side, 1, 10+idx, val)} onUndo={() => handleUndo(side, 1, 10+idx)} />
                                 ))}</div></td>
                         <td className="px-1 sm:px-3 py-1 sm:py-2 text-center align-middle border-l border-slate-200 dark:border-slate-700 bg-slate-50/30 dark:bg-slate-900/30">
                              <div className="text-sm sm:text-base font-sans tabular-nums font-bold text-slate-800 dark:text-slate-200 w-5 sm:w-8">{inningData.playerScores[0].pitches.slice(10, 15).reduce((s,p)=>s+(p.points||0),0) + inningData.playerScores[1].pitches.slice(10, 15).reduce((s,p)=>s+(p.points||0),0)}</div>
@@ -781,7 +675,7 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
                                         );
                                     })()}
                                 </td>
-                                <td className="px-2 py-3"><div className="flex gap-2">{round.awayScores.map((s, pI) => (<ScoreInput key={pI} pitchNumber={pI+1} value={s} readOnly={isReadOnly || (match.isComplete && userRole !== 'admin')} isEditing={activeCell?.side === 'away' && activeCell?.roundIdx === idx && activeCell?.pitchIdx === pI} onOpen={() => setActiveCell({ side: 'away', lineupIdx: 0, pitchIdx: pI, roundIdx: idx })} onClose={() => setActiveCell(null)} onChange={v => handleTieBreakerScore(idx, 'away', pI, v)} onUndo={() => handleUndo('away', 0, pI, idx)} />))}</div></td>
+                                <td className="px-2 py-3"><div className="flex gap-2">{round.awayScores.map((s, pI) => (<ScoreInput saveState={saveState} onRetrySync={onRetrySync} key={pI} pitchNumber={pI+1} value={s} readOnly={isReadOnly || (match.isComplete && userRole !== 'admin')} isEditing={activeCell?.side === 'away' && activeCell?.roundIdx === idx && activeCell?.pitchIdx === pI} onOpen={() => setActiveCell({ side: 'away', lineupIdx: 0, pitchIdx: pI, roundIdx: idx })} onClose={() => setActiveCell(null)} onChange={v => handleTieBreakerScore(idx, 'away', pI, v)} onUndo={() => handleUndo('away', 0, pI, idx)} />))}</div></td>
                                 <td className="px-4 py-3 font-bold text-xl text-center tabular-nums">{aS}</td>
                             </tr>
                             <tr className="bg-red-50/10">
@@ -801,7 +695,7 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
                                         );
                                     })()}
                                 </td>
-                                <td className="px-2 py-3"><div className="flex gap-2">{round.homeScores.map((s, pI) => (<ScoreInput key={pI} pitchNumber={pI+1} value={s} readOnly={isReadOnly || (match.isComplete && userRole !== 'admin')} isEditing={activeCell?.side === 'home' && activeCell?.roundIdx === idx && activeCell?.pitchIdx === pI} onOpen={() => setActiveCell({ side: 'home', lineupIdx: 0, pitchIdx: pI, roundIdx: idx })} onClose={() => setActiveCell(null)} onChange={v => handleTieBreakerScore(idx, 'home', pI, v)} onUndo={() => handleUndo('home', 0, pI, idx)} />))}</div></td>
+                                <td className="px-2 py-3"><div className="flex gap-2">{round.homeScores.map((s, pI) => (<ScoreInput saveState={saveState} onRetrySync={onRetrySync} key={pI} pitchNumber={pI+1} value={s} readOnly={isReadOnly || (match.isComplete && userRole !== 'admin')} isEditing={activeCell?.side === 'home' && activeCell?.roundIdx === idx && activeCell?.pitchIdx === pI} onOpen={() => setActiveCell({ side: 'home', lineupIdx: 0, pitchIdx: pI, roundIdx: idx })} onClose={() => setActiveCell(null)} onChange={v => handleTieBreakerScore(idx, 'home', pI, v)} onUndo={() => handleUndo('home', 0, pI, idx)} />))}</div></td>
                                 <td className="px-4 py-3 font-bold text-xl text-center tabular-nums">{hS}</td>
                             </tr>
                          </tbody></table></div>
@@ -844,6 +738,19 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
         </div>
       )}
       <header className="bg-white/80 dark:bg-slate-950/90 backdrop-blur-md border-b sticky top-0 z-[50] shadow-sm">
+        {saveState && !isReadOnly && userRole !== 'fan' && (
+          <div role="status" aria-live="polite" className="flex min-h-8 items-center justify-center gap-2 border-b border-slate-200 bg-slate-100 px-3 py-1.5 text-xs font-bold text-slate-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100">
+            {saveState === 'saving' && <span>Saving scores…</span>}
+            {saveState === 'saved' && <span>✓ All scores saved</span>}
+            {saveState === 'offline' && (
+              <>
+                <span>Connection interrupted. Scores are waiting to sync.</span>
+                <button type="button" onClick={onRetrySync} className="underline underline-offset-2">Try again</button>
+              </>
+            )}
+            {saveState === 'attention' && <span>Some scores need checking before you continue.</span>}
+          </div>
+        )}
         <div className="max-w-7xl mx-auto px-4 py-3 flex justify-between items-center gap-4">
           <div className="flex gap-8 items-center flex-1 min-w-0">
             <div className="text-center flex-1 min-w-0"><div className="text-[10px] uppercase font-bold text-slate-500">Away</div><div className="text-xl font-bold text-blue-700 truncate">{teams.away.name}</div><div className="text-2xl font-sans tabular-nums font-bold dark:text-white">{awayTotal}</div></div>
@@ -884,20 +791,6 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
               </div>
             )}
             
-            {/* Exit & Finalize Fast Action in Header */}
-            {!match.isComplete && !isReadOnly && userRole !== 'fan' && (
-              <button 
-                type="button"
-                onClick={() => handleExitAndFinalize(false)} 
-                className="text-[11px] sm:text-xs font-bold px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-lg sm:rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white transition-all cursor-pointer whitespace-nowrap shadow-sm flex items-center gap-1.5 active:scale-95"
-                title="Finalize match and complete session"
-              >
-                <span>🏁</span>
-                <span className="hidden sm:inline">Exit & Finalize</span>
-                <span className="sm:hidden">Finalize</span>
-              </button>
-            )}
-
             {match.isPractice && !isReadOnly && (
               <button 
                 type="button"
@@ -991,11 +884,7 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
                                                               disabled={idx === 0}
                                                               onClick={() => {
                                                                   if (idx <= 0) return;
-                                                                  const copy = [...lineup];
-                                                                  const temp = copy[idx - 1];
-                                                                  copy[idx - 1] = copy[idx];
-                                                                  copy[idx] = temp;
-                                                                  saveRosterChange(rosterSide!, copy);
+                                                                  saveRosterChange(rosterSide!, moveBatterUp(lineup, idx));
                                                               }}
                                                               title="Move up in batting order"
                                                               className="p-1 rounded bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300 disabled:opacity-30 disabled:cursor-not-allowed hover:bg-slate-100 dark:hover:bg-slate-700"
@@ -1007,11 +896,7 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
                                                               disabled={idx === lineup.length - 1}
                                                               onClick={() => {
                                                                   if (idx >= lineup.length - 1) return;
-                                                                  const copy = [...lineup];
-                                                                  const temp = copy[idx + 1];
-                                                                  copy[idx + 1] = copy[idx];
-                                                                  copy[idx] = temp;
-                                                                  saveRosterChange(rosterSide!, copy);
+                                                                  saveRosterChange(rosterSide!, moveBatterDown(lineup, idx));
                                                               }}
                                                               title="Move down in batting order"
                                                               className="p-1 rounded bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300 disabled:opacity-30 disabled:cursor-not-allowed hover:bg-slate-100 dark:hover:bg-slate-700"
@@ -1243,6 +1128,99 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ matchId, onExit, isReadO
           </div>,
           document.body
       )}
+    </div>
+  );
+};
+
+
+/**
+ * Exclusive scoring gate. The scoring controls never mount until this browser
+ * session has secured ownership. Spectators remain read-only as before.
+ */
+export const Scoreboard: React.FC<ScoreboardProps> = (props) => {
+  const [access, setAccess] = useState<'checking' | 'granted' | 'locked' | 'error' | 'finished'>('checking');
+  const [message, setMessage] = useState('');
+  const [syncWarning, setSyncWarning] = useState<string | null>(() => storage.getScoringSyncWarning(props.matchId));
+  const [saveState, setSaveState] = useState<storage.ScoringSaveState>(() =>
+    storage.hasPendingMatchSync(props.matchId) ? 'offline' : 'saved');
+  useEffect(() => {
+    setSyncWarning(storage.getScoringSyncWarning(props.matchId));
+    const onWarning = (event: Event) => {
+      const detail = (event as CustomEvent<{ matchId: string; message: string }>).detail;
+      if (detail?.matchId === props.matchId) setSyncWarning(detail.message);
+    };
+    const onSaveState = (event: Event) => {
+      const detail = (event as CustomEvent<{ matchId: string; state: storage.ScoringSaveState }>).detail;
+      if (detail?.matchId === props.matchId) setSaveState(detail.state);
+    };
+    setSaveState(storage.hasPendingMatchSync(props.matchId) ? 'offline' : 'saved');
+    window.addEventListener('dugout:scoring-sync-warning', onWarning);
+    window.addEventListener('dugout:scoring-save-state', onSaveState);
+    return () => {
+      window.removeEventListener('dugout:scoring-sync-warning', onWarning);
+      window.removeEventListener('dugout:scoring-save-state', onSaveState);
+    };
+  }, [props.matchId]);
+  const isSpectator = props.isReadOnly || props.userRole === 'fan';
+
+  const checkAccess = async (takeover = false) => {
+    setAccess('checking');
+    try {
+      await storage.requestScoringLock(props.matchId, takeover ? 'takeover' : 'acquire');
+      setAccess('granted');
+      setMessage('');
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : '';
+      // A completed game is viewable, but must not acquire a scoring lock.
+      // Also handles a direct page refresh before the dashboard match list loads.
+      if (props.userRole === 'umpire' && isFinishedScoringLockError(msg)) {
+        setAccess('finished');
+        setMessage('');
+        return;
+      }
+      setMessage(msg || 'We could not check who is scoring. Please try again.');
+      setAccess(/another umpire|already scoring|transfer control/i.test(msg) ? 'locked' : 'error');
+    }
+  };
+
+  useEffect(() => {
+    if (isSpectator) return;
+    void checkAccess();
+  }, [props.matchId, isSpectator]);
+
+  if (isSpectator || (props.userRole === 'umpire' && access === 'finished')) {
+    return <ScoringBoardContent {...props} isReadOnly />;
+  }
+  if (syncWarning) {
+    return (
+      <div className="min-h-[60vh] flex items-center justify-center px-4">
+        <div className="max-w-md w-full rounded-2xl border border-amber-500 p-6 text-center space-y-4">
+          <h2 className="text-xl font-bold">Scores need checking</h2>
+          <p>{syncWarning}</p>
+          <button type="button" onClick={() => void storage.syncOfflineData()} className="px-4 py-3 rounded-lg bg-blue-600 text-white font-semibold">Try syncing again</button>
+          <button type="button" onClick={() => props.onExit()} className="px-4 py-3 rounded-lg border border-gray-400">Back to schedule</button>
+        </div>
+      </div>
+    );
+  }
+  if (access === 'granted') return <ScoringBoardContent {...props} saveState={saveState} onRetrySync={() => void storage.syncOfflineData()} />;
+  return (
+    <div className="min-h-[60vh] flex items-center justify-center px-4">
+      <div className="max-w-md w-full rounded-2xl border border-gray-300 dark:border-gray-700 p-6 text-center space-y-4">
+        <h2 className="text-xl font-bold">{access === 'checking' ? 'Opening the game…' : 'Scoring is unavailable'}</h2>
+        {access !== 'checking' && <p className="text-base">{message}</p>}
+        {access !== 'checking' && (
+          <div className="flex flex-wrap gap-3 justify-center">
+            <button type="button" onClick={() => void checkAccess()} className="px-4 py-3 rounded-lg bg-blue-600 text-white font-semibold">Try again</button>
+            {props.userRole === 'admin' && access === 'locked' && (
+              <button type="button" onClick={() => {
+                if (window.confirm('Transfer scoring to this device? The previous umpire will no longer be able to save plays. First confirm their unsent plays have been checked.')) void checkAccess(true);
+              }} className="px-4 py-3 rounded-lg bg-orange-600 text-white font-semibold">Admin: Take over</button>
+            )}
+            <button type="button" onClick={() => props.onExit()} className="px-4 py-3 rounded-lg border border-gray-400">Back to schedule</button>
+          </div>
+        )}
+      </div>
     </div>
   );
 };

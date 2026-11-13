@@ -4,53 +4,38 @@ import { ARCHIVE_2025_LEAGUES, ARCHIVE_2025_TEAMS, ARCHIVE_2025_MATCHES } from '
 import { parseScheduleCsv, isDuplicateMatch } from '../utils/scheduleImporter';
 import { sortMatchesChronologically } from '../utils/matchSort';
 import { detectForfeit, isForfeitMatch, getForfeitingTeamId } from './matchHelpers';
+import { coalesceInFlightGet } from '../utils/requestCoalescer';
+import { mapMatchFromDB, mapTeamFromDB } from '../utils/dbMappers';
+import { calculateMatchStats } from '../utils/matchStatistics';
+import { aggregateTeamPlayerStats } from '../utils/teamPlayerStats';
+import { mergeAvailableSeasons } from '../utils/availableSeasons';
+export { calculateMatchStats } from '../utils/matchStatistics';
+import { leaguesMatch, normalizeLeague } from '../utils/leagueNames';
+export { leaguesMatch, normalizeLeague } from '../utils/leagueNames';
+export { calculateTeamInningTotal, calculateTeamGameTotal } from '../utils/scoreTotals';
+import {
+  PENDING_MATCHES_KEY,
+  publishScoringSaveState,
+  hasPendingMatchSync,
+  containsEarlierScores,
+  getScoringSyncWarning,
+  markScoringSyncWarning,
+  clearScoringSyncWarning,
+  enqueuePendingMatchSync,
+  dequeuePendingMatchSync,
+  enqueuePendingTeamSync,
+  createOfflineSynchronizer,
+} from './offlineSync';
+export {
+  hasPendingMatchSync,
+  getScoringSyncWarning,
+  enqueuePendingMatchSync,
+  dequeuePendingMatchSync,
+  enqueuePendingTeamSync,
+} from './offlineSync';
+export type { ScoringSaveState } from './offlineSync';
 
 export { sortMatchesChronologically };
-
-export const normalizeLeague = (league?: string | null): string => {
-  return (league || '').trim().toLowerCase();
-};
-
-export const leaguesMatch = (leagueA?: string | null, leagueB?: string | null): boolean => {
-  if (!leagueA || !leagueB) return false;
-  return normalizeLeague(leagueA) === normalizeLeague(leagueB);
-};
-
-const mapTeamFromDB = (dbTeam: any): Team => ({
-  ...dbTeam,
-  season: dbTeam.season || '2025',
-  players: typeof dbTeam.players === 'string' ? JSON.parse(dbTeam.players) : dbTeam.players,
-  subs: dbTeam.subs ? (typeof dbTeam.subs === 'string' ? JSON.parse(dbTeam.subs) : dbTeam.subs) : []
-});
-
-const mapMatchFromDB = (dbMatch: any): Match => {
-  const inferredSeason = dbMatch.season || (dbMatch.date ? String(new Date(dbMatch.date).getFullYear()) : '2025');
-  return {
-    id: dbMatch.id,
-    league: dbMatch.league,
-    homeTeamId: dbMatch.home_team_id || dbMatch.homeTeamId,
-    awayTeamId: dbMatch.away_team_id || dbMatch.awayTeamId,
-    date: dbMatch.date,
-    isComplete: dbMatch.is_complete !== undefined ? dbMatch.is_complete : (dbMatch.isComplete ?? false),
-    status: dbMatch.status || undefined,
-    innings: typeof dbMatch.innings === 'string' ? JSON.parse(dbMatch.innings) : dbMatch.innings,
-    season: inferredSeason,
-    tieBreaker: dbMatch.tie_breaker ? (typeof dbMatch.tie_breaker === 'string' ? JSON.parse(dbMatch.tie_breaker) : dbMatch.tie_breaker) : (dbMatch.tieBreaker || undefined),
-    location: dbMatch.location || undefined,
-    startTime: dbMatch.start_time || dbMatch.startTime || undefined,
-    endTime: dbMatch.end_time || dbMatch.endTime || undefined,
-    isPractice: dbMatch.is_practice !== undefined ? dbMatch.is_practice : (dbMatch.isPractice ?? false),
-    is_practice: dbMatch.is_practice !== undefined ? dbMatch.is_practice : (dbMatch.isPractice ?? false),
-    isForfeit: dbMatch.is_forfeit !== undefined ? dbMatch.is_forfeit : (dbMatch.isForfeit ?? false),
-    is_forfeit: dbMatch.is_forfeit !== undefined ? dbMatch.is_forfeit : (dbMatch.isForfeit ?? false),
-    forfeitingTeamId: dbMatch.forfeiting_team_id || dbMatch.forfeitingTeamId || null,
-    forfeiting_team_id: dbMatch.forfeiting_team_id || dbMatch.forfeitingTeamId || null,
-    winningTeamId: dbMatch.winning_team_id || dbMatch.winningTeamId || null,
-    winning_team_id: dbMatch.winning_team_id || dbMatch.winningTeamId || null,
-    forfeitReason: dbMatch.forfeit_reason || dbMatch.forfeitReason || undefined,
-    forfeit_reason: dbMatch.forfeit_reason || dbMatch.forfeitReason || undefined,
-  };
-};
 
 // Helper to format name as First L.
 const formatName = (p: { name: string, lastName?: string }) => 
@@ -96,6 +81,12 @@ const apiFetch = async (url: string, init?: RequestInit): Promise<Response> => {
     credentials: init?.credentials || 'same-origin',
   };
 
+  // Include credentials in the key to prevent sharing authenticated responses
+  // across different users when a login switches during an in-flight request.
+  if ((!init?.method || init.method.toUpperCase() === 'GET') && !init?.body && !init?.signal) {
+    const key = `${fullUrl}|auth:${headers.get('Authorization') || ''}|credentials:${enhancedInit.credentials}`;
+    return coalesceInFlightGet(key, () => fetch(fullUrl, enhancedInit));
+  }
   return fetch(fullUrl, enhancedInit);
 };
 
@@ -163,103 +154,63 @@ export const deleteLeague = async (id: string, season?: string) => {
 };
 
 // Team Methods
-// Offline Sync Queue Keys
-const PENDING_MATCHES_KEY = 'dugout_pending_sync_matches';
-const PENDING_TEAMS_KEY = 'dugout_pending_sync_teams';
+const knownMatchRevisions = new Map<string, number>();
+const recordRevision = (match: Match): Match => {
+  if (typeof match.revision === 'number' && Number.isSafeInteger(match.revision)) {
+    knownMatchRevisions.set(match.id, match.revision);
+  }
+  return match;
+};
+// Serialize writes from the same browser to prevent an older network response
+// overwriting a newer pitch or lineup update in Neon.
+const matchWriteQueues = new Map<string, Promise<void>>();
 
-export const enqueuePendingMatchSync = (match: Match) => {
-  if (typeof window === 'undefined') return;
-  try {
-    const raw = localStorage.getItem(PENDING_MATCHES_KEY);
-    const map: Record<string, Match> = raw ? JSON.parse(raw) : {};
-    map[match.id] = match;
-    localStorage.setItem(PENDING_MATCHES_KEY, JSON.stringify(map));
-  } catch (e) {}
+const serializeMatchOperation = <T>(id: string, operation: () => Promise<T>): Promise<T> => {
+    const previous = matchWriteQueues.get(id) || Promise.resolve();
+    const write = previous.catch(() => {}).then(operation);
+    const settled = write.then(() => {}, () => {});
+    matchWriteQueues.set(id, settled);
+    void settled.then(() => {
+        if (matchWriteQueues.get(id) === settled) matchWriteQueues.delete(id);
+    });
+    return write;
 };
 
-export const dequeuePendingMatchSync = (matchId: string) => {
-  if (typeof window === 'undefined') return;
-  try {
-    const raw = localStorage.getItem(PENDING_MATCHES_KEY);
-    if (!raw) return;
-    const map: Record<string, Match> = JSON.parse(raw);
-    delete map[matchId];
-    if (Object.keys(map).length === 0) {
-      localStorage.removeItem(PENDING_MATCHES_KEY);
-    } else {
-      localStorage.setItem(PENDING_MATCHES_KEY, JSON.stringify(map));
-    }
-  } catch (e) {}
+const scoringTokenKey = (id: string) => `dugout_scoring_token_${id}`;
+export const getScoringToken = (id: string): string | null => {
+  try { return sessionStorage.getItem(scoringTokenKey(id)); } catch { return null; }
+};
+const matchWriteHeaders = (id: string): HeadersInit => {
+  const token = getScoringToken(id);
+  return token ? { 'Content-Type': 'application/json', 'X-Scoring-Token': token } : { 'Content-Type': 'application/json' };
+};
+export const requestScoringLock = async (id: string, action: 'acquire' | 'takeover' | 'release' | 'status' = 'acquire'): Promise<{ owned: boolean; locked: boolean }> => {
+  let token = getScoringToken(id);
+  if (!token) {
+    token = generateUUID();
+    sessionStorage.setItem(scoringTokenKey(id), token);
+  }
+  const response = await apiFetch('/api/scoring-lock', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ matchId: id, token, action })
+  });
+  if (!response.ok) {
+    const body = await response.json().catch(() => ({}));
+    throw new Error(body.error || 'Unable to open scoring. Please try again.');
+  }
+  const result = await response.json();
+  if (action === 'release' && result.released) sessionStorage.removeItem(scoringTokenKey(id));
+  return result;
 };
 
-export const enqueuePendingTeamSync = (team: Team) => {
-  if (typeof window === 'undefined') return;
-  try {
-    const raw = localStorage.getItem(PENDING_TEAMS_KEY);
-    const map: Record<string, Team> = raw ? JSON.parse(raw) : {};
-    map[team.id] = team;
-    localStorage.setItem(PENDING_TEAMS_KEY, JSON.stringify(map));
-  } catch (e) {}
-};
 
-export const syncOfflineData = async () => {
-  if (typeof window === 'undefined') return;
-  if (typeof navigator !== 'undefined' && !navigator.onLine) return;
-
-  // 1. Sync pending teams
-  try {
-    const rawTeams = localStorage.getItem(PENDING_TEAMS_KEY);
-    if (rawTeams) {
-      const teamMap: Record<string, Team> = JSON.parse(rawTeams);
-      const teamIds = Object.keys(teamMap);
-      for (const teamId of teamIds) {
-        const team = teamMap[teamId];
-        try {
-          const res = await apiFetch('/api/teams', {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(team)
-          });
-          if (res.ok) {
-            delete teamMap[teamId];
-          }
-        } catch (err) {}
-      }
-      if (Object.keys(teamMap).length === 0) {
-        localStorage.removeItem(PENDING_TEAMS_KEY);
-      } else {
-        localStorage.setItem(PENDING_TEAMS_KEY, JSON.stringify(teamMap));
-      }
-    }
-  } catch (e) {}
-
-  // 2. Sync pending matches
-  try {
-    const rawMatches = localStorage.getItem(PENDING_MATCHES_KEY);
-    if (rawMatches) {
-      const matchMap: Record<string, Match> = JSON.parse(rawMatches);
-      const matchIds = Object.keys(matchMap);
-      for (const matchId of matchIds) {
-        const match = matchMap[matchId];
-        try {
-          const res = await apiFetch('/api/matches', {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(match)
-          });
-          if (res.ok) {
-            delete matchMap[matchId];
-          }
-        } catch (err) {}
-      }
-      if (Object.keys(matchMap).length === 0) {
-        localStorage.removeItem(PENDING_MATCHES_KEY);
-      } else {
-        localStorage.setItem(PENDING_MATCHES_KEY, JSON.stringify(matchMap));
-      }
-    }
-  } catch (e) {}
-};
+export const syncOfflineData = createOfflineSynchronizer({
+  apiFetch,
+  serializeMatchOperation,
+  matchWriteHeaders,
+  recordRevision,
+});
 
 // Automatic listener to sync queued items once internet reconnects
 if (typeof window !== 'undefined') {
@@ -323,6 +274,62 @@ export const getTeams = async (league: AgeGroup | null, season: string): Promise
   }
 
   return [];
+};
+
+// Retrieve only the rosters needed for the active game. The full league
+// directory is still available to admin screens via getAllTeams().
+export const getMatchTeams = async (homeTeamId: string, awayTeamId: string): Promise<Team[]> => {
+  const ids = [...new Set([homeTeamId, awayTeamId].filter(Boolean))];
+  if (!ids.length) return [];
+  const found = new Map<string, Team>();
+
+  // Always attempt the targeted server read first: never rely on stale roster
+  // caches when the current game teams are available in Neon.
+  try {
+    const res = await apiFetch(`/api/teams?ids=${encodeURIComponent(ids.join(','))}`);
+    if (res.ok) {
+      const teams: Team[] = (await res.json()).map(mapTeamFromDB);
+      for (const team of teams) found.set(team.id, team);
+    }
+  } catch (e) {
+    console.warn('Could not refresh game rosters, using saved copies when available', e);
+  }
+
+  // The legacy full-directory call merged archived 2025 rosters. Keep that
+  // behavior for spectator game history without sending all teams over Neon.
+  for (const team of ARCHIVE_2025_TEAMS) {
+    if (ids.includes(team.id) && !found.has(team.id)) found.set(team.id, team);
+  }
+
+  if (typeof window !== 'undefined') {
+    // A spectator may have opened the dashboard before this game. Use the
+    // already downloaded team list for IDs absent from the targeted query.
+    try {
+      const raw = localStorage.getItem('dugout_all_teams_cache');
+      if (raw) {
+        const cachedTeams: Team[] = JSON.parse(raw);
+        for (const team of cachedTeams) {
+          if (ids.includes(team.id) && !found.has(team.id)) found.set(team.id, team);
+        }
+      }
+    } catch (e) {}
+
+    for (const id of ids) {
+      if (!found.has(id)) {
+        try {
+          const raw = localStorage.getItem(`dugout_team_${id}`);
+          if (raw) found.set(id, JSON.parse(raw) as Team);
+        } catch (e) {}
+      }
+    }
+    // Save only authoritative lookup results or resolved fallbacks for a
+    // subsequent offline visit.
+    for (const team of found.values()) {
+      try { localStorage.setItem(`dugout_team_${team.id}`, JSON.stringify(team)); } catch (e) {}
+    }
+  }
+
+  return ids.flatMap(id => found.has(id) ? [found.get(id)!] : []);
 };
 
 export const getAllTeams = async (): Promise<Team[]> => {
@@ -479,6 +486,9 @@ export const deleteTeam = async (teamId: string) => {
 };
 
 // Match Methods
+// Retain the fully populated dashboard list in memory so a 304 response never
+// needs to download full innings a second time.
+const matchListCache = new Map<string, { signature: string; matches: Match[] }>();
 export const getMatches = async (league: AgeGroup, season: string, options?: { excludePractice?: boolean }): Promise<Match[]> => {
   const excludePractice = options?.excludePractice ?? false;
   if (typeof window === 'undefined' && season === '2025') {
@@ -488,13 +498,61 @@ export const getMatches = async (league: AgeGroup, season: string, options?: { e
   }
   try {
     const url = `/api/matches?league=${encodeURIComponent(league)}&season=${encodeURIComponent(season)}${excludePractice ? '&excludePractice=true' : ''}`;
-    const res = await apiFetch(url);
+    const cachedList = matchListCache.get(url);
+    // A normal dashboard refresh should transfer only games that changed,
+    // not every previous inning whenever another umpire scores a pitch.
+    // Preserve the existing full-list route as a safe fallback.
+    if (cachedList && season !== '2025') {
+      try {
+        const versions = Object.fromEntries(cachedList.matches.map(match => [match.id, match.revision ?? 0]));
+        const deltaRes = await apiFetch('/api/matches-delta', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ league, season, excludePractice, versions })
+        });
+        if (deltaRes.ok) {
+          const delta = await deltaRes.json();
+          if (Array.isArray(delta.changed) && Array.isArray(delta.removedIds) &&
+              typeof delta.signature === 'string' && /^[0-9a-f]{64}$/.test(delta.signature)) {
+            if (delta.changed.length === 0 && delta.removedIds.length === 0) {
+              matchListCache.set(url, { signature: delta.signature, matches: cachedList.matches });
+              return cachedList.matches;
+            }
+            const byId = new Map(cachedList.matches.map(match => [match.id, match]));
+            for (const id of delta.removedIds) byId.delete(id);
+            for (const row of delta.changed) {
+              const updated = recordRevision(mapMatchFromDB(row));
+              byId.set(updated.id, updated);
+            }
+            const mapped = sortMatchesChronologically([...byId.values()]);
+            matchListCache.set(url, { signature: delta.signature, matches: mapped });
+            if (typeof window !== 'undefined' && !excludePractice) {
+              try {
+                localStorage.setItem(`dugout_matches_${season}_${league}`, JSON.stringify(mapped));
+              } catch (e) {}
+            }
+            return mapped;
+          }
+        }
+      } catch (err) {
+        console.warn('Incremental dashboard refresh unavailable; retrying normal load', err);
+      }
+    }
+    const conditional = cachedList ? `${url}&dashboardSignature=${cachedList.signature}` : url;
+    const res = await apiFetch(conditional);
+    if (res.status === 304 && cachedList) return cachedList.matches;
     if (res.ok) {
       const data = await res.json();
-      const rawMapped: Match[] = data.map(mapMatchFromDB);
+      const rawMapped: Match[] = data.map((row: any) => recordRevision(mapMatchFromDB(row)));
       let mapped: Match[] = sortMatchesChronologically<Match>(rawMapped);
       if (excludePractice) {
         mapped = mapped.filter(m => !m.isPractice && !m.is_practice);
+      }
+      const signature = res.headers.get('X-Dashboard-Signature');
+      if (signature && /^[0-9a-f]{64}$/.test(signature)) {
+        matchListCache.set(url, { signature, matches: mapped });
+      } else {
+        matchListCache.delete(url);
       }
       if (mapped.length > 0 || season !== '2025') {
         if (typeof window !== 'undefined' && !excludePractice) {
@@ -546,7 +604,7 @@ export const getAllMatches = async (): Promise<Match[]> => {
     const res = await apiFetch('/api/matches');
     if (res.ok) {
       const data = await res.json();
-      matches = data.map(mapMatchFromDB);
+      matches = data.map((row: any) => recordRevision(mapMatchFromDB(row)));
     }
   } catch (err) {
     console.warn('Network fetch failed for getAllMatches', err);
@@ -564,12 +622,29 @@ export const getAllMatches = async (): Promise<Match[]> => {
   return sortMatchesChronologically(matches);
 };
 
-export const getMatch = async (id: string): Promise<Match | undefined> => {
+export const getMatch = async (id: string, options?: { spectator?: boolean }): Promise<Match | undefined> => {
+  // Spectators retain a full local snapshot for reviewing earlier innings.
+  // A revision check prevents repeated transfers of unchanged pitch history.
+  // Umpire reads remain unconditional for offline/scoring safety.
+  let spectatorCache: Match | undefined;
+  if (options?.spectator && typeof window !== 'undefined') {
+    try {
+      const raw = localStorage.getItem(`dugout_match_${id}`);
+      if (raw) {
+        const candidate: Match = JSON.parse(raw);
+        if (candidate.id === id && Number.isSafeInteger(candidate.revision) && candidate.revision! >= 0) {
+          spectatorCache = candidate;
+        }
+      }
+    } catch (e) {}
+  }
   try {
-    const res = await apiFetch(`/api/matches?id=${id}`);
+    const revisionQuery = spectatorCache ? `&spectatorRevision=${spectatorCache.revision}` : '';
+    const res = await apiFetch(`/api/matches?id=${encodeURIComponent(id)}${revisionQuery}`);
+    if (res.status === 304 && spectatorCache) return spectatorCache;
     if (res.ok) {
       const data = await res.json();
-      const mapped = mapMatchFromDB(data);
+      const mapped = recordRevision(mapMatchFromDB(data));
       if (typeof window !== 'undefined') {
         try {
           localStorage.setItem(`dugout_match_${id}`, JSON.stringify(mapped));
@@ -842,48 +917,20 @@ export const createEmptyInning = (number: number, homeIds: string[] = [], awayId
     };
 };
 
-export const calculateTeamInningTotal = (side: 'home' | 'away', inning?: Inning): number => {
-    if (!inning) return 0;
-    const teamData = side === 'home' ? inning.home : inning.away;
-    if (!teamData?.playerScores) return 0;
-    return teamData.playerScores.reduce((sum, player) => sum + (player.pitches || []).reduce((pSum, pitch) => pSum + (pitch.points || 0), 0), 0);
-};
-
-export const calculateTeamGameTotal = (side: 'home' | 'away', matchData?: Match | null): number => {
-    if (!matchData?.innings) return 0;
-    const baseScore = matchData.innings.reduce((sum, inning) => sum + calculateTeamInningTotal(side, inning), 0);
-    let tieScore = 0;
-    if (matchData.tieBreaker && Array.isArray(matchData.tieBreaker)) {
-        matchData.tieBreaker.forEach(round => {
-            const scores = side === 'home' ? round.homeScores : round.awayScores;
-            if (Array.isArray(scores)) {
-                tieScore += scores.reduce<number>((a, b) => (a || 0) + (b || 0), 0);
-            }
-        });
-    }
-    return baseScore + tieScore;
-};
-
-// Serialize writes from the same browser to prevent an older network response
-// overwriting a newer pitch or lineup update in Neon.
-const matchWriteQueues = new Map<string, Promise<void>>();
-
-export const updateMatch = (match: Match, options?: { requireServerSave?: boolean }): Promise<Match> => {
-    const previous = matchWriteQueues.get(match.id) || Promise.resolve();
-    const write = previous.catch(() => {}).then(() => performMatchUpdate(match, options));
-    const settled = write.then(() => {}, () => {});
-    matchWriteQueues.set(match.id, settled);
-    void settled.then(() => {
-        if (matchWriteQueues.get(match.id) === settled) matchWriteQueues.delete(match.id);
-    });
-    return write;
-};
+export const updateMatch = (match: Match, options?: { requireServerSave?: boolean }): Promise<Match> =>
+    serializeMatchOperation(match.id, () => performMatchUpdate(match, options));
 
 const performMatchUpdate = async (match: Match, options?: { requireServerSave?: boolean }): Promise<Match> => {
+    const revision = knownMatchRevisions.get(match.id) ?? match.revision ?? 0;
+    const outgoing: Match = { ...match, revision };
+    // Reuse the same snapshot for offline recovery and the server request.
+    // The scoring path should not stringify an entire game twice per pitch.
+    const serializedOutgoing = JSON.stringify(outgoing);
+    publishScoringSaveState(match.id, 'saving');
     // Only optimistic-cache offline pitch updates; explicit confirmed saves must wait for Neon.
     if (!options?.requireServerSave && typeof window !== 'undefined') {
         try {
-            localStorage.setItem(`dugout_match_${match.id}`, JSON.stringify(match));
+            localStorage.setItem(`dugout_match_${match.id}`, serializedOutgoing);
             if (!match.isComplete && match.status === 'IN_PROGRESS') {
                 localStorage.setItem('dugout_active_match_id', match.id);
             } else if (match.isComplete) {
@@ -895,32 +942,64 @@ const performMatchUpdate = async (match: Match, options?: { requireServerSave?: 
     try {
         const res = await apiFetch('/api/matches', {
             method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(match)
+            headers: matchWriteHeaders(match.id),
+            body: serializedOutgoing
         });
         if (res.ok) {
-            dequeuePendingMatchSync(match.id);
+            // A successful write must not erase a different, newer offline
+            // snapshot. Keep it for admin review instead.
+            if (typeof window !== 'undefined') {
+                try {
+                    const pending: Record<string, Match> = JSON.parse(localStorage.getItem(PENDING_MATCHES_KEY) || '{}');
+                    if (pending[match.id]) {
+                        if (containsEarlierScores(pending[match.id], outgoing)) {
+                            // The server has all of those recorded pitches.
+                            // Don't let a stale queue entry later interrupt scoring.
+                            dequeuePendingMatchSync(match.id);
+                        } else {
+                            markScoringSyncWarning(match.id,
+                              'Some earlier scores could not be verified. They are still on this device. Stop scoring and have league staff check this device.');
+                        }
+                    }
+                } catch (e) {
+                    markScoringSyncWarning(match.id, 'Please ask an admin to review saved scores on this device.');
+                }
+            }
             const data = await res.json();
-            const saved = mapMatchFromDB(data);
-            if (options?.requireServerSave && typeof window !== 'undefined') {
+            const saved = recordRevision(mapMatchFromDB(data));
+            if (typeof window !== 'undefined' && !getScoringSyncWarning(match.id)) {
                 try {
                     localStorage.setItem(`dugout_match_${saved.id}`, JSON.stringify(saved));
                     if (saved.isComplete) localStorage.removeItem('dugout_active_match_id');
                     else if (saved.status === 'IN_PROGRESS') localStorage.setItem('dugout_active_match_id', saved.id);
                 } catch (e) {}
             }
+            if (!hasPendingMatchSync(match.id) && !getScoringSyncWarning(match.id)) {
+                publishScoringSaveState(match.id, 'saved');
+            }
             return saved;
         } else {
+            const details = await res.json().catch(() => ({}));
+            if (res.status === 423 || res.status === 401 || res.status === 403 || res.status === 409) {
+                // Never queue an unauthorized or stale score for automatic replay.
+                const rejected: any = new Error(details.error || 'This device cannot score this game.');
+                rejected.saveRejected = true;
+                if (res.status === 409) markScoringSyncWarning(match.id,
+                  'The game has newer scores than this device. Your latest change was not applied. Ask an admin to review before continuing.');
+                publishScoringSaveState(match.id, 'attention');
+                throw rejected;
+            }
             if (options?.requireServerSave) {
-                const details = await res.json().catch(() => ({}));
                 throw new Error(details.error || `Failed to save match (HTTP ${res.status})`);
             }
-            enqueuePendingMatchSync(match);
+            enqueuePendingMatchSync(outgoing);
+            publishScoringSaveState(match.id, 'offline');
         }
     } catch (err) {
-        if (options?.requireServerSave) throw err;
+        if (options?.requireServerSave || (err as any)?.saveRejected) throw err;
         console.warn('Network sync failed (phone offline/disconnected), match saved in local storage and queued for background sync', err);
-        enqueuePendingMatchSync(match);
+        enqueuePendingMatchSync(outgoing);
+        publishScoringSaveState(match.id, 'offline');
     }
     return match;
 };
@@ -1026,182 +1105,27 @@ export const restoreTeamRoster = async (matchId: string, teamId: string, current
     return await updateMatch(updated);
 };
 
-// Stats Calculation Helper
-export const calculateMatchStats = (match: Match, homeTeam: Team, awayTeam: Team): PlayerStats[] => {
-    const stats = new Map<string, PlayerStats>();
-    
-    const initStat = (id: string, name: string): PlayerStats => ({
-        playerId: id, name, totalPoints: 0, hits4: 0, hits3: 0, hits2: 0, hits1: 0, pitchesSeen: 0
-    });
-    
-    // Pre-fill players AND subs from the match data
-    // We must iterate the match innings to catch players who might be subs
-    const allMatchPlayerIds = new Set<string>();
-    (match.innings || []).forEach(i => {
-        (i?.home?.playerScores || []).forEach(p => allMatchPlayerIds.add(p.playerId));
-        (i?.away?.playerScores || []).forEach(p => allMatchPlayerIds.add(p.playerId));
-    });
-
-    // Add team players with FORMATTED names
-    (homeTeam?.players || []).forEach(p => stats.set(p.id, initStat(p.id, formatName(p))));
-    (awayTeam?.players || []).forEach(p => stats.set(p.id, initStat(p.id, formatName(p))));
-    
-    // Add any subs that might be in the match but not main roster
-    // Check home subs
-    if(homeTeam?.subs) {
-        homeTeam.subs.forEach(p => {
-            if(allMatchPlayerIds.has(p.id)) stats.set(p.id, initStat(p.id, formatName(p)));
-        });
-    }
-    // Check away subs
-    if(awayTeam?.subs) {
-        awayTeam.subs.forEach(p => {
-            if(allMatchPlayerIds.has(p.id)) stats.set(p.id, initStat(p.id, formatName(p)));
-        });
-    }
-
-    (match.innings || []).forEach(inning => {
-        if (!inning) return;
-        [inning.home, inning.away].forEach(teamData => {
-            if (!teamData?.playerScores) return;
-            const isGhostMode = teamData.playerScores.length === 2 && (teamData.playerScores[0]?.pitches?.length || 0) >= 15;
-            const actualTeamId = teamData.teamId === 'home' ? match.homeTeamId : match.awayTeamId;
-            const ghostId = `ghost-${actualTeamId}`; // Unique ID for this team's ghost
-
-            teamData.playerScores.forEach((ps) => {
-                if (!ps) return;
-                let pStats = stats.get(ps.playerId);
-                if (!pStats) {
-                     // Handle unknown sub (shouldn't happen if subs array is sync'd, but safety fallback)
-                     pStats = initStat(ps.playerId, 'Sub');
-                     stats.set(ps.playerId, pStats);
-                }
-
-                // In Ghost mode, only first 10 pitches count for player. 11-15 go to ghost.
-                const pitches = ps.pitches || [];
-                const playerPitches = isGhostMode ? pitches.slice(0, 10) : pitches;
-                const ghostPitches = isGhostMode ? pitches.slice(10, 15) : [];
-
-                const processPitch = (p: any, statObj: PlayerStats) => {
-                    if (p && p.points !== null && p.points !== undefined) {
-                        const val = Number(p.points);
-                        if (!isNaN(val)) {
-                            statObj.totalPoints += val;
-                            statObj.pitchesSeen += 1;
-                            if (val === 4) statObj.hits4++;
-                            else if (val === 3) statObj.hits3++;
-                            else if (val === 2) statObj.hits2++;
-                            else if (val === 1) statObj.hits1++;
-                        }
-                    }
-                };
-
-                playerPitches.forEach(p => processPitch(p, pStats!));
-                
-                if (ghostPitches.length > 0) {
-                    let ghostStats = stats.get(ghostId);
-                    if (!ghostStats) {
-                        ghostStats = initStat(ghostId, 'Player 3 (Ghost)');
-                        stats.set(ghostId, ghostStats);
-                    }
-                    ghostPitches.forEach(p => processPitch(p, ghostStats!));
-                }
-            });
-        });
-    });
-    
-    // Process Tie Breaker
-    if(match.tieBreaker && Array.isArray(match.tieBreaker)) {
-        match.tieBreaker.forEach(tb => {
-            if (!tb) return;
-            const addTb = (pid: string, scores: (number|null)[]) => {
-                if (!pid || !Array.isArray(scores)) return;
-                let s = stats.get(pid);
-                if(!s) { 
-                     // Try to find name in teams/subs if not init
-                     const allP = [...(homeTeam?.players || []), ...(homeTeam?.subs||[]), ...(awayTeam?.players || []), ...(awayTeam?.subs||[])];
-                     const found = allP.find(p=>p.id===pid);
-                     s = initStat(pid, found ? formatName(found) : 'Unknown'); 
-                     stats.set(pid, s); 
-                }
-                scores.forEach(val => {
-                    if(val !== null && val !== undefined) {
-                        const num = Number(val);
-                        if (!isNaN(num)) {
-                            s!.totalPoints += num;
-                            s!.pitchesSeen++;
-                            if (num === 4) s!.hits4++;
-                            else if (num === 3) s!.hits3++;
-                            else if (num === 2) s!.hits2++;
-                            else if (num === 1) s!.hits1++;
-                        }
-                    }
-                });
-            };
-            addTb(tb.homePlayerId, tb.homeScores);
-            addTb(tb.awayPlayerId, tb.awayScores);
-        });
-    }
-
-    // Filter out ghost players before returning for UI display
-    return Array.from(stats.values()).filter(s => !s.playerId.startsWith('ghost-'));
-};
-
 export const getTeamStats = async (team: Team, league: AgeGroup, season: string): Promise<PlayerStats[]> => {
-    // Strict isolation: Fetch official matches excluding practice, and filter out any practice matches
     const matches = await getMatches(league, season, { excludePractice: true });
-    const teamMatches = matches.filter(m => (m.homeTeamId === team.id || m.awayTeamId === team.id) && m.isComplete && !m.isPractice && !m.is_practice);
-    
     const allTeams = await getAllTeams();
-
-    const aggStats = new Map<string, PlayerStats>();
-    
-    teamMatches.forEach(m => {
-        // ASYMMETRICAL STATS EXCLUSION:
-        // Completely exclude the individual and team statistics of the forfeiting team from being counted toward season totals.
-        // The compliant opponent's stats remain fully intact!
-        const isForfeit = !!(m.isForfeit || m.is_forfeit);
-        const forfeitingId = m.forfeitingTeamId || m.forfeiting_team_id;
-        if (isForfeit && forfeitingId === team.id) {
-            return;
-        }
-
-        const home = allTeams.find(t => t.id === m.homeTeamId);
-        const away = allTeams.find(t => t.id === m.awayTeamId);
-        if(home && away) {
-            const mStats = calculateMatchStats(m, home, away);
-            mStats.forEach(stat => {
-                // Only aggregate for THIS team's players (including subs and ghost)
-                const isMainPlayer = team.players.some(p => p.id === stat.playerId);
-                const isSub = team.subs && team.subs.some(p => p.id === stat.playerId);
-                const isGhost = stat.playerId === `ghost-${team.id}`;
-
-                if(isMainPlayer || isSub || isGhost) {
-                     if(!aggStats.has(stat.playerId)) {
-                         aggStats.set(stat.playerId, { ...stat });
-                     } else {
-                         const ex = aggStats.get(stat.playerId)!;
-                         ex.totalPoints += stat.totalPoints;
-                         ex.hits4 += stat.hits4;
-                         ex.hits3 += stat.hits3;
-                         ex.hits2 += stat.hits2;
-                         ex.hits1 += stat.hits1;
-                         ex.pitchesSeen += stat.pitchesSeen;
-                     }
-                }
-            });
-        }
-    });
-
-    return Array.from(aggStats.values()).filter(s => !s.playerId.startsWith('ghost-'));
+    return aggregateTeamPlayerStats(team, matches, allTeams);
 };
 
 // Settings & Admin
+// Passwords are checked by the server only. Existing logged-in scoring
+// sessions and their offline pitch queues are managed separately.
+const clearLegacyCachedPasswords = (): void => {
+    if (typeof window === 'undefined') return;
+    try {
+        localStorage.removeItem('dugout_cached_admin_pw');
+        localStorage.removeItem('dugout_cached_umpire_pw');
+    } catch (e) {}
+};
+
 export const verifyPassword = async (password: string): Promise<{success: boolean, role?: 'admin'|'umpire', error?: string}> => {
     const trimmed = (password || '').trim();
-    if (!trimmed) {
-        return { success: false, error: 'Password cannot be empty' };
-    }
+    clearLegacyCachedPasswords();
+    if (!trimmed) return { success: false, error: 'Please enter a password.' };
 
     try {
         const res = await apiFetch('/api/settings', {
@@ -1210,72 +1134,54 @@ export const verifyPassword = async (password: string): Promise<{success: boolea
             body: JSON.stringify({ action: 'verify', password: trimmed })
         });
         const data = await res.json().catch(() => ({}));
-        if (res.ok && data.success && data.role) {
+        if (res.ok && data.success && (data.role === 'admin' || data.role === 'umpire') && data.token) {
             if (typeof window !== 'undefined') {
                 try {
-                    if (data.token) {
-                        sessionStorage.setItem('dugout_auth_token', data.token);
-                        localStorage.setItem('dugout_auth_token', data.token);
-                    }
+                    sessionStorage.setItem('dugout_auth_token', data.token);
+                    localStorage.setItem('dugout_auth_token', data.token);
                 } catch (e) {}
             }
             return { success: true, role: data.role };
         }
-        if (data.error && !res.ok && res.status !== 500) {
-            return { success: false, error: data.error };
-        }
+        if (res.status === 401) return { success: false, error: 'Incorrect password. Please try again.' };
+        if (res.status >= 500) return { success: false, error: 'Login is temporarily unavailable. Check your connection and try again.' };
+        return { success: false, error: data.error || 'Unable to sign in. Please try again.' };
     } catch (err) {
-        console.warn('Network verifyPassword failed, falling back to cached authentication', err);
+        console.warn('Unable to verify login with the server', err);
+        return { success: false, error: 'Unable to reach the server. Check your connection and try again.' };
     }
-
-    // Offline / Network Failure Fallback
-    try {
-        const cachedAdmin = (typeof window !== 'undefined' ? localStorage.getItem('dugout_cached_admin_pw') : null) || 'admin';
-        const cachedUmpire = (typeof window !== 'undefined' ? localStorage.getItem('dugout_cached_umpire_pw') : null) || 'umpire';
-        if (trimmed.toLowerCase() === cachedAdmin.toLowerCase()) {
-            return { success: true, role: 'admin' };
-        }
-        if (trimmed.toLowerCase() === cachedUmpire.toLowerCase()) {
-            return { success: true, role: 'umpire' };
-        }
-    } catch (e) {}
-
-    return { success: false, error: 'Incorrect password' };
 };
 
 export const updateAdminPassword = async (password: string) => {
     const trimmed = password.trim();
-    if (typeof window !== 'undefined') {
-        try { localStorage.setItem('dugout_cached_admin_pw', trimmed); } catch (e) {}
-    }
-    const res = await apiFetch('/api/settings', { 
-        method: 'POST', 
-        headers: { 'Content-Type': 'application/json' }, 
-        body: JSON.stringify({ action: 'update_password', password: trimmed }) 
+    const res = await apiFetch('/api/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'update_password', password: trimmed })
     });
     if (!res.ok) {
         const err = await res.json().catch(() => ({}));
         throw new Error(err.error || 'Failed to update admin password');
     }
+    clearLegacyCachedPasswords();
 };
 
 export const updateUmpirePassword = async (password: string) => {
     const trimmed = password.trim();
-    if (typeof window !== 'undefined') {
-        try { localStorage.setItem('dugout_cached_umpire_pw', trimmed); } catch (e) {}
-    }
-    const res = await apiFetch('/api/settings', { 
-        method: 'POST', 
-        headers: { 'Content-Type': 'application/json' }, 
-        body: JSON.stringify({ action: 'update_umpire_password', password: trimmed }) 
+    const res = await apiFetch('/api/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'update_umpire_password', password: trimmed })
     });
     if (!res.ok) {
         const err = await res.json().catch(() => ({}));
         throw new Error(err.error || 'Failed to update umpire password');
     }
+    clearLegacyCachedPasswords();
 };
 
 export const logout = async (): Promise<void> => {
+    clearLegacyCachedPasswords();
     if (typeof window !== 'undefined') {
         try {
             sessionStorage.removeItem('dugout_auth_token');
@@ -1293,6 +1199,7 @@ export const logout = async (): Promise<void> => {
 };
 
 export const checkAuthSession = async (): Promise<{ authenticated: boolean; role?: 'admin' | 'umpire' }> => {
+    clearLegacyCachedPasswords();
     try {
         const res = await apiFetch('/api/settings', {
             method: 'POST',
@@ -1319,8 +1226,7 @@ export const getCurrentSeason = async (): Promise<string> => {
             if (typeof window !== 'undefined') {
                 try { localStorage.setItem('dugout_current_season', season); } catch (e) {}
                 const list = Array.isArray(data.seasons) ? data.seasons : [];
-                const merged = Array.from(new Set([...list, '2026', '2025', season]))
-                    .sort((a, b) => b.localeCompare(a, undefined, { numeric: true }));
+                const merged = mergeAvailableSeasons(list, season);
                 try { localStorage.setItem('dugout_available_seasons', JSON.stringify(merged)); } catch (e) {}
             }
             return season;
@@ -1344,8 +1250,7 @@ export const getAvailableSeasons = async (): Promise<string[]> => {
         if (res.ok) {
             const data = await res.json();
             const list = Array.isArray(data.seasons) ? data.seasons : [];
-            const merged = Array.from(new Set([...list, '2026', '2025', data.currentSeason || defaultSeason]))
-                .sort((a, b) => b.localeCompare(a, undefined, { numeric: true }));
+            const merged = mergeAvailableSeasons(list, data.currentSeason || defaultSeason);
             if (typeof window !== 'undefined') {
                 try { localStorage.setItem('dugout_available_seasons', JSON.stringify(merged)); } catch (e) {}
             }
@@ -1360,15 +1265,14 @@ export const getAvailableSeasons = async (): Promise<string[]> => {
             if (cached) {
                 const parsed = JSON.parse(cached);
                 if (Array.isArray(parsed) && parsed.length > 0) {
-                    const merged = Array.from(new Set([...parsed, '2026', '2025', defaultSeason]))
-                        .sort((a, b) => b.localeCompare(a, undefined, { numeric: true }));
+                    const merged = mergeAvailableSeasons(parsed, defaultSeason);
                     localStorage.setItem('dugout_available_seasons', JSON.stringify(merged));
                     return merged;
                 }
             }
         } catch (e) {}
     }
-    const mergedFallback = Array.from(new Set([defaultSeason, '2026', '2025'])).sort((a, b) => b.localeCompare(a, undefined, { numeric: true }));
+    const mergedFallback = mergeAvailableSeasons([], defaultSeason);
     if (typeof window !== 'undefined') {
         try { localStorage.setItem('dugout_available_seasons', JSON.stringify(mergedFallback)); } catch (e) {}
     }
@@ -1382,7 +1286,7 @@ export const updateCurrentSeason = async (season: string) => {
             localStorage.setItem('dugout_current_season', season);
             const cached = localStorage.getItem('dugout_available_seasons');
             const list = cached ? JSON.parse(cached) : [];
-            const merged = Array.from(new Set([...list, season, '2026', '2025'])).sort((a, b) => b.localeCompare(a, undefined, { numeric: true }));
+            const merged = mergeAvailableSeasons(list, season);
             localStorage.setItem('dugout_available_seasons', JSON.stringify(merged));
         } catch (e) {}
     }

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { Team, Match } from '../types';
 import * as storage from '../services/storageService';
@@ -9,6 +9,7 @@ interface PracticeSetupModalProps {
   currentLeague: string;
   season: string;
   teams: Team[];
+  allowLeagueSelection?: boolean;
   onStartPractice: (match: Match) => Promise<void>;
 }
 
@@ -18,6 +19,7 @@ export const PracticeSetupModal: React.FC<PracticeSetupModalProps> = ({
   currentLeague,
   season,
   teams,
+  allowLeagueSelection = false,
   onStartPractice
 }) => {
   const [selectedAwayId, setSelectedAwayId] = useState('');
@@ -25,18 +27,50 @@ export const PracticeSetupModal: React.FC<PracticeSetupModalProps> = ({
   const [rosterFormat, setRosterFormat] = useState<'3v3' | '3v2' | '2v2'>('3v3');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [availablePracticeLeagues, setAvailablePracticeLeagues] = useState<string[]>([]);
+  const [allPracticeTeams, setAllPracticeTeams] = useState<Team[]>([]);
+  const [selectedPracticeLeague, setSelectedPracticeLeague] = useState('');
+  const [loadingPracticeLeagues, setLoadingPracticeLeagues] = useState(false);
+
+  // Admin has no current league. Load this season's divisions and team rosters.
+  useEffect(() => {
+    if (!isOpen || !allowLeagueSelection) return;
+    let cancelled = false;
+    setSelectedPracticeLeague('');
+    setAvailablePracticeLeagues([]);
+    setAllPracticeTeams([]);
+    setLoadingPracticeLeagues(true);
+    setError(null);
+    Promise.all([storage.getLeagues(season), storage.getTeams(null, season)])
+      .then(([leagues, loadedTeams]) => {
+        if (cancelled) return;
+        setAvailablePracticeLeagues(leagues.map(league => league.id));
+        setAllPracticeTeams(loadedTeams);
+      })
+      .catch(() => {
+        if (!cancelled) setError('Could not load leagues and teams. Close this window and try again.');
+      })
+      .finally(() => {
+        if (!cancelled) setLoadingPracticeLeagues(false);
+      });
+    return () => { cancelled = true; };
+  }, [isOpen, allowLeagueSelection, season]);
+
+  const effectiveLeague = allowLeagueSelection ? selectedPracticeLeague : currentLeague;
+  const effectiveTeams = useMemo(() =>
+    allowLeagueSelection
+      ? allPracticeTeams.filter(team => selectedPracticeLeague !== '' && storage.leaguesMatch(team.league, selectedPracticeLeague))
+      : teams,
+    [allowLeagueSelection, allPracticeTeams, selectedPracticeLeague, teams]
+  );
 
   // Synchronize dropdown selections whenever modal opens or teams change
   // Ensures Home and Away default to two distinct teams
   useEffect(() => {
-    if (isOpen && teams.length > 0) {
-      const awayId = teams[0]?.id || '';
-      const homeId = teams.length > 1 ? teams[1]?.id : teams[0]?.id || '';
-      setSelectedAwayId(awayId);
-      setSelectedHomeId(homeId);
-      setError(null);
-    }
-  }, [isOpen, teams]);
+    if (!isOpen) return;
+    setSelectedAwayId(effectiveTeams[0]?.id || '');
+    setSelectedHomeId(effectiveTeams[1]?.id || '');
+  }, [isOpen, effectiveLeague, effectiveTeams]);
 
   if (!isOpen) return null;
 
@@ -45,7 +79,7 @@ export const PracticeSetupModal: React.FC<PracticeSetupModalProps> = ({
     setError(null);
     // If the user selects the team that is currently Home, automatically shift Home to another team
     if (newAwayId === selectedHomeId) {
-      const altHome = teams.find(t => t.id !== newAwayId);
+      const altHome = effectiveTeams.find(t => t.id !== newAwayId);
       if (altHome) {
         setSelectedHomeId(altHome.id);
       }
@@ -57,7 +91,7 @@ export const PracticeSetupModal: React.FC<PracticeSetupModalProps> = ({
     setError(null);
     // If the user selects the team that is currently Away, automatically shift Away to another team
     if (newHomeId === selectedAwayId) {
-      const altAway = teams.find(t => t.id !== newHomeId);
+      const altAway = effectiveTeams.find(t => t.id !== newHomeId);
       if (altAway) {
         setSelectedAwayId(altAway.id);
       }
@@ -76,8 +110,13 @@ export const PracticeSetupModal: React.FC<PracticeSetupModalProps> = ({
     setError(null);
 
     try {
-      if (teams.length < 2) {
-        setError(`At least 2 teams in the ${currentLeague} league are required to start a practice match.`);
+      if (!effectiveLeague) {
+        setError('Please choose a league first.');
+        setIsSubmitting(false);
+        return;
+      }
+      if (effectiveTeams.length < 2) {
+        setError("Please choose a league with at least two teams.");
         setIsSubmitting(false);
         return;
       }
@@ -94,10 +133,10 @@ export const PracticeSetupModal: React.FC<PracticeSetupModalProps> = ({
         return;
       }
 
-      const foundHome = teams.find(t => t.id === selectedHomeId);
-      const foundAway = teams.find(t => t.id === selectedAwayId);
+      const foundHome = effectiveTeams.find(t => t.id === selectedHomeId);
+      const foundAway = effectiveTeams.find(t => t.id === selectedAwayId);
       if (!foundHome || !foundAway) {
-        setError('Selected teams could not be found in active league roster.');
+        setError("We couldn't find one of those teams. Please pick teams from the list.");
         setIsSubmitting(false);
         return;
       }
@@ -106,7 +145,7 @@ export const PracticeSetupModal: React.FC<PracticeSetupModalProps> = ({
       const awayPlayerIds = (foundAway.players || []).slice(0, rosterFormat === '3v2' || rosterFormat === '2v2' ? 2 : 3).map(p => p.id);
 
       const practiceMatch = await storage.createPracticeMatch({
-        league: currentLeague,
+        league: effectiveLeague,
         homeTeamId: foundHome.id,
         awayTeamId: foundAway.id,
         homePlayerIds,
@@ -119,7 +158,7 @@ export const PracticeSetupModal: React.FC<PracticeSetupModalProps> = ({
       onClose();
     } catch (err: any) {
       console.error('Failed to launch practice match:', err);
-      setError(err.message || 'Failed to initialize practice match');
+      setError('The practice game could not start yet. Please try again or ask for help.');
     } finally {
       setIsSubmitting(false);
     }
@@ -148,7 +187,7 @@ export const PracticeSetupModal: React.FC<PracticeSetupModalProps> = ({
                 </span>
               </div>
               <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                Full-featured match simulation for training umpires. Auto-deletes upon exit.
+                Full-featured match simulation for training umpires. Practice games stay until manually deleted.
               </p>
             </div>
           </div>
@@ -163,8 +202,8 @@ export const PracticeSetupModal: React.FC<PracticeSetupModalProps> = ({
 
         {/* Informational Callout */}
         <div className="bg-amber-500/15 border-b border-amber-500/20 px-4 py-2.5 flex items-center gap-2 text-xs text-amber-900 dark:text-amber-200">
-          <span className="font-bold shrink-0">🛡️ Auto-Cleanup:</span>
-          <span>Practice matches behave identically to real games, but are automatically deleted on exit so league records stay 100% clean.</span>
+          <span className="font-bold shrink-0">🛡️ Practice Safety:</span>
+          <span>Practice games do not count toward official standings. They remain on the schedule until an admin deletes them.</span>
         </div>
 
         <div className="p-4 sm:p-6 overflow-y-auto space-y-5 flex-1">
@@ -174,21 +213,49 @@ export const PracticeSetupModal: React.FC<PracticeSetupModalProps> = ({
             </div>
           )}
 
+          {/* Admin must choose a league; a league dashboard already has one. */}
+          {allowLeagueSelection && (
+            <div>
+              <label htmlFor="practice-league-select" className="text-xs font-black uppercase tracking-wider text-slate-500 dark:text-slate-400 block mb-2">
+                Step 1: Choose a league ({season} season)
+              </label>
+              <select
+                id="practice-league-select"
+                value={selectedPracticeLeague}
+                onChange={event => {
+                  setSelectedPracticeLeague(event.target.value);
+                  setError(null);
+                }}
+                disabled={loadingPracticeLeagues}
+                className="w-full px-3 py-2.5 rounded-lg bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-700 font-bold text-sm text-slate-900 dark:text-white outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer disabled:opacity-60"
+              >
+                <option value="">{loadingPracticeLeagues ? 'Loading leagues…' : 'Select a league'}</option>
+                {availablePracticeLeagues.map(league => (
+                  <option key={league} value={league}>{league}</option>
+                ))}
+              </select>
+            </div>
+          )}
+
           {/* Team Selection Section */}
           <div>
             <div className="flex items-center justify-between mb-2">
               <label className="text-xs font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">
-                Step 1: Select League Teams ({currentLeague})
+                {allowLeagueSelection ? 'Step 2: Select Teams' : 'Step 1: Select League Teams'} ({effectiveLeague || 'Choose league'})
               </label>
               <span className="text-[11px] font-bold text-slate-400">
-                {teams.length} teams available
+                {effectiveTeams.length} teams available
               </span>
             </div>
 
-            {teams.length < 2 ? (
+            {loadingPracticeLeagues || (allowLeagueSelection && !effectiveLeague) ? (
+              <div className="p-4 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 text-slate-600 dark:text-slate-300 text-center text-sm">
+                {loadingPracticeLeagues ? 'Loading teams…' : 'Choose a league above to see its teams.'}
+              </div>
+            ) : effectiveTeams.length < 2 ? (
               <div className="p-4 rounded-xl border border-amber-300 dark:border-amber-800 bg-amber-50/50 dark:bg-amber-950/20 text-center text-xs text-amber-800 dark:text-amber-300 space-y-2">
                 <div className="text-lg">⚠️</div>
-                <div className="font-bold">Fewer than 2 teams in the {currentLeague} league.</div>
+                <div className="font-bold">Fewer than 2 teams in the {effectiveLeague} league.</div>
                 <div className="text-slate-500 dark:text-slate-400">
                   Please add or import teams to this league first so you can simulate matches with real rosters.
                 </div>
@@ -204,7 +271,7 @@ export const PracticeSetupModal: React.FC<PracticeSetupModalProps> = ({
                     onChange={e => handleAwayChange(e.target.value)}
                     className="w-full px-3 py-2.5 rounded-lg bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 font-bold text-xs sm:text-sm text-slate-900 dark:text-white outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
                   >
-                    {teams.map(t => (
+                    {effectiveTeams.map(t => (
                       <option key={t.id} value={t.id}>
                         {t.name}
                       </option>
@@ -232,7 +299,7 @@ export const PracticeSetupModal: React.FC<PracticeSetupModalProps> = ({
                     onChange={e => handleHomeChange(e.target.value)}
                     className="w-full px-3 py-2.5 rounded-lg bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 font-bold text-xs sm:text-sm text-slate-900 dark:text-white outline-none focus:ring-2 focus:ring-red-500 cursor-pointer"
                   >
-                    {teams.map(t => (
+                    {effectiveTeams.map(t => (
                       <option key={t.id} value={t.id}>
                         {t.name}
                       </option>
@@ -246,7 +313,7 @@ export const PracticeSetupModal: React.FC<PracticeSetupModalProps> = ({
           {/* Roster Size / Format Preset */}
           <div>
             <label className="text-xs font-black uppercase tracking-wider text-slate-500 dark:text-slate-400 block mb-2">
-              Step 2: Simulation Format
+              {allowLeagueSelection ? 'Step 3: Simulation Format' : 'Step 2: Simulation Format'}
             </label>
             <div className="grid grid-cols-3 gap-2">
               <button
@@ -303,7 +370,7 @@ export const PracticeSetupModal: React.FC<PracticeSetupModalProps> = ({
           <button
             type="button"
             onClick={handleLaunch}
-            disabled={isSubmitting || teams.length < 2 || !selectedAwayId || !selectedHomeId || selectedAwayId === selectedHomeId}
+            disabled={isSubmitting || loadingPracticeLeagues || !effectiveLeague || effectiveTeams.length < 2 || !selectedAwayId || !selectedHomeId || selectedAwayId === selectedHomeId}
             className="px-5 py-2 rounded-xl bg-amber-500 hover:bg-amber-600 text-slate-950 font-black text-xs sm:text-sm shadow-md transition-all flex items-center gap-1.5 disabled:opacity-50 cursor-pointer active:scale-95"
           >
             <span>{isSubmitting ? 'Starting...' : 'Launch Practice Game'}</span>

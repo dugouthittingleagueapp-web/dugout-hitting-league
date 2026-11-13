@@ -11,9 +11,14 @@ export interface AuthSession {
 const SESSION_COOKIE_NAME = 'dugout_session';
 const SESSION_DURATION_SECONDS = 7 * 24 * 60 * 60; // 7 days
 
-// Secure server secret for HMAC session signing
+// Require a server-only, deployment-specific key. Never silently issue
+// administrator or umpire sessions signed with a public source-code fallback.
 function getSessionSecret(): string {
-  return process.env.SESSION_SECRET || process.env.ADMIN_SECRET || 'dugout-hitting-league-hardened-session-secret-2026';
+  const secret = process.env.SESSION_SECRET;
+  if (!secret || secret.length < 32) {
+    throw new Error('SESSION_SECRET must be configured with at least 32 characters');
+  }
+  return secret;
 }
 
 /**
@@ -69,10 +74,10 @@ export function verifySessionToken(token: string): { valid: boolean; role?: 'adm
   if (parts.length !== 2) return { valid: false };
 
   const [encodedPayload, providedSignature] = parts;
-  const secret = getSessionSecret();
-  const expectedSignature = crypto.createHmac('sha256', secret).update(encodedPayload).digest('base64url');
-
   try {
+    // No secret -> no valid sessions. Do not fall back to a shared key.
+    const secret = getSessionSecret();
+    const expectedSignature = crypto.createHmac('sha256', secret).update(encodedPayload).digest('base64url');
     const a = Buffer.from(providedSignature);
     const b = Buffer.from(expectedSignature);
     if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) {

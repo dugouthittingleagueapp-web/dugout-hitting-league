@@ -55,6 +55,8 @@ export type MatchStatus = 'SCHEDULED' | 'IN_PROGRESS' | 'FINAL';
 
 export interface Match {
   id: string;
+  /** Monotonically increasing server-side version; prevents stale game overwrites. */
+  revision?: number;
   league: AgeGroup;
   season: string;
   homeTeamId: string;

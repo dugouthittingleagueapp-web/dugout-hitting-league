@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { AgeGroup, AppState, Match, Team, Player, League, PlayerStats, Inning, TieBreakerRound } from './types';
+import { AgeGroup, AppState, Match, Team, Player, League, PlayerStats } from './types';
 import { Navbar } from './components/Navbar';
 import { TeamManagement } from './components/TeamManagement';
 import { Scoreboard } from './components/Scoreboard';
@@ -13,7 +13,12 @@ import { PracticeSetupModal } from './components/PracticeSetupModal';
 import { MatchStatsEditorModal } from './components/MatchStatsEditorModal';
 import * as storage from './services/storageService';
 import { getMatchStatus, findCurrentOrUpcomingWeekId } from './utils/lineupHelper';
-import { detectForfeit, isForfeitMatch, getForfeitingTeamId } from './services/matchHelpers';
+import { detectForfeit } from './services/matchHelpers';
+import { calculateLeagueStandings } from './utils/leagueStandings';
+import { calculateWeeklyLeaders } from './utils/weeklyLeaders';
+import { getMatchScores } from './utils/scoreTotals';
+import { getWeekKey, groupMatchesByWeek } from './utils/scheduleWeeks';
+import { calculateSeasonStats, attachSeasonTeamNames } from './utils/seasonStats';
 
 const INACTIVITY_LIMIT = 3 * 60 * 60 * 1000; // 3 hours
 
@@ -41,19 +46,6 @@ const safeStorage = {
             // ignore
         }
     }
-};
-
-// Helper to get ISO Week Key (YYYY-Www) with zero-padded week to ensure natural chronological sorting
-const getWeekKey = (dateStr: string) => {
-    const d = new Date(dateStr);
-    d.setHours(0, 0, 0, 0);
-    // Set to nearest Thursday: current date + 4 - current day number
-    // Make Sunday's day number 7
-    d.setDate(d.getDate() + 4 - (d.getDay() || 7));
-    const yearStart = new Date(d.getFullYear(), 0, 1);
-    const weekNo = Math.ceil(( ( (d.getTime() - yearStart.getTime()) / 86400000) + 1) / 7);
-    const paddedWeek = String(weekNo).padStart(2, '0');
-    return `${d.getFullYear()}-W${paddedWeek}`;
 };
 
 const App: React.FC = () => {
@@ -284,11 +276,10 @@ const App: React.FC = () => {
   }, []);
 
   // Initial Load & View Change
+  // The storage service owns the reconnect listener; the app only kicks off
+  // one initial queue flush to prevent multiple duplicate synchronization runs.
   useEffect(() => {
-    storage.syncOfflineData();
-    const handleOnline = () => storage.syncOfflineData();
-    window.addEventListener('online', handleOnline);
-    return () => window.removeEventListener('online', handleOnline);
+    void storage.syncOfflineData();
   }, []);
 
   useEffect(() => {
@@ -414,6 +405,12 @@ const App: React.FC = () => {
 
   const handleScoreboardExit = async (options?: { endedPractice?: boolean; deletedPractice?: boolean; matchId?: string; savedPractice?: boolean; finalizedMatch?: boolean; message?: string }) => {
       const targetMatchId = options?.matchId || state.currentMatchId;
+      // Finished-game admin corrections use a real scoring lock. Release it
+      // when returning to the schedule so another admin isn't blocked.
+      if (userRole === 'admin' && targetMatchId &&
+          matches.some(m => m.id === targetMatchId && (m.isComplete || m.status === 'FINAL'))) {
+          await storage.requestScoringLock(targetMatchId, 'release').catch(() => {});
+      }
       safeStorage.removeItem('dugout_active_match_id');
       setResumeMatch(null);
 
@@ -468,27 +465,11 @@ const App: React.FC = () => {
       }
   };
 
-  // --- Week Calculation Logic ---
-  const activeWeeks = useMemo(() => {
-      if (!state.currentLeague) return [];
-      
-      const weeksMap = new Map<string, Match[]>();
-      matches.forEach(m => {
-          if (m.league && !storage.leaguesMatch(m.league, state.currentLeague)) return;
-          const key = getWeekKey(m.date);
-          if (!weeksMap.has(key)) weeksMap.set(key, []);
-          weeksMap.get(key)!.push(m);
-      });
-
-      // Sort weeks chronologically by ID (YYYY-Www sorts naturally)
-      const sortedKeys = Array.from(weeksMap.keys()).sort();
-      
-      return sortedKeys.map((key, index) => ({
-          id: key,
-          label: `Week ${index + 1}`,
-          matches: storage.sortMatchesChronologically(weeksMap.get(key)!)
-      }));
-  }, [matches, state.currentLeague, userRole]);
+  // Week grouping is shared with schedule tests and independent of React rendering.
+  const activeWeeks = useMemo(
+    () => groupMatchesByWeek(matches, state.currentLeague, storage.leaguesMatch),
+    [matches, state.currentLeague]
+  );
 
   // Track league changes so schedule view auto-advances when switching leagues or on initial mount
   const lastLeagueRef = useRef<string | null>(null);
@@ -806,127 +787,11 @@ const App: React.FC = () => {
     </th>
   );
 
-  const calculateWeeklyLeaders = useCallback(() => {
-      // Find the selected week object, or default to nothing
-      const targetWeek = activeWeeks.find(w => w.id === leaderboardWeek);
-      const targetMatches = targetWeek ? targetWeek.matches : [];
-      
-      const relevantMatches = targetMatches.filter(m => m.isComplete && !m.isPractice && !m.is_practice);
+  const weeklyStats = useMemo(() => {
+    const targetWeek = activeWeeks.find(w => w.id === leaderboardWeek);
+    return calculateWeeklyLeaders(targetWeek ? targetWeek.matches : [], teams);
+  }, [teams, leaderboardWeek, activeWeeks]);
 
-      // Track unique players by ID to ensure they only appear once with their best score
-      const uniqueTotals = new Map<string, { name: string, team: string, score: number }>();
-      const uniqueInnings = new Map<string, { name: string, team: string, score: number }>();
-
-      relevantMatches.forEach(m => {
-          const home = teams.find(t => t.id === m.homeTeamId);
-          const away = teams.find(t => t.id === m.awayTeamId);
-          if (!home || !away) return;
-
-          const isForfeit = isForfeitMatch(m);
-          const forfeitingId = getForfeitingTeamId(m);
-
-          // 1. Calculate Match Totals Manually (Strict 10-pitch limit for Ghost Mode)
-          const matchPlayerTotals = new Map<string, number>();
-
-          // Process Innings
-          (m.innings || []).forEach(ing => {
-              [ing.home, ing.away].forEach((side, sideIdx) => {
-                   if (!side?.playerScores) return;
-                   // Completely exclude forfeiting team stats
-                   if (isForfeit && forfeitingId) {
-                       const currentSideTeamId = sideIdx === 0 ? m.homeTeamId : m.awayTeamId;
-                       if (currentSideTeamId === forfeitingId) return;
-                   }
-
-                   const isGhostMode = side.playerScores.length === 2 && (side.playerScores[0]?.pitches?.length || 0) >= 15;
-                   side.playerScores.forEach(ps => {
-                       if (!ps || ps.playerId.startsWith('ghost-')) return;
-                       
-                       let pitchesToCount = ps.pitches || [];
-                       // Strictly slice first 10 for individual stats in Ghost Mode
-                       if (isGhostMode && pitchesToCount.length > 10) {
-                           pitchesToCount = pitchesToCount.slice(0, 10);
-                       }
-                       
-                       const pts = pitchesToCount.reduce((sum, p) => sum + (p?.points || 0), 0);
-                       matchPlayerTotals.set(ps.playerId, (matchPlayerTotals.get(ps.playerId) || 0) + pts);
-                   });
-              });
-          });
-
-          // Process Tie Breakers (No ghost mode in tie breakers usually, but standard addition)
-          if (m.tieBreaker && Array.isArray(m.tieBreaker)) {
-              m.tieBreaker.forEach(tb => {
-                  const addTbScore = (pid: string, scores: (number|null)[]) => {
-                      if (!Array.isArray(scores)) return;
-                      const pts = scores.reduce<number>((sum, s) => (sum || 0) + (s || 0), 0);
-                      matchPlayerTotals.set(pid, (matchPlayerTotals.get(pid) || 0) + pts);
-                  };
-                  if (tb.homePlayerId && (!isForfeit || forfeitingId !== m.homeTeamId)) addTbScore(tb.homePlayerId, tb.homeScores);
-                  if (tb.awayPlayerId && (!isForfeit || forfeitingId !== m.awayTeamId)) addTbScore(tb.awayPlayerId, tb.awayScores);
-              });
-          }
-
-          // Update Leaderboard with this Match's Totals
-          matchPlayerTotals.forEach((totalScore, playerId) => {
-               // Find player info
-               let player = [...(home.players || []), ...(home.subs || [])].find(p => p.id === playerId);
-               let teamName = home.name;
-               if (!player) {
-                   player = [...(away.players || []), ...(away.subs || [])].find(p => p.id === playerId);
-                   teamName = away.name;
-               }
-
-               if (player) {
-                   const fullName = `${player.name}${player.lastName ? ' ' + player.lastName[0] + '.' : ''}`;
-                   // Check if this is the best score for this player so far
-                   const existing = uniqueTotals.get(playerId);
-                   if (!existing || totalScore > existing.score) {
-                       uniqueTotals.set(playerId, { name: fullName, team: teamName, score: totalScore });
-                   }
-               }
-          });
-
-          // 2. Best Inning (Existing Logic - ensure consistency)
-          (m.innings || []).forEach(ing => {
-              [ing.home, ing.away].forEach((side, sideIdx) => {
-                  if (!side?.playerScores) return;
-                  if (isForfeit && forfeitingId) {
-                      const currentSideTeamId = sideIdx === 0 ? m.homeTeamId : m.awayTeamId;
-                      if (currentSideTeamId === forfeitingId) return;
-                  }
-                  const team = sideIdx === 0 ? home : away;
-                  const isGhostMode = side.playerScores.length === 2 && (side.playerScores[0]?.pitches?.length || 0) >= 15;
-
-                  side.playerScores.forEach(ps => {
-                      if (!ps || ps.playerId.startsWith('ghost-')) return;
-
-                      const p = [...(team.players || []), ...(team.subs || [])].find(x => x.id === ps.playerId);
-                      if (p) {
-                          let pitchesToCount = ps.pitches || [];
-                          if (isGhostMode && pitchesToCount.length > 10) {
-                              pitchesToCount = pitchesToCount.slice(0, 10);
-                          }
-                          const score = pitchesToCount.reduce((sum, v) => sum + (v?.points || 0), 0);
-                          
-                          const existing = uniqueInnings.get(p.id);
-                          if (!existing || score > existing.score) {
-                              const fullName = `${p.name}${p.lastName ? ' ' + p.lastName[0] + '.' : ''}`;
-                              uniqueInnings.set(p.id, { name: fullName, team: team.name, score });
-                          }
-                      }
-                  });
-              });
-          });
-      });
-
-      return {
-          topTotals: Array.from(uniqueTotals.values()).sort((a, b) => b.score - a.score).slice(0, 5),
-          topInnings: Array.from(uniqueInnings.values()).sort((a, b) => b.score - a.score).slice(0, 5)
-      };
-  }, [matches, teams, leaderboardWeek, activeWeeks]);
-
-  const weeklyStats = useMemo(() => calculateWeeklyLeaders(), [calculateWeeklyLeaders]);
   const visibleMatches = useMemo(() => {
       const w = activeWeeks.find(w => w.id === matchListWeek);
       return w ? storage.sortMatchesChronologically(w.matches) : [];
@@ -934,155 +799,20 @@ const App: React.FC = () => {
 
   const leagueTeams = teams.filter(t => storage.leaguesMatch(t.league, state.currentLeague));
 
-  // --- NEW: Standings Calculation ---
-  const standings = useMemo(() => {
-    if (!state.currentLeague) return [];
-    
-    // Initialize stats for all teams in the current league
-    const stats = new Map<string, { id: string, name: string, gp: number, w: number, l: number, t: number, pf: number, pa: number }>();
-    leagueTeams.forEach(t => {
-      stats.set(t.id, { id: t.id, name: t.name, gp: 0, w: 0, l: 0, t: 0, pf: 0, pa: 0 });
-    });
+  const standings = useMemo(
+    () => calculateLeagueStandings(matches, leagueTeams, state.currentLeague),
+    [matches, leagueTeams, state.currentLeague]
+  );
 
-    matches.forEach(m => {
-      // Strict Stats Isolation: Practice matches never affect official league standings
-      if (m.isPractice || m.is_practice || !m.isComplete || (m.league && !storage.leaguesMatch(m.league, state.currentLeague))) return;
-      
-      const getScore = (innings: Inning[], side: 'home' | 'away', tb?: TieBreakerRound[]) => {
-         let score = (innings || []).reduce((acc, ing) => {
-             const team = side === 'home' ? ing?.home : ing?.away;
-             if (!team?.playerScores) return acc;
-             return acc + team.playerScores.reduce((pAcc, p) => pAcc + (p?.pitches || []).reduce((piAcc, pi) => piAcc + (pi?.points || 0), 0), 0);
-         }, 0);
-         if(tb && Array.isArray(tb)) {
-             tb.forEach(r => {
-                 const rScore = side === 'home' ? r?.homeScores : r?.awayScores;
-                 if (Array.isArray(rScore)) {
-                     score += rScore.reduce<number>((a, b) => (a || 0) + (b || 0), 0);
-                 }
-             });
-         }
-         return score;
-      };
+  const seasonStats = useMemo(
+    () => calculateSeasonStats(matches, teams, state.currentLeague, storage.calculateMatchStats, storage.leaguesMatch),
+    [matches, teams, state.currentLeague]
+  );
 
-      const hScore = getScore(m.innings, 'home', m.tieBreaker);
-      const aScore = getScore(m.innings, 'away', m.tieBreaker);
-
-      const isForfeit = isForfeitMatch(m);
-      const forfeitingId = getForfeitingTeamId(m);
-
-      if (isForfeit && forfeitingId) {
-          // Automatic Forfeit Win/Loss Outcome & Asymmetrical Stats:
-          // Non-forfeiting team gets an automatic win. Points scored count for compliant team.
-          // Forfeiting team gets an automatic loss. Forfeiting team points are completely excluded (pf = 0).
-          const isHomeForfeiting = forfeitingId === m.homeTeamId;
-          const homeRec = stats.get(m.homeTeamId);
-          const awayRec = stats.get(m.awayTeamId);
-
-          if (homeRec) {
-              homeRec.gp++;
-              if (isHomeForfeiting) {
-                  homeRec.l++;
-                  homeRec.pf += 0; // forfeiting team hitting points completely excluded
-                  homeRec.pa += aScore;
-              } else {
-                  homeRec.w++;
-                  homeRec.pf += hScore; // compliant team hitting points intact
-                  homeRec.pa += 0; // opponent forfeiting points excluded
-              }
-          }
-
-          if (awayRec) {
-              awayRec.gp++;
-              if (isHomeForfeiting) {
-                  awayRec.w++;
-                  awayRec.pf += aScore; // compliant team hitting points intact
-                  awayRec.pa += 0; // opponent forfeiting points excluded
-              } else {
-                  awayRec.l++;
-                  awayRec.pf += 0; // forfeiting team hitting points completely excluded
-                  awayRec.pa += hScore;
-              }
-          }
-          return;
-      }
-
-      const update = (id: string, s: number, os: number) => {
-          if (!stats.has(id)) return;
-          const rec = stats.get(id)!;
-          rec.gp++;
-          rec.pf += s;
-          rec.pa += os;
-          if (s > os) rec.w++;
-          else if (s < os) rec.l++;
-          else rec.t++;
-      };
-      
-      update(m.homeTeamId, hScore, aScore);
-      update(m.awayTeamId, aScore, hScore);
-    });
-
-    return Array.from(stats.values()).sort((a, b) => {
-        if (a.w !== b.w) return b.w - a.w;
-        if (a.t !== b.t) return b.t - a.t;
-        if (a.pf !== b.pf) return b.pf - a.pf;
-        return a.pa - b.pa;
-    });
-  }, [matches, leagueTeams, state.currentLeague]);
-
-  // --- NEW: Season Stats Calculation ---
-  const seasonStats = useMemo(() => {
-      if (!state.currentLeague) return [];
-      const aggStats = new Map<string, PlayerStats>();
-      
-      matches.forEach(m => {
-          // Strict Stats Isolation: Practice matches never affect official season stats or leaderboards
-          if (m.isPractice || m.is_practice || !m.isComplete || (m.league && !storage.leaguesMatch(m.league, state.currentLeague))) return;
-          const home = teams.find(t => t.id === m.homeTeamId);
-          const away = teams.find(t => t.id === m.awayTeamId);
-          if (!home || !away) return;
-          
-          const isForfeit = isForfeitMatch(m);
-          const forfeitingId = getForfeitingTeamId(m);
-
-          const mStats = storage.calculateMatchStats(m, home, away);
-          mStats.forEach(s => {
-              if (s.playerId.startsWith('ghost-')) return;
-              if (isForfeit && forfeitingId) {
-                  const forfeitingTeam = forfeitingId === home.id ? home : (forfeitingId === away.id ? away : null);
-                  const isForfeitingPlayer = forfeitingTeam && [...(forfeitingTeam.players || []), ...(forfeitingTeam.subs || [])].some(p => p.id === s.playerId);
-                  if (isForfeitingPlayer) return; // Completely exclude forfeiting team player stats
-              }
-              if (!aggStats.has(s.playerId)) {
-                  aggStats.set(s.playerId, { ...s });
-              } else {
-                  const curr = aggStats.get(s.playerId)!;
-                  curr.totalPoints += s.totalPoints;
-                  curr.hits4 += s.hits4;
-                  curr.hits3 += s.hits3;
-                  curr.hits2 += s.hits2;
-                  curr.hits1 += s.hits1;
-                  curr.pitchesSeen += s.pitchesSeen;
-              }
-          });
-      });
-      return Array.from(aggStats.values());
-  }, [matches, teams, state.currentLeague]);
-
-  const seasonStatsWithTeam = useMemo(() => {
-      const map = new Map<string, string>();
-      teams.forEach(t => {
-          [...(t.players || []), ...(t.subs || [])].forEach(p => {
-              map.set(p.id, t.name);
-              if (p.name) map.set(p.name.trim().toLowerCase(), t.name);
-          });
-      });
-      return seasonStats.map(s => ({
-          ...s,
-          teamName: map.get(s.playerId) || map.get(s.name.trim().toLowerCase()) || ''
-      }));
-  }, [seasonStats, teams]);
-
+  const seasonStatsWithTeam = useMemo(
+    () => attachSeasonTeamNames(seasonStats, teams),
+    [seasonStats, teams]
+  );
 
   const navbarProps = {
       currentLeague: state.currentLeague,
@@ -1105,33 +835,6 @@ const App: React.FC = () => {
       setMenuOpen: setIsMenuOpen,
   };
   
-  // Helper to get total scores for display
-  const getMatchScores = (m: Match) => {
-      const getSideScore = (side: 'home' | 'away') => {
-          let total = 0;
-          (m.innings || []).forEach(ing => {
-              const teamData = side === 'home' ? ing?.home : ing?.away;
-              if (teamData?.playerScores) {
-                  teamData.playerScores.forEach(p => {
-                      (p.pitches || []).forEach(pt => {
-                          if (pt && pt.points !== null) total += pt.points;
-                      });
-                  });
-              }
-          });
-          if (m.tieBreaker && Array.isArray(m.tieBreaker)) {
-              m.tieBreaker.forEach(tb => {
-                  const scores = side === 'home' ? tb?.homeScores : tb?.awayScores;
-                  if (Array.isArray(scores)) {
-                      scores.forEach(s => { if(s !== null) total += s; });
-                  }
-              });
-          }
-          return total;
-      };
-      return { home: getSideScore('home'), away: getSideScore('away') };
-  };
-
   return (
     <div className="h-[100dvh] w-full overflow-hidden bg-slate-100 dark:bg-slate-950 text-slate-900 dark:text-slate-200 flex flex-col font-sans relative transition-colors duration-500">
         {/* Background Texture */}
@@ -1337,7 +1040,7 @@ const App: React.FC = () => {
             {state.view === 'admin' && (
                 <div className="flex-1 bg-slate-50 dark:bg-slate-950 text-slate-800 dark:text-slate-200 w-full">
                     <AdminDashboard 
-                        onBack={() => setState({ ...state, view: 'league_select' })} 
+                        onBack={() => { setIsMenuOpen(false); setState(previous => ({ ...previous, view: 'league_select', currentLeague: null, currentMatchId: null })); }} 
                         onBrowseArchive={(archiveSeason) => setState(s => ({ ...s, season: archiveSeason, view: 'league_select', currentLeague: null }))}
                         onStartPractice={() => setShowPracticeModal(true)}
                         onSeasonUpdated={async () => {
@@ -1376,7 +1079,7 @@ const App: React.FC = () => {
             {/* SCORING VIEW */}
             {state.view === 'scoring' && state.currentMatchId && (
                 <div className="flex-1 bg-slate-100 dark:bg-slate-950 text-slate-800 dark:text-slate-200 w-full overflow-hidden">
-                    <Scoreboard matchId={state.currentMatchId} onExit={handleScoreboardExit} isReadOnly={userRole === 'fan'} userRole={userRole} onPlayerClick={setSelectedCareerPlayer} />
+                    <Scoreboard matchId={state.currentMatchId} onExit={handleScoreboardExit} isReadOnly={userRole === 'fan' || (userRole === 'umpire' && matches.some(m => m.id === state.currentMatchId && (m.isComplete || m.status === 'FINAL')))} userRole={userRole} onPlayerClick={setSelectedCareerPlayer} />
                 </div>
             )}
 
@@ -2116,7 +1819,8 @@ const App: React.FC = () => {
         <PracticeSetupModal
             isOpen={showPracticeModal}
             onClose={() => setShowPracticeModal(false)}
-            currentLeague={state.currentLeague || (leagues[0]?.id as AgeGroup) || '7-9'}
+            currentLeague={state.view === 'admin' ? '' : (state.currentLeague || (leagues[0]?.id as AgeGroup) || '7-9')}
+            allowLeagueSelection={state.view === 'admin'}
             season={state.season}
             teams={leagueTeams.length > 0 ? leagueTeams : teams.filter(t => storage.leaguesMatch(t.league, state.currentLeague || (leagues[0]?.id as AgeGroup) || '7-9'))}
             onStartPractice={handleStartPractice}

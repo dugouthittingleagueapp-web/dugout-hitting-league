@@ -1,11 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { triggerHaptic } from '../utils/feedback';
+import type { ScoringSaveState } from '../services/storageService';
 
 interface ScoreInputProps {
   pitchNumber: number;
   value: number | null;
   pitchesRemaining?: number;
+  saveState?: ScoringSaveState;
+  onRetrySync?: () => void;
   onChange: (val: number) => void;
   onUndo?: () => void; 
   readOnly?: boolean;
@@ -17,7 +20,9 @@ interface ScoreInputProps {
 export const ScoreInput: React.FC<ScoreInputProps> = ({ 
   pitchNumber, 
   value, 
-  pitchesRemaining, 
+  pitchesRemaining,
+  saveState,
+  onRetrySync,
   onChange, 
   onUndo, 
   readOnly = false, 
@@ -128,6 +133,19 @@ export const ScoreInput: React.FC<ScoreInputProps> = ({
                          <div className="bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 text-xs sm:text-sm font-bold px-3 py-1 rounded-full font-sans">
                            Pitch #{pitchNumber}
                          </div>
+                         {saveState && (
+                           <div role="status" aria-live="polite" className="flex min-w-0 items-center gap-1 text-[11px] sm:text-xs font-semibold text-slate-500 dark:text-slate-300">
+                             {saveState === 'saving' && <span>Saving…</span>}
+                             {saveState === 'saved' && <span className="text-emerald-600 dark:text-emerald-400">✓ Saved</span>}
+                             {saveState === 'offline' && (
+                               <>
+                                 <span className="text-amber-600 dark:text-amber-400">Waiting to sync</span>
+                                 {onRetrySync && <button type="button" onClick={onRetrySync} className="underline underline-offset-2">Retry</button>}
+                               </>
+                             )}
+                             {saveState === 'attention' && <span className="text-amber-600 dark:text-amber-400">Check saved scores</span>}
+                           </div>
+                         )}
                     </div>
 
                     <div className="text-center">
@@ -145,7 +163,7 @@ export const ScoreInput: React.FC<ScoreInputProps> = ({
                           <button 
                             key={score} 
                             type="button"
-                            onPointerDown={() => triggerHaptic('score')}
+                            
                             onClick={() => handleSelect(score)} 
                             aria-label={`Score ${score}`}
                             aria-pressed={isSelected} 

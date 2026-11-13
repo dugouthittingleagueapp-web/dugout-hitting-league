@@ -1,5 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
+import crypto from 'crypto';
 import pool from './db.js';
+import { changesPracticeClassification, hasRecordedScores } from '../server/matchWritePolicy.js';
 import { requireRole, getAuthFromRequest } from './auth.js';
 
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -18,6 +20,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const { league, id, season, excludePractice } = req.query;
       if (id) {
         const { rawId, strippedId } = cleanMatchId(id);
+        // Spectators keep a complete local snapshot for inning navigation.
+        // A cheap revision check avoids transferring every historical pitch
+        // when the game has not changed since their last refresh.
+        const spectatorRevision = req.query.spectatorRevision;
+        if (typeof spectatorRevision === 'string' && /^\d+$/.test(spectatorRevision)) {
+          const current = await pool.query(
+            'SELECT revision FROM matches WHERE id::text = $1 OR id::text = $2 LIMIT 1',
+            [rawId, strippedId]
+          );
+          if (current.rows.length && String(current.rows[0].revision) === spectatorRevision) {
+            res.setHeader('Cache-Control', 'private, no-store');
+            return res.status(304).end();
+          }
+        }
         const { rows } = await pool.query(
           'SELECT * FROM matches WHERE id::text = $1 OR id::text = $2 LIMIT 1',
           [rawId, strippedId]
@@ -34,6 +50,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         }
         return res.status(200).json(row);
       }
+
+      // Dashboard viewers already have the complete match list. Compare
+      // lightweight (id, revision) pairs before transferring inning histories.
+      const dashboardSignature = req.query.dashboardSignature;
+      const wantsConditionalList = typeof dashboardSignature === 'string' &&
+        /^[0-9a-f]{64}$/.test(dashboardSignature);
 
       let query = 'SELECT * FROM matches';
       const params: any[] = [];
@@ -65,8 +87,29 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         query += ' WHERE ' + conditions.join(' AND ');
       }
       
+      if (wantsConditionalList) {
+        const lightQuery = query.replace('SELECT * FROM matches', 'SELECT id, revision FROM matches') +
+          ' ORDER BY id ASC';
+        const current = await pool.query(lightQuery, params);
+        const signature = crypto.createHash('sha256')
+          .update(JSON.stringify(current.rows.map(row => [String(row.id), String(row.revision ?? 0)])))
+          .digest('hex');
+        if (signature === dashboardSignature) {
+          res.setHeader('Cache-Control', 'private, no-store');
+          res.setHeader('X-Dashboard-Signature', signature);
+          return res.status(304).end();
+        }
+      }
+
       query += ' ORDER BY date ASC, start_time ASC, id ASC';
       const { rows } = await pool.query(query, params);
+      // Supply the signature on a full response so subsequent dashboard
+      // refreshes need only fetch the small revision list.
+      const signatureRows = rows.map(row => [String(row.id), String(row.revision ?? 0)])
+        .sort((a, b) => a[0].localeCompare(b[0]));
+      const signature = crypto.createHash('sha256').update(JSON.stringify(signatureRows)).digest('hex');
+      res.setHeader('X-Dashboard-Signature', signature);
+      res.setHeader('Cache-Control', 'private, no-store');
       const mappedRows = rows.map(row => {
         if (row.innings && typeof row.innings === 'string') row.innings = JSON.parse(row.innings);
         if (row.tie_breaker && typeof row.tie_breaker === 'string') row.tieBreaker = JSON.parse(row.tie_breaker);
@@ -212,8 +255,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const role = requireRole(req, res, ['admin', 'umpire']);
       if (!role) return;
 
-      const { 
-        id, isComplete, innings, tieBreaker, league, location, startTime, 
+      const {
+        revision, id, isComplete, innings, tieBreaker, league, location, startTime, 
         endTime, notes, homeTeamId, awayTeamId, status, isPractice, is_practice,
         isForfeit, is_forfeit, forfeitingTeamId, forfeiting_team_id, winningTeamId, winning_team_id, forfeitReason, forfeit_reason
       } = req.body || {};
@@ -227,7 +270,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
       const queryUpdate = `
         UPDATE matches 
-        SET is_complete = COALESCE($3, is_complete), 
+        SET revision = revision + 1,
+            is_complete = COALESCE($3, is_complete), 
             innings = COALESCE($4, innings), 
             tie_breaker = $5, 
             league = COALESCE($6, league),
@@ -267,8 +311,91 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         winningId
       ];
 
-      const { rows } = await pool.query(queryUpdate, values);
-      const row = rows[0];
+      // Lock the match row before checking ownership. The lock endpoint uses
+      // the same row lock, preventing a takeover from racing a pitch write.
+      const client = await pool.connect();
+      let row: any;
+      try {
+        await client.query('BEGIN');
+        const target = await client.query(
+          'SELECT id, status, is_complete, revision, is_practice, innings, tie_breaker FROM matches WHERE id::text = $1 OR id::text = $2 FOR UPDATE',
+          [rawId, strippedId]
+        );
+        if (!target.rows.length) {
+          await client.query('ROLLBACK');
+          return res.status(404).json({ error: 'Game not found. No changes were saved.' });
+        }
+        // Official/practice identity is set at game creation. Never let a PUT
+        // turn a protected official game into a deletable practice game (or
+        // a practice game into official statistics).
+        if (changesPracticeClassification(target.rows[0].is_practice, practiceFlag)) {
+          await client.query('ROLLBACK');
+          return res.status(403).json({
+            code: 'GAME_TYPE_LOCKED',
+            error: 'This game is already saved as official or practice. Its game type cannot be changed.'
+          });
+        }
+        // Completed results may only be corrected by admins. A correction
+        // does not reopen the game; changes still require a matching revision
+        // and the admin's scoring lock, just like other pitch writes.
+        if (target.rows[0].is_complete === true && role !== 'admin') {
+          await client.query('ROLLBACK');
+          return res.status(403).json({ error: 'This game is finished. Only an admin can correct its scores.' });
+        }
+        const lock = await client.query(
+          'SELECT token_hash FROM scoring_locks WHERE match_id = $1',
+          [String(target.rows[0].id)]
+        );
+        const owner = lock.rows[0]?.token_hash;
+        const suppliedToken = req.headers['x-scoring-token'];
+        const token = typeof suppliedToken === 'string' ? suppliedToken : '';
+        const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
+        const scoringStarted = target.rows[0].status === 'IN_PROGRESS' ||
+          status === 'IN_PROGRESS' || target.rows[0].is_complete === true ||
+          isComplete === true ||
+          hasRecordedScores(target.rows[0].innings, target.rows[0].tie_breaker) ||
+          hasRecordedScores(innings, tieBreaker);
+        if ((scoringStarted || !!owner) && (!owner || !token || tokenHash !== owner)) {
+          await client.query('ROLLBACK');
+          return res.status(423).json({
+            code: 'SCORING_LOCKED',
+            error: owner
+              ? 'Another umpire is already scoring this game. Ask an admin to transfer control.'
+              : 'Scoring is not ready yet. Reopen the game to secure scoring access.'
+          });
+        }
+        // Compare before writing: a delayed offline snapshot must never replace
+        // a match that has been modified since the snapshot was created.
+        if (revision !== undefined && revision !== null &&
+            (!Number.isSafeInteger(revision) || revision !== Number(target.rows[0].revision))) {
+          await client.query('ROLLBACK');
+          return res.status(409).json({
+            code: 'STALE_MATCH',
+            error: 'This game has newer scores on the server. Your older changes were not applied. Ask an admin to review before scoring again.'
+          });
+        }
+        if ((scoringStarted || !!owner) && !Number.isSafeInteger(revision)) {
+          await client.query('ROLLBACK');
+          return res.status(409).json({
+            code: 'MISSING_REVISION',
+            error: 'Please reopen this game before entering more scores.'
+          });
+        }
+        const result = await client.query(queryUpdate, values);
+        row = result.rows[0];
+        // Finalizing an active game releases its scoring lock. Admin score
+        // corrections on an ALREADY finalized game retain the lock so multiple
+        // confirmed corrections remain possible in the same editing session.
+        if (row?.is_complete && !target.rows[0].is_complete) {
+          await client.query('DELETE FROM scoring_locks WHERE match_id = $1', [String(row.id)]);
+        }
+        await client.query('COMMIT');
+      } catch (err) {
+        await client.query('ROLLBACK').catch(() => {});
+        throw err;
+      } finally {
+        client.release();
+      }
       if (!row) return res.status(404).json({ error: 'Match not found; no scoring data was saved.' });
       if (row) {
         row.innings = typeof row.innings === 'string' ? JSON.parse(row.innings) : row.innings;

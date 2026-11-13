@@ -5,30 +5,31 @@ import { requireRole } from './auth.js';
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   try {
     if (req.method === 'GET') {
-      const { league, season } = req.query;
+      const { league, season, ids } = req.query;
       let query = 'SELECT * FROM teams';
       const params: any[] = [];
-      let paramCount = 1;
-
-      if (league || season) {
-        query += ' WHERE';
-        const conditions = [];
-        if (league) {
-          conditions.push(` LOWER(league) = LOWER($${paramCount++})`);
-          params.push(league);
+      const conditions: string[] = [];
+      const bind = (n: number) => String.fromCharCode(36) + n;
+      if (ids !== undefined) {
+        if (typeof ids !== 'string') return res.status(400).json({ error: 'Invalid team selection' });
+        const teamIds = ids.split(',').map(id => id.trim()).filter(Boolean);
+        if (teamIds.length === 0 || teamIds.length > 2 || teamIds.some(id => id.length > 128)) {
+          return res.status(400).json({ error: 'Invalid team selection' });
         }
-        if (season) {
-          if (season === '2025') {
-            conditions.push(` (season = $${paramCount++} OR season IS NULL)`);
-            params.push(season);
-          } else {
-            conditions.push(` season = $${paramCount++}`);
-            params.push(season);
-          }
-        }
-        query += conditions.join(' AND');
+        params.push(teamIds);
+        conditions.push('id = ANY(' + bind(params.length) + '::text[])');
       }
-
+      if (league) {
+        params.push(league);
+        conditions.push('LOWER(league) = LOWER(' + bind(params.length) + ')');
+      }
+      if (season) {
+        params.push(season);
+        conditions.push(season === '2025'
+          ? '(season = ' + bind(params.length) + ' OR season IS NULL)'
+          : 'season = ' + bind(params.length));
+      }
+      if (conditions.length) query += ' WHERE ' + conditions.join(' AND ');
       query += ' ORDER BY name ASC';
       const { rows } = await pool.query(query, params);
       return res.status(200).json(rows);

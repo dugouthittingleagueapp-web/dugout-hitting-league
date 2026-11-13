@@ -34,14 +34,6 @@ class ErrorBoundary extends Component<Props, State> {
     window.location.reload();
   };
 
-  private handleHardReset = () => {
-    try {
-      localStorage.clear();
-      sessionStorage.clear();
-    } catch (e) {}
-    window.location.reload();
-  };
-
   public render() {
     if (this.state.hasError) {
       return (
@@ -51,20 +43,14 @@ class ErrorBoundary extends Component<Props, State> {
           </div>
           <h1 className="text-2xl font-black uppercase mb-2">Something went wrong</h1>
           <p className="text-slate-400 max-w-md text-sm mb-6">
-            The application encountered an unexpected display issue. Your saved game data remains preserved on the server.
+            The app had trouble displaying this screen. Reloading keeps scores saved on this device, including any waiting to sync.
           </p>
           <div className="flex gap-3">
             <button
               onClick={this.handleReset}
               className="px-5 py-2.5 bg-blue-600 hover:bg-blue-500 text-white rounded-xl font-bold text-sm shadow-lg transition-colors"
             >
-              Reload Application
-            </button>
-            <button
-              onClick={this.handleHardReset}
-              className="px-5 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl font-bold text-sm border border-slate-700 transition-colors"
-            >
-              Reset Cache & Reload
+              Reload Safely
             </button>
           </div>
         </div>

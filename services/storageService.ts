@@ -150,7 +150,10 @@ export const deleteLeague = async (id: string, season?: string) => {
   let url = `/api/leagues?id=${encodeURIComponent(id)}`;
   if (season) url += `&season=${encodeURIComponent(season)}`;
   const res = await apiFetch(url, { method: 'DELETE' });
-  if (!res.ok) throw new Error('Failed to delete league');
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body.error || 'Unable to delete this league.');
+  }
 };
 
 // Team Methods
@@ -1581,9 +1584,13 @@ export const getPlayerCareerStats = async (playerIdentifier: string): Promise<Pl
  */
 export const importScheduleFromCsv = async (
   csvContent: string,
-  options?: { targetLeague?: string; defaultLeague?: string; defaultSeason?: string }
+  options?: { targetLeague?: string; defaultLeague?: string; defaultSeason?: string; leagueMapping?: Record<string, string> }
 ): Promise<ScheduleImportSummary> => {
   const { games, errors } = parseScheduleCsv(csvContent, options);
+  const groups = [...new Set(games.map(game => game.csvGroup || game.group))];
+  if (!options?.targetLeague && groups.some(group => !options?.leagueMapping?.[group]?.trim())) {
+    throw new Error('Choose Create New League or an existing league for every schedule division before importing.');
+  }
   if (games.length === 0) {
     return {
       totalRows: 0,
@@ -1625,7 +1632,7 @@ export const importScheduleFromCsv = async (
 
   for (const game of games) {
     const season = activeSeason;
-    const leagueName = options?.targetLeague?.trim() || resolveLeague(game.group);
+    const leagueName = options?.targetLeague?.trim() || options?.leagueMapping?.[game.csvGroup || game.group]?.trim() || resolveLeague(game.group);
     // Duplicate checks must use the same resolved league/season as saved matches.
     const resolvedGame = { ...game, group: leagueName, season };
 

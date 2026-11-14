@@ -100,11 +100,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         Number.isNaN(Date.parse(date + 'T12:00:00Z')) ||
         typeof startTime !== 'string' || !startTime.trim() ||
         typeof endTime !== 'string' || !endTime.trim() ||
-        typeof location !== 'string' || !location.trim() || location.length > 200 ||
+        typeof location !== 'string' || !['The Dugout: Tunnels 5/6', 'The Dugout: Tunnels 7/8'].includes(location) ||
         typeof notes !== 'string' || notes.length > 2000 ||
         typeof homeTeamId !== 'string' || typeof awayTeamId !== 'string' || homeTeamId === awayTeamId) {
       await client.query('ROLLBACK');
-      return res.status(400).json({ error: 'Enter a date, times, location, and two different teams.' });
+      return res.status(400).json({ error: 'Enter a date, times, cage (5/6 or 7/8), and two different teams.' });
     }
     const teams = await client.query(
       'SELECT id FROM teams WHERE id = ANY($1::text[]) AND season = $2 AND LOWER(TRIM(league)) = LOWER(TRIM($3))',

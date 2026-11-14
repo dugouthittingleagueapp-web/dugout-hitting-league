@@ -91,6 +91,9 @@ export interface ScheduledGameRecord {
   csvGroup?: string;
   homeTeamName: string;
   awayTeamName: string;
+  /** Used for manual admin game creation; CSV imports resolve names. */
+  homeTeamId?: string;
+  awayTeamId?: string;
   notes?: string;
   scheduledIsoDate: string;
   season: string;

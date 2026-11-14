@@ -13,7 +13,7 @@ const makeResponse = () => {
 };
 
 describe('AI roster import security boundary', () => {
-  afterEach(() => vi.unstubAllEnvs());
+  afterEach(() => { vi.unstubAllEnvs(); });
 
   it('rejects anonymous requests before invoking Gemini or the fallback parser', async () => {
     const res = makeResponse();

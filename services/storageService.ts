@@ -1611,7 +1611,7 @@ export const importScheduleFromCsv = async (
   const resolveLeague = (csvLeague: string): string => {
     const exact = existingLeagues.find(l => leaguesMatch(l.id, csvLeague));
     if (exact) return exact.id;
-    const ageKey = (name: string) => name.trim().match(/^(\\d{1,2})\\s*u\\b/i)?.[1] || null;
+    const ageKey = (name: string) => name.trim().match(/^(\d{1,2})\s*u\b/i)?.[1] || null;
     const age = ageKey(csvLeague);
     if (!age) return csvLeague;
     const compatible = existingLeagues.filter(l => ageKey(l.id) === age);

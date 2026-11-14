@@ -34,7 +34,7 @@ const makeResponse = () => {
 };
 
 describe('Atomic schedule administration', () => {
-  let query: ReturnType<typeof vi.fn>;
+  let query: any;
   let release: ReturnType<typeof vi.fn>;
   let rows: { leagues: any[], teams: any[], matches: any[] };
 

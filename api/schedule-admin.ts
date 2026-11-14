@@ -142,7 +142,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       let filter = "m.season=$1 AND m.is_practice IS FALSE";
       if (league) { params.push(league); filter += ' AND LOWER(m.league)=LOWER($2)'; }
       const { rows } = await pool.query(
-        'SELECT m.id,m.league,m.season,m.date,m.start_time,m.end_time,m.location,m.status,m.is_complete,m.is_forfeit,m.revision,m.innings,m.tie_breaker,ht.name AS home_name,at.name AS away_name,' +
+        'SELECT m.id,m.league,m.season,m.date,m.start_time,m.end_time,m.location,m.notes,m.home_team_id,m.away_team_id,m.status,m.is_complete,m.is_forfeit,m.revision,m.innings,m.tie_breaker,ht.name AS home_name,at.name AS away_name,' +
         "CASE WHEN m.status='SCHEDULED' AND m.is_complete IS FALSE AND m.is_forfeit IS FALSE AND sl.match_id IS NULL THEN TRUE ELSE FALSE END AS potentially_editable " +
         'FROM matches m LEFT JOIN teams ht ON ht.id=m.home_team_id LEFT JOIN teams at ON at.id=m.away_team_id ' +
         'LEFT JOIN scoring_locks sl ON sl.match_id=m.id WHERE ' + filter + ' ORDER BY m.date,m.start_time,m.id',
@@ -204,6 +204,104 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       await client.query('ROLLBACK').catch(() => {});
       console.error('Atomic schedule import rolled back:', error);
       return res.status(409).json({ error: 'No schedule changes were saved. Check that the selected teams and divisions exist, then try again.' });
+    } finally {
+      client.release();
+    }
+  }
+  if (req.method === 'PATCH') {
+    const id = req.query.id;
+    const changes = req.body || {};
+    if (!safe(id, 128) || typeof changes !== 'object' || Array.isArray(changes) ||
+        !Number.isSafeInteger(changes.expectedRevision) || changes.expectedRevision < 0 ||
+        !validSeason(changes.season) || !safe(changes.group, 100) ||
+        !safe(changes.homeTeamId, 128) || !safe(changes.awayTeamId, 128) ||
+        changes.homeTeamId === changes.awayTeamId ||
+        !validDate(changes.date) || !validTime(changes.startTime) || !validTime(changes.endTime) ||
+        typeof changes.scheduledIsoDate !== 'string' ||
+        !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z$/.test(changes.scheduledIsoDate) ||
+        !Number.isFinite(Date.parse(changes.scheduledIsoDate)) ||
+        changes.scheduledIsoDate.slice(0, 10) !== normalizedDate(changes.date) ||
+        typeof changes.location !== 'string' || changes.location.length > 250 ||
+        typeof changes.notes !== 'string' || changes.notes.length > 1000) {
+      return res.status(400).json({ error: 'Check the teams, division, date, times, location and notes before saving.' });
+    }
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      await client.query("SELECT pg_advisory_xact_lock(hashtext('dugout_schedule_management'))");
+      const active = await client.query("SELECT value FROM app_settings WHERE key='current_season'");
+      if (changes.season !== active.rows[0]?.value) {
+        await client.query('ROLLBACK');
+        return res.status(409).json({ error: 'This is not the active season. Reopen the schedule to see the current season.' });
+      }
+      const existing = await client.query('SELECT * FROM matches WHERE id=$1 FOR UPDATE', [id]);
+      const game = existing.rows[0];
+      if (!game) {
+        await client.query('ROLLBACK');
+        return res.status(404).json({ error: 'This game has been removed. Refresh the schedule.' });
+      }
+      const locks = await client.query('SELECT 1 FROM scoring_locks WHERE match_id=$1', [id]);
+      if (game.season !== changes.season || game.is_practice || game.is_complete ||
+          game.is_forfeit || game.status !== 'SCHEDULED' ||
+          hasRecordedScores(game.innings, game.tie_breaker) || locks.rows.length > 0) {
+        await client.query('ROLLBACK');
+        return res.status(403).json({ error: 'This game has already started or contains scores. Its schedule cannot be changed here.' });
+      }
+      if (Number(game.revision) !== changes.expectedRevision) {
+        await client.query('ROLLBACK');
+        return res.status(409).json({ error: 'Someone changed this game since you opened it. Refresh the schedule before editing.' });
+      }
+      const teamsResult = await client.query(
+        'SELECT id,name,league,season,players FROM teams WHERE id=ANY($1::text[])',
+        [[changes.homeTeamId, changes.awayTeamId]]
+      );
+      const teams = teamsResult.rows;
+      const validTeam = (teamId: string) => teams.find(t => t.id === teamId &&
+        t.season === changes.season && canonical(t.league) === canonical(changes.group));
+      const home = validTeam(changes.homeTeamId);
+      const away = validTeam(changes.awayTeamId);
+      if (!home || !away) {
+        await client.query('ROLLBACK');
+        return res.status(400).json({ error: 'Both teams must be from the selected division and active season.' });
+      }
+      const league = await client.query(
+        'SELECT 1 FROM leagues WHERE LOWER(id)=LOWER($1) AND season=$2',
+        [changes.group, changes.season]
+      );
+      if (!league.rows.length) {
+        await client.query('ROLLBACK');
+        return res.status(400).json({ error: 'Choose a division that exists in the active season.' });
+      }
+      const duplicates = await client.query(
+        "SELECT 1 FROM matches WHERE id<>$1 AND season=$2 AND LOWER(league)=LOWER($3) AND " +
+        "DATE(date AT TIME ZONE 'UTC')=DATE($4::timestamptz AT TIME ZONE 'UTC') AND " +
+        "((home_team_id=$5 AND away_team_id=$6) OR (home_team_id=$6 AND away_team_id=$5)) AND is_practice IS FALSE LIMIT 1",
+        [id, changes.season, changes.group, changes.scheduledIsoDate,
+          changes.homeTeamId, changes.awayTeamId]
+      );
+      if (duplicates.rows.length) {
+        await client.query('ROLLBACK');
+        return res.status(409).json({ error: 'These two teams already have a game scheduled that day. No changes were saved.' });
+      }
+      const teamsChanged = game.home_team_id !== changes.homeTeamId ||
+        game.away_team_id !== changes.awayTeamId;
+      // Preserve all existing blank inning/lineup structures when the team IDs
+      // are unchanged; only initialize new blank innings when teams change.
+      const innings = teamsChanged ? createInnings(home, away) : game.innings;
+      const saved = await client.query(
+        'UPDATE matches SET league=$2,home_team_id=$3,away_team_id=$4,date=$5::timestamptz,' +
+        'start_time=$6,end_time=$7,location=$8,notes=$9,innings=$10::jsonb,revision=revision+1 ' +
+        'WHERE id=$1 RETURNING revision',
+        [id, changes.group, changes.homeTeamId, changes.awayTeamId,
+          changes.scheduledIsoDate, changes.startTime.trim(), changes.endTime.trim(),
+          changes.location.trim(), changes.notes.trim(), JSON.stringify(innings)]
+      );
+      await client.query('COMMIT');
+      return res.status(200).json({ updatedId: id, revision: Number(saved.rows[0].revision) });
+    } catch (error) {
+      await client.query('ROLLBACK').catch(() => {});
+      console.error('Single-game schedule update failed', error);
+      return res.status(500).json({ error: 'The game could not be updated. Your other games were not changed.' });
     } finally {
       client.release();
     }

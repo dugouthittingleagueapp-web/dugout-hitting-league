@@ -5,6 +5,7 @@ import * as storage from '../services/storageService';
 import { Team, League } from '../types';
 import { UserGuide } from './UserGuide';
 import { ScheduleImportModal } from './ScheduleImportModal';
+import { ScheduleManagerModal } from './ScheduleManagerModal';
 
 export const AdminDashboard: React.FC<{ 
   onBack: () => void; 
@@ -17,6 +18,7 @@ export const AdminDashboard: React.FC<{
   const [newLeagueName, setNewLeagueName] = useState('');
   const [creatingLeague, setCreatingLeague] = useState(false);
   const [showScheduleImportModal, setShowScheduleImportModal] = useState(false);
+  const [showScheduleManagerModal, setShowScheduleManagerModal] = useState(false);
   
   // Settings State
   const [currentSeason, setCurrentSeason] = useState<string>(() => {
@@ -622,6 +624,10 @@ export const AdminDashboard: React.FC<{
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
                     <span>Import CSV Schedule</span>
                 </button>
+                <button type="button" onClick={() => setShowScheduleManagerModal(true)}
+                    className="flex items-center justify-center gap-2 bg-white dark:bg-slate-800 border border-blue-300 dark:border-blue-700 text-blue-700 dark:text-blue-200 px-4 py-2.5 rounded-xl font-bold text-xs sm:text-sm shadow-sm cursor-pointer self-start sm:self-auto">
+                    Manage Individual Games
+                </button>
             </div>
 
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-1">
@@ -642,6 +648,17 @@ export const AdminDashboard: React.FC<{
 
       {showGuide && createPortal(<UserGuide onClose={() => setShowGuide(false)} />, document.body)}
       
+      {showScheduleManagerModal && (
+        <ScheduleManagerModal
+          isOpen={showScheduleManagerModal}
+          onClose={() => setShowScheduleManagerModal(false)}
+          onChanged={() => {
+            if (onSeasonUpdated) onSeasonUpdated();
+          }}
+          season={selectedSeason}
+          leagues={leagues}
+        />
+      )}
       {showScheduleImportModal && (
         <ScheduleImportModal 
           isOpen={showScheduleImportModal}

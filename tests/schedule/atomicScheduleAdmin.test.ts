@@ -133,6 +133,23 @@ describe('Atomic schedule administration', () => {
     expect(release).toHaveBeenCalledOnce();
   });
 
+  it('deletes exactly one unstarted official game, not the whole schedule', async () => {
+    const original = query.getMockImplementation()!;
+    query.mockImplementation(async (...args: any[]) => {
+      if (String(args[0]).includes('SELECT * FROM matches') && String(args[0]).includes('FOR UPDATE')) return {
+        rows: [{ id: 'game-1', status: 'SCHEDULED', is_practice: false,
+          is_complete: false, is_forfeit: false, innings: blankInnings, tie_breaker: null }]
+      };
+      return original(...args);
+    });
+    const res = makeResponse();
+    await scheduleHandler(makeRequest('DELETE', {}, { id: 'game-1' }) as any, res);
+    expect(res.statusCode).toBe(200);
+    expect(res.body.deletedId).toBe('game-1');
+    expect(query.mock.calls.filter((c: any[]) => String(c[0]).startsWith('DELETE FROM matches'))).toHaveLength(1);
+    expect(query).toHaveBeenCalledWith('COMMIT');
+  });
+
   it('prevents deleting any game containing recorded pitches', async () => {
     const original = query.getMockImplementation()!;
     query.mockImplementation(async (...args: any[]) => {

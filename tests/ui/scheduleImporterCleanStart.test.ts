@@ -14,7 +14,9 @@ describe('Schedule importer clean opening state', () => {
   it('defaults to the active season, not the previously viewed archive season', () => {
     const admin = readFileSync(new URL('../../components/AdminDashboard.tsx', import.meta.url), 'utf8');
     expect(admin).toContain('setSelectedSeason(targetSeason)');
-    expect(admin).toContain('currentSeason={currentSeason}');
+    expect(admin).toContain('<AdminScheduleTab season={currentSeason}');
+    const tab = readFileSync(new URL('../../components/AdminScheduleTab.tsx', import.meta.url), 'utf8');
+    expect(tab).toContain('<ScheduleImportModal isOpen={importing} currentSeason={season}');
     expect(source).toContain('const targetSeason = currentSeason;');
     expect(source).toContain('Active Season (Import Destination)');
     expect(source).toContain('Schedules cannot be imported into archived seasons.');

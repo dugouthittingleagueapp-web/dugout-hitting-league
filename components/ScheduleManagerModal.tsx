@@ -95,6 +95,8 @@ export const ScheduleManagerModal: React.FC<Props> = ({ isOpen, onClose, onChang
       group: selectedLeague,
       homeTeamName: home.name,
       awayTeamName: away.name,
+      homeTeamId: home.id,
+      awayTeamId: away.id,
       season,
     };
     setSaving(true);

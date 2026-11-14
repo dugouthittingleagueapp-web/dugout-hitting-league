@@ -656,7 +656,12 @@ export const AdminDashboard: React.FC<{
             setAllTeams(ts);
             setData(d);
             if (onSeasonUpdated) onSeasonUpdated();
-            alert(`Schedule Import Complete!\n• ${summary.createdMatches} matches scheduled\n• ${summary.skippedDuplicates} duplicates avoided\n• ${summary.createdTeams.length} teams created\n• ${summary.createdLeagues.length} divisions created`);
+            const importReceipt = `• ${summary.createdMatches} matches scheduled\n• ${summary.skippedDuplicates} duplicates avoided\n• ${summary.createdTeams.length} teams created\n• ${summary.createdLeagues.length} divisions created`;
+            if (summary.errors.length > 0) {
+              alert(`Schedule import finished with ${summary.errors.length} problem(s). Some rows might not have been scheduled.\n\n${importReceipt}\n\nPlease review:\n${summary.errors.slice(0, 3).join('\n')}`);
+            } else {
+              alert(`Schedule Import Complete!\n${importReceipt}`);
+            }
             setShowScheduleImportModal(false);
           }}
           currentSeason={selectedSeason}

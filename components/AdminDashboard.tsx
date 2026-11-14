@@ -160,7 +160,7 @@ export const AdminDashboard: React.FC<{
   };
 
   const handleDeleteLeague = async (leagueId: string) => {
-    if (confirm(`Are you sure you want to delete the "${leagueId}" league in ${selectedSeason}? WARNING: All teams and matches associated with this league will be permanently deleted.`)) {
+    if (confirm(`Delete "${leagueId}" from ${selectedSeason}? This removes its teams and unplayed scheduled games. Any league with started or scored games is protected.`)) {
         setLoading(true);
         try {
             await storage.deleteLeague(leagueId, selectedSeason);
@@ -168,8 +168,8 @@ export const AdminDashboard: React.FC<{
             const newLeagues = await storage.getLeagues(selectedSeason);
             setLeagues(newLeagues);
             alert('League deleted.');
-        } catch (e) {
-            alert('Failed to delete league.');
+        } catch (e: any) {
+            alert(e?.message || 'Could not delete league. Please try again.');
         } finally {
             setLoading(false);
         }

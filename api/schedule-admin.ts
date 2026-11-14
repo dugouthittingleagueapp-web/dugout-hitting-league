@@ -139,14 +139,22 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       let filter = "m.season=$1 AND m.is_practice IS FALSE";
       if (league) { params.push(league); filter += ' AND LOWER(m.league)=LOWER($2)'; }
       const { rows } = await pool.query(
-        'SELECT m.id,m.league,m.season,m.date,m.start_time,m.end_time,m.location,m.status,m.is_complete,m.is_forfeit,m.revision,ht.name AS home_name,at.name AS away_name,' +
+        'SELECT m.id,m.league,m.season,m.date,m.start_time,m.end_time,m.location,m.status,m.is_complete,m.is_forfeit,m.revision,m.innings,m.tie_breaker,ht.name AS home_name,at.name AS away_name,' +
         "CASE WHEN m.status='SCHEDULED' AND m.is_complete IS FALSE AND m.is_forfeit IS FALSE AND sl.match_id IS NULL THEN TRUE ELSE FALSE END AS potentially_editable " +
         'FROM matches m LEFT JOIN teams ht ON ht.id=m.home_team_id LEFT JOIN teams at ON at.id=m.away_team_id ' +
         'LEFT JOIN scoring_locks sl ON sl.match_id=m.id WHERE ' + filter + ' ORDER BY m.date,m.start_time,m.id',
         params
       );
+      const visible = rows.map(row => {
+        // The UI must not offer deletion of a game even if a pitch of 0
+        // was scored while its status still says SCHEDULED.
+        const potentially_editable = row.potentially_editable &&
+          !hasRecordedScores(row.innings, row.tie_breaker);
+        const { innings, tie_breaker, ...details } = row;
+        return { ...details, potentially_editable };
+      });
       res.setHeader('Cache-Control', 'no-store');
-      return res.status(200).json(rows);
+      return res.status(200).json(visible);
     } catch (error) {
       console.error('Schedule manager read failed', error);
       return res.status(500).json({ error: 'Could not load the schedule. Try again.' });

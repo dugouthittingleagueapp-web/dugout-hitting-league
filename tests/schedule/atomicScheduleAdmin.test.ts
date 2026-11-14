@@ -50,6 +50,7 @@ describe('Atomic schedule administration', () => {
     };
     query = vi.fn(async (statement: string, parameters?: any[]) => {
       if (['BEGIN','COMMIT','ROLLBACK'].includes(statement) || statement.includes('pg_advisory_xact_lock')) return { rows: [] };
+      if (statement.includes("FROM app_settings WHERE key='current_season'")) return { rows: [{ value: '2026' }] };
       if (statement.includes('FROM leagues')) return { rows: rows.leagues };
       if (statement.includes('FROM teams')) return { rows: rows.teams };
       if (statement.includes('FROM matches') && statement.includes('is_practice IS FALSE')) return { rows: rows.matches };
@@ -78,6 +79,40 @@ describe('Atomic schedule administration', () => {
     await scheduleHandler(makeRequest('DELETE', {}, { id: 'game-1' }, 'umpire') as any, umpire);
     expect(umpire.statusCode).toBe(403);
     expect(connect).not.toHaveBeenCalled();
+  });
+
+  it('rejects importing games into an archived season before any inserts', async () => {
+    const response = makeResponse();
+    await scheduleHandler(makeRequest('POST', {
+      action: 'import', games: [{ ...game, season: '2025' }]
+    }) as any, response);
+    expect(response.statusCode).toBe(409);
+    expect(response.body.error).toMatch(/active 2026 season/);
+    expect(query).toHaveBeenCalledWith('ROLLBACK');
+    expect(query.mock.calls.some((call: any[]) => String(call[0]).startsWith('INSERT INTO'))).toBe(false);
+  });
+
+  it('rejects a mixed-season CSV batch atomically', async () => {
+    const response = makeResponse();
+    await scheduleHandler(makeRequest('POST', {
+      action: 'import', games: [game, { ...game, season: '2027', date: '2027-11-01',
+        scheduledIsoDate: '2027-11-01T18:00:00.000Z' }]
+    }) as any, response);
+    expect(response.statusCode).toBe(409);
+    expect(query).toHaveBeenCalledWith('ROLLBACK');
+    expect(query.mock.calls.some((call: any[]) => String(call[0]).startsWith('INSERT INTO'))).toBe(false);
+  });
+
+  it('blocks imports if the active season cannot be verified', async () => {
+    const original = query.getMockImplementation()!;
+    query.mockImplementation(async (...args: any[]) =>
+      String(args[0]).includes("FROM app_settings WHERE key='current_season'")
+        ? { rows: [] } : original(...args));
+    const response = makeResponse();
+    await scheduleHandler(makeRequest('POST', { action: 'import', games: [game] }) as any, response);
+    expect(response.statusCode).toBe(503);
+    expect(query).toHaveBeenCalledWith('ROLLBACK');
+    expect(query.mock.calls.some((call: any[]) => String(call[0]).startsWith('INSERT INTO'))).toBe(false);
   });
 
   it('creates a valid schedule in a single transaction', async () => {

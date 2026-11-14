@@ -670,8 +670,8 @@ export const AdminDashboard: React.FC<{
           onClose={() => setShowScheduleImportModal(false)}
           onSuccess={async (summary) => {
             const [ls, ts, d] = await Promise.all([
-              storage.getLeagues(selectedSeason),
-              storage.getTeams(null, selectedSeason),
+              storage.getLeagues(currentSeason),
+              storage.getTeams(null, currentSeason),
               storage.exportData().catch(() => '{}')
             ]);
             setLeagues(ls);
@@ -687,7 +687,6 @@ export const AdminDashboard: React.FC<{
             setShowScheduleImportModal(false);
           }}
           currentSeason={currentSeason}
-          availableSeasons={Array.from(new Set([...allSeasons, currentSeason]))}
           availableLeagues={leagues}
         />
       )}

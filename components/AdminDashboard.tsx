@@ -5,6 +5,7 @@ import * as storage from '../services/storageService';
 import { Team, League } from '../types';
 import { UserGuide } from './UserGuide';
 import { ScheduleImportModal } from './ScheduleImportModal';
+import { AdminSchedule } from './AdminSchedule';
 
 export const AdminDashboard: React.FC<{ 
   onBack: () => void; 
@@ -17,6 +18,8 @@ export const AdminDashboard: React.FC<{
   const [newLeagueName, setNewLeagueName] = useState('');
   const [creatingLeague, setCreatingLeague] = useState(false);
   const [showScheduleImportModal, setShowScheduleImportModal] = useState(false);
+  const [adminTab, setAdminTab] = useState<'overview' | 'schedule'>('overview');
+  const [scheduleRefreshToken, setScheduleRefreshToken] = useState(0);
   
   // Settings State
   const [currentSeason, setCurrentSeason] = useState<string>(() => {
@@ -300,6 +303,18 @@ export const AdminDashboard: React.FC<{
           </div>
       </div>
 
+      <nav className="mb-5 flex flex-wrap gap-2 border-b border-slate-200 dark:border-slate-800 pb-3" aria-label="Admin dashboard tabs">
+        <button type="button" onClick={() => setAdminTab('overview')}
+          aria-current={adminTab === 'overview' ? 'page' : undefined}
+          className={`px-5 py-2.5 rounded-xl font-bold text-sm transition-colors ${adminTab === 'overview' ? 'bg-blue-600 text-white' : 'bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-200'}`}>Dashboard</button>
+        <button type="button" onClick={() => setAdminTab('schedule')}
+          aria-current={adminTab === 'schedule' ? 'page' : undefined}
+          className={`px-5 py-2.5 rounded-xl font-bold text-sm transition-colors ${adminTab === 'schedule' ? 'bg-blue-600 text-white' : 'bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-200'}`}>Schedule</button>
+      </nav>
+      {adminTab === 'schedule' ? (
+        <AdminSchedule season={currentSeason} leagues={selectedSeason === currentSeason ? leagues : []}
+          refreshToken={scheduleRefreshToken} onImport={() => setShowScheduleImportModal(true)} />
+      ) : (
       <div className="space-y-4 sm:space-y-6">
         
         {/* 1. League Year Selector & Division Configuration (Exclusive to Admin) */}
@@ -620,6 +635,7 @@ export const AdminDashboard: React.FC<{
             </div>
         </section>
       </div>
+      )}
 
       {showGuide && createPortal(<UserGuide onClose={() => setShowGuide(false)} />, document.body)}
       
@@ -636,11 +652,12 @@ export const AdminDashboard: React.FC<{
             setLeagues(ls);
             setAllTeams(ts);
             setData(d);
+            setScheduleRefreshToken(value => value + 1);
             if (onSeasonUpdated) onSeasonUpdated();
             alert(`Schedule Import Complete!\n• ${summary.createdMatches} matches scheduled\n• ${summary.skippedDuplicates} duplicates avoided\n• ${summary.createdTeams.length} teams created\n• ${summary.createdLeagues.length} divisions created`);
             setShowScheduleImportModal(false);
           }}
-          currentSeason={selectedSeason}
+          currentSeason={currentSeason}
           availableSeasons={allSeasons}
           availableLeagues={leagues}
         />

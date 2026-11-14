@@ -58,7 +58,7 @@ export const UserGuide: React.FC<UserGuideProps> = ({ onClose }) => {
             <section className="print:break-inside-avoid">
                 <h3 className="text-xl font-black text-blue-600 dark:text-blue-400 uppercase mb-3 print:text-black print:text-lg print:border-b print:border-black">2. Admin Dashboard & Seasons</h3>
                 <ul className="list-disc pl-5 space-y-1 text-sm sm:text-base">
-                    <li><strong>Open Admin Dashboard:</strong> Log in as Admin and choose Admin Dashboard from the navigation.</li>
+                    <li><strong>Open Admin Dashboard:</strong> Log in as Admin and choose Admin Dashboard. Use the Overview &amp; Settings or Schedule tabs.</li>
                     <li><strong>League Year Selector:</strong> Click anywhere on the season dropdown, including its arrow, to switch the year you are managing. The starred year is the active season.</li>
                     <li><strong>Browse a year:</strong> Choose Browse [year] in App to inspect that year's games. Browsing an archive does not activate it.</li>
                     <li><strong>Activate a season:</strong> Use Set as Live Active Season or Activate New Season only when you intend to change the season shown to everyone. The app asks for confirmation.</li>
@@ -145,8 +145,9 @@ export const UserGuide: React.FC<UserGuideProps> = ({ onClose }) => {
                 <ul className="list-disc pl-5 space-y-1 text-sm sm:text-base">
                     <li><strong>Move a match:</strong> Use the dashboard's Move option to correct its league assignment.</li>
                     <li><strong>Bulk Move Teams:</strong> Select teams and a destination division in the Admin Dashboard.</li>
-                    <li><strong>Schedule importer:</strong> Choose the destination season and division, then upload or drag in a CSV. Review the destination shown above the preview. Invalid rows block the entire import; a failed upload never leaves a partially created schedule. Existing duplicate matchups are skipped safely.</li>
-                    <li><strong>Individual schedule corrections:</strong> Choose Manage Individual Games on the Admin Dashboard. Select the division, remove only the incorrect unstarted scheduled game, then create its replacement using two existing teams and the corrected date/time. Started, scored, finalized, and locked games cannot be deleted this way.</li>
+                    <li><strong>Schedule importer:</strong> Open the Schedule tab and choose Import CSV. The active season is automatically selected and cannot be changed here. Drag in or browse for a CSV, review its divisions and games, then import. Invalid rows block the entire import and duplicate games are skipped.</li>
+                    <li><strong>Change a scheduled game:</strong> In the Schedule tab, filter by division, day, team or cage. Select Edit game to change teams, division, date, time, cage/location or notes, then Save changes. You can also Add Game or Delete one unstarted game. Started, scored, finalized and locked games are protected.</li>
+                    <li><strong>Correct an imported team name:</strong> Choose Rename home or Rename away alongside any game. This changes that team's name everywhere without resetting scores or player rosters. It does not switch which team is playing.</li>
                     <li><strong>Passwords:</strong> Admins can change the Admin and Umpire passwords under Access Control Passwords.</li>
                     <li><strong>Backup:</strong> Export JSON Database downloads league data for safekeeping. It is not the same as restoring the live Neon database.</li>
                     <li><strong>Historical seasons:</strong> Use the season selector to manage archived years without mixing old games into the current standings.</li>

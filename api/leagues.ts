@@ -62,27 +62,69 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         return res.status(400).json({ error: 'League ID is required' });
       }
       
-      // Preserve official matches: protect any league with existing official matches from deletion
-      const officialCheck = season && typeof season === 'string'
-        ? await pool.query('SELECT id FROM matches WHERE league = $1 AND season = $2 AND (is_practice IS FALSE OR is_practice IS NULL) LIMIT 1', [id, season])
-        : await pool.query('SELECT id FROM matches WHERE league = $1 AND (is_practice IS FALSE OR is_practice IS NULL) LIMIT 1', [id]);
-
-      if (officialCheck.rows.length > 0) {
-        return res.status(403).json({
-          error: 'Forbidden: Cannot delete league containing official league matches. Move or reassign matches first.'
-        });
+      if (!season || typeof season !== 'string') {
+        return res.status(400).json({ error: 'Select a season before deleting a league.' });
       }
 
-      if (season && typeof season === 'string') {
-        await pool.query('DELETE FROM matches WHERE league = $1 AND season = $2 AND is_practice IS TRUE', [id, season]);
-        await pool.query('DELETE FROM teams WHERE league = $1 AND season = $2', [id, season]);
-        await pool.query('DELETE FROM leagues WHERE id = $1 AND season = $2', [id, season]);
-      } else {
-        await pool.query('DELETE FROM matches WHERE league = $1 AND is_practice IS TRUE', [id]);
-        await pool.query('DELETE FROM teams WHERE league = $1', [id]);
-        await pool.query('DELETE FROM leagues WHERE id = $1', [id]);
+      // Delete unplayed schedules safely, including accidentally imported official
+      // games. Once any game has started, has scores, or is finalized, retain all
+      // records and require a deliberate reassignment workflow instead.
+      const client = await pool.connect();
+      try {
+        await client.query('BEGIN');
+        const existing = await client.query(
+          'SELECT id, status, is_complete, innings, tie_breaker FROM matches WHERE LOWER(league) = LOWER($1) AND season = $2 FOR UPDATE',
+          [id, season]
+        );
+        const hasScores = (value: any): boolean => {
+          if (!value) return false;
+          let parsed = value;
+          if (typeof parsed === 'string') {
+            try { parsed = JSON.parse(parsed); } catch { return true; }
+          }
+          const visit = (node: any): boolean => {
+            if (node == null) return false;
+            if (Array.isArray(node)) return node.some(visit);
+            if (typeof node !== 'object') return false;
+            if (typeof node.points === 'number') return true;
+            if (typeof node === 'number') return true;
+            return Object.entries(node).some(([key, child]) =>
+              (key === 'homeScores' || key === 'awayScores') && Array.isArray(child)
+                ? child.some(score => typeof score === 'number')
+                : visit(child)
+            );
+          };
+          return visit(parsed);
+        };
+        const protectedGame = existing.rows.find((match: any) =>
+          match.is_complete === true ||
+          !['SCHEDULED', null, undefined].includes(match.status) ||
+          hasScores(match.innings) ||
+          hasScores(match.tie_breaker)
+        );
+        if (protectedGame) {
+          await client.query('ROLLBACK');
+          return res.status(409).json({
+            error: 'This league has a game that was started or scored. Move those games to another league before deleting it. No data was deleted.'
+          });
+        }
+
+        await client.query('DELETE FROM matches WHERE LOWER(league) = LOWER($1) AND season = $2', [id, season]);
+        await client.query('DELETE FROM teams WHERE LOWER(league) = LOWER($1) AND season = $2', [id, season]);
+        const removed = await client.query('DELETE FROM leagues WHERE LOWER(id) = LOWER($1) AND season = $2 RETURNING id', [id, season]);
+        if (!removed.rowCount) {
+          await client.query('ROLLBACK');
+          return res.status(404).json({ error: 'League not found for this season. Nothing was deleted.' });
+        }
+        await client.query('COMMIT');
+        return res.status(200).json({ success: true, deletedGames: existing.rows.length });
+      } catch (error) {
+        await client.query('ROLLBACK');
+        throw error;
+      } finally {
+        client.release();
       }
-      return res.status(200).json({ success: true });
+
     }
     
     return res.status(405).json({ error: 'Method not allowed' });

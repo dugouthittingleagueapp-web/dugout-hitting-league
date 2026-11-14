@@ -15,8 +15,13 @@ describe('Schedule importer clean opening state', () => {
     const admin = readFileSync(new URL('../../components/AdminDashboard.tsx', import.meta.url), 'utf8');
     expect(admin).toContain('setSelectedSeason(targetSeason)');
     expect(admin).toContain('currentSeason={currentSeason}');
-    expect(admin).toContain('availableSeasons={Array.from(new Set([...allSeasons, currentSeason]))}');
-    expect(source).toContain("setTargetSeason(currentSeason || '2026')");
+    expect(source).toContain('const targetSeason = currentSeason;');
+    expect(source).toContain('Active Season (Import Destination)');
+    expect(source).toContain('Schedules cannot be imported into archived seasons.');
+    expect(source).not.toContain('setTargetSeason');
+    expect(source).not.toContain('availableSeasons');
+    expect(source).not.toContain('<select\n                value={targetSeason}');
+    expect(admin).not.toContain('availableSeasons={Array.from(new Set([...allSeasons, currentSeason]))}');
   });
 
   it('keeps CSV upload, drag-and-drop and paste import available', () => {

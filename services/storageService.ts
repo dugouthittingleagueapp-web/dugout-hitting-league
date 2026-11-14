@@ -1595,10 +1595,28 @@ export const importScheduleFromCsv = async (
     };
   }
 
-  const activeSeason = options?.defaultSeason || (await getCurrentSeason());
+  // Schedule imports always belong to the server's active season. A stale browser
+  // season selector must not silently create teams or games in a different year.
+  const activeSeason = await getCurrentSeason();
+  if (options?.defaultSeason && options.defaultSeason !== activeSeason) {
+    throw new Error(`The active season changed to ${activeSeason}. Reopen Schedule Import and try again.`);
+  }
   const existingLeagues = await getLeagues(activeSeason);
   const existingTeams = await getAllTeams();
   const existingMatches = await getAllMatches();
+
+  // A CSV division such as "9U 3v3" may refer to an existing "9U" league.
+  // Match age-group shorthand only when there is exactly one matching division;
+  // otherwise preserve the CSV's explicit division instead of guessing.
+  const resolveLeague = (csvLeague: string): string => {
+    const exact = existingLeagues.find(l => leaguesMatch(l.id, csvLeague));
+    if (exact) return exact.id;
+    const ageKey = (name: string) => name.trim().match(/^(\\d{1,2})\\s*u\\b/i)?.[1] || null;
+    const age = ageKey(csvLeague);
+    if (!age) return csvLeague;
+    const compatible = existingLeagues.filter(l => ageKey(l.id) === age);
+    return compatible.length === 1 ? compatible[0].id : csvLeague;
+  };
 
   const createdLeaguesSet = new Set<string>();
   const createdTeamsSet = new Set<string>();
@@ -1606,8 +1624,10 @@ export const importScheduleFromCsv = async (
   let skippedDuplicates = 0;
 
   for (const game of games) {
-    const season = game.season || activeSeason;
-    const leagueName = game.group;
+    const season = activeSeason;
+    const leagueName = options?.targetLeague?.trim() || resolveLeague(game.group);
+    // Duplicate checks must use the same resolved league/season as saved matches.
+    const resolvedGame = { ...game, group: leagueName, season };
 
     // 1. Ensure league division exists
     const leagueFound = existingLeagues.some(
@@ -1620,6 +1640,7 @@ export const importScheduleFromCsv = async (
         createdLeaguesSet.add(leagueName);
       } catch (err: any) {
         errors.push(`Failed to create division "${leagueName}": ${err.message}`);
+        continue;
       }
     }
 
@@ -1676,7 +1697,7 @@ export const importScheduleFromCsv = async (
     }
 
     // 4. Duplicate check
-    const isDup = isDuplicateMatch(game, homeTeam.id, awayTeam.id, existingMatches);
+    const isDup = isDuplicateMatch(resolvedGame, homeTeam.id, awayTeam.id, existingMatches);
     if (isDup) {
       skippedDuplicates++;
       continue;
@@ -1699,8 +1720,12 @@ export const importScheduleFromCsv = async (
         endTime: game.endTime,
         notes: game.notes,
       });
-      existingMatches.push(created);
-      createdMatches++;
+      if (created.id && created.season === season && leaguesMatch(created.league, leagueName)) {
+        existingMatches.push(created);
+        createdMatches++;
+      } else {
+        errors.push(`Could not verify saved match ${game.homeTeamName} vs ${game.awayTeamName} in ${leagueName} (${season}).`);
+      }
     } catch (err: any) {
       errors.push(`Failed to schedule match ${game.homeTeamName} vs ${game.awayTeamName}: ${err.message}`);
     }

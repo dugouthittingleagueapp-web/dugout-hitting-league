@@ -137,6 +137,16 @@ describe('Atomic schedule administration', () => {
     expect(query).toHaveBeenCalledWith('COMMIT');
   });
 
+  it('prevents creating individual games in an archived season', async () => {
+    const res = makeResponse();
+    await scheduleHandler(makeRequest('POST', {
+      action: 'create', games: [{ ...game, season: '2025', homeTeamId: 'home', awayTeamId: 'away' }]
+    }) as any, res);
+    expect(res.statusCode).toBe(409);
+    expect(query).toHaveBeenCalledWith('ROLLBACK');
+    expect(query.mock.calls.some((call: any[]) => String(call[0]).startsWith('INSERT INTO'))).toBe(false);
+  });
+
   it('rejects an individual game without team IDs before writing', async () => {
     const res = makeResponse();
     await scheduleHandler(makeRequest('POST', { action: 'create', games: [game] }) as any, res);
@@ -332,6 +342,21 @@ describe('Atomic schedule administration', () => {
     expect(res.body.deletedId).toBe('game-1');
     expect(query.mock.calls.filter((c: any[]) => String(c[0]).startsWith('DELETE FROM matches'))).toHaveLength(1);
     expect(query).toHaveBeenCalledWith('COMMIT');
+  });
+
+  it('prevents deleting games from a non-active archived season', async () => {
+    const original = query.getMockImplementation()!;
+    query.mockImplementation(async (...args: any[]) => {
+      if (String(args[0]).includes('SELECT * FROM matches') && String(args[0]).includes('FOR UPDATE'))
+        return { rows: [{ id: 'game-1', season: '2025', status: 'SCHEDULED',
+          is_practice: false, is_complete: false, is_forfeit: false, innings: blankInnings, tie_breaker: null }] };
+      return original(...args);
+    });
+    const res = makeResponse();
+    await scheduleHandler(makeRequest('DELETE', {}, { id: 'game-1' }) as any, res);
+    expect(res.statusCode).toBe(409);
+    expect(query).toHaveBeenCalledWith('ROLLBACK');
+    expect(query.mock.calls.some((call: any[]) => String(call[0]).startsWith('DELETE FROM matches'))).toBe(false);
   });
 
   it('prevents deleting any game containing recorded pitches', async () => {

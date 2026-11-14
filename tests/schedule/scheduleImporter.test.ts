@@ -103,6 +103,43 @@ describe('Schedule Importer Utility', () => {
     });
   });
 
+  describe('forensic CSV safety validation', () => {
+    const headers = 'Date,Start Time,End Time,Group,Home Team,Away Team';
+
+    it('rejects an unterminated quoted CSV field instead of importing a partial schedule', () => {
+      const result = parseScheduleCsv(headers + '\n2026-11-16,6:00 pm,7:00 pm,9U,"Team A,Team B');
+      expect(result.games).toHaveLength(0);
+      expect(result.errors.join(' ')).toMatch(/quotation marks/i);
+    });
+
+    it('skips impossible calendar dates instead of silently moving them to a new day', () => {
+      const result = parseScheduleCsv(headers + '\n2026-02-30,6:00 pm,7:00 pm,9U,Team A,Team B\n2028-02-29,6:00 pm,7:00 pm,9U,Team A,Team B');
+      expect(result.games).toHaveLength(1);
+      expect(result.games[0].date).toBe('2028-02-29');
+      expect(result.errors.join(' ')).toMatch(/Row 2: Invalid date/);
+    });
+
+    it('skips invalid times and self-matches but retains valid games', () => {
+      const csv = [headers,
+        '2026-11-16,25:15,7:00 pm,9U,Team A,Team B',
+        '2026-11-16,6:00 pm,7:00 pm,9U,Same Team,Same Team',
+        '2026-11-16,6:00 pm,7:00 pm,9U,Team A,Team B',
+      ].join('\n');
+      const result = parseScheduleCsv(csv);
+      expect(result.games).toHaveLength(1);
+      expect(result.errors).toHaveLength(2);
+      expect(result.errors.join(' ')).toMatch(/Invalid start or end time/);
+      expect(result.errors.join(' ')).toMatch(/must be different/);
+    });
+
+    it('continues to accept 12-hour and 24-hour clock formats', () => {
+      const result = parseScheduleCsv(headers + '\n11/16/2026,18:00,19:15,9U,Team A,Team B');
+      expect(result.errors).toEqual([]);
+      expect(result.games).toHaveLength(1);
+      expect(result.games[0].scheduledIsoDate).toBe('2026-11-16T18:00:00.000Z');
+    });
+  });
+
   describe('isDuplicateMatch', () => {
     const existingMatch: Match = {
       id: 'match-1',

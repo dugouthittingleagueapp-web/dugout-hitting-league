@@ -105,6 +105,52 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
       const { action, teamIds, targetLeague } = req.body || {};
 
+      if (action === 'rename_team') {
+        const { teamId, name, season } = req.body || {};
+        if (typeof teamId !== 'string' || !teamId.trim() || teamId.length > 128 ||
+            typeof name !== 'string' || !name.trim() || name.length > 120 ||
+            typeof season !== 'string' || !/^20\d\d$/.test(season)) {
+          return res.status(400).json({ error: 'Choose a team and enter a valid team name.' });
+        }
+        const client = await pool.connect();
+        try {
+          await client.query('BEGIN');
+          const seasonResult = await client.query(
+            "SELECT value FROM app_settings WHERE key='current_season'"
+          );
+          if (seasonResult.rows[0]?.value !== season) {
+            await client.query('ROLLBACK');
+            return res.status(409).json({ error: 'Only teams in the active season can be renamed here.' });
+          }
+          const existing = await client.query('SELECT id, name, league, season FROM teams WHERE id=$1 FOR UPDATE', [teamId]);
+          const team = existing.rows[0];
+          if (!team || team.season !== season) {
+            await client.query('ROLLBACK');
+            return res.status(404).json({ error: 'This team was not found in the active season. Refresh the schedule.' });
+          }
+          const duplicate = await client.query(
+            'SELECT 1 FROM teams WHERE id<>$1 AND season=$2 AND LOWER(league)=LOWER($3) AND LOWER(TRIM(name))=LOWER($4) LIMIT 1',
+            [teamId, season, team.league, name.trim()]
+          );
+          if (duplicate.rows.length) {
+            await client.query('ROLLBACK');
+            return res.status(409).json({ error: 'A team with that name already exists in this division.' });
+          }
+          const renamed = await client.query('UPDATE teams SET name=$2 WHERE id=$1 RETURNING id,name,league,season',
+            [teamId, name.trim()]);
+          await client.query('COMMIT');
+          // Matchups reference team IDs; names update everywhere without
+          // touching scores, rosters, player IDs or historical match records.
+          return res.status(200).json(renamed.rows[0]);
+        } catch (error) {
+          await client.query('ROLLBACK').catch(() => {});
+          console.error('Team name correction failed', error);
+          return res.status(500).json({ error: 'The team name could not be saved. No games were changed.' });
+        } finally {
+          client.release();
+        }
+      }
+
       if (action === 'move_teams') {
         if (!teamIds || !Array.isArray(teamIds) || teamIds.length === 0 || !targetLeague) {
            return res.status(400).json({ error: 'Invalid request parameters' });

@@ -23,6 +23,8 @@ const SCORING_PREVIEW_HOST = 'ep-red-tree-a46hwgra.us-east-1.aws.neon.tech';
 const SCORING_PREVIEW_BRANCH = 'refactor/network-and-sync-foundation';
 const CONSOLIDATED_REVIEW_BRANCH = 'review/consolidated-final-nov12';
 const CONSOLIDATED_REVIEW_HOST = 'ep-divine-smoke-a4lyo8af.us-east-1.aws.neon.tech';
+const FORENSIC_QC_BRANCH = 'review/forensic-qc-nov13';
+const FORENSIC_QC_HOST = 'ep-quiet-bird-a4je1a5z.us-east-1.aws.neon.tech';
 
 const normalizeUrl = (value: string): string =>
   value.trim().replace(/^(['"])(.*)\1$/, '$2').trim();
@@ -66,6 +68,12 @@ export const selectDatabaseConnectionString = (environment: DatabaseEnvironment)
     } else if (vercelEnvironment === 'preview' &&
         environment.VERCEL_GIT_COMMIT_REF === CONSOLIDATED_REVIEW_BRANCH) {
       assertExpectedHost(scopedUrl, CONSOLIDATED_REVIEW_HOST, 'Consolidated Review Preview');
+    } else if (vercelEnvironment === 'preview' &&
+        environment.VERCEL_GIT_COMMIT_REF === FORENSIC_QC_BRANCH) {
+      assertExpectedHost(scopedUrl, FORENSIC_QC_HOST, 'Forensic QC Preview');
+    } else if (vercelEnvironment === 'preview') {
+      // Unknown Preview branches must never inherit the Production endpoint.
+      throw new Error('Database safety check failed: unregistered Preview branch');
     }
     return scopedUrl;
   }

@@ -95,6 +95,7 @@ export const FileDropzone: React.FC<FileDropzoneProps> = ({
         type="file"
         accept={accept}
         onChange={handleInputChange}
+        onClick={e => e.stopPropagation()}
         disabled={disabled}
         className="hidden"
         tabIndex={-1}

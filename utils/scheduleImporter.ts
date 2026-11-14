@@ -43,6 +43,10 @@ export const parseCSV = (csvText: string): string[][] => {
     }
   }
 
+  if (insideQuotes) {
+    throw new Error('A quoted CSV field was not closed. Check the quotation marks in your schedule file.');
+  }
+
   // Push final cell and row if anything remains
   if (currentCell.length > 0 || currentRow.length > 0) {
     currentRow.push(currentCell.trim());
@@ -114,6 +118,35 @@ export const combineDateAndTime = (dateStr: string, timeStr?: string): string =>
 };
 
 /**
+ * Validate schedule inputs before Date.UTC silently normalizes bad dates
+ * (for example, February 30 becomes March 2). Do not reinterpret dates
+ * using the server's local timezone.
+ */
+export const isValidScheduleDate = (value: string): boolean => {
+  const text = value.trim();
+  if (text.includes('T')) {
+    return /^\d{4}-\d{2}-\d{2}T/.test(text) && Number.isFinite(Date.parse(text));
+  }
+  const iso = /^(\d{4})-(\d{1,2})-(\d{1,2})$/.exec(text);
+  const us = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/.exec(text);
+  if (!iso && !us) return false;
+  const year = Number(iso ? iso[1] : us![3]);
+  const month = Number(iso ? iso[2] : us![1]);
+  const day = Number(iso ? iso[3] : us![2]);
+  if (year < 2000 || year > 2100 || month < 1 || month > 12 || day < 1) return false;
+  const actual = new Date(Date.UTC(year, month - 1, day));
+  return actual.getUTCFullYear() === year &&
+    actual.getUTCMonth() === month - 1 && actual.getUTCDate() === day;
+};
+
+export const isValidScheduleTime = (value: string): boolean => {
+  const match = /^(\d{1,2})(?::(\d{2}))?\s*(am|pm)?$/i.exec(value.trim());
+  if (!match) return false;
+  const hour = Number(match[1]), minute = Number(match[2] ?? 0);
+  return minute < 60 && (match[3] ? hour >= 1 && hour <= 12 : hour <= 23);
+};
+
+/**
  * Column header matcher for flexible dynamic CSV import
  */
 export interface ColumnIndices {
@@ -159,7 +192,12 @@ export const parseScheduleCsv = (
   csvContent: string,
   options?: { targetLeague?: string; defaultLeague?: string; defaultSeason?: string }
 ): { games: ScheduledGameRecord[]; errors: string[] } => {
-  const rows = parseCSV(csvContent);
+  let rows: string[][];
+  try {
+    rows = parseCSV(csvContent);
+  } catch (error) {
+    return { games: [], errors: [(error as Error).message] };
+  }
   if (rows.length < 2) {
     return { games: [], errors: ['CSV file is empty or missing headers'] };
   }
@@ -194,6 +232,14 @@ export const parseScheduleCsv = (
       errors.push(`Row ${rowNum}: Missing Home or Away team name, skipped.`);
       continue;
     }
+    if (!isValidScheduleDate(date)) {
+      errors.push(`Row ${rowNum}: Invalid date "${date}". Use YYYY-MM-DD or MM/DD/YYYY.`);
+      continue;
+    }
+    if (homeTeamName.toLowerCase() === awayTeamName.toLowerCase()) {
+      errors.push(`Row ${rowNum}: The home and away teams must be different.`);
+      continue;
+    }
 
     const eventType = indices.eventType !== -1 ? row[indices.eventType]?.trim() : 'Game';
     // If CSV specifies event type and it's not a game/practice (e.g. "Meeting"), skip
@@ -203,6 +249,11 @@ export const parseScheduleCsv = (
 
     const startTime = indices.startTime !== -1 ? row[indices.startTime]?.trim() : '6:00 pm';
     const endTime = indices.endTime !== -1 ? row[indices.endTime]?.trim() : '7:00 pm';
+    if ((startTime && !isValidScheduleTime(startTime)) ||
+        (endTime && !isValidScheduleTime(endTime))) {
+      errors.push(`Row ${rowNum}: Invalid start or end time. Use a time like 6:00 pm or 18:00.`);
+      continue;
+    }
     const location = indices.location !== -1 ? row[indices.location]?.trim() : 'The Dugout';
     const csvGroup = indices.group !== -1 ? row[indices.group]?.trim() : '';
     // If user explicitly directed the schedule to an existing app league, prioritize targetLeague

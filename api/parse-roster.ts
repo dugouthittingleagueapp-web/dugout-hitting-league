@@ -1,5 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { GoogleGenAI, Type } from '@google/genai';
+import { requireRole } from './auth.js';
 
 const promptInstructions = `You are a youth baseball hitting league assistant. 
 Your job is to parse player rosters from either an image (such as a paper signup sheet, clipboard photo, or screenshot) or unformatted text (copied from an email, notepad, or messages).
@@ -17,7 +18,23 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
+  // Roster photos contain children's names and use a paid AI service.
+  // Only league administrators may submit a roster for extraction.
+  if (!requireRole(req, res, ['admin'])) return;
+
   const { text, imageBase64, mimeType, defaultLeague = '12U' } = req.body || {};
+  if ((text !== undefined && typeof text !== 'string') ||
+      (imageBase64 !== undefined && typeof imageBase64 !== 'string') ||
+      typeof defaultLeague !== 'string' || defaultLeague.length > 100 ||
+      (mimeType !== undefined && typeof mimeType !== 'string')) {
+    return res.status(400).json({ error: 'The roster file could not be read. Please choose a text file or photo and try again.' });
+  }
+  if ((text?.length || 0) > 100_000 || (imageBase64?.length || 0) > 5_000_000) {
+    return res.status(413).json({ error: 'This roster is too large. Please use a smaller photo or split the text into shorter sections.' });
+  }
+  if (imageBase64 && mimeType && !['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif'].includes(mimeType.toLowerCase())) {
+    return res.status(400).json({ error: 'Please use a JPG, PNG, WEBP, or supported phone photo.' });
+  }
 
   if (!text && !imageBase64) {
     return res.status(400).json({ error: 'Either text or imageBase64 must be provided' });

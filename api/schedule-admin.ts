@@ -18,11 +18,20 @@ type GameInput = {
 };
 const safe = (v: unknown, max = 150): v is string => typeof v === 'string' && v.trim().length > 0 && v.length <= max;
 const validSeason = (v: unknown): v is string => typeof v === 'string' && /^20\d\d$/.test(v);
-const validDate = (v: unknown): v is string => {
-  if (typeof v !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(v)) return false;
-  const d = new Date(v + 'T00:00:00.000Z');
-  return !Number.isNaN(d.getTime()) && d.toISOString().slice(0, 10) === v;
+const normalizedDate = (value: string): string | null => {
+  const iso = /^(\d{4})-(\d{1,2})-(\d{1,2})$/.exec(value);
+  const us = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/.exec(value);
+  if (!iso && !us) return null;
+  const year = Number(iso ? iso[1] : us![3]);
+  const month = Number(iso ? iso[2] : us![1]);
+  const day = Number(iso ? iso[3] : us![2]);
+  if (year < 2000 || year > 2100 || month < 1 || month > 12 || day < 1) return null;
+  const d = new Date(Date.UTC(year, month - 1, day));
+  if (d.getUTCFullYear() !== year || d.getUTCMonth() !== month - 1 || d.getUTCDate() !== day) return null;
+  return d.toISOString().slice(0, 10);
 };
+const validDate = (v: unknown): v is string =>
+  typeof v === 'string' && normalizedDate(v) !== null;
 const validTime = (v: unknown): v is string =>
   typeof v === 'string' && /^(?:[01]?\d|2[0-3])(?::[0-5]\d)?(?:\s*[ap]m)?$/i.test(v.trim()) &&
   (!/[ap]m/i.test(v) || Number(v.trim().split(':')[0].replace(/[^\d]/g, '')) <= 12);
@@ -35,7 +44,7 @@ const validGame = (g: unknown): g is GameInput => {
     typeof x.scheduledIsoDate === 'string' &&
     /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z$/.test(x.scheduledIsoDate) &&
     Number.isFinite(Date.parse(x.scheduledIsoDate)) &&
-    x.scheduledIsoDate.slice(0, 10) === x.date &&
+    x.scheduledIsoDate.slice(0, 10) === normalizedDate(x.date) &&
     validTime(x.startTime) && validTime(x.endTime) &&
     typeof x.location === 'string' && x.location.length <= 250 &&
     (x.notes === undefined || (typeof x.notes === 'string' && x.notes.length <= 1000));
@@ -100,7 +109,7 @@ async function importGames(client: DbClient, games: GameInput[], autoCreateTeams
     if (home.id === away.id) throw new Error('A game cannot have the same team on both sides.');
     const duplicate = matches.some(m => canonical(m.league) === canonical(game.group) &&
       m.season === game.season &&
-      new Date(m.date).toISOString().slice(0, 10) === game.date &&
+      new Date(m.date).toISOString().slice(0, 10) === normalizedDate(game.date) &&
       ((m.home_team_id === home.id && m.away_team_id === away.id) ||
        (m.home_team_id === away.id && m.away_team_id === home.id)));
     if (duplicate) { skippedDuplicates++; continue; }

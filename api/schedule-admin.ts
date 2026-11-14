@@ -177,25 +177,23 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       await client.query('BEGIN');
       // Serialize imports and single game creation; prevent concurrent duplicate schedule batches.
       await client.query("SELECT pg_advisory_xact_lock(hashtext('dugout_schedule_management'))");
-      if (action === 'import') {
-        // Never trust a client-selected or CSV-provided year: only the
-        // authoritative active season may accept bulk schedule imports.
-        const active = await client.query(
-          "SELECT value FROM app_settings WHERE key='current_season'"
-        );
-        const activeSeason = active.rows[0]?.value;
-        if (!validSeason(activeSeason)) {
-          await client.query('ROLLBACK');
-          return res.status(503).json({
-            error: 'The active season could not be verified. No games were imported. Please try again.'
-          });
-        }
-        if (games.some((game: GameInput) => game.season !== activeSeason)) {
-          await client.query('ROLLBACK');
-          return res.status(409).json({
-            error: `These games do not belong to the active ${activeSeason} season. No games were imported. Reopen the importer to use the current season.`
-          });
-        }
+      // All schedule changes, whether bulk imports or individual new games,
+      // must target the authoritative active season.
+      const active = await client.query(
+        "SELECT value FROM app_settings WHERE key='current_season'"
+      );
+      const activeSeason = active.rows[0]?.value;
+      if (!validSeason(activeSeason)) {
+        await client.query('ROLLBACK');
+        return res.status(503).json({
+          error: 'The active season could not be verified. No games were changed. Please try again.'
+        });
+      }
+      if (games.some((game: GameInput) => game.season !== activeSeason)) {
+        await client.query('ROLLBACK');
+        return res.status(409).json({
+          error: `These games do not belong to the active ${activeSeason} season. No games were changed. Reopen the schedule to use the current season.`
+        });
       }
       const result = await importGames(client, games, action === 'import');
       await client.query('COMMIT');
@@ -316,6 +314,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const found = await client.query('SELECT * FROM matches WHERE id=$1 FOR UPDATE', [id]);
       if (!found.rows.length) { await client.query('ROLLBACK'); return res.status(404).json({ error: 'That game is no longer in the schedule.' }); }
       const m = found.rows[0];
+      const active = await client.query("SELECT value FROM app_settings WHERE key='current_season'");
+      if (m.season !== active.rows[0]?.value) {
+        await client.query('ROLLBACK');
+        return res.status(409).json({ error: 'Only games in the current active season can be deleted here.' });
+      }
       const locked = await client.query('SELECT 1 FROM scoring_locks WHERE match_id=$1', [id]);
       if (m.is_practice || m.is_complete || m.is_forfeit || m.status !== 'SCHEDULED' ||
           hasRecordedScores(m.innings, m.tie_breaker) || locked.rows.length > 0) {

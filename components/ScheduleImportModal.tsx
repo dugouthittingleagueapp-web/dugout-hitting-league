@@ -28,7 +28,6 @@ export const ScheduleImportModal: React.FC<ScheduleImportModalProps> = ({
   const [isCustomLeague, setIsCustomLeague] = useState(false);
   const [customLeagueInput, setCustomLeagueInput] = useState('');
   const [loading, setLoading] = useState(false);
-  const [loadingSample, setLoadingSample] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [selectedFileName, setSelectedFileName] = useState<string | null>(null);
 
@@ -107,24 +106,6 @@ export const ScheduleImportModal: React.FC<ScheduleImportModalProps> = ({
       setErrorMessage('Failed to read schedule CSV file');
     };
     reader.readAsText(file);
-  };
-
-  const handleLoadSampleSchedule = async () => {
-    setLoadingSample(true);
-    setErrorMessage(null);
-    try {
-      const res = await fetch('/assets/aistudio/schedule_export_20261102_121804_62b9d935.csv');
-      if (!res.ok) throw new Error('Sample CSV schedule file not found at /assets/aistudio/...');
-      const content = await res.text();
-      setSelectedFileName('schedule_export_20261102_121804.csv');
-      setCsvText(content);
-      const effLeague = getEffectiveTargetLeague(targetLeague, isCustomLeague, customLeagueInput);
-      processPreview(content, effLeague, targetSeason);
-    } catch (err: any) {
-      setErrorMessage('Failed to load premade schedule: ' + err.message);
-    } finally {
-      setLoadingSample(false);
-    }
   };
 
   const processPreview = (rawContent: string, selectedLeague?: string, seasonToUse?: string) => {
@@ -355,26 +336,6 @@ export const ScheduleImportModal: React.FC<ScheduleImportModalProps> = ({
             </p>
           </div>
 
-          {/* Quick Action: Load Sample Schedule */}
-          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 bg-blue-50/60 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-900/40 p-3.5 rounded-xl">
-            <div className="text-xs">
-              <span className="font-bold text-blue-900 dark:text-blue-300 font-sans block">
-                Attached Schedule Detected:
-              </span>
-              <span className="text-blue-700 dark:text-blue-400 font-sans">
-                schedule_export_20261102_121804.csv (20 games • 8 teams • 9U 3v3)
-              </span>
-            </div>
-            <button
-              onClick={handleLoadSampleSchedule}
-              disabled={loadingSample}
-              className="px-4 py-2 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white font-bold text-xs rounded-xl shadow-sm transition-all font-sans cursor-pointer shrink-0 flex items-center justify-center gap-1.5"
-            >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" /></svg>
-              {loadingSample ? 'Loading File...' : 'Load 9U 3v3 Premade Schedule'}
-            </button>
-          </div>
-
           {/* Tabs: File Upload vs Paste CSV */}
           <div className="border-b border-slate-200 dark:border-slate-800 flex gap-4">
             <button
@@ -408,7 +369,7 @@ export const ScheduleImportModal: React.FC<ScheduleImportModalProps> = ({
                   processPreview(e.target.value);
                 }}
                 rows={6}
-                placeholder="Paste your CSV schedule here...&#10;Date,Start Time,End Time,Location,Group,Home Team,Away Team&#10;2026-11-02,6:00 pm,7:00 pm,The Dugout: Tunnels 5/6,9U 3v3,Banana Bros,Raiders Bomb Squad"
+                placeholder="Paste CSV schedule text here.&#10;Date,Start Time,End Time,Location,Group,Home Team,Away Team"
                 className="w-full p-3 font-mono text-xs bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-xl text-slate-800 dark:text-slate-200 focus:ring-2 focus:ring-blue-500 outline-none"
               />
             </div>

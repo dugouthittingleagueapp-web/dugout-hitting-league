@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { League, Match, Team } from '../types';
 import * as storage from '../services/storageService';
 
@@ -14,6 +15,12 @@ type ScheduleEdit = {
 const dateKey = (date: string) => String(date || '').slice(0, 10);
 const formatDay = (date: string) => dateKey(date) || 'Unscheduled';
 const editable = (game: Match) => !game.isComplete && game.status === 'SCHEDULED';
+const lockedReason = (game: Match): string | null => {
+  if (game.isComplete) return 'This game is finished. Its recorded scores are protected.';
+  if (game.status === 'IN_PROGRESS') return 'Scoring has started for this game. Ask an administrator to correct the game through scoring.';
+  if (game.status !== 'SCHEDULED') return 'Only games that have not started can be changed here.';
+  return null;
+};
 const authHeaders = (): HeadersInit => {
   try {
     const token = sessionStorage.getItem('dugout_auth_token') || localStorage.getItem('dugout_auth_token');
@@ -38,6 +45,7 @@ export const AdminSchedule: React.FC<Props> = ({ season, leagues, onImport, refr
   const [leagueFilter, setLeagueFilter] = useState('all');
   const [search, setSearch] = useState('');
   const [editing, setEditing] = useState<Match | null>(null);
+  const [removing, setRemoving] = useState<Match | null>(null);
   const [draft, setDraft] = useState<ScheduleEdit | null>(null);
   const [renaming, setRenaming] = useState<Team | null>(null);
   const [newName, setNewName] = useState('');
@@ -105,12 +113,12 @@ export const AdminSchedule: React.FC<Props> = ({ season, leagues, onImport, refr
     finally { setWorkingId(''); }
   };
   const removeGame = async (game: Match) => {
-    if (!confirm('Remove this unplayed game from ' + game.league + '? This cannot be undone.')) return;
     setWorkingId(game.id);
     setError('');
     try {
       await post({ action: 'delete_game', id: game.id });
       setSuccess('Unplayed game removed.');
+      setRemoving(null);
       await load();
     } catch (err: any) { setError(err?.message || 'Could not remove this game.'); }
     finally { setWorkingId(''); }
@@ -179,17 +187,17 @@ export const AdminSchedule: React.FC<Props> = ({ season, leagues, onImport, refr
               <div className="flex flex-wrap gap-2 items-center">
                 <span className="font-bold text-sm text-slate-900 dark:text-white">{formatDay(game.date)} · {game.startTime || 'Time TBA'}</span>
                 <span className="text-xs font-bold text-blue-600 dark:text-blue-400">{game.league}</span>
-                <span className="text-xs text-slate-500 dark:text-slate-400">{game.status || 'SCHEDULED'}</span>
+                <span className="text-xs text-slate-500 dark:text-slate-400">{game.isComplete ? 'FINAL' : (game.status || 'SCHEDULED')}</span>
               </div>
               <div className="font-semibold text-sm text-slate-800 dark:text-slate-100">{name(game.homeTeamId)} vs {name(game.awayTeamId)}</div>
               <div className="text-xs text-slate-500 dark:text-slate-400">{game.location || 'Location TBA'} · {game.startTime || ''}–{game.endTime || ''}</div>
             </div>
             {editable(game) ? (
               <div className="flex gap-2 shrink-0">
-                <button onClick={() => beginEdit(game)} className="rounded-lg px-3 py-2 text-sm font-bold bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300">Edit</button>
-                <button onClick={() => void removeGame(game)} disabled={workingId === game.id} className="rounded-lg px-3 py-2 text-sm font-bold text-red-600 dark:text-red-400 border border-red-200 dark:border-red-900 disabled:opacity-50">Remove</button>
+                <button type="button" onClick={() => beginEdit(game)} className="rounded-lg px-3 py-2 text-sm font-bold bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300">Edit</button>
+                <button type="button" onClick={() => { setRemoving(game); setError(''); setSuccess(''); }} disabled={workingId === game.id} className="rounded-lg px-3 py-2 text-sm font-bold text-red-600 dark:text-red-400 border border-red-200 dark:border-red-900 disabled:opacity-50">Remove</button>
               </div>
-            ) : <span className="text-xs text-slate-500">Scored game · locked</span>}
+            ) : <span className="text-xs text-amber-700 dark:text-amber-300 font-bold" title={lockedReason(game) || undefined}>🔒 {lockedReason(game)}</span>}
           </div>
         ))}
         {!busy && visible.length === 0 && (
@@ -199,7 +207,7 @@ export const AdminSchedule: React.FC<Props> = ({ season, leagues, onImport, refr
           </div>
         )}
       </div>
-      {editing && draft && (
+      {editing && draft && createPortal(
         <div className="fixed inset-0 z-[9999] bg-slate-950/80 p-3 flex items-center justify-center" role="dialog" aria-modal="true" aria-label="Edit scheduled game">
           <div className="bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl p-5 w-full max-w-lg max-h-[90vh] overflow-y-auto space-y-3">
             <h3 className="font-black text-lg text-slate-900 dark:text-white">Edit scheduled game · {editing.league}</h3>
@@ -230,9 +238,9 @@ export const AdminSchedule: React.FC<Props> = ({ season, leagues, onImport, refr
               <button onClick={() => void save()} disabled={!!workingId || draft.homeTeamId === draft.awayTeamId} className="rounded-lg px-4 py-2 bg-blue-600 text-white font-bold disabled:opacity-50">{workingId ? 'Saving...' : 'Save changes'}</button>
             </div>
           </div>
-        </div>
+        </div>, document.body
       )}
-      {renaming && (
+      {renaming && createPortal(
         <div className="fixed inset-0 z-[9999] bg-slate-950/80 p-3 flex items-center justify-center" role="dialog" aria-modal="true" aria-label="Rename team">
           <div className="bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl p-5 w-full max-w-md space-y-3">
             <h3 className="font-black text-lg text-slate-900 dark:text-white">Rename {renaming.name}</h3>
@@ -244,7 +252,29 @@ export const AdminSchedule: React.FC<Props> = ({ season, leagues, onImport, refr
               <button onClick={() => void rename()} disabled={!!workingId || !newName.trim()} className="rounded-lg px-4 py-2 bg-blue-600 text-white font-bold disabled:opacity-50">Save name</button>
             </div>
           </div>
-        </div>
+        </div>, document.body
+      )}
+      {removing && createPortal(
+        <div className="fixed inset-0 z-[9999] bg-slate-950/80 p-3 flex items-center justify-center" role="dialog" aria-modal="true" aria-label="Confirm removal of scheduled game">
+          <div className="bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl p-5 w-full max-w-md space-y-4">
+            <h3 className="font-black text-lg text-slate-900 dark:text-white">Remove scheduled game?</h3>
+            <p className="text-sm text-slate-700 dark:text-slate-300">
+              {name(removing.homeTeamId)} vs {name(removing.awayTeamId)} · {formatDay(removing.date)} · {removing.league}
+            </p>
+            <p className="text-xs text-slate-600 dark:text-slate-400">
+              This removes an unplayed game from the schedule. Completed or scored games cannot be removed. This action cannot be undone.
+            </p>
+            {error && <div role="alert" className="p-3 rounded-lg bg-red-50 dark:bg-red-950/40 text-red-700 dark:text-red-300 text-sm">{error}</div>}
+            <div className="flex justify-end gap-2">
+              <button type="button" onClick={() => { setRemoving(null); setError(''); }}
+                disabled={!!workingId} className="px-4 py-2 rounded-lg bg-slate-200 dark:bg-slate-700 text-slate-900 dark:text-white">Cancel</button>
+              <button type="button" onClick={() => void removeGame(removing)} disabled={!!workingId}
+                className="px-4 py-2 rounded-lg bg-red-600 hover:bg-red-700 text-white font-bold disabled:opacity-50">
+                {workingId ? 'Removing...' : 'Remove game'}
+              </button>
+            </div>
+          </div>
+        </div>, document.body
       )}
     </section>
   );

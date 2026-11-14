@@ -1648,6 +1648,17 @@ export const updateSingleScheduledGame = async (
   return readScheduleAdminResponse(response);
 };
 
+export const renameActiveSeasonTeam = async (
+  teamId: string, name: string, season: string
+): Promise<{ id: string; name: string; league: string; season: string }> => {
+  const response = await apiFetch('/api/teams', {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ action: 'rename_team', teamId, name, season }),
+  });
+  return readScheduleAdminResponse(response);
+};
+
 export const deleteSingleScheduledGame = async (id: string): Promise<void> => {
   const response = await apiFetch('/api/schedule-admin?id=' + encodeURIComponent(id), { method: 'DELETE' });
   await readScheduleAdminResponse(response);

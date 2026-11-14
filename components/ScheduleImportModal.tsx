@@ -187,10 +187,16 @@ export const ScheduleImportModal: React.FC<ScheduleImportModalProps> = ({
     try {
       const summary = await storage.importScheduleFromCsv(csvText, {
         targetLeague: effLeague || undefined,
-        defaultSeason: targetSeason
+        defaultSeason: currentSeason
       });
 
       setImportSummary(summary);
+      if (summary.errors.length > 0 || summary.createdMatches === 0 && summary.skippedDuplicates === 0) {
+        setErrorMessage(summary.errors.length > 0
+          ? `Imported ${summary.createdMatches} games, but ${summary.errors.length} problems need attention: ${summary.errors.slice(0, 5).join(' | ')}`
+          : 'No games were saved. Check the CSV headers, game dates, and league names.');
+        return;
+      }
       onSuccess(summary);
     } catch (err: any) {
       setErrorMessage('Import failed: ' + (err.message || 'Unknown error'));
@@ -249,16 +255,9 @@ export const ScheduleImportModal: React.FC<ScheduleImportModalProps> = ({
               <label className="block text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase mb-1 font-sans">
                 Target Season
               </label>
-              <select
-                value={targetSeason}
-                onChange={(e) => {
-                  setTargetSeason(e.target.value);
-                  loadExistingData(e.target.value);
-                }}
-                className="w-full p-2 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-slate-800 dark:text-white rounded-lg text-xs sm:text-sm font-bold font-sans cursor-pointer"
-              >
-                {availableSeasons.map(s => <option key={s} value={s}>{s} Season</option>)}
-              </select>
+              <div className="w-full p-2 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-slate-800 dark:text-white rounded-lg text-xs sm:text-sm font-bold font-sans">
+                {currentSeason} Season (Active)
+              </div>
             </div>
 
             <div>

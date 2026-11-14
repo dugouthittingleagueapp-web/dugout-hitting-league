@@ -9,7 +9,6 @@ interface ScheduleImportModalProps {
   onClose: () => void;
   onSuccess: (summary: ScheduleImportSummary) => void;
   currentSeason: string;
-  availableSeasons: string[];
   availableLeagues: League[];
 }
 
@@ -18,12 +17,12 @@ export const ScheduleImportModal: React.FC<ScheduleImportModalProps> = ({
   onClose,
   onSuccess,
   currentSeason,
-  availableSeasons,
   availableLeagues
 }) => {
   const [activeTab, setActiveTab] = useState<'upload' | 'paste'>('upload');
   const [csvText, setCsvText] = useState('');
-  const [targetSeason, setTargetSeason] = useState(currentSeason || '2026');
+  // Schedule imports are permitted only for the current active season.
+  const targetSeason = currentSeason;
   const [targetLeague, setTargetLeague] = useState('');
   const [isCustomLeague, setIsCustomLeague] = useState(false);
   const [customLeagueInput, setCustomLeagueInput] = useState('');
@@ -41,8 +40,7 @@ export const ScheduleImportModal: React.FC<ScheduleImportModalProps> = ({
 
   useEffect(() => {
     if (isOpen) {
-      setTargetSeason(currentSeason || '2026');
-      loadExistingData(currentSeason || '2026');
+      loadExistingData(currentSeason);
     } else {
       handleReset();
     }
@@ -252,25 +250,18 @@ export const ScheduleImportModal: React.FC<ScheduleImportModalProps> = ({
         {/* Content Area */}
         <div className="p-4 sm:p-6 overflow-y-auto space-y-4 flex-1">
           
-          {/* Target Season & League Selector */}
+          {/* The importer always targets the active season, not an archive. */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 bg-slate-50 dark:bg-slate-950 p-3.5 rounded-xl border border-slate-200 dark:border-slate-800">
             <div>
-              <label className="block text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase mb-1 font-sans">
-                Target Season
-              </label>
-              <select
-                value={targetSeason}
-                onChange={(e) => {
-                  setTargetSeason(e.target.value);
-                  if (csvText.trim()) {
-                    processPreview(csvText, getEffectiveTargetLeague(targetLeague, isCustomLeague, customLeagueInput), e.target.value);
-                  }
-                  loadExistingData(e.target.value);
-                }}
-                className="w-full p-2 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-slate-800 dark:text-white rounded-lg text-xs sm:text-sm font-bold font-sans cursor-pointer"
-              >
-                {availableSeasons.map(s => <option key={s} value={s}>{s} Season</option>)}
-              </select>
+              <div className="block text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase mb-1 font-sans">
+                Active Season (Import Destination)
+              </div>
+              <div className="w-full p-2 bg-blue-50 dark:bg-blue-950/40 border border-blue-300 dark:border-blue-700 text-slate-900 dark:text-white rounded-lg text-xs sm:text-sm font-bold font-sans">
+                {targetSeason} Season · Active
+              </div>
+              <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-1 font-sans">
+                Schedules cannot be imported into archived seasons.
+              </p>
             </div>
 
             <div>

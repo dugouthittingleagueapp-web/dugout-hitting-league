@@ -97,7 +97,7 @@ describe('Atomic schedule administration', () => {
     await scheduleHandler(makeRequest('POST', { action: 'import', games: [game] }) as any, res);
     expect(res.body.createdMatches).toBe(0);
     expect(res.body.skippedDuplicates).toBe(1);
-    expect(query.mock.calls.some(c => c[0].startsWith('INSERT INTO matches'))).toBe(false);
+    expect(query.mock.calls.some((c: any[]) => c[0].startsWith('INSERT INTO matches'))).toBe(false);
   });
 
   it('uses the same calendar day for MM/DD/YYYY rows', async () => {
@@ -149,6 +149,6 @@ describe('Atomic schedule administration', () => {
     await scheduleHandler(makeRequest('DELETE', {}, { id: 'game-1' }) as any, res);
     expect(res.statusCode).toBe(403);
     expect(query).toHaveBeenCalledWith('ROLLBACK');
-    expect(query.mock.calls.some(c => String(c[0]).startsWith('DELETE FROM matches'))).toBe(false);
+    expect(query.mock.calls.some((c: any[]) => String(c[0]).startsWith('DELETE FROM matches'))).toBe(false);
   });
 });

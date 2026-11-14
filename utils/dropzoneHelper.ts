@@ -49,9 +49,9 @@ export const handleDragEnterEvent = (
   if (disabled) return;
 
   counterRef.current += 1;
-  if (e.dataTransfer?.items && e.dataTransfer.items.length > 0) {
-    setIsDragging(true);
-  }
+  // Safari and some Firefox drag sources may not populate dataTransfer.items
+  // until drop. The drag-enter event itself is sufficient to show feedback.
+  setIsDragging(true);
 };
 
 /**

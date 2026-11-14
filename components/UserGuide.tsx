@@ -135,7 +135,7 @@ export const UserGuide: React.FC<UserGuideProps> = ({ onClose }) => {
                     <li><strong>Save &amp; Exit:</strong> Keeps the game active so it can be resumed later. It does not mark the game final.</li>
                     <li><strong>Exit &amp; Finalize / Confirm &amp; Finalize:</strong> Marks the game complete once the server confirms the save. Verify the final score before confirming.</li>
                     <li><strong>Practice Mode:</strong> Start Practice Match from the dashboard. Practice results stay separate from official standings and leaderboards.</li>
-                    <li><strong>Reset practice:</strong> Use Reset Practice Match to clear test pitches while keeping the lineup and rosters. Only practice games can be deleted; official games are protected.</li>
+                    <li><strong>Reset practice:</strong> Use Reset Practice Match to clear test pitches while keeping the lineup and rosters. Practice games may be deleted from scoring. Separately, an admin may remove an official scheduled game only before scoring starts, using Admin Dashboard → Manage Individual Games.</li>
                     <li><strong>Official vs. practice:</strong> A game's type is chosen when created and cannot be changed afterward.</li>
                 </ul>
             </section>
@@ -145,7 +145,8 @@ export const UserGuide: React.FC<UserGuideProps> = ({ onClose }) => {
                 <ul className="list-disc pl-5 space-y-1 text-sm sm:text-base">
                     <li><strong>Move a match:</strong> Use the dashboard's Move option to correct its league assignment.</li>
                     <li><strong>Bulk Move Teams:</strong> Select teams and a destination division in the Admin Dashboard.</li>
-                    <li><strong>Schedule importer:</strong> Import a season schedule CSV; check the summary of created games and skipped duplicates.</li>
+                    <li><strong>Schedule importer:</strong> Choose the destination season and division, then upload or drag in a CSV. Review the destination shown above the preview. Invalid rows block the entire import; a failed upload never leaves a partially created schedule. Existing duplicate matchups are skipped safely.</li>
+                    <li><strong>Individual schedule corrections:</strong> Choose Manage Individual Games on the Admin Dashboard. Select the division, remove only the incorrect unstarted scheduled game, then create its replacement using two existing teams and the corrected date/time. Started, scored, finalized, and locked games cannot be deleted this way.</li>
                     <li><strong>Passwords:</strong> Admins can change the Admin and Umpire passwords under Access Control Passwords.</li>
                     <li><strong>Backup:</strong> Export JSON Database downloads league data for safekeeping. It is not the same as restoring the live Neon database.</li>
                     <li><strong>Historical seasons:</strong> Use the season selector to manage archived years without mixing old games into the current standings.</li>

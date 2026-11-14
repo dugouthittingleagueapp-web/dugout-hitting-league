@@ -85,6 +85,15 @@ describe('FileDropzone Drag-and-Drop and Compatibility', () => {
       expect(setIsDragging).toHaveBeenCalledWith(true);
     });
 
+    it('shows drag feedback when DataTransfer.items is unavailable until drop', () => {
+      const event = { preventDefault: vi.fn(), stopPropagation: vi.fn(), dataTransfer: { files: [] } };
+      const depth = { current: 0 };
+      const active = vi.fn();
+      handleDragEnterEvent(event, depth, active, false);
+      expect(active).toHaveBeenCalledWith(true);
+      expect(depth.current).toBe(1);
+    });
+
     it('onDragLeave: decrements depth counter and clears active dragging state on exit', () => {
       const mockEvent = {
         preventDefault: vi.fn(),

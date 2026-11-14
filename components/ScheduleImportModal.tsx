@@ -38,6 +38,7 @@ export const ScheduleImportModal: React.FC<ScheduleImportModalProps> = ({
   const [existingTeamsList, setExistingTeamsList] = useState<Team[]>([]);
   const [existingMatchesList, setExistingMatchesList] = useState<Match[]>([]);
   const [importSummary, setImportSummary] = useState<ScheduleImportSummary | null>(null);
+  const [previewErrors, setPreviewErrors] = useState<string[]>([]);
 
   useEffect(() => {
     if (isOpen) {
@@ -63,9 +64,11 @@ export const ScheduleImportModal: React.FC<ScheduleImportModalProps> = ({
 
   const handleReset = () => {
     setCsvText('');
+    setTargetLeague('');
     setSelectedFileName(null);
     setPreviewGames(null);
     setPreviewDuplicates(new Set());
+    setPreviewErrors([]);
     setImportSummary(null);
     setErrorMessage(null);
     setLoading(false);
@@ -80,6 +83,14 @@ export const ScheduleImportModal: React.FC<ScheduleImportModalProps> = ({
 
   const handleFileSelect = (file: File) => {
     if (!file) return;
+    if (!/\.(csv|txt)$/i.test(file.name) || file.size > 3_000_000) {
+      setCsvText('');
+      setPreviewGames(null);
+      setPreviewErrors([]);
+      setSelectedFileName(null);
+      setErrorMessage('Choose a CSV or TXT schedule file smaller than 3 MB. The existing schedule has not changed.');
+      return;
+    }
     setErrorMessage(null);
     setSelectedFileName(file.name);
     const reader = new FileReader();
@@ -90,6 +101,9 @@ export const ScheduleImportModal: React.FC<ScheduleImportModalProps> = ({
       processPreview(content, effLeague, targetSeason);
     };
     reader.onerror = () => {
+      setCsvText('');
+      setPreviewGames(null);
+      setSelectedFileName(null);
       setErrorMessage('Failed to read schedule CSV file');
     };
     reader.readAsText(file);
@@ -124,11 +138,15 @@ export const ScheduleImportModal: React.FC<ScheduleImportModalProps> = ({
       targetLeague: activeTargetLeague || undefined,
       defaultSeason: activeTargetSeason
     });
+    setPreviewErrors(errors);
 
     if (errors.length > 0 && games.length === 0) {
       setErrorMessage(errors.join(', '));
       setPreviewGames(null);
       return;
+    }
+    if (errors.length > 0) {
+      setErrorMessage(`${errors.length} schedule row(s) need correction; import blocked: ${errors.slice(0, 3).join(' ')}${errors.length > 3 ? ' Check the source file for the remaining problems.' : ''}`);
     }
 
     // Check duplicate status for each game preview row in the resolved destination league
@@ -178,7 +196,11 @@ export const ScheduleImportModal: React.FC<ScheduleImportModalProps> = ({
   };
 
   const handleExecuteImport = async () => {
-    if (!csvText.trim()) return;
+    if (!csvText.trim() || !previewGames?.length) return;
+    if (previewErrors.length > 0) {
+      setErrorMessage('Correct the invalid CSV rows before importing. No games have been changed.');
+      return;
+    }
     setLoading(true);
     setErrorMessage(null);
 
@@ -191,6 +213,9 @@ export const ScheduleImportModal: React.FC<ScheduleImportModalProps> = ({
       });
 
       setImportSummary(summary);
+      if (summary.errors.length > 0) {
+        setErrorMessage(`Some schedule rows could not be imported: ${summary.errors.slice(0, 3).join(' ')}${summary.errors.length > 3 ? ' Review the remaining rows before trying again.' : ''}`);
+      }
       onSuccess(summary);
     } catch (err: any) {
       setErrorMessage('Import failed: ' + (err.message || 'Unknown error'));
@@ -200,6 +225,9 @@ export const ScheduleImportModal: React.FC<ScheduleImportModalProps> = ({
   };
 
   if (!isOpen) return null;
+
+  const effectiveImportLeague = getEffectiveTargetLeague(targetLeague, isCustomLeague, customLeagueInput);
+  const destinationLeagues = Array.from(new Set((previewGames || []).map(game => game.group)));
 
   const distinctTeams = previewGames
     ? Array.from(new Set(previewGames.flatMap(g => [g.homeTeamName, g.awayTeamName])))
@@ -253,6 +281,9 @@ export const ScheduleImportModal: React.FC<ScheduleImportModalProps> = ({
                 value={targetSeason}
                 onChange={(e) => {
                   setTargetSeason(e.target.value);
+                  if (csvText.trim()) {
+                    processPreview(csvText, getEffectiveTargetLeague(targetLeague, isCustomLeague, customLeagueInput), e.target.value);
+                  }
                   loadExistingData(e.target.value);
                 }}
                 className="w-full p-2 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-slate-800 dark:text-white rounded-lg text-xs sm:text-sm font-bold font-sans cursor-pointer"
@@ -307,6 +338,23 @@ export const ScheduleImportModal: React.FC<ScheduleImportModalProps> = ({
             </div>
           </div>
 
+          <div role="status" className="rounded-xl p-4 bg-blue-100 dark:bg-blue-950/50 border-2 border-blue-500 dark:border-blue-500">
+            <div className="text-xs font-bold uppercase text-blue-700 dark:text-blue-300">Schedule import destination</div>
+            <div className="text-base font-black text-blue-950 dark:text-white">
+              {targetSeason} Season · {effectiveImportLeague || (destinationLeagues.length
+                ? destinationLeagues.join(', ')
+                : 'Choose a league or load a CSV to detect its divisions')}
+            </div>
+            <p className="text-xs text-blue-900 dark:text-blue-200 mt-1">
+              {effectiveImportLeague
+                ? 'Every imported game will be assigned to this division, even if the CSV says something different.'
+                : 'Auto-detect: games go into the divisions named in their CSV rows. Review those divisions before importing.'}
+            </p>
+            <p className="text-xs text-blue-900 dark:text-blue-200 mt-1 font-semibold">
+              Import is all-or-nothing. Invalid CSV rows block the entire import; existing games are preserved.
+            </p>
+          </div>
+
           {/* Quick Action: Load Sample Schedule */}
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 bg-blue-50/60 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-900/40 p-3.5 rounded-xl">
             <div className="text-xs">
@@ -357,7 +405,7 @@ export const ScheduleImportModal: React.FC<ScheduleImportModalProps> = ({
                 value={csvText}
                 onChange={(e) => {
                   setCsvText(e.target.value);
-                  if (e.target.value.trim()) processPreview(e.target.value);
+                  processPreview(e.target.value);
                 }}
                 rows={6}
                 placeholder="Paste your CSV schedule here...&#10;Date,Start Time,End Time,Location,Group,Home Team,Away Team&#10;2026-11-02,6:00 pm,7:00 pm,The Dugout: Tunnels 5/6,9U 3v3,Banana Bros,Raiders Bomb Squad"
@@ -511,7 +559,7 @@ export const ScheduleImportModal: React.FC<ScheduleImportModalProps> = ({
 
             <button
               onClick={handleExecuteImport}
-              disabled={loading || !previewGames || previewGames.length === 0}
+              disabled={loading || !previewGames || previewGames.length === 0 || previewErrors.length > 0}
               className="w-full sm:w-auto px-6 py-2.5 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white font-bold text-xs sm:text-sm rounded-xl shadow-lg transition-all font-sans cursor-pointer flex items-center justify-center gap-2"
             >
               {loading ? (
@@ -523,7 +571,7 @@ export const ScheduleImportModal: React.FC<ScheduleImportModalProps> = ({
                 <>
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" /></svg>
                   <span>
-                    Import Season Schedule ({previewGames ? previewGames.length : 0} Games)
+                    Import {previewGames ? previewGames.length : 0} Games to {effectiveImportLeague || (destinationLeagues.length === 1 ? destinationLeagues[0] : 'CSV Divisions')}
                   </span>
                 </>
               )}

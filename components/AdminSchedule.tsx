@@ -15,8 +15,8 @@ type ScheduleEdit = {
 const dateKey = (date: string) => String(date || '').slice(0, 10);
 const formatDay = (date: string) => dateKey(date) || 'Unscheduled';
 const CAGE_LOCATIONS = [
-  { value: 'The Dugout: Tunnels 5/6', label: '5/6' },
-  { value: 'The Dugout: Tunnels 7/8', label: '7/8' }
+  { value: 'The Dugout: Tunnels 5/6', label: 'Tunnels 5/6' },
+  { value: 'The Dugout: Tunnels 7/8', label: 'Tunnels 7/8' }
 ] as const;
 const canonicalCage = (location?: string): string => {
   if (!location) return '';

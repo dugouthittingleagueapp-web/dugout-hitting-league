@@ -7,6 +7,7 @@ vi.mock('../../api/db.js', () => ({
   default: { connect: (...args: unknown[]) => connect(...args), query: (...args: unknown[]) => queryPool(...args) },
 }));
 import scheduleHandler from '../../api/schedule-admin';
+import teamsHandler from '../../api/teams';
 
 const blankInnings = [{
   number: 1,
@@ -194,6 +195,49 @@ describe('Atomic schedule administration', () => {
     expect(query).toHaveBeenCalledWith('ROLLBACK');
     expect(query).not.toHaveBeenCalledWith('COMMIT');
     expect(release).toHaveBeenCalledOnce();
+  });
+
+  it('renames a team without changing any games, rosters or scores', async () => {
+    const original = query.getMockImplementation()!;
+    query.mockImplementation(async (...args: any[]) => {
+      const sql = String(args[0]);
+      if (sql.includes("FROM app_settings WHERE key='current_season'")) return { rows: [{ value: '2026' }] };
+      if (sql.includes('FROM teams WHERE id=$1 FOR UPDATE')) return {
+        rows: [{ id: 'home', name: 'Tigers', league: '9U - Mondays', season: '2026' }]
+      };
+      if (sql.includes('SELECT 1 FROM teams WHERE id<>$1')) return { rows: [] };
+      if (sql.startsWith('UPDATE teams SET name=')) return {
+        rows: [{ id:'home',name:'Blue Tigers',league:'9U - Mondays',season:'2026' }]
+      };
+      return original(...args);
+    });
+    const response=makeResponse();
+    await teamsHandler(makeRequest('PATCH',{
+      action:'rename_team',teamId:'home',name:'Blue Tigers',season:'2026'
+    }) as any,response);
+    expect(response.statusCode).toBe(200);
+    expect(response.body.name).toBe('Blue Tigers');
+    expect(query.mock.calls.filter((c:any[]) => String(c[0]).startsWith('UPDATE'))).toHaveLength(1);
+    expect(query.mock.calls.some((c:any[]) => String(c[0]).startsWith('UPDATE matches'))).toBe(false);
+    expect(query).toHaveBeenCalledWith('COMMIT');
+  });
+
+  it('rejects duplicate team names in the same division', async () => {
+    const original = query.getMockImplementation()!;
+    query.mockImplementation(async (...args:any[]) => {
+      const sql=String(args[0]);
+      if(sql.includes("FROM app_settings WHERE key='current_season'"))return {rows:[{value:'2026'}]};
+      if(sql.includes('FROM teams WHERE id=$1 FOR UPDATE'))return {rows:[{id:'home',name:'Tigers',season:'2026',league:'9U - Mondays'}]};
+      if(sql.includes('SELECT 1 FROM teams WHERE id<>$1'))return {rows:[{ '?column?':1 }]};
+      return original(...args);
+    });
+    const response=makeResponse();
+    await teamsHandler(makeRequest('PATCH',{
+      action:'rename_team',teamId:'home',name:'Bears',season:'2026'
+    }) as any,response);
+    expect(response.statusCode).toBe(409);
+    expect(query).toHaveBeenCalledWith('ROLLBACK');
+    expect(query.mock.calls.some((c:any[]) => String(c[0]).startsWith('UPDATE teams'))).toBe(false);
   });
 
   it('edits one unstarted game date, opponents, time and cage without touching others', async () => {

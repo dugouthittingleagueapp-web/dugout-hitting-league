@@ -1589,6 +1589,9 @@ export type AdminScheduledGame = {
   location: string | null;
   home_name: string | null;
   away_name: string | null;
+  home_team_id: string | null;
+  away_team_id: string | null;
+  notes: string | null;
   status: string;
   is_complete: boolean;
   is_forfeit: boolean;
@@ -1616,6 +1619,31 @@ export const createSingleScheduledGame = async (game: import('../types').Schedul
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ action: 'create', games: [game] }),
+  });
+  return readScheduleAdminResponse(response);
+};
+
+export type AdminScheduleGameEdit = {
+  season: string;
+  group: string;
+  homeTeamId: string;
+  awayTeamId: string;
+  date: string;
+  scheduledIsoDate: string;
+  startTime: string;
+  endTime: string;
+  location: string;
+  notes: string;
+  expectedRevision: number;
+};
+
+export const updateSingleScheduledGame = async (
+  id: string, changes: AdminScheduleGameEdit
+): Promise<{ updatedId: string; revision: number }> => {
+  const response = await apiFetch('/api/schedule-admin?id=' + encodeURIComponent(id), {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(changes),
   });
   return readScheduleAdminResponse(response);
 };

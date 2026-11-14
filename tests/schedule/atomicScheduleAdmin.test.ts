@@ -90,6 +90,34 @@ describe('Atomic schedule administration', () => {
     expect(release).toHaveBeenCalledOnce();
   });
 
+  it('adds one replacement game using explicit existing-team IDs', async () => {
+    const res = makeResponse();
+    await scheduleHandler(makeRequest('POST', {
+      action: 'create', games: [{ ...game, homeTeamId: 'home', awayTeamId: 'away' }]
+    }) as any, res);
+    expect(res.statusCode).toBe(200);
+    expect(res.body.createdMatches).toBe(1);
+    expect(res.body.createdTeams).toEqual([]);
+    expect(query).toHaveBeenCalledWith('COMMIT');
+  });
+
+  it('rejects an individual game without team IDs before writing', async () => {
+    const res = makeResponse();
+    await scheduleHandler(makeRequest('POST', { action: 'create', games: [game] }) as any, res);
+    expect(res.statusCode).toBe(400);
+    expect(connect).not.toHaveBeenCalled();
+  });
+
+  it('refuses a stale team ID even if the team name looks valid', async () => {
+    const res = makeResponse();
+    await scheduleHandler(makeRequest('POST', {
+      action: 'create', games: [{ ...game, homeTeamId: 'wrong-team', awayTeamId: 'away' }]
+    }) as any, res);
+    expect(res.statusCode).toBe(409);
+    expect(query).toHaveBeenCalledWith('ROLLBACK');
+    expect(query).not.toHaveBeenCalledWith('COMMIT');
+  });
+
   it('skips a repeated matchup without creating a duplicate', async () => {
     rows.matches = [{ id: 'existing', league: game.group, season: game.season,
       home_team_id: 'away', away_team_id: 'home', date: new Date(game.scheduledIsoDate) }];

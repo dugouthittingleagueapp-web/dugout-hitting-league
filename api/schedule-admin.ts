@@ -15,6 +15,8 @@ type GameInput = {
   location: string;
   homeTeamName: string;
   awayTeamName: string;
+  homeTeamId?: string;
+  awayTeamId?: string;
   notes?: string;
 };
 const safe = (v: unknown, max = 150): v is string => typeof v === 'string' && v.trim().length > 0 && v.length <= max;
@@ -87,11 +89,12 @@ async function importGames(client: DbClient, games: GameInput[], autoCreateTeams
       leagues.push(league);
       createdLeagues.push(game.group);
     }
-    const resolveTeam = async (name: string) => {
-      let team = teams.find(t => canonical(t.name) === canonical(name) &&
+    const resolveTeam = async (name: string, selectedId?: string) => {
+      let team = teams.find(t => (!selectedId || t.id === selectedId) &&
+        canonical(t.name) === canonical(name) &&
         canonical(t.league) === canonical(game.group) && t.season === game.season);
       if (team) return team;
-      if (!autoCreateTeams) throw new Error('Select two existing teams before creating a scheduled game.');
+      if (!autoCreateTeams) throw new Error('The selected team no longer matches this division or season. Refresh the team list.');
       const id = crypto.randomUUID();
       const players = Array.from({ length: 3 }, (_, i) => ({
         id: crypto.randomUUID(), name: name.trim() + ' Player ' + (i + 1)
@@ -105,8 +108,8 @@ async function importGames(client: DbClient, games: GameInput[], autoCreateTeams
       createdTeams.push(name.trim());
       return team;
     };
-    const home = await resolveTeam(game.homeTeamName);
-    const away = await resolveTeam(game.awayTeamName);
+    const home = await resolveTeam(game.homeTeamName, game.homeTeamId);
+    const away = await resolveTeam(game.awayTeamName, game.awayTeamId);
     if (home.id === away.id) throw new Error('A game cannot have the same team on both sides.');
     const duplicate = matches.some(m => canonical(m.league) === canonical(game.group) &&
       m.season === game.season &&
@@ -164,7 +167,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const { action, games } = req.body || {};
     if (!['import', 'create'].includes(action) || !Array.isArray(games) ||
         games.length < 1 || games.length > 250 || (action === 'create' && games.length !== 1) ||
-        games.some(g => !validGame(g))) {
+        games.some(g => !validGame(g)) ||
+        (action === 'create' && games.some(g =>
+          !safe(g.homeTeamId, 128) || !safe(g.awayTeamId, 128)))) {
       return res.status(400).json({ error: 'The schedule has an invalid row. Correct all highlighted dates, times, teams and divisions before importing.' });
     }
     const client = await pool.connect();

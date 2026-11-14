@@ -122,8 +122,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (oldTeams.rows[0].home_team_id !== homeTeamId || oldTeams.rows[0].away_team_id !== awayTeamId) {
       const rosters = await client.query('SELECT id, players FROM teams WHERE id = ANY($1::text[])', [[homeTeamId, awayTeamId]]);
       const byId = new Map(rosters.rows.map((row: any) => [String(row.id), typeof row.players === 'string' ? JSON.parse(row.players) : row.players]));
-      const makeSide = (teamId: string) => ({
-        teamId,
+      const makeSide = (side: 'home' | 'away', teamId: string) => ({
+        teamId: side,
         playerScores: (byId.get(teamId) || []).slice(0, 3).map((player: any) => ({
           playerId: player.id,
           pitches: Array.from({ length: 10 }, () => ({ points: null }))
@@ -131,8 +131,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       });
       inningValue = JSON.stringify(Array.from({ length: 6 }, (_, i) => ({
         number: i + 1,
-        home: makeSide(homeTeamId),
-        away: makeSide(awayTeamId)
+        home: makeSide('home', homeTeamId),
+        away: makeSide('away', awayTeamId)
       })));
       inningsSql = '$9';
     }

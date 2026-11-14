@@ -1,5 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import crypto from 'crypto';
+import type { PoolClient } from 'pg';
 import pool from './db.js';
 import { requireRole } from './auth.js';
 import { hasRecordedScores } from '../server/matchWritePolicy.js';
@@ -49,7 +50,7 @@ const validGame = (g: unknown): g is GameInput => {
     typeof x.location === 'string' && x.location.length <= 250 &&
     (x.notes === undefined || (typeof x.notes === 'string' && x.notes.length <= 1000));
 };
-type DbClient = Awaited<ReturnType<typeof pool.connect>>;
+type DbClient = PoolClient;
 const canonical = (s: string): string => s.trim().toLowerCase();
 const createInnings = (home: any, away: any): unknown[] => {
   const players = (team: any) => {

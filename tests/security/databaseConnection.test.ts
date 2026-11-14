@@ -4,6 +4,7 @@ import { selectDatabaseConnectionString } from '../../server/databaseConnection'
 const productionUrl = 'postgresql://user:test@ep-purple-sea-a42guhf9.us-east-1.aws.neon.tech/neondb';
 const previewUrl = 'postgresql://user:test@ep-red-tree-a46hwgra-pooler.us-east-1.aws.neon.tech/neondb';
 const consolidatedUrl = 'postgresql://user:test@ep-divine-smoke-a4lyo8af-pooler.us-east-1.aws.neon.tech/neondb';
+const forensicUrl = 'postgresql://user:test@ep-quiet-bird-a4je1a5z-pooler.us-east-1.aws.neon.tech/neondb';
 const sharedIntegrationUrl = 'postgresql://user:test@ep-purple-sea-a42guhf9.us-east-1.aws.neon.tech/neondb';
 
 describe('Environment-isolated Neon database routing', () => {
@@ -29,6 +30,20 @@ describe('Environment-isolated Neon database routing', () => {
       VERCEL_GIT_COMMIT_REF: 'review/consolidated-final-nov12',
       Database_url: productionUrl,
     })).toThrow(/unexpected Neon endpoint/);
+  });
+
+  it('restricts forensic review to the isolated Neon clone', () => {
+    const env = { VERCEL_ENV: 'preview', VERCEL_GIT_COMMIT_REF: 'review/forensic-qc-nov13' };
+    expect(selectDatabaseConnectionString({ ...env, Database_url: forensicUrl })).toBe(forensicUrl);
+    expect(() => selectDatabaseConnectionString({ ...env, Database_url: productionUrl }))
+      .toThrow(/unexpected Neon endpoint/);
+  });
+
+  it('fails closed on unregistered Preview branches even when a database URL is present', () => {
+    expect(() => selectDatabaseConnectionString({
+      VERCEL_ENV: 'preview', VERCEL_GIT_COMMIT_REF: 'review/accidental-production-connection',
+      Database_url: productionUrl
+    })).toThrow(/unregistered Preview branch/);
   });
 
   it('rejects shared Vercel database URLs when the scoped URL is missing', () => {

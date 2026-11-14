@@ -64,6 +64,7 @@ export const ScheduleImportModal: React.FC<ScheduleImportModalProps> = ({
 
   const handleReset = () => {
     setCsvText('');
+    setTargetLeague('');
     setSelectedFileName(null);
     setPreviewGames(null);
     setPreviewDuplicates(new Set());
@@ -83,6 +84,10 @@ export const ScheduleImportModal: React.FC<ScheduleImportModalProps> = ({
   const handleFileSelect = (file: File) => {
     if (!file) return;
     if (!/\.(csv|txt)$/i.test(file.name) || file.size > 3_000_000) {
+      setCsvText('');
+      setPreviewGames(null);
+      setPreviewErrors([]);
+      setSelectedFileName(null);
       setErrorMessage('Choose a CSV or TXT schedule file smaller than 3 MB. The existing schedule has not changed.');
       return;
     }
@@ -96,6 +101,9 @@ export const ScheduleImportModal: React.FC<ScheduleImportModalProps> = ({
       processPreview(content, effLeague, targetSeason);
     };
     reader.onerror = () => {
+      setCsvText('');
+      setPreviewGames(null);
+      setSelectedFileName(null);
       setErrorMessage('Failed to read schedule CSV file');
     };
     reader.readAsText(file);
@@ -397,7 +405,7 @@ export const ScheduleImportModal: React.FC<ScheduleImportModalProps> = ({
                 value={csvText}
                 onChange={(e) => {
                   setCsvText(e.target.value);
-                  if (e.target.value.trim()) processPreview(e.target.value);
+                  processPreview(e.target.value);
                 }}
                 rows={6}
                 placeholder="Paste your CSV schedule here...&#10;Date,Start Time,End Time,Location,Group,Home Team,Away Team&#10;2026-11-02,6:00 pm,7:00 pm,The Dugout: Tunnels 5/6,9U 3v3,Banana Bros,Raiders Bomb Squad"

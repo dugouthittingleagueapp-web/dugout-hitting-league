@@ -603,28 +603,9 @@ export const AdminDashboard: React.FC<{
             </div>
         </section>
 
-        {/* 4. Schedule & Data Management */}
+        {/* 4. Database backup */}
         <section className="bg-white/70 dark:bg-slate-900/70 backdrop-blur-xl p-4 sm:p-6 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800 space-y-4">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-200/60 dark:border-slate-800 pb-4">
-                <div>
-                    <div className="flex items-center gap-2">
-                      <h3 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white font-sans">Season Schedule Importer (CSV)</h3>
-                      <span className="bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 text-[10px] font-extrabold px-2 py-0.5 rounded-full uppercase tracking-wider">Automated</span>
-                    </div>
-                    <p className="text-xs text-slate-500 dark:text-slate-400 font-sans mt-0.5">
-                      Upload or load any season schedule CSV to provision games, match dates, start/end times, and tunnel assignments instantly with duplicate protection.
-                    </p>
-                </div>
-                <button 
-                    onClick={() => setShowScheduleImportModal(true)} 
-                    className="flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-500 text-white px-4 py-2.5 rounded-xl font-bold text-xs sm:text-sm shadow-md transition-all font-sans cursor-pointer self-start sm:self-auto shrink-0"
-                >
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
-                    <span>Import CSV Schedule</span>
-                </button>
-            </div>
-
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-1">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div>
                     <h4 className="text-sm font-bold text-slate-800 dark:text-slate-200 font-sans">Full Database Backup</h4>
                     <p className="text-xs text-slate-500 dark:text-slate-400 font-sans mt-0.5">Download a complete JSON export of all leagues, teams, rosters, and completed matches.</p>

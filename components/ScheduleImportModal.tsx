@@ -130,6 +130,9 @@ export const ScheduleImportModal: React.FC<ScheduleImportModalProps> = ({
       setPreviewGames(null);
       return;
     }
+    if (errors.length > 0) {
+      setErrorMessage(`${errors.length} schedule row(s) will be skipped: ${errors.slice(0, 3).join(' ')}${errors.length > 3 ? ' Check the source file for the remaining problems.' : ''}`);
+    }
 
     // Check duplicate status for each game preview row in the resolved destination league
     const dupIndices = new Set<number>();
@@ -191,6 +194,9 @@ export const ScheduleImportModal: React.FC<ScheduleImportModalProps> = ({
       });
 
       setImportSummary(summary);
+      if (summary.errors.length > 0) {
+        setErrorMessage(`Some schedule rows could not be imported: ${summary.errors.slice(0, 3).join(' ')}${summary.errors.length > 3 ? ' Review the remaining rows before trying again.' : ''}`);
+      }
       onSuccess(summary);
     } catch (err: any) {
       setErrorMessage('Import failed: ' + (err.message || 'Unknown error'));
@@ -253,6 +259,9 @@ export const ScheduleImportModal: React.FC<ScheduleImportModalProps> = ({
                 value={targetSeason}
                 onChange={(e) => {
                   setTargetSeason(e.target.value);
+                  if (csvText.trim()) {
+                    processPreview(csvText, getEffectiveTargetLeague(targetLeague, isCustomLeague, customLeagueInput), e.target.value);
+                  }
                   loadExistingData(e.target.value);
                 }}
                 className="w-full p-2 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-slate-800 dark:text-white rounded-lg text-xs sm:text-sm font-bold font-sans cursor-pointer"

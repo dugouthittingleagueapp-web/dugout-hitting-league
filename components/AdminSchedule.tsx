@@ -14,6 +14,17 @@ type ScheduleEdit = {
 };
 const dateKey = (date: string) => String(date || '').slice(0, 10);
 const formatDay = (date: string) => dateKey(date) || 'Unscheduled';
+const CAGE_LOCATIONS = [
+  { value: 'The Dugout: Tunnels 5/6', label: '5/6' },
+  { value: 'The Dugout: Tunnels 7/8', label: '7/8' }
+] as const;
+const canonicalCage = (location?: string): string => {
+  if (!location) return '';
+  const cleaned = location.trim();
+  if (/5\s*[/&-]\s*6/.test(cleaned)) return CAGE_LOCATIONS[0].value;
+  if (/7\s*[/&-]\s*8/.test(cleaned)) return CAGE_LOCATIONS[1].value;
+  return '';
+};
 const editable = (game: Match) => !game.isComplete && game.status === 'SCHEDULED';
 const lockedReason = (game: Match): string | null => {
   if (game.isComplete) return 'This game is finished. Its recorded scores are protected.';
@@ -95,7 +106,7 @@ export const AdminSchedule: React.FC<Props> = ({ season, leagues, onImport, refr
     setEditing(game);
     setDraft({
       date: dateKey(game.date), startTime: game.startTime || '6:00 pm',
-      endTime: game.endTime || '7:00 pm', location: game.location || 'The Dugout',
+      endTime: game.endTime || '7:00 pm', location: canonicalCage(game.location),
       notes: game.notes || '', homeTeamId: game.homeTeamId, awayTeamId: game.awayTeamId
     });
   };
@@ -219,7 +230,12 @@ export const AdminSchedule: React.FC<Props> = ({ season, leagues, onImport, refr
               <label className="text-xs font-bold text-slate-700 dark:text-slate-300">Start time<input value={draft.startTime} onChange={e => setDraft({ ...draft, startTime: e.target.value })} className={inputClass}/></label>
               <label className="text-xs font-bold text-slate-700 dark:text-slate-300">End time<input value={draft.endTime} onChange={e => setDraft({ ...draft, endTime: e.target.value })} className={inputClass}/></label>
             </div>
-            <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">Cage / location<input value={draft.location} onChange={e => setDraft({ ...draft, location: e.target.value })} className={inputClass}/></label>
+            <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">Cage / location
+              <select value={draft.location} onChange={e => setDraft({ ...draft, location: e.target.value })} className={inputClass} required>
+                <option value="" disabled>Select cage...</option>
+                {CAGE_LOCATIONS.map(cage => <option key={cage.value} value={cage.value}>{cage.label}</option>)}
+              </select>
+            </label>
             <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">Home team
               <select value={draft.homeTeamId} onChange={e => setDraft({ ...draft, homeTeamId: e.target.value })} className={inputClass}>
                 {leagueTeams(editing.league).map(team => <option key={team.id} value={team.id}>{team.name}</option>)}
@@ -235,7 +251,7 @@ export const AdminSchedule: React.FC<Props> = ({ season, leagues, onImport, refr
             </label>
             <div className="flex justify-end gap-2">
               <button onClick={() => { setEditing(null); setDraft(null); setError(''); }} className="rounded-lg px-4 py-2 bg-slate-200 dark:bg-slate-700 text-slate-900 dark:text-white">Cancel</button>
-              <button onClick={() => void save()} disabled={!!workingId || draft.homeTeamId === draft.awayTeamId} className="rounded-lg px-4 py-2 bg-blue-600 text-white font-bold disabled:opacity-50">{workingId ? 'Saving...' : 'Save changes'}</button>
+              <button onClick={() => void save()} disabled={!!workingId || !draft.location || draft.homeTeamId === draft.awayTeamId} className="rounded-lg px-4 py-2 bg-blue-600 text-white font-bold disabled:opacity-50">{workingId ? 'Saving...' : 'Save changes'}</button>
             </div>
           </div>
         </div>, document.body

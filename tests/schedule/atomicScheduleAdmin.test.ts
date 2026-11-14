@@ -331,7 +331,7 @@ describe('Atomic schedule administration', () => {
     const original = query.getMockImplementation()!;
     query.mockImplementation(async (...args: any[]) => {
       if (String(args[0]).includes('SELECT * FROM matches') && String(args[0]).includes('FOR UPDATE')) return {
-        rows: [{ id: 'game-1', status: 'SCHEDULED', is_practice: false,
+        rows: [{ id: 'game-1', season: '2026', status: 'SCHEDULED', is_practice: false,
           is_complete: false, is_forfeit: false, innings: blankInnings, tie_breaker: null }]
       };
       return original(...args);
@@ -363,7 +363,7 @@ describe('Atomic schedule administration', () => {
     const original = query.getMockImplementation()!;
     query.mockImplementation(async (...args: any[]) => {
       if (String(args[0]).includes('SELECT * FROM matches') && String(args[0]).includes('FOR UPDATE')) return {
-        rows: [{ id: 'game-1', status: 'SCHEDULED', is_practice: false, is_complete: false,
+        rows: [{ id: 'game-1', season: '2026', status: 'SCHEDULED', is_practice: false, is_complete: false,
           is_forfeit: false,
           innings: [{ ...blankInnings[0], home: { ...blankInnings[0].home,
             playerScores: [{ playerId: 'a', pitches: [{ points: 0 }] }] } }],

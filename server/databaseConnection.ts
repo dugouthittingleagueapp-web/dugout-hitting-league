@@ -73,7 +73,7 @@ export const selectDatabaseConnectionString = (environment: DatabaseEnvironment)
       assertExpectedHost(scopedUrl, FORENSIC_QC_HOST, 'Forensic QC Preview');
     } else if (vercelEnvironment === 'preview') {
       // Unknown Preview branches must never inherit the Production endpoint.
-      assertExpectedHost(scopedUrl, '__no_unregistered_preview_endpoint__', 'Unregistered Preview');
+      throw new Error('Database safety check failed: unregistered Preview branch');
     }
     return scopedUrl;
   }

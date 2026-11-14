@@ -11,6 +11,14 @@ describe('Schedule importer clean opening state', () => {
     expect(source).not.toContain('schedule_export_20261102_121804');
   });
 
+  it('defaults to the active season, not the previously viewed archive season', () => {
+    const admin = readFileSync(new URL('../../components/AdminDashboard.tsx', import.meta.url), 'utf8');
+    expect(admin).toContain('setSelectedSeason(targetSeason)');
+    expect(admin).toContain('currentSeason={currentSeason}');
+    expect(admin).toContain('availableSeasons={Array.from(new Set([...allSeasons, currentSeason]))}');
+    expect(source).toContain("setTargetSeason(currentSeason || '2026')");
+  });
+
   it('keeps CSV upload, drag-and-drop and paste import available', () => {
     expect(source).toContain('<FileDropzone');
     expect(source).toContain('onFileSelect={handleFileSelect}');

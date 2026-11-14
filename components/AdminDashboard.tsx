@@ -186,6 +186,11 @@ export const AdminDashboard: React.FC<{
           try {
               await storage.updateCurrentSeason(targetSeason);
               setCurrentSeason(targetSeason);
+              // The new active season must also become the season being managed.
+              // Otherwise the importer inherits the previously viewed (e.g. 2026) year.
+              setSelectedSeason(targetSeason);
+              setSelectedTeamIds(new Set());
+              setTargetLeagueForMove('');
               const [newLeagues, fetchedSeasons] = await Promise.all([
                   storage.getLeagues(targetSeason),
                   storage.getAvailableSeasons()
@@ -681,8 +686,8 @@ export const AdminDashboard: React.FC<{
             }
             setShowScheduleImportModal(false);
           }}
-          currentSeason={selectedSeason}
-          availableSeasons={allSeasons}
+          currentSeason={currentSeason}
+          availableSeasons={Array.from(new Set([...allSeasons, currentSeason]))}
           availableLeagues={leagues}
         />
       )}

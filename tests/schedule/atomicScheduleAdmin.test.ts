@@ -196,6 +196,83 @@ describe('Atomic schedule administration', () => {
     expect(release).toHaveBeenCalledOnce();
   });
 
+  it('edits one unstarted game date, opponents, time and cage without touching others', async () => {
+    const original = query.getMockImplementation()!;
+    query.mockImplementation(async (...args: any[]) => {
+      const sql = String(args[0]);
+      if (sql.includes("FROM app_settings WHERE key='current_season'")) return { rows: [{ value: '2026' }] };
+      if (sql.includes('SELECT * FROM matches') && sql.includes('FOR UPDATE')) return {
+        rows: [{ id: 'game-1', league: game.group, season: game.season, status: 'SCHEDULED',
+          revision: '0', home_team_id: 'home', away_team_id: 'away',
+          is_practice: false, is_complete: false, is_forfeit: false, innings: blankInnings, tie_breaker: null }]
+      };
+      if (sql.includes('FROM scoring_locks')) return { rows: [] };
+      if (sql.includes('FROM teams WHERE id=ANY')) return { rows: rows.teams };
+      if (sql.includes('FROM leagues WHERE LOWER')) return { rows: [{ '?column?': 1 }] };
+      if (sql.includes('FROM matches WHERE id<>')) return { rows: [] };
+      if (sql.startsWith('UPDATE matches SET league=')) return { rows: [{ revision: '1' }] };
+      return original(...args);
+    });
+    const result = makeResponse();
+    await scheduleHandler(makeRequest('PATCH', {
+      season:'2026',group:game.group,homeTeamId:'home',awayTeamId:'away',
+      date:'2026-11-23',scheduledIsoDate:'2026-11-23T19:00:00.000Z',
+      startTime:'7:00 pm',endTime:'8:00 pm',location:'Tunnels 7/8',
+      notes:'Moved by admin',expectedRevision:0
+    }, {id:'game-1'}) as any, result);
+    expect(result.statusCode).toBe(200);
+    expect(result.body.revision).toBe(1);
+    expect(query.mock.calls.filter((call:any[]) => String(call[0]).startsWith('UPDATE matches SET'))).toHaveLength(1);
+    expect(query).toHaveBeenCalledWith('COMMIT');
+  });
+
+  it('rejects edits when a game has recorded scores including zero', async () => {
+    const original = query.getMockImplementation()!;
+    query.mockImplementation(async (...args: any[]) => {
+      const sql=String(args[0]);
+      if (sql.includes("FROM app_settings WHERE key='current_season'")) return {rows:[{value:'2026'}]};
+      if (sql.includes('SELECT * FROM matches') && sql.includes('FOR UPDATE')) return {
+        rows:[{id:'game-1',season:'2026',status:'SCHEDULED',revision:0,is_practice:false,
+          is_complete:false,is_forfeit:false,innings:[{...blankInnings[0],home:{
+            ...blankInnings[0].home,playerScores:[{playerId:'a',pitches:[{points:0}]}]}}],tie_breaker:null}]
+      };
+      return original(...args);
+    });
+    const result=makeResponse();
+    await scheduleHandler(makeRequest('PATCH',{
+      season:'2026',group:game.group,homeTeamId:'home',awayTeamId:'away',
+      date:game.date,scheduledIsoDate:game.scheduledIsoDate,
+      startTime:'6:00 pm',endTime:'7:00 pm',location:'Tunnels 5/6',
+      notes:'',expectedRevision:0
+    },{id:'game-1'}) as any,result);
+    expect(result.statusCode).toBe(403);
+    expect(query.mock.calls.some((call:any[]) => String(call[0]).startsWith('UPDATE matches SET'))).toBe(false);
+    expect(query).toHaveBeenCalledWith('ROLLBACK');
+  });
+
+  it('rejects schedule edits with a stale match revision', async () => {
+    const original = query.getMockImplementation()!;
+    query.mockImplementation(async (...args:any[]) => {
+      const sql=String(args[0]);
+      if (sql.includes("FROM app_settings WHERE key='current_season'")) return {rows:[{value:'2026'}]};
+      if (sql.includes('SELECT * FROM matches') && sql.includes('FOR UPDATE')) return {
+        rows:[{id:'game-1',season:'2026',status:'SCHEDULED',revision:'8',is_practice:false,
+          is_complete:false,is_forfeit:false,innings:blankInnings,tie_breaker:null}]
+      };
+      if(sql.includes('FROM scoring_locks'))return {rows:[]};
+      return original(...args);
+    });
+    const result=makeResponse();
+    await scheduleHandler(makeRequest('PATCH',{
+      season:'2026',group:game.group,homeTeamId:'home',awayTeamId:'away',
+      date:game.date,scheduledIsoDate:game.scheduledIsoDate,
+      startTime:'6:00 pm',endTime:'7:00 pm',location:'Tunnels 5/6',
+      notes:'',expectedRevision:0
+    },{id:'game-1'}) as any,result);
+    expect(result.statusCode).toBe(409);
+    expect(query).toHaveBeenCalledWith('ROLLBACK');
+  });
+
   it('deletes exactly one unstarted official game, not the whole schedule', async () => {
     const original = query.getMockImplementation()!;
     query.mockImplementation(async (...args: any[]) => {

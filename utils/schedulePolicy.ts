@@ -1,4 +1,4 @@
-import { hasRecordedScores } from '../server/matchWritePolicy';
+import { hasRecordedScores } from '../server/matchWritePolicy.js';
 
 interface ScheduleGame {
   isComplete?: boolean;

@@ -1,8 +1,8 @@
-import { Match, Team, ScheduledGameRecord } from '../types';
-import { generateUUID } from './ids';
-import { leaguesMatch } from './leagueNames';
-import { sortMatchesChronologically } from './matchSort';
-import { scheduleDateKey, scheduleTimeMinutes, scheduleDateTimeError, canonicalCage } from './scheduleValidation';
+import type { Match, Team, ScheduledGameRecord } from '../types.js';
+import { generateUUID } from './ids.js';
+import { leaguesMatch } from './leagueNames.js';
+import { sortMatchesChronologically } from './matchSort.js';
+import { scheduleDateKey, scheduleTimeMinutes, scheduleDateTimeError, canonicalCage } from './scheduleValidation.js';
 
 /**
  * Robust CSV parser that correctly handles quoted values, embedded commas,

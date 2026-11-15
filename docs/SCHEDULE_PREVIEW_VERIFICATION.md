@@ -34,6 +34,9 @@ migration was performed to implement or verify this work.
 ## Automated verification
 
 `npm ci`, `npm run build` and the full `npm test` suite are required.
+A native Node ESM loading test also emits the server modules without bundling
+and imports them with no database credentials, catching deployment-only module
+resolution errors that Vite/Vitest can otherwise hide.
 
 Set `DUGOUT_TEST_DATABASE_URL` to a disposable **localhost** database named
 `dugout_test_*` to include PostgreSQL integration tests. The tests refuse remote

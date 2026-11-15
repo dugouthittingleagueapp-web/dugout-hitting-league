@@ -61,6 +61,7 @@ export const AdminSchedule: React.FC<Props> = ({ season, leagues, onImport, refr
   const [renaming, setRenaming] = useState<Team | null>(null);
   const [newName, setNewName] = useState('');
   const [showTeams, setShowTeams] = useState(false);
+  const [teamLeagueFilter, setTeamLeagueFilter] = useState('all');
 
   const load = useCallback(async () => {
     setBusy(true);
@@ -166,21 +167,36 @@ export const AdminSchedule: React.FC<Props> = ({ season, leagues, onImport, refr
         </div>
       </div>
       <div className="bg-white/80 dark:bg-slate-900/80 rounded-xl border border-slate-200 dark:border-slate-800 p-3 space-y-3">
+        <h4 className="font-bold text-sm text-slate-900 dark:text-white">Find games</h4>
         <div className="flex flex-col sm:flex-row gap-2">
           <select aria-label="Filter by league" value={leagueFilter} onChange={e => setLeagueFilter(e.target.value)} className={inputClass + ' sm:max-w-xs'}>
             <option value="all">All leagues</option>
             {leagues.map(league => <option key={league.id} value={league.id}>{league.id}</option>)}
           </select>
           <input aria-label="Find games" placeholder="Find a team, date, or cage..." value={search} onChange={e => setSearch(e.target.value)} className={inputClass}/>
-          <button onClick={() => setShowTeams(!showTeams)} className="px-4 py-2 rounded-lg bg-slate-200 dark:bg-slate-700 text-slate-900 dark:text-white text-sm font-bold whitespace-nowrap">{showTeams ? 'Hide teams' : 'Rename teams'}</button>
         </div>
         {error && <div role="alert" className="rounded-lg bg-red-50 text-red-700 dark:bg-red-950/40 dark:text-red-300 p-3 text-sm">{error}</div>}
         {success && <div role="status" className="text-green-700 dark:text-green-400 text-sm">{success}</div>}
+      </div>
+
+      <div className="bg-white/80 dark:bg-slate-900/80 rounded-xl border border-slate-200 dark:border-slate-800 p-3 space-y-3">
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <h4 className="font-bold text-sm text-slate-900 dark:text-white">Team names · {season}</h4>
+            <p className="text-xs text-slate-500 dark:text-slate-400">Choose a team to change its name across the schedule.</p>
+          </div>
+          <button type="button" onClick={() => setShowTeams(!showTeams)} aria-expanded={showTeams} aria-controls="schedule-team-names" className="px-4 py-2 rounded-lg bg-slate-200 dark:bg-slate-700 text-slate-900 dark:text-white text-sm font-bold whitespace-nowrap">{showTeams ? 'Hide teams' : 'Rename teams'}</button>
+        </div>
         {showTeams && (
-          <div className="border-t border-slate-200 dark:border-slate-700 pt-3">
-            <h4 className="font-bold text-sm text-slate-900 dark:text-white mb-2">Team names · {season}</h4>
+          <div id="schedule-team-names" className="border-t border-slate-200 dark:border-slate-700 pt-3 space-y-3">
+            <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">Team league
+              <select aria-label="Team league" value={teamLeagueFilter} onChange={e => setTeamLeagueFilter(e.target.value)} className={inputClass + ' sm:max-w-xs block mt-1'}>
+                <option value="all">All leagues</option>
+                {leagues.map(league => <option key={league.id} value={league.id}>{league.id}</option>)}
+              </select>
+            </label>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-64 overflow-y-auto">
-              {teams.filter(t => leagueFilter === 'all' || storage.leaguesMatch(t.league, leagueFilter)).map(team => (
+              {teams.filter(t => teamLeagueFilter === 'all' || storage.leaguesMatch(t.league, teamLeagueFilter)).map(team => (
                 <div key={team.id} className="flex items-center justify-between gap-2 rounded-lg border border-slate-200 dark:border-slate-700 p-2">
                   <span className="text-sm text-slate-800 dark:text-slate-200 truncate">{team.name} <span className="text-xs text-slate-500">({team.league})</span></span>
                   <button onClick={() => { setRenaming(team); setNewName(team.name); setError(''); }} className="text-blue-600 dark:text-blue-400 font-bold text-xs">Rename</button>

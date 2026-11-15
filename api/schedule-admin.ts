@@ -1,6 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import pool from './db.js';
 import { requireRole } from './auth.js';
+import { scheduleDateTimeError } from '../utils/scheduleValidation.js';
 
 // Admin-only calendar maintenance. Do not route this through the normal scoring
 // PUT endpoint: a schedule correction must not rewrite inning/pitch histories.
@@ -97,7 +98,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(409).json({ error: 'This game has changed since you opened it. Refresh the schedule before editing.' });
     }
     if (typeof date !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(date) ||
-        Number.isNaN(Date.parse(date + 'T12:00:00Z')) ||
         typeof startTime !== 'string' || !startTime.trim() ||
         typeof endTime !== 'string' || !endTime.trim() ||
         typeof location !== 'string' || !['The Dugout: Tunnels 5/6', 'The Dugout: Tunnels 7/8'].includes(location) ||
@@ -105,6 +105,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         typeof homeTeamId !== 'string' || typeof awayTeamId !== 'string' || homeTeamId === awayTeamId) {
       await client.query('ROLLBACK');
       return res.status(400).json({ error: 'Enter a date, times, cage (5/6 or 7/8), and two different teams.' });
+    }
+    const validationError = scheduleDateTimeError(date, startTime, endTime);
+    if (validationError) {
+      await client.query('ROLLBACK');
+      return res.status(400).json({ error: validationError });
     }
     const teams = await client.query(
       'SELECT id FROM teams WHERE id = ANY($1::text[]) AND season = $2 AND LOWER(TRIM(league)) = LOWER(TRIM($3))',

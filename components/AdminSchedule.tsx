@@ -2,6 +2,8 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { League, Match, Team } from '../types';
 import * as storage from '../services/storageService';
+import { sortMatchesChronologically } from '../utils/matchSort';
+import { scheduleDateTimeError } from '../utils/scheduleValidation';
 
 type ScheduleEdit = {
   date: string;
@@ -77,14 +79,13 @@ export const AdminSchedule: React.FC<Props> = ({ season, leagues, onImport, refr
 
   useEffect(() => { void load(); }, [load, refreshToken]);
 
-  const visible = useMemo(() => games.filter(game => {
+  const visible = useMemo(() => sortMatchesChronologically(games.filter(game => {
     if (leagueFilter !== 'all' && !storage.leaguesMatch(game.league, leagueFilter)) return false;
     const home = teams.find(team => team.id === game.homeTeamId)?.name || '';
     const away = teams.find(team => team.id === game.awayTeamId)?.name || '';
     const q = search.toLowerCase().trim();
     return !q || [game.league, home, away, game.location || '', dateKey(game.date)].join(' ').toLowerCase().includes(q);
-  }).sort((a, b) => (a.date || '').localeCompare(b.date || '') ||
-    (a.startTime || '').localeCompare(b.startTime || '')), [games, teams, leagueFilter, search]);
+  })), [games, teams, leagueFilter, search]);
   const scheduled = games.filter(editable).length;
 
   const post = async (payload: Record<string, unknown>) => {
@@ -113,6 +114,8 @@ export const AdminSchedule: React.FC<Props> = ({ season, leagues, onImport, refr
   };
   const save = async () => {
     if (!editing || !draft) return;
+    const validationError = scheduleDateTimeError(draft.date, draft.startTime, draft.endTime);
+    if (validationError) { setError(validationError); return; }
     setWorkingId(editing.id);
     setError('');
     try {

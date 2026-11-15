@@ -24,6 +24,7 @@ export const mapMatchFromDB = (dbMatch: any): Match => {
     season: inferredSeason,
     tieBreaker: dbMatch.tie_breaker ? (typeof dbMatch.tie_breaker === 'string' ? JSON.parse(dbMatch.tie_breaker) : dbMatch.tie_breaker) : (dbMatch.tieBreaker || undefined),
     location: dbMatch.location || undefined,
+    notes: dbMatch.notes ?? undefined,
     startTime: dbMatch.start_time || dbMatch.startTime || undefined,
     endTime: dbMatch.end_time || dbMatch.endTime || undefined,
     isPractice: dbMatch.is_practice !== undefined ? dbMatch.is_practice : (dbMatch.isPractice ?? false),

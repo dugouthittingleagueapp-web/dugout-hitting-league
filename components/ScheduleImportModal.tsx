@@ -120,6 +120,10 @@ export const ScheduleImportModal: React.FC<ScheduleImportModalProps> = ({
       return;
     }
 
+    if (errors.length > 0) {
+      setErrorMessage(`${errors.length} row problem(s): ${errors.slice(0, 5).join(' | ')}`);
+    }
+
     // Check duplicate status for each game preview row in the resolved destination league
     const dupIndices = new Set<number>();
     games.forEach((game, idx) => {

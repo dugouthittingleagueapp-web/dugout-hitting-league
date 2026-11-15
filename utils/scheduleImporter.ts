@@ -1,6 +1,7 @@
 import { Match, Team, ScheduledGameRecord } from '../types';
 import { generateUUID, leaguesMatch } from '../services/storageService';
 import { sortMatchesChronologically } from './matchSort';
+import { scheduleDateKey, scheduleTimeMinutes, scheduleDateTimeError } from './scheduleValidation';
 
 /**
  * Robust CSV parser that correctly handles quoted values, embedded commas,
@@ -58,59 +59,21 @@ export const parseCSV = (csvText: string): string[][] => {
  * Parses time string like "6:00 pm", "7:15 pm", "18:00" into { hours, minutes } in 24h format.
  */
 export const parseTimeString = (timeStr?: string): { hours: number; minutes: number } => {
-  if (!timeStr) return { hours: 18, minutes: 0 };
-  const clean = timeStr.trim().toLowerCase();
-  const isPM = clean.includes('pm');
-  const isAM = clean.includes('am');
-  const numbersOnly = clean.replace(/[^\d:]/g, '');
-  const [hStr, mStr] = numbersOnly.split(':');
-  let hours = parseInt(hStr || '18', 10);
-  const minutes = parseInt(mStr || '0', 10);
-
-  if (isPM && hours < 12) {
-    hours += 12;
-  } else if (isAM && hours === 12) {
-    hours = 0;
-  }
-
-  return { hours, minutes };
+  const total = scheduleTimeMinutes(timeStr ?? '6:00 pm');
+  if (total === null) throw new Error('Invalid schedule time.');
+  return { hours: Math.floor(total / 60), minutes: total % 60 };
 };
 
 /**
  * Combines date string ("2026-11-02") and time string ("6:00 pm") into an ISO timestamp.
  */
 export const combineDateAndTime = (dateStr: string, timeStr?: string): string => {
-  const cleanDate = dateStr.trim();
+  const date = scheduleDateKey(dateStr);
+  if (!date) throw new Error('Invalid schedule date.');
   const { hours, minutes } = parseTimeString(timeStr);
-
-  // If date already contains full ISO string, keep or parse it
-  if (cleanDate.includes('T')) {
-    return new Date(cleanDate).toISOString();
-  }
-
-  // Create date using standard YYYY-MM-DD format
-  const dateParts = cleanDate.split(/[-/]/);
-  let year = new Date().getFullYear();
-  let month = 1;
-  let day = 1;
-
-  if (dateParts.length === 3) {
-    if (dateParts[0].length === 4) {
-      // YYYY-MM-DD
-      year = parseInt(dateParts[0], 10);
-      month = parseInt(dateParts[1], 10);
-      day = parseInt(dateParts[2], 10);
-    } else {
-      // MM/DD/YYYY
-      month = parseInt(dateParts[0], 10);
-      day = parseInt(dateParts[1], 10);
-      year = parseInt(dateParts[2], 10);
-    }
-  }
-
-  // Construct ISO string
-  const dateObj = new Date(Date.UTC(year, month - 1, day, hours, minutes, 0));
-  return dateObj.toISOString();
+  // Preserve the existing full-timestamp import behavior after validation.
+  if (dateStr.trim().includes('T')) return new Date(dateStr.trim()).toISOString();
+  return `${date}T${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:00.000Z`;
 };
 
 /**
@@ -211,6 +174,11 @@ export const parseScheduleCsv = (
       : (csvGroup || options?.defaultLeague || '9U 3v3');
     const notes = indices.notes !== -1 ? row[indices.notes]?.trim() : undefined;
 
+    const validationError = scheduleDateTimeError(date, startTime || '', endTime || '');
+    if (validationError) {
+      errors.push(`Row ${rowNum}: ${validationError} Skipped.`);
+      continue;
+    }
     const scheduledIsoDate = combineDateAndTime(date, startTime);
     const inferredSeason = options?.defaultSeason || String(new Date(scheduledIsoDate).getFullYear());
 

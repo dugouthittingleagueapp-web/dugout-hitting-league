@@ -219,6 +219,9 @@ export const ScheduleImportModal: React.FC<ScheduleImportModalProps> = ({
     ? Array.from(new Set(previewGames.map(g => g.date)))
     : [];
 
+  const sourceGroups = Array.from(new Set((previewGames || []).map(game => game.csvGroup || game.group)));
+  const unresolvedGroups = sourceGroups.filter(group => !leagueChoices[group] || (leagueChoices[group] === '__new__' && !(newLeagueNames[group] ?? group).trim()));
+
   return (
     <div
       className="fixed inset-0 z-[9999] flex items-center justify-center bg-slate-950/80 backdrop-blur-md p-3 sm:p-6 overflow-y-auto"
@@ -253,8 +256,47 @@ export const ScheduleImportModal: React.FC<ScheduleImportModalProps> = ({
         {/* Content Area */}
         <div className="p-4 sm:p-6 overflow-y-auto space-y-4 flex-1">
           
+          {/* Tabs: File Upload vs Paste CSV */}
+          <div className="border-b border-slate-200 dark:border-slate-800 flex gap-4">
+            <button
+              onClick={() => setActiveTab('upload')}
+              className={`pb-2 text-xs sm:text-sm font-bold border-b-2 transition-all cursor-pointer font-sans ${activeTab === 'upload' ? 'border-blue-600 text-blue-600 dark:text-blue-400' : 'border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-slate-300'}`}
+            >
+              Upload Any CSV File
+            </button>
+            <button
+              onClick={() => setActiveTab('paste')}
+              className={`pb-2 text-xs sm:text-sm font-bold border-b-2 transition-all cursor-pointer font-sans ${activeTab === 'paste' ? 'border-blue-600 text-blue-600 dark:text-blue-400' : 'border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-slate-300'}`}
+            >
+              Paste CSV Text
+            </button>
+          </div>
+
+          {activeTab === 'upload' ? (
+            <FileDropzone
+              onFileSelect={handleFileSelect}
+              selectedFileName={selectedFileName}
+              title="Click to browse or drag & drop schedule CSV"
+              subtitle="Supports Date, Start Time, End Time, Location, Group, Home Team, Away Team"
+              activeTitle="Drop schedule CSV here"
+            />
+          ) : (
+            <div>
+              <textarea
+                value={csvText}
+                onChange={(e) => {
+                  setCsvText(e.target.value);
+                  if (e.target.value.trim()) processPreview(e.target.value);
+                }}
+                rows={6}
+                placeholder={`Paste your CSV schedule here...\nDate,Start Time,End Time,Location,Group,Home Team,Away Team\n${currentSeason}-11-02,6:00 pm,7:00 pm,The Dugout: Tunnels 5/6,9U 3v3,Team A,Team B`}
+                className="w-full p-3 font-mono text-xs bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-xl text-slate-800 dark:text-slate-200 focus:ring-2 focus:ring-blue-500 outline-none"
+              />
+            </div>
+          )}
+
           {/* Active season is fixed. Map every CSV group explicitly before provisioning. */}
-          <div className="space-y-3 bg-slate-50 dark:bg-slate-950 p-3.5 rounded-xl border border-slate-200 dark:border-slate-800">
+          <div id="schedule-league-destinations" className="space-y-3 bg-slate-50 dark:bg-slate-950 p-3.5 rounded-xl border border-slate-200 dark:border-slate-800">
             <div className="text-xs font-bold text-slate-600 dark:text-slate-300">
               Import into active season: {currentSeason}
             </div>
@@ -302,45 +344,6 @@ export const ScheduleImportModal: React.FC<ScheduleImportModalProps> = ({
               <p className="text-xs text-slate-500 dark:text-slate-400">Upload a schedule to choose which leagues receive its games.</p>
             )}
           </div>
-
-          {/* Tabs: File Upload vs Paste CSV */}
-          <div className="border-b border-slate-200 dark:border-slate-800 flex gap-4">
-            <button
-              onClick={() => setActiveTab('upload')}
-              className={`pb-2 text-xs sm:text-sm font-bold border-b-2 transition-all cursor-pointer font-sans ${activeTab === 'upload' ? 'border-blue-600 text-blue-600 dark:text-blue-400' : 'border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-slate-300'}`}
-            >
-              Upload Any CSV File
-            </button>
-            <button
-              onClick={() => setActiveTab('paste')}
-              className={`pb-2 text-xs sm:text-sm font-bold border-b-2 transition-all cursor-pointer font-sans ${activeTab === 'paste' ? 'border-blue-600 text-blue-600 dark:text-blue-400' : 'border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-slate-300'}`}
-            >
-              Paste CSV Text
-            </button>
-          </div>
-
-          {activeTab === 'upload' ? (
-            <FileDropzone
-              onFileSelect={handleFileSelect}
-              selectedFileName={selectedFileName}
-              title="Click to browse or drag & drop schedule CSV"
-              subtitle="Supports Date, Start Time, End Time, Location, Group, Home Team, Away Team"
-              activeTitle="Drop schedule CSV here"
-            />
-          ) : (
-            <div>
-              <textarea
-                value={csvText}
-                onChange={(e) => {
-                  setCsvText(e.target.value);
-                  if (e.target.value.trim()) processPreview(e.target.value);
-                }}
-                rows={6}
-                placeholder={`Paste your CSV schedule here...\nDate,Start Time,End Time,Location,Group,Home Team,Away Team\n${currentSeason}-11-02,6:00 pm,7:00 pm,The Dugout: Tunnels 5/6,9U 3v3,Team A,Team B`}
-                className="w-full p-3 font-mono text-xs bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-xl text-slate-800 dark:text-slate-200 focus:ring-2 focus:ring-blue-500 outline-none"
-              />
-            </div>
-          )}
 
           {/* Error Banner */}
           {errorMessage && (
@@ -452,7 +455,7 @@ export const ScheduleImportModal: React.FC<ScheduleImportModalProps> = ({
                               </span>
                             ) : (
                               <span className="px-2 py-0.5 bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-400 rounded-full text-[10px] font-bold">
-                                Ready to Schedule
+                                {unresolvedGroups.includes(game.csvGroup || game.group) ? 'Choose League' : 'Ready to Schedule'}
                               </span>
                             )}
                           </td>
@@ -476,7 +479,24 @@ export const ScheduleImportModal: React.FC<ScheduleImportModalProps> = ({
             Clear / Reset
           </button>
 
-          <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
+          <div className="flex flex-col items-end gap-2 w-full sm:w-auto">
+            {unresolvedGroups.length > 0 && (
+              <p id="schedule-import-requirements" role="status" className="text-xs font-bold text-amber-700 dark:text-amber-300">
+                Choose a destination league for {unresolvedGroups.join(', ')} to enable Import.{' '}
+                <button
+                  type="button"
+                  onClick={() => {
+                    const section = document.getElementById('schedule-league-destinations');
+                    section?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+                    section?.querySelector('select')?.focus({ preventScroll: true });
+                  }}
+                  className="underline cursor-pointer"
+                >
+                  Choose league
+                </button>
+              </p>
+            )}
+            <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
             <button
               onClick={onClose}
               disabled={loading}
@@ -487,7 +507,8 @@ export const ScheduleImportModal: React.FC<ScheduleImportModalProps> = ({
 
             <button
               onClick={handleExecuteImport}
-              disabled={loading || !previewGames || previewGames.length === 0 || Array.from(new Set(previewGames.map(game => game.csvGroup || game.group))).some(group => !leagueChoices[group] || (leagueChoices[group] === '__new__' && !(newLeagueNames[group] ?? group).trim()))}
+              disabled={loading || !previewGames?.length || unresolvedGroups.length > 0}
+              aria-describedby={unresolvedGroups.length > 0 ? "schedule-import-requirements" : undefined}
               className="w-full sm:w-auto px-6 py-2.5 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white font-bold text-xs sm:text-sm rounded-xl shadow-lg transition-all font-sans cursor-pointer flex items-center justify-center gap-2"
             >
               {loading ? (
@@ -504,6 +525,7 @@ export const ScheduleImportModal: React.FC<ScheduleImportModalProps> = ({
                 </>
               )}
             </button>
+            </div>
           </div>
         </div>
       </div>

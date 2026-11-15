@@ -3,7 +3,7 @@ import { scheduleDateKey, scheduleTimeMinutes, scheduleDateTimeError } from '../
 import { parseScheduleCsv } from '../../utils/scheduleImporter';
 import { mapMatchFromDB } from '../../utils/dbMappers';
 
-const csv = (rows: string[]) => ['Date,Start Time,End Time,Home Team,Away Team', ...rows].join('\n');
+const csv = (rows: string[]) => ['Date,Start Time,End Time,Home Team,Away Team,Location', ...rows.map(row => row + ',Tunnels 5/6')].join('\n');
 
 describe('Shared schedule date and time rules', () => {
   it('accepts leap days only in leap years and rejects calendar rollovers', () => {

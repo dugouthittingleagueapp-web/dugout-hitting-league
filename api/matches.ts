@@ -3,6 +3,7 @@ import crypto from 'crypto';
 import pool from './db.js';
 import { changesPracticeClassification, hasRecordedScores } from '../server/matchWritePolicy.js';
 import { requireRole, getAuthFromRequest } from './auth.js';
+import { withActiveSeason, ScheduleError } from '../server/scheduleTransaction.js';
 
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -176,66 +177,53 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const role = requireRole(req, res, allowedRoles as ('admin' | 'umpire')[]);
       if (!role) return;
 
-      let matchSeason = season;
-      if (!matchSeason) {
-        try {
-          const sRes = await pool.query("SELECT value FROM app_settings WHERE key = 'current_season'");
-          matchSeason = sRes.rows[0]?.value;
-        } catch (e) {}
-      }
-      if (!matchSeason) matchSeason = new Date().getFullYear().toString();
+      const row = await withActiveSeason(season, async (client, matchSeason) => {
+        if (typeof league !== 'string' || typeof homeTeamId !== 'string' || typeof awayTeamId !== 'string' || homeTeamId === awayTeamId)
+          throw new ScheduleError(400, 'Choose a league and two different teams.');
+        const destination = await client.query('SELECT id FROM leagues WHERE season = $1 AND LOWER(TRIM(id)) = LOWER(TRIM($2))', [matchSeason, league]);
+        if (destination.rows.length !== 1) throw new ScheduleError(400, 'Choose a league in the active season.');
+        const teams = await client.query('SELECT id FROM teams WHERE id = ANY($1::text[]) AND season = $2 AND LOWER(TRIM(league)) = LOWER(TRIM($3))', [[homeTeamId, awayTeamId], matchSeason, league]);
+        if (teams.rows.length !== 2) throw new ScheduleError(400, 'Both teams must belong to this league in the active season.');
 
-      const matchStatus = status || (isComplete ? 'FINAL' : 'SCHEDULED');
+        const matchStatus = status || (isComplete ? 'FINAL' : 'SCHEDULED');
 
-      const { rawId, strippedId, isPracticePrefix, isStrippedUuid } = cleanMatchId(id);
-      const insertId = isPracticePrefix && isStrippedUuid ? strippedId : rawId;
+        const { rawId, strippedId, isPracticePrefix, isStrippedUuid } = cleanMatchId(id);
+        const insertId = isPracticePrefix && isStrippedUuid ? strippedId : rawId;
 
-      const query = `
-        INSERT INTO matches (
-          id, league, home_team_id, away_team_id, date, is_complete, innings, season, 
-          location, start_time, end_time, notes, status, is_practice, is_forfeit, forfeiting_team_id, forfeit_reason, winning_team_id
-        ) 
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18) 
-        RETURNING *
-      `;
-      const values = [
-        insertId, 
-        league, 
-        homeTeamId || null, 
-        awayTeamId || null, 
-        date || new Date().toISOString(), 
-        isComplete ?? false, 
-        JSON.stringify(innings || []), 
-        matchSeason,
-        location || null,
-        startTime || null,
-        endTime || null,
-        notes || null,
-        matchStatus,
-        matchIsPractice,
-        matchIsForfeit,
-        forfeitTeamId,
-        forfeitNote,
-        winningId
-      ];
+        const query = `
+          INSERT INTO matches (
+            id, league, home_team_id, away_team_id, date, is_complete, innings, season,
+            location, start_time, end_time, notes, status, is_practice, is_forfeit, forfeiting_team_id, forfeit_reason, winning_team_id
+          )
+          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18)
+          RETURNING *
+        `;
+        const values = [
+          insertId,
+          destination.rows[0].id,
+          homeTeamId || null,
+          awayTeamId || null,
+          date || new Date().toISOString(),
+          isComplete ?? false,
+          JSON.stringify(innings || []),
+          matchSeason,
+          location || null,
+          startTime || null,
+          endTime || null,
+          notes || null,
+          matchStatus,
+          matchIsPractice,
+          matchIsForfeit,
+          forfeitTeamId,
+          forfeitNote,
+          winningId
+        ];
 
-      let row: any = null;
-      try {
-        const { rows } = await pool.query(query, values);
-        row = rows[0];
-      } catch (insertErr: any) {
-        // Fallback if Postgres table has strict UUID constraints on id or foreign keys
-        if (insertErr.message && (insertErr.message.includes('type uuid') || insertErr.message.includes('violates foreign key'))) {
-          const fallbackValues = [...values];
-          if (isStrippedUuid) fallbackValues[0] = strippedId;
-          if (fallbackValues[2] && !UUID_REGEX.test(String(fallbackValues[2]))) fallbackValues[2] = null;
-          if (fallbackValues[3] && !UUID_REGEX.test(String(fallbackValues[3]))) fallbackValues[3] = null;
-          const { rows } = await pool.query(query, fallbackValues);
-          row = rows[0];
-        } else {
-          throw insertErr;
-        }
-      }
+        const { rows } = await client.query(query, values);
+        const row = rows[0];
+        if (isPracticePrefix && row && !String(row.id).startsWith('practice-')) row.id = rawId;
+        return row;
+      });
 
       if (row) {
         if (row.innings && typeof row.innings === 'string') row.innings = JSON.parse(row.innings);
@@ -243,9 +231,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         row.isForfeit = row.is_forfeit === true;
         row.forfeitingTeamId = row.forfeiting_team_id;
         row.forfeitReason = row.forfeit_reason;
-        if (isPracticePrefix && !String(row.id).startsWith('practice-')) {
-          row.id = rawId;
-        }
       }
       return res.status(201).json(row);
     } 
@@ -481,6 +466,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
     return res.status(405).json({ error: 'Method not allowed' });
   } catch (error: any) {
+    if (error instanceof ScheduleError) return res.status(error.status).json({ error: error.message });
     console.error('[API] Matches Error:', error);
     return res.status(500).json({ error: error.message });
   }

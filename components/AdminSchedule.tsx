@@ -3,7 +3,8 @@ import { createPortal } from 'react-dom';
 import { League, Match, Team } from '../types';
 import * as storage from '../services/storageService';
 import { sortMatchesChronologically } from '../utils/matchSort';
-import { scheduleDateTimeError } from '../utils/scheduleValidation';
+import { scheduleLockedReason } from '../utils/schedulePolicy';
+import { scheduleDateTimeError, CAGE_LOCATIONS, canonicalCage } from '../utils/scheduleValidation';
 
 type ScheduleEdit = {
   date: string;
@@ -16,24 +17,8 @@ type ScheduleEdit = {
 };
 const dateKey = (date: string) => String(date || '').slice(0, 10);
 const formatDay = (date: string) => dateKey(date) || 'Unscheduled';
-const CAGE_LOCATIONS = [
-  { value: 'The Dugout: Tunnels 5/6', label: 'Tunnels 5/6' },
-  { value: 'The Dugout: Tunnels 7/8', label: 'Tunnels 7/8' }
-] as const;
-const canonicalCage = (location?: string): string => {
-  if (!location) return '';
-  const cleaned = location.trim();
-  if (/5\s*[/&-]\s*6/.test(cleaned)) return CAGE_LOCATIONS[0].value;
-  if (/7\s*[/&-]\s*8/.test(cleaned)) return CAGE_LOCATIONS[1].value;
-  return '';
-};
-const editable = (game: Match) => !game.isComplete && game.status === 'SCHEDULED';
-const lockedReason = (game: Match): string | null => {
-  if (game.isComplete) return 'This game is finished. Its recorded scores are protected.';
-  if (game.status === 'IN_PROGRESS') return 'Scoring has started for this game. Ask an administrator to correct the game through scoring.';
-  if (game.status !== 'SCHEDULED') return 'Only games that have not started can be changed here.';
-  return null;
-};
+const editable = (game: Match) => !scheduleLockedReason(game);
+const lockedReason = scheduleLockedReason;
 const authHeaders = (): HeadersInit => {
   try {
     const token = sessionStorage.getItem('dugout_auth_token') || localStorage.getItem('dugout_auth_token');
@@ -43,12 +28,12 @@ const authHeaders = (): HeadersInit => {
 
 interface Props {
   season: string;
-  leagues: League[];
-  onImport: () => void;
+  onImport: (leagues: League[]) => void;
   refreshToken: number;
 }
 
-export const AdminSchedule: React.FC<Props> = ({ season, leagues, onImport, refreshToken }) => {
+export const AdminSchedule: React.FC<Props> = ({ season, onImport, refreshToken }) => {
+  const [leagues, setLeagues] = useState<League[]>([]);
   const [games, setGames] = useState<Match[]>([]);
   const [teams, setTeams] = useState<Team[]>([]);
   const [busy, setBusy] = useState(false);
@@ -68,10 +53,12 @@ export const AdminSchedule: React.FC<Props> = ({ season, leagues, onImport, refr
   const load = useCallback(async () => {
     setBusy(true);
     setError('');
+    setGames([]); setTeams([]); setLeagues([]);
     try {
-      const [allGames, allTeams] = await Promise.all([storage.getAllMatches(), storage.getTeams(null, season)]);
-      setGames(allGames.filter(m => m.season === season && !m.isPractice && !m.is_practice));
-      setTeams(allTeams);
+      const data = await storage.getAdminScheduleData(season);
+      setGames(data.matches);
+      setTeams(data.teams);
+      setLeagues(data.leagues);
     } catch (err: any) {
       setError(err?.message || 'Could not load the schedule.');
     } finally { setBusy(false); }
@@ -108,7 +95,7 @@ export const AdminSchedule: React.FC<Props> = ({ season, leagues, onImport, refr
     setEditing(game);
     setDraft({
       date: dateKey(game.date), startTime: game.startTime || '6:00 pm',
-      endTime: game.endTime || '7:00 pm', location: canonicalCage(game.location),
+      endTime: game.endTime || '7:00 pm', location: canonicalCage(game.location) || '',
       notes: game.notes || '', homeTeamId: game.homeTeamId, awayTeamId: game.awayTeamId
     });
   };
@@ -166,7 +153,7 @@ export const AdminSchedule: React.FC<Props> = ({ season, leagues, onImport, refr
           <button onClick={() => void load()} disabled={busy} className="rounded-lg bg-slate-200 dark:bg-slate-700 text-slate-900 dark:text-white px-4 py-2.5 font-bold text-sm disabled:opacity-50">
             {busy ? 'Refreshing...' : 'Refresh'}
           </button>
-          <button onClick={onImport} className="rounded-lg bg-blue-600 hover:bg-blue-500 text-white px-4 py-2.5 font-bold text-sm">+ Import Schedule CSV</button>
+          <button onClick={() => onImport(leagues)} disabled={busy || !!error} className="rounded-lg bg-blue-600 hover:bg-blue-500 text-white px-4 py-2.5 font-bold text-sm">+ Import Schedule CSV</button>
         </div>
       </div>
       <div className="bg-white/80 dark:bg-slate-900/80 rounded-xl border border-slate-200 dark:border-slate-800 p-3 space-y-3">
@@ -230,7 +217,7 @@ export const AdminSchedule: React.FC<Props> = ({ season, leagues, onImport, refr
             ) : <span className="text-xs text-amber-700 dark:text-amber-300 font-bold" title={lockedReason(game) || undefined}>🔒 {lockedReason(game)}</span>}
           </div>
         ))}
-        {!busy && visible.length === 0 && (
+        {!busy && !error && visible.length === 0 && (
           <div className="rounded-xl border border-dashed border-slate-300 dark:border-slate-700 p-8 text-center">
             <div className="text-sm font-bold text-slate-800 dark:text-white">No games found for these filters.</div>
             <p className="text-xs text-slate-500 mt-2">Import a schedule to automatically create teams and games in their assigned leagues.</p>

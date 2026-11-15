@@ -21,9 +21,10 @@ describe('Schedule edit API (PostgreSQL mocked; no live database)', () => {
     row = { id: 'game-1', season: '2027', league: '11U', revision: 5, status: 'SCHEDULED',
       is_complete: false, innings: [], tie_breaker: null, home_team_id: 'home', away_team_id: 'away', notes: 'Bring spare balls' };
     query = vi.fn(async (sql: string, params?: any[]) => {
-      if (['BEGIN', 'ROLLBACK', 'COMMIT'].includes(sql)) return { rows: [] };
+      if (sql.includes('pg_advisory_xact_lock') || ['BEGIN', 'ROLLBACK', 'COMMIT'].includes(sql)) return { rows: [] };
       if (sql.includes('FROM app_settings')) return { rows: [{ value: '2027' }] };
       if (sql.includes('FROM matches')) return { rows: [row] };
+      if (sql.includes('FROM scoring_locks')) return { rows: [] };
       if (sql.includes('FROM teams')) return { rows: [{ id: 'home' }, { id: 'away' }] };
       if (sql.includes('UPDATE matches')) {
         row = { ...row, date: params![1], start_time: params![2], end_time: params![3], location: params![4], notes: params![5], revision: 6 };

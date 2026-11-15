@@ -1,15 +1,14 @@
-import React, { useState, useEffect } from 'react';
-import { League, Team, Match, ScheduledGameRecord, ScheduleImportSummary } from '../types';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
+import { League, ScheduleImportSummary, ScheduleImportDestination, ScheduleImportPreview } from '../types';
 import * as storage from '../services/storageService';
-import { parseScheduleCsv, isDuplicateMatch } from '../utils/scheduleImporter';
+import { parseScheduleCsv } from '../utils/scheduleImporter';
 import { FileDropzone } from './FileDropzone';
 
 interface ScheduleImportModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSuccess: (summary: ScheduleImportSummary) => void;
+  onSuccess: (summary: ScheduleImportSummary) => void | Promise<void>;
   currentSeason: string;
-  availableSeasons: string[];
   availableLeagues: League[];
 }
 
@@ -18,200 +17,88 @@ export const ScheduleImportModal: React.FC<ScheduleImportModalProps> = ({
   onClose,
   onSuccess,
   currentSeason,
-  availableSeasons,
   availableLeagues
 }) => {
   const [activeTab, setActiveTab] = useState<'upload' | 'paste'>('upload');
   const [csvText, setCsvText] = useState('');
-  const [targetSeason, setTargetSeason] = useState(currentSeason || '2026');
-  const [targetLeague, setTargetLeague] = useState('');
   const [leagueChoices, setLeagueChoices] = useState<Record<string, string>>({});
   const [newLeagueNames, setNewLeagueNames] = useState<Record<string, string>>({});
-  const [isCustomLeague, setIsCustomLeague] = useState(false);
-  const [customLeagueInput, setCustomLeagueInput] = useState('');
   const [loading, setLoading] = useState(false);
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [previewLoading, setPreviewLoading] = useState(false);
+  const [executionError, setExecutionError] = useState<string | null>(null);
+  const [previewError, setPreviewError] = useState<string | null>(null);
   const [selectedFileName, setSelectedFileName] = useState<string | null>(null);
-
-  // Parsed preview state
-  const [previewGames, setPreviewGames] = useState<ScheduledGameRecord[] | null>(null);
-  const [previewDuplicates, setPreviewDuplicates] = useState<Set<number>>(new Set());
-  const [existingTeamsList, setExistingTeamsList] = useState<Team[]>([]);
-  const [existingMatchesList, setExistingMatchesList] = useState<Match[]>([]);
+  const [checkedPlan, setCheckedPlan] = useState<{ key: string; value: ScheduleImportPreview } | null>(null);
   const [importSummary, setImportSummary] = useState<ScheduleImportSummary | null>(null);
-
-  useEffect(() => {
-    // Every new opening (or active-season switch) begins with no attached CSV.
-    // Historical sample schedules are never offered as already selected files.
-    handleReset();
-    if (isOpen) {
-      setTargetSeason(currentSeason || '2026');
-      void loadExistingData(currentSeason || '2026');
-    }
-  }, [isOpen, currentSeason]);
-
-  const loadExistingData = async (season: string) => {
-    try {
-      const [ts, ms] = await Promise.all([
-        storage.getTeams(null, season).catch(() => []),
-        storage.getAllMatches().catch(() => [])
-      ]);
-      setExistingTeamsList(ts);
-      setExistingMatchesList(ms);
-    } catch (e) {
-      console.warn('Failed loading existing teams/matches for preview check', e);
-    }
-  };
+  const fileReadVersion = useRef(0);
+  const submitting = useRef(false);
 
   const handleReset = () => {
-    setActiveTab('upload');
-    setCsvText('');
-    setLeagueChoices({});
-    setNewLeagueNames({});
-    setTargetLeague('');
-    setSelectedFileName(null);
-    setPreviewGames(null);
-    setPreviewDuplicates(new Set());
-    setImportSummary(null);
-    setErrorMessage(null);
-    setLoading(false);
-    setIsCustomLeague(false);
-    setCustomLeagueInput('');
+    fileReadVersion.current++;
+    setActiveTab('upload'); setCsvText(''); setLeagueChoices({}); setNewLeagueNames({});
+    setSelectedFileName(null); setCheckedPlan(null); setImportSummary(null); setExecutionError(null);
   };
+  useEffect(() => { handleReset(); }, [isOpen, currentSeason]);
 
-  const getEffectiveTargetLeague = (selected: string, isCustom: boolean, customVal: string) => {
-    if (isCustom) return customVal.trim();
-    return selected.trim();
-  };
+  const parsed = useMemo(() => csvText.trim() ? parseScheduleCsv(csvText, { defaultSeason: currentSeason }) : { games: [], errors: [] }, [csvText, currentSeason]);
+  const sourceGroups = useMemo(() => Array.from(new Set(parsed.games.map(game => game.csvGroup || game.group))), [parsed]);
+  const destinations = useMemo(() => {
+    const result: Record<string, ScheduleImportDestination> = Object.create(null);
+    for (const group of sourceGroups) {
+      const choice = Object.prototype.hasOwnProperty.call(leagueChoices, group) ? leagueChoices[group] : '';
+      if (choice) result[group] = { mode: choice === '__new__' ? 'new' : 'existing', name: choice === '__new__' ? (newLeagueNames[group] ?? group).trim() : choice };
+    }
+    return result;
+  }, [sourceGroups, leagueChoices, newLeagueNames]);
+  const unresolvedGroups = sourceGroups.filter(group => !destinations[group]?.name);
+
+  const requestKey = JSON.stringify([csvText, currentSeason, destinations]);
+  const plan = checkedPlan?.key === requestKey ? checkedPlan.value : null;
+
+  // Re-check against the selected leagues whenever CSV/mapping changes. Aborted
+  // requests cannot paint an old duplicate preview over a newer selection.
+  useEffect(() => {
+    setCheckedPlan(null); setPreviewError(null);
+    if (!isOpen || !parsed.games.length || parsed.errors.length || unresolvedGroups.length) { setPreviewLoading(false); return; }
+    const controller = new AbortController();
+    setPreviewLoading(true);
+    const timer = window.setTimeout(() => {
+      storage.previewScheduleImport(csvText, { defaultSeason: currentSeason, leagueDestinations: destinations }, controller.signal)
+        .then(result => { if (!controller.signal.aborted) setCheckedPlan({ key: requestKey, value: result }); })
+        .catch(error => { if (!controller.signal.aborted) setPreviewError(error.message || 'Could not check this schedule.'); })
+        .finally(() => { if (!controller.signal.aborted) setPreviewLoading(false); });
+    }, 200);
+    return () => { window.clearTimeout(timer); controller.abort(); };
+  }, [isOpen, csvText, currentSeason, parsed, destinations, requestKey]);
 
   const handleFileSelect = (file: File) => {
-    if (!file) return;
-    setErrorMessage(null);
-    setSelectedFileName(file.name);
+    if (!file || loading) return;
+    if (file.size > 1_000_000) { handleReset(); setExecutionError('Choose a CSV smaller than 1 MB.'); return; }
+    const version = ++fileReadVersion.current;
+    setSelectedFileName(file.name); setExecutionError(null); setImportSummary(null);
+    setCsvText(''); setLeagueChoices({}); setNewLeagueNames({});
     const reader = new FileReader();
-    reader.onload = (event) => {
-      const content = event.target?.result as string;
-      setCsvText(content);
-      setLeagueChoices({});
-      setNewLeagueNames({});
-      processPreview(content, undefined, currentSeason);
-    };
-    reader.onerror = () => {
-      setErrorMessage('Failed to read schedule CSV file');
-    };
+    reader.onload = () => { if (version === fileReadVersion.current) setCsvText(String(reader.result || '')); };
+    reader.onerror = () => { if (version === fileReadVersion.current) setExecutionError('Could not read the CSV. Try choosing it again.'); };
     reader.readAsText(file);
   };
 
-  const processPreview = (rawContent: string, selectedLeague?: string, seasonToUse?: string) => {
-    setErrorMessage(null);
-    setImportSummary(null);
-
-    const activeTargetLeague = selectedLeague !== undefined ? selectedLeague : getEffectiveTargetLeague(targetLeague, isCustomLeague, customLeagueInput);
-    const activeTargetSeason = seasonToUse || targetSeason;
-
-    const { games, errors } = parseScheduleCsv(rawContent, {
-      targetLeague: activeTargetLeague || undefined,
-      defaultSeason: activeTargetSeason
-    });
-
-    if (errors.length > 0 && games.length === 0) {
-      setErrorMessage(errors.join(', '));
-      setPreviewGames(null);
-      return;
-    }
-
-    if (errors.length > 0) {
-      setErrorMessage(`${errors.length} row problem(s): ${errors.slice(0, 5).join(' | ')}`);
-    }
-
-    // Check duplicate status for each game preview row in the resolved destination league
-    const dupIndices = new Set<number>();
-    games.forEach((game, idx) => {
-      const homeTeam = existingTeamsList.find(
-        t => t.name.trim().toLowerCase() === game.homeTeamName.trim().toLowerCase() &&
-             storage.leaguesMatch(t.league, game.group)
-      );
-      const awayTeam = existingTeamsList.find(
-        t => t.name.trim().toLowerCase() === game.awayTeamName.trim().toLowerCase() &&
-             storage.leaguesMatch(t.league, game.group)
-      );
-
-      if (homeTeam && awayTeam) {
-        if (isDuplicateMatch(game, homeTeam.id, awayTeam.id, existingMatchesList)) {
-          dupIndices.add(idx);
-        }
-      }
-    });
-
-    setPreviewGames(games);
-    setPreviewDuplicates(dupIndices);
-  };
-
-  const handleLeagueSelectChange = (val: string) => {
-    if (val === '__custom__') {
-      setIsCustomLeague(true);
-      setTargetLeague('');
-      if (csvText) {
-        processPreview(csvText, customLeagueInput.trim(), targetSeason);
-      }
-    } else {
-      setIsCustomLeague(false);
-      setTargetLeague(val);
-      if (csvText) {
-        processPreview(csvText, val.trim(), targetSeason);
-      }
-    }
-  };
-
-  const handleCustomLeagueInputChange = (val: string) => {
-    setCustomLeagueInput(val);
-    if (csvText) {
-      processPreview(csvText, val.trim(), targetSeason);
-    }
-  };
-
   const handleExecuteImport = async () => {
-    if (!csvText.trim()) return;
-    setLoading(true);
-    setErrorMessage(null);
-
-    const sourceGroups = Array.from(new Set((previewGames || []).map(g => g.csvGroup || g.group)));
-    const leagueMapping: Record<string, string> = {};
-    for (const group of sourceGroups) {
-      const selected = leagueChoices[group];
-      if (!selected) {
-        setErrorMessage(`Choose a destination league for "${group}" before importing.`);
-        setLoading(false);
-        return;
-      }
-      const name = selected === '__new__' ? (newLeagueNames[group] || '').trim() : selected;
-      if (!name) {
-        setErrorMessage(`Enter the new league name for "${group}".`);
-        setLoading(false);
-        return;
-      }
-      leagueMapping[group] = name;
-    }
+    if (submitting.current || !plan || parsed.errors.length || unresolvedGroups.length) return;
+    submitting.current = true; setLoading(true); setExecutionError(null);
     try {
-      const summary = await storage.importScheduleFromCsv(csvText, {
-        leagueMapping,
-        defaultSeason: currentSeason
-      });
-
+      const summary = await storage.importScheduleFromCsv(csvText, { defaultSeason: currentSeason, leagueDestinations: destinations });
       setImportSummary(summary);
-      if (summary.errors.length > 0 || summary.createdMatches === 0 && summary.skippedDuplicates === 0) {
-        setErrorMessage(summary.errors.length > 0
-          ? `Imported ${summary.createdMatches} games, but ${summary.errors.length} problems need attention: ${summary.errors.slice(0, 5).join(' | ')}`
-          : 'No games were saved. Check the CSV headers, game dates, and league names.');
-        return;
-      }
-      onSuccess(summary);
-    } catch (err: any) {
-      setErrorMessage('Import failed: ' + (err.message || 'Unknown error'));
-    } finally {
-      setLoading(false);
-    }
+      // A refresh failure after a committed import must not be presented as a failed import.
+      try { await onSuccess(summary); }
+      catch { setExecutionError('The schedule was saved. Close this window and refresh to see it.'); }
+    } catch (error) { setExecutionError((error as Error).message || 'No games were imported. Please try again.'); }
+    finally { submitting.current = false; setLoading(false); }
   };
+
+  const previewGames = plan?.games || parsed.games;
+  const previewDuplicates = new Set(plan?.games.flatMap((game, index) => game.duplicate ? [index] : []) || []);
+  const errorMessage = executionError || (parsed.errors.length ? `${parsed.errors.length} row problem(s): ${parsed.errors.slice(0, 5).join(' | ')} Fix these before importing; nothing has been saved.` : previewError);
 
   if (!isOpen) return null;
 
@@ -223,8 +110,6 @@ export const ScheduleImportModal: React.FC<ScheduleImportModalProps> = ({
     ? Array.from(new Set(previewGames.map(g => g.date)))
     : [];
 
-  const sourceGroups = Array.from(new Set((previewGames || []).map(game => game.csvGroup || game.group)));
-  const unresolvedGroups = sourceGroups.filter(group => !leagueChoices[group] || (leagueChoices[group] === '__new__' && !(newLeagueNames[group] ?? group).trim()));
 
   return (
     <div
@@ -235,7 +120,7 @@ export const ScheduleImportModal: React.FC<ScheduleImportModalProps> = ({
       <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl w-full max-w-4xl max-h-[92vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200 font-sans">
         
         {/* Header */}
-        <div className="px-5 py-4 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between bg-slate-50/50 dark:bg-slate-950/50">
+        <div className="shrink-0 px-5 py-4 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between bg-slate-50/50 dark:bg-slate-950/50">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-blue-600/10 dark:bg-blue-500/20 text-blue-600 dark:text-blue-400 flex items-center justify-center font-bold">
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
@@ -245,12 +130,14 @@ export const ScheduleImportModal: React.FC<ScheduleImportModalProps> = ({
                 Import Season Schedule
               </h2>
               <p className="text-xs text-slate-500 dark:text-slate-400 font-sans">
-                Dynamic CSV schedule importer with duplicate avoidance and auto-team creation
+                Import into the active season with duplicate checks and automatic team creation
               </p>
             </div>
           </div>
           <button
             onClick={onClose}
+            disabled={loading}
+            aria-label="Close schedule import"
             className="text-slate-400 hover:text-slate-600 dark:hover:text-white p-1 rounded-lg transition-colors cursor-pointer"
           >
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" /></svg>
@@ -258,7 +145,7 @@ export const ScheduleImportModal: React.FC<ScheduleImportModalProps> = ({
         </div>
 
         {/* Content Area */}
-        <div className="p-4 sm:p-6 overflow-y-auto space-y-4 flex-1">
+        <fieldset disabled={loading || !!importSummary} className="p-4 sm:p-6 overflow-y-auto space-y-4 flex-1 min-h-0 min-w-0 w-full">
           
           {/* Tabs: File Upload vs Paste CSV */}
           <div className="border-b border-slate-200 dark:border-slate-800 flex gap-4">
@@ -289,8 +176,10 @@ export const ScheduleImportModal: React.FC<ScheduleImportModalProps> = ({
               <textarea
                 value={csvText}
                 onChange={(e) => {
+                  fileReadVersion.current++;
                   setCsvText(e.target.value);
-                  if (e.target.value.trim()) processPreview(e.target.value);
+                  setImportSummary(null);
+                  setExecutionError(null);
                 }}
                 rows={6}
                 placeholder={`Paste your CSV schedule here...\nDate,Start Time,End Time,Location,Group,Home Team,Away Team\n${currentSeason}-11-02,6:00 pm,7:00 pm,The Dugout: Tunnels 5/6,9U 3v3,Team A,Team B`}
@@ -349,6 +238,8 @@ export const ScheduleImportModal: React.FC<ScheduleImportModalProps> = ({
             )}
           </div>
 
+          {plan?.summary.alreadyImported && <p role="status" className="rounded-lg bg-green-50 dark:bg-green-950/40 p-3 text-sm text-green-700 dark:text-green-300">This CSV was already imported. No additional games will be created. Use Schedule to adjust its games.</p>}
+
           {/* Error Banner */}
           {errorMessage && (
             <div className="bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-900/50 p-3 rounded-xl text-xs text-red-600 dark:text-red-400 font-sans flex items-center gap-2">
@@ -362,7 +253,7 @@ export const ScheduleImportModal: React.FC<ScheduleImportModalProps> = ({
             <div className="bg-green-50 dark:bg-green-950/40 border border-green-200 dark:border-green-800/60 p-4 rounded-xl space-y-2">
               <div className="flex items-center gap-2 text-green-700 dark:text-green-300 font-bold text-sm font-sans">
                 <svg className="w-5 h-5 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                <span>Schedule Successfully Provisioned!</span>
+                <span>{importSummary.alreadyImported ? 'This CSV was already imported. No additional games were created.' : 'Schedule Successfully Provisioned!'}</span>
               </div>
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs font-sans">
                 <div className="bg-white/80 dark:bg-slate-900/80 p-2 rounded-lg border border-green-200 dark:border-green-900">
@@ -455,11 +346,11 @@ export const ScheduleImportModal: React.FC<ScheduleImportModalProps> = ({
                           <td className="p-2 sm:p-2.5 text-center whitespace-nowrap">
                             {isDup ? (
                               <span className="px-2 py-0.5 bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-400 rounded-full text-[10px] font-bold">
-                                Duplicate (Skip)
+                                {plan?.summary.alreadyImported ? 'Previously Imported' : 'Duplicate (Skip)'}
                               </span>
                             ) : (
                               <span className="px-2 py-0.5 bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-400 rounded-full text-[10px] font-bold">
-                                {unresolvedGroups.includes(game.csvGroup || game.group) ? 'Choose League' : 'Ready to Schedule'}
+                                {unresolvedGroups.includes(game.csvGroup || game.group) ? 'Choose League' : plan ? 'Ready to Schedule' : 'Needs Check'}
                               </span>
                             )}
                           </td>
@@ -471,10 +362,10 @@ export const ScheduleImportModal: React.FC<ScheduleImportModalProps> = ({
               </div>
             </div>
           )}
-        </div>
+        </fieldset>
 
         {/* Footer Actions */}
-        <div className="px-5 py-4 border-t border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-950/50 flex flex-col sm:flex-row items-center justify-between gap-3">
+        <div className="shrink-0 relative z-10 px-5 py-4 border-t border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 flex flex-col sm:flex-row items-center justify-between gap-3">
           <button
             onClick={handleReset}
             disabled={loading}
@@ -484,6 +375,9 @@ export const ScheduleImportModal: React.FC<ScheduleImportModalProps> = ({
           </button>
 
           <div className="flex flex-col items-end gap-2 w-full sm:w-auto">
+            {previewLoading && <p role="status" className="text-xs text-slate-500">Checking the schedule for duplicates...</p>}
+            {parsed.errors.length > 0 && <p role="status" className="text-xs text-red-600 dark:text-red-300">Fix the CSV problems above to enable Import.</p>}
+            {previewError && <p role="status" className="text-xs text-red-600 dark:text-red-300">Schedule check failed. Change the selection or reopen to try again.</p>}
             {unresolvedGroups.length > 0 && (
               <p id="schedule-import-requirements" role="status" className="text-xs font-bold text-amber-700 dark:text-amber-300">
                 Choose a destination league for {unresolvedGroups.join(', ')} to enable Import.{' '}
@@ -511,7 +405,7 @@ export const ScheduleImportModal: React.FC<ScheduleImportModalProps> = ({
 
             <button
               onClick={handleExecuteImport}
-              disabled={loading || !previewGames?.length || unresolvedGroups.length > 0}
+              disabled={loading || previewLoading || !plan || parsed.errors.length > 0 || !!importSummary}
               aria-describedby={unresolvedGroups.length > 0 ? "schedule-import-requirements" : undefined}
               className="w-full sm:w-auto px-6 py-2.5 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white font-bold text-xs sm:text-sm rounded-xl shadow-lg transition-all font-sans cursor-pointer flex items-center justify-center gap-2"
             >

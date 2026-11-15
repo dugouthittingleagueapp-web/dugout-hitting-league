@@ -1,7 +1,8 @@
 import { Match, Team, ScheduledGameRecord } from '../types';
-import { generateUUID, leaguesMatch } from '../services/storageService';
+import { generateUUID } from './ids';
+import { leaguesMatch } from './leagueNames';
 import { sortMatchesChronologically } from './matchSort';
-import { scheduleDateKey, scheduleTimeMinutes, scheduleDateTimeError } from './scheduleValidation';
+import { scheduleDateKey, scheduleTimeMinutes, scheduleDateTimeError, canonicalCage } from './scheduleValidation';
 
 /**
  * Robust CSV parser that correctly handles quoted values, embedded commas,
@@ -9,49 +10,33 @@ import { scheduleDateKey, scheduleTimeMinutes, scheduleDateTimeError } from './s
  */
 export const parseCSV = (csvText: string): string[][] => {
   const rows: string[][] = [];
-  let currentRow: string[] = [];
-  let currentCell = '';
-  let insideQuotes = false;
-
+  let row: string[] = [];
+  let cell = '';
+  let quoted = false;
+  let closedQuote = false;
+  const finishCell = () => { row.push(cell.trim()); cell = ''; closedQuote = false; };
+  const finishRow = () => { finishCell(); if (row.some(value => value.length)) rows.push(row); row = []; };
   for (let i = 0; i < csvText.length; i++) {
     const char = csvText[i];
-    const nextChar = csvText[i + 1];
-
-    if (char === '"') {
-      if (insideQuotes && nextChar === '"') {
-        // Escaped quote ("") inside quotes
-        currentCell += '"';
-        i++; // skip next quote
-      } else {
-        // Toggle quote mode
-        insideQuotes = !insideQuotes;
-      }
-    } else if (char === ',' && !insideQuotes) {
-      currentRow.push(currentCell.trim());
-      currentCell = '';
-    } else if ((char === '\r' || char === '\n') && !insideQuotes) {
-      if (char === '\r' && nextChar === '\n') {
-        i++; // skip \n in CRLF
-      }
-      currentRow.push(currentCell.trim());
-      if (currentRow.some(cell => cell.length > 0)) {
-        rows.push(currentRow);
-      }
-      currentRow = [];
-      currentCell = '';
+    if (quoted) {
+      if (char === '"') {
+        if (csvText[i + 1] === '"') { cell += '"'; i++; }
+        else { quoted = false; closedQuote = true; }
+      } else cell += char;
+    } else if (char === ',') finishCell();
+    else if (char === '\n' || char === '\r') {
+      if (char === '\r' && csvText[i + 1] === '\n') i++;
+      finishRow();
+    } else if (char === '"') {
+      if (closedQuote || cell.trim()) throw new Error('A CSV field has an unexpected quote. Check the file and try again.');
+      cell = ''; quoted = true;
     } else {
-      currentCell += char;
+      if (closedQuote && char.trim()) throw new Error('A CSV field has text after its closing quote. Check the file and try again.');
+      cell += char;
     }
   }
-
-  // Push final cell and row if anything remains
-  if (currentCell.length > 0 || currentRow.length > 0) {
-    currentRow.push(currentCell.trim());
-    if (currentRow.some(cell => cell.length > 0)) {
-      rows.push(currentRow);
-    }
-  }
-
+  if (quoted) throw new Error('A CSV field is missing its closing quote. Check the file and try again.');
+  if (cell.length || row.length || closedQuote) finishRow();
   return rows;
 };
 
@@ -122,7 +107,9 @@ export const parseScheduleCsv = (
   csvContent: string,
   options?: { targetLeague?: string; defaultLeague?: string; defaultSeason?: string }
 ): { games: ScheduledGameRecord[]; errors: string[] } => {
-  const rows = parseCSV(csvContent);
+  let rows: string[][];
+  try { rows = parseCSV(csvContent); }
+  catch (error) { return { games: [], errors: [(error as Error).message] }; }
   if (rows.length < 2) {
     return { games: [], errors: ['CSV file is empty or missing headers'] };
   }
@@ -145,6 +132,7 @@ export const parseScheduleCsv = (
     if (row.length === 0 || row.every(cell => !cell.trim())) continue;
 
     const rowNum = i + 1;
+    if (row.length > headers.length) { errors.push(`Row ${rowNum}: Too many columns. Put quotes around values containing commas.`); continue; }
     const date = row[indices.date]?.trim() || '';
     const homeTeamName = row[indices.homeTeam]?.trim() || '';
     const awayTeamName = row[indices.awayTeam]?.trim() || '';
@@ -166,17 +154,29 @@ export const parseScheduleCsv = (
 
     const startTime = indices.startTime !== -1 ? row[indices.startTime]?.trim() : '6:00 pm';
     const endTime = indices.endTime !== -1 ? row[indices.endTime]?.trim() : '7:00 pm';
-    const location = indices.location !== -1 ? row[indices.location]?.trim() : 'The Dugout';
+    const location = canonicalCage(indices.location !== -1 ? row[indices.location]?.trim() : '');
     const csvGroup = indices.group !== -1 ? row[indices.group]?.trim() : '';
     // If user explicitly directed the schedule to an existing app league, prioritize targetLeague
     const group = (options?.targetLeague && options.targetLeague.trim()) 
       ? options.targetLeague.trim() 
-      : (csvGroup || options?.defaultLeague || '9U 3v3');
+      : (csvGroup || options?.defaultLeague || 'Ungrouped games');
     const notes = indices.notes !== -1 ? row[indices.notes]?.trim() : undefined;
 
     const validationError = scheduleDateTimeError(date, startTime || '', endTime || '');
     if (validationError) {
       errors.push(`Row ${rowNum}: ${validationError} Skipped.`);
+      continue;
+    }
+    if (homeTeamName.toLowerCase() === awayTeamName.toLowerCase()) {
+      errors.push(`Row ${rowNum}: Choose two different teams.`);
+      continue;
+    }
+    if (!location) {
+      errors.push(`Row ${rowNum}: Location must be Tunnels 5/6 or Tunnels 7/8.`);
+      continue;
+    }
+    if ([homeTeamName, awayTeamName, group].some(name => name.length > 100) || (notes?.length || 0) > 2000) {
+      errors.push(`Row ${rowNum}: Team or league names must be at most 100 characters; notes at most 2000.`);
       continue;
     }
     const scheduledIsoDate = combineDateAndTime(date, startTime);

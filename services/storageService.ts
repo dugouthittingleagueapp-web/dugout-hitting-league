@@ -1,7 +1,7 @@
 
 import { AgeGroup, Match, Team, Inning, League, PlayerStats, PlayerSeasonStatRow, PlayerCareerSummary, ScheduleImportSummary } from '../types';
 import { ARCHIVE_2025_LEAGUES, ARCHIVE_2025_TEAMS, ARCHIVE_2025_MATCHES } from './archive2025Data';
-import { parseScheduleCsv, isDuplicateMatch } from '../utils/scheduleImporter';
+import type { ScheduleImportDestination, ScheduleImportPreview } from '../types';
 import { sortMatchesChronologically } from '../utils/matchSort';
 import { detectForfeit, isForfeitMatch, getForfeitingTeamId } from './matchHelpers';
 import { coalesceInFlightGet } from '../utils/requestCoalescer';
@@ -41,23 +41,10 @@ export { sortMatchesChronologically };
 const formatName = (p: { name: string, lastName?: string }) => 
   `${p.name}${p.lastName ? ' ' + p.lastName.charAt(0) + '.' : ''}`;
 
-// Robust UUID Generator that works in insecure contexts
-export const generateUUID = (): string => {
-    // Try native crypto first if available and secure
-    if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
-        try {
-            return crypto.randomUUID();
-        } catch (e) {
-            // Fallback if crypto throws (e.g. insecure context)
-        }
-    }
-    // Standard RFC4122 v4 UUID generator
-    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
-        const r = (Math.random() * 16) | 0;
-        const v = c === 'x' ? r : (r & 0x3) | 0x8;
-        return v.toString(16);
-    });
-};
+import { generateUUID } from '../utils/ids';
+export { generateUUID };
+import { createEmptyInning } from '../utils/inningTemplate';
+export { createEmptyInning };
 
 // Safe fetch wrapper ensuring absolute URLs, session credentials, and Bearer authorization tokens
 const apiFetch = async (url: string, init?: RequestInit): Promise<Response> => {
@@ -887,39 +874,6 @@ export const createPracticeMatch = async (params: {
   return match;
 };
 
-export const createEmptyInning = (number: number, homeIds: string[] = [], awayIds: string[] = []): Inning => {
-    // LOGIC:
-    // 3v3: 10 pitches each (30 vs 30)
-    // 2v2: 10 pitches each (20 vs 20) - Standard scoring per user request
-    // 3v2 / 2v3: The short team gets 15 pitches (Ghost Mode) to balance the 30-pitch team.
-
-    let homePitches = 10;
-    let awayPitches = 10;
-
-    const safeHomeIds = Array.isArray(homeIds) ? homeIds : [];
-    const safeAwayIds = Array.isArray(awayIds) ? awayIds : [];
-
-    const homeCount = safeHomeIds.length;
-    const awayCount = safeAwayIds.length;
-
-    if (homeCount === 2 && awayCount === 3) {
-        homePitches = 15; // Ghost Mode for Home
-    } else if (awayCount === 2 && homeCount === 3) {
-        awayPitches = 15; // Ghost Mode for Away
-    }
-
-    const createPlayerScore = (pid: string, count: number) => ({
-        playerId: pid,
-        pitches: Array(count).fill(null).map(() => ({ points: null }))
-    });
-
-    return {
-        number,
-        home: { teamId: 'home', playerScores: homeIds.map(id => createPlayerScore(id, homePitches)) },
-        away: { teamId: 'away', playerScores: awayIds.map(id => createPlayerScore(id, awayPitches)) }
-    };
-};
-
 export const updateMatch = (match: Match, options?: { requireServerSave?: boolean }): Promise<Match> =>
     serializeMatchOperation(match.id, () => performMatchUpdate(match, options));
 
@@ -1578,173 +1532,36 @@ export const getPlayerCareerStats = async (playerIdentifier: string): Promise<Pl
   };
 };
 
-/**
- * High-level schedule import service:
- * Parses CSV, auto-creates leagues/teams, skips duplicate games, and provisions scheduled matches.
- */
-export const importScheduleFromCsv = async (
-  csvContent: string,
-  options?: { targetLeague?: string; defaultLeague?: string; defaultSeason?: string; leagueMapping?: Record<string, string> }
-): Promise<ScheduleImportSummary> => {
-  const { games, errors } = parseScheduleCsv(csvContent, options);
-  const groups = [...new Set(games.map(game => game.csvGroup || game.group))];
-  if (!options?.targetLeague && groups.some(group => !options?.leagueMapping?.[group]?.trim())) {
-    throw new Error('Choose Create New League or an existing league for every schedule division before importing.');
+/** Import execution and preflight use the same server planner and rules. */
+interface ScheduleImportOptions {
+  defaultSeason: string;
+  leagueDestinations: Record<string, ScheduleImportDestination>;
+}
+const requestScheduleImport = async (csvText: string, options: ScheduleImportOptions, preview: boolean, signal?: AbortSignal) => {
+  let res: Response;
+  try { res = await apiFetch('/api/schedule-admin', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    signal,
+    body: JSON.stringify({ action: preview ? 'preview_import' : 'import_schedule', season: options.defaultSeason,
+      csvText, leagueDestinations: options.leagueDestinations })
+  }); } catch (error) {
+    if (signal?.aborted) throw error;
+    throw new Error(preview ? 'Could not check the schedule. Reconnect and try again.' : 'Could not confirm the import. Reconnect and retry the same CSV; it will not create another copy.');
   }
-  if (games.length === 0) {
-    return {
-      totalRows: 0,
-      createdMatches: 0,
-      skippedDuplicates: 0,
-      createdTeams: [],
-      createdLeagues: [],
-      errors,
-    };
-  }
-
-  // Schedule imports always belong to the server's active season. A stale browser
-  // season selector must not silently create teams or games in a different year.
-  const activeSeason = await getCurrentSeason();
-  if (options?.defaultSeason && options.defaultSeason !== activeSeason) {
-    throw new Error(`The active season changed to ${activeSeason}. Reopen Schedule Import and try again.`);
-  }
-  const existingLeagues = await getLeagues(activeSeason);
-  const existingTeams = await getAllTeams();
-  const existingMatches = await getAllMatches();
-
-  // A CSV division such as "9U 3v3" may refer to an existing "9U" league.
-  // Match age-group shorthand only when there is exactly one matching division;
-  // otherwise preserve the CSV's explicit division instead of guessing.
-  const resolveLeague = (csvLeague: string): string => {
-    const exact = existingLeagues.find(l => leaguesMatch(l.id, csvLeague));
-    if (exact) return exact.id;
-    const ageKey = (name: string) => name.trim().match(/^(\d{1,2})\s*u\b/i)?.[1] || null;
-    const age = ageKey(csvLeague);
-    if (!age) return csvLeague;
-    const compatible = existingLeagues.filter(l => ageKey(l.id) === age);
-    return compatible.length === 1 ? compatible[0].id : csvLeague;
-  };
-
-  const createdLeaguesSet = new Set<string>();
-  const createdTeamsSet = new Set<string>();
-  let createdMatches = 0;
-  let skippedDuplicates = 0;
-
-  for (const game of games) {
-    const season = activeSeason;
-    const leagueName = options?.targetLeague?.trim() || options?.leagueMapping?.[game.csvGroup || game.group]?.trim() || resolveLeague(game.group);
-    // Duplicate checks must use the same resolved league/season as saved matches.
-    const resolvedGame = { ...game, group: leagueName, season };
-
-    // 1. Ensure league division exists
-    const leagueFound = existingLeagues.some(
-      l => leaguesMatch(l.id, leagueName) && (l.season || activeSeason) === season
-    );
-    if (!leagueFound && !createdLeaguesSet.has(leagueName)) {
-      try {
-        await createLeague(leagueName, season);
-        existingLeagues.push({ id: leagueName, season, created_at: new Date().toISOString() });
-        createdLeaguesSet.add(leagueName);
-      } catch (err: any) {
-        errors.push(`Failed to create division "${leagueName}": ${err.message}`);
-        continue;
-      }
-    }
-
-    // 2. Resolve or create Home Team
-    let homeTeam = existingTeams.find(
-      t => t.name.trim().toLowerCase() === game.homeTeamName.trim().toLowerCase() &&
-           leaguesMatch(t.league, leagueName) &&
-           (t.season || activeSeason) === season
-    );
-    if (!homeTeam) {
-      try {
-        homeTeam = await createTeam(
-          game.homeTeamName.trim(),
-          leagueName,
-          [
-            { name: `${game.homeTeamName} Player 1` },
-            { name: `${game.homeTeamName} Player 2` },
-            { name: `${game.homeTeamName} Player 3` },
-          ],
-          season
-        );
-        existingTeams.push(homeTeam);
-        createdTeamsSet.add(game.homeTeamName.trim());
-      } catch (err: any) {
-        errors.push(`Failed to auto-create Home Team "${game.homeTeamName}": ${err.message}`);
-        continue;
-      }
-    }
-
-    // 3. Resolve or create Away Team
-    let awayTeam = existingTeams.find(
-      t => t.name.trim().toLowerCase() === game.awayTeamName.trim().toLowerCase() &&
-           leaguesMatch(t.league, leagueName) &&
-           (t.season || activeSeason) === season
-    );
-    if (!awayTeam) {
-      try {
-        awayTeam = await createTeam(
-          game.awayTeamName.trim(),
-          leagueName,
-          [
-            { name: `${game.awayTeamName} Player 1` },
-            { name: `${game.awayTeamName} Player 2` },
-            { name: `${game.awayTeamName} Player 3` },
-          ],
-          season
-        );
-        existingTeams.push(awayTeam);
-        createdTeamsSet.add(game.awayTeamName.trim());
-      } catch (err: any) {
-        errors.push(`Failed to auto-create Away Team "${game.awayTeamName}": ${err.message}`);
-        continue;
-      }
-    }
-
-    // 4. Duplicate check
-    const isDup = isDuplicateMatch(resolvedGame, homeTeam.id, awayTeam.id, existingMatches);
-    if (isDup) {
-      skippedDuplicates++;
-      continue;
-    }
-
-    // 5. Create Scheduled Match
-    try {
-      const homePids = (homeTeam.players || []).slice(0, 3).map(p => p.id);
-      const awayPids = (awayTeam.players || []).slice(0, 3).map(p => p.id);
-      const created = await createScheduledMatch({
-        league: leagueName,
-        homeTeamId: homeTeam.id,
-        awayTeamId: awayTeam.id,
-        homePlayerIds: homePids,
-        awayPlayerIds: awayPids,
-        season,
-        date: game.scheduledIsoDate,
-        location: game.location,
-        startTime: game.startTime,
-        endTime: game.endTime,
-        notes: game.notes,
-      });
-      if (created.id && created.season === season && leaguesMatch(created.league, leagueName)) {
-        existingMatches.push(created);
-        createdMatches++;
-      } else {
-        errors.push(`Could not verify saved match ${game.homeTeamName} vs ${game.awayTeamName} in ${leagueName} (${season}).`);
-      }
-    } catch (err: any) {
-      errors.push(`Failed to schedule match ${game.homeTeamName} vs ${game.awayTeamName}: ${err.message}`);
-    }
-  }
-
-  return {
-    totalRows: games.length,
-    createdMatches,
-    skippedDuplicates,
-    createdTeams: Array.from(createdTeamsSet),
-    createdLeagues: Array.from(createdLeaguesSet),
-    errors,
-  };
+  let data;
+  try { data = await res.json(); } catch { throw new Error('Could not confirm the result. Refresh and retry the same CSV safely.'); }
+  if (!res.ok) throw new Error([data.error || 'Could not import this schedule.', ...(data.errors || []).slice(0, 5)].join(' '));
+  return data;
 };
+export const previewScheduleImport = (csvText: string, options: ScheduleImportOptions, signal?: AbortSignal): Promise<ScheduleImportPreview> =>
+  requestScheduleImport(csvText, options, true, signal);
+export const importScheduleFromCsv = (csvText: string, options: ScheduleImportOptions): Promise<ScheduleImportSummary> =>
+  requestScheduleImport(csvText, options, false);
 
+export const getAdminScheduleData = async (season: string): Promise<{ leagues: League[]; teams: Team[]; matches: Match[] }> => {
+  const res = await apiFetch(`/api/schedule-admin?season=${encodeURIComponent(season)}`);
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || 'Could not load the schedule. Refresh and try again.');
+  return { leagues: data.leagues, teams: data.teams.map(mapTeamFromDB), matches: data.matches.map((row: unknown) => recordRevision(mapMatchFromDB(row))) };
+};

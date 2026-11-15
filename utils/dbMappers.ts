@@ -14,6 +14,7 @@ export const mapMatchFromDB = (dbMatch: any): Match => {
   return {
     id: dbMatch.id,
     revision: Number(dbMatch.revision ?? 0),
+    scoringLocked: dbMatch.scoring_locked === true || dbMatch.scoringLocked === true,
     league: dbMatch.league,
     homeTeamId: dbMatch.home_team_id || dbMatch.homeTeamId,
     awayTeamId: dbMatch.away_team_id || dbMatch.awayTeamId,

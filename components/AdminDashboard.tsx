@@ -10,7 +10,7 @@ import { AdminSchedule } from './AdminSchedule';
 export const AdminDashboard: React.FC<{ 
   onBack: () => void; 
   onBrowseArchive?: (season: string) => void;
-  onSeasonUpdated?: () => void;
+  onSeasonUpdated?: () => void | Promise<void>;
   onStartPractice?: () => void;
 }> = ({ onBack, onBrowseArchive, onSeasonUpdated, onStartPractice }) => {
   const [data, setData] = useState('');
@@ -20,6 +20,7 @@ export const AdminDashboard: React.FC<{
   const [showScheduleImportModal, setShowScheduleImportModal] = useState(false);
   const [adminTab, setAdminTab] = useState<'overview' | 'schedule'>('overview');
   const [scheduleRefreshToken, setScheduleRefreshToken] = useState(0);
+  const [scheduleLeagues, setScheduleLeagues] = useState<League[]>([]);
   
   // Settings State
   const [currentSeason, setCurrentSeason] = useState<string>(() => {
@@ -127,7 +128,7 @@ export const AdminDashboard: React.FC<{
             const seasons = Array.from(new Set([...fetchedSeasons, targetSeason, '2026', '2025'])).sort((a, b) => b.localeCompare(a, undefined, { numeric: true }));
             setLeagues(newLeagues);
             setAllSeasons(seasons);
-            if (onSeasonUpdated) onSeasonUpdated();
+            if (onSeasonUpdated) await onSeasonUpdated();
             alert(`Season ${targetSeason} is now active.`);
         } catch (e: any) {
             alert('Failed to set active season: ' + (e?.message || 'Unknown error'));
@@ -195,7 +196,7 @@ export const AdminDashboard: React.FC<{
               setLeagues(newLeagues);
               setAllSeasons(seasons);
               setNewSeasonInput('');
-              if (onSeasonUpdated) onSeasonUpdated();
+              if (onSeasonUpdated) await onSeasonUpdated();
               alert(`Season ${targetSeason} is now active with clean league divisions ready for teams.`);
           } catch (e: any) {
               alert('Failed to update season: ' + (e?.message || 'Unknown error'));
@@ -312,8 +313,8 @@ export const AdminDashboard: React.FC<{
           className={`px-5 py-2.5 rounded-xl font-bold text-sm transition-colors ${adminTab === 'schedule' ? 'bg-blue-600 text-white' : 'bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-200'}`}>Schedule</button>
       </nav>
       {adminTab === 'schedule' ? (
-        <AdminSchedule season={currentSeason} leagues={selectedSeason === currentSeason ? leagues : []}
-          refreshToken={scheduleRefreshToken} onImport={() => setShowScheduleImportModal(true)} />
+        <AdminSchedule season={currentSeason}
+          refreshToken={scheduleRefreshToken} onImport={activeLeagues => { setScheduleLeagues(activeLeagues); setShowScheduleImportModal(true); }} />
       ) : (
       <div className="space-y-4 sm:space-y-6">
         
@@ -653,13 +654,12 @@ export const AdminDashboard: React.FC<{
             setAllTeams(ts);
             setData(d);
             setScheduleRefreshToken(value => value + 1);
-            if (onSeasonUpdated) onSeasonUpdated();
-            alert(`Schedule Import Complete!\n• ${summary.createdMatches} matches scheduled\n• ${summary.skippedDuplicates} duplicates avoided\n• ${summary.createdTeams.length} teams created\n• ${summary.createdLeagues.length} divisions created`);
+            if (onSeasonUpdated) await onSeasonUpdated();
+            alert(summary.alreadyImported ? 'This CSV was already imported. No additional games were created.' : `Schedule Import Complete!\n• ${summary.createdMatches} matches scheduled\n• ${summary.skippedDuplicates} duplicates avoided\n• ${summary.createdTeams.length} teams created\n• ${summary.createdLeagues.length} divisions created`);
             setShowScheduleImportModal(false);
           }}
           currentSeason={currentSeason}
-          availableSeasons={allSeasons}
-          availableLeagues={leagues}
+          availableLeagues={scheduleLeagues}
         />
       )}
     </div>

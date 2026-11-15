@@ -1049,6 +1049,7 @@ const App: React.FC = () => {
                             const merged = Array.from(new Set([...seasonsList, '2026', '2025', newActive])).sort((a, b) => b.localeCompare(a, undefined, { numeric: true }));
                             setActiveSeason(newActive);
                             setAvailableSeasons(merged);
+                            setLeagues(await storage.getLeagues(newActive));
                             setState(s => ({ ...s, season: newActive, currentLeague: null }));
                         }}
                     />

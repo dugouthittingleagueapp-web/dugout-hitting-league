@@ -35,3 +35,13 @@ export const scheduleDateTimeError = (date: string, start: string, end: string):
   if (endMinutes <= startMinutes) return 'End time must be after start time on the same day.';
   return null;
 };
+
+export const CAGE_LOCATIONS = [
+  { value: 'The Dugout: Tunnels 5/6', label: 'Tunnels 5/6' },
+  { value: 'The Dugout: Tunnels 7/8', label: 'Tunnels 7/8' }
+] as const;
+
+export const canonicalCage = (value?: string): string | null => {
+  const key = value?.trim().toLowerCase();
+  return CAGE_LOCATIONS.find(cage => cage.value.toLowerCase() === key || cage.label.toLowerCase() === key)?.value ?? null;
+};

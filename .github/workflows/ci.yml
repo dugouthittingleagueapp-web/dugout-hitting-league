@@ -10,6 +10,24 @@ jobs:
   test-and-build:
     name: Lint, Test & Build
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: dugout_test
+          POSTGRES_PASSWORD: disposable-ci-test-only
+          POSTGRES_DB: dugout_test_schedule
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U dugout_test -d dugout_test_schedule"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DUGOUT_TEST_DATABASE_URL: postgres://dugout_test:disposable-ci-test-only@127.0.0.1:5432/dugout_test_schedule
 
     steps:
       - name: Checkout Code

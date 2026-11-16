@@ -21,4 +21,8 @@ describe('No deployed maintenance bypass', () => {
         Database_url: 'postgres://synthetic:synthetic@ep-purple-sea-a42guhf9-pooler.us-east-1.aws.neon.tech/neondb' })).toThrow(/Preview cannot connect to Production/);
     }
   });
+  it.each(['host', 'hostaddr', 'service', 'options'])('rejects a driver routing override through %s', key => {
+    expect(() => selectDatabaseConnectionString({ VERCEL_ENV: 'preview', VERCEL_GIT_COMMIT_REF: 'fix/critical-scoring-safety',
+      Database_url: `postgres://synthetic:synthetic@preview.invalid/neondb?${key}=production.invalid` })).toThrow(/cannot override/);
+  });
 });

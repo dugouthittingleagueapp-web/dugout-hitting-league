@@ -59,6 +59,15 @@ export const selectDatabaseConnectionString = (environment: DatabaseEnvironment)
     if (!scopedUrl) {
       throw new Error('Database_url must be configured separately for this Vercel environment');
     }
+    // pg accepts query parameters that override the URL's hostname. Validate
+    // the connection the driver will use, rather than trusting its visible host.
+    const deployedUrl = new URL(scopedUrl);
+    if (!['postgres:', 'postgresql:'].includes(deployedUrl.protocol)) {
+      throw new Error(`Invalid ${vercelEnvironment === 'production' ? 'Production' : 'Preview'} database connection URL`);
+    }
+    if ([...deployedUrl.searchParams.keys()].some(key => ['host', 'hostaddr', 'service', 'options'].includes(key.toLowerCase()))) {
+      throw new Error('Database safety check failed: deployed connection cannot override its database endpoint');
+    }
     if (vercelEnvironment === 'preview') {
       const host = new URL(scopedUrl).hostname.toLowerCase().replace(/-pooler(?=\.)/, '');
       if (host === PRODUCTION_HOST) throw new Error('Database safety check failed: unexpected Neon endpoint; Preview cannot connect to Production');

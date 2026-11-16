@@ -15,17 +15,20 @@ vi.mock('../../api/db.js', async () => {
 });
 import pool from '../../api/db';
 import matches from '../../api/matches';
+import scoring from '../../api/scoring';
 import scoringLock from '../../api/scoring-lock';
 import { mapMatchFromDB } from '../../utils/dbMappers';
 import { scoringFixture } from './scoringFixtures';
 import { createEmptyInning } from '../../utils/inningTemplate';
+import { calculateLeagueStandings } from '../../utils/leagueStandings';
 
 const owner = '11111111-1111-4111-8111-111111111111';
-const request = async (handler: any, body: any, role: 'admin' | 'umpire' = 'umpire', method = 'PUT', token = owner) => {
+const request = async (handler: any, body: any, role: 'admin' | 'umpire' | null = 'umpire', method = 'PUT', token = owner) => {
+  if (handler === matches && body.command) { handler = scoring; method = 'POST'; body = { protocol: 1, ...body }; }
   const response: any = { statusCode: 200 };
   response.status = (status: number) => { response.statusCode = status; return response; };
   response.json = (data: unknown) => { response.body = JSON.parse(JSON.stringify(data)); return response; };
-  await handler({ method, body, query: {}, headers: { authorization: `Bearer ${signSessionToken(role)}`, 'x-scoring-token': token } }, response);
+  await handler({ method, body, query: {}, headers: { ...(role ? { authorization: `Bearer ${signSessionToken(role)}` } : {}), 'x-scoring-token': token } }, response);
   return response;
 };
 const stored = async () => (await pool.query("SELECT * FROM matches WHERE id='journal-test'")).rows[0];
@@ -55,7 +58,7 @@ describe.skipIf(!process.env.DUGOUT_TEST_DATABASE_URL)('Scoring safety on isolat
       [game.id, game.league, game.season, game.homeTeamId, game.awayTeamId, game.date, game.status, JSON.stringify(game.innings)]);
     expect((await request(scoringLock, { matchId: game.id, token: owner, action: 'acquire' }, 'umpire', 'POST')).statusCode).toBe(200);
   });
-  afterEach(() => vi.restoreAllMocks());
+  afterEach(() => { vi.restoreAllMocks(); });
   afterAll(async () => { await pool.end(); vi.unstubAllEnvs(); });
 
   it('applies a pitch and its durable retry receipt in one transaction', async () => {
@@ -68,6 +71,16 @@ describe.skipIf(!process.env.DUGOUT_TEST_DATABASE_URL)('Scoring safety on isolat
     expect((await stored()).revision).toBe('1');
     expect((await pool.query("SELECT key FROM app_settings WHERE key LIKE 'scoring_ack:%'")).rows).toHaveLength(1);
     expect((await stored()).innings[0].home.playerScores[0].pitches[0].points).toBe(0);
+  });
+  it.each([undefined, 0, 2, '1', true])('rejects unsupported protocol %j before changing a game', async protocol => {
+    const before = await snapshot();
+    expect((await request(scoring, { ...command(), protocol }, 'umpire', 'POST')).statusCode).toBe(400);
+    expect(await snapshot()).toBe(before);
+  });
+  it('requires authentication on the versioned scoring endpoint', async () => {
+    const before = await snapshot();
+    expect((await request(scoring, { ...command(), protocol: 1 }, null, 'POST')).statusCode).toBe(401);
+    expect(await snapshot()).toBe(before);
   });
   it('rejects reuse of a receipt ID with different data without another write', async () => {
     const body = command(); expect((await request(matches, body)).statusCode).toBe(200);
@@ -177,6 +190,26 @@ describe.skipIf(!process.env.DUGOUT_TEST_DATABASE_URL)('Scoring safety on isolat
     for (const body of [{ ...game, id: 'bad-final', isComplete: true, status: 'FINAL' }, { ...game, id: 'bad-empty', innings: [] }])
       expect((await request(matches, body, 'umpire', 'POST')).statusCode).toBe(400);
     expect((await pool.query('SELECT id FROM matches')).rows).toHaveLength(1);
+  });
+  it('keeps a legitimate forfeit and its standings intact while scoring and finalizing', async () => {
+    const game = mapMatchFromDB(await stored());
+    game.innings = Array.from({ length: 6 }, (_, i) => createEmptyInning(i + 1, ['h1', 'hsub'], ['a1', 'a2', 'a3']));
+    expect((await request(matches, { ...game, isForfeit: true, is_forfeit: true, forfeitingTeamId: 'home', winningTeamId: 'away' })).statusCode).toBe(200);
+    expect((await request(matches, { ...command(), revision: 1 })).statusCode).toBe(200);
+    expect((await request(matches, { ...mapMatchFromDB(await stored()), isComplete: true, status: 'FINAL' })).statusCode).toBe(200);
+    const saved = mapMatchFromDB(await stored());
+    expect(saved.isForfeit).toBe(true); expect(saved.winningTeamId).toBe('away');
+    const fixture = scoringFixture();
+    const standings = calculateLeagueStandings([saved], [fixture.home, fixture.away], 'QC');
+    expect(standings.find(t => t.id === 'away')?.w).toBe(1);
+    expect(standings.find(t => t.id === 'home')?.l).toBe(1);
+  });
+  it('rejects an invalid forfeit outcome without changing the saved game', async () => {
+    const game = mapMatchFromDB(await stored()), before = await snapshot();
+    for (const fields of [{ forfeitingTeamId: 'foreign', winningTeamId: 'away' }, { forfeitingTeamId: 'home', winningTeamId: 'home' }]) {
+      expect((await request(matches, { ...game, isForfeit: true, is_forfeit: true, ...fields })).statusCode).toBe(400);
+      expect(await snapshot()).toBe(before);
+    }
   });
   it('rolls back the pitch when saving its retry receipt fails', async () => {
     // A failure injected into the disposable fixture schema exercises a real

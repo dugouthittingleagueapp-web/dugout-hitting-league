@@ -28,6 +28,10 @@ export const stableJson = (value: unknown): string => {
 export const scoringState = (match: Match) => ({
   id: match.id, homeTeamId: match.homeTeamId, awayTeamId: match.awayTeamId,
   innings: match.innings, tieBreaker: match.tieBreaker || [],
+  isComplete: match.isComplete, status: match.isComplete ? 'FINAL' : match.status || 'SCHEDULED',
+  isPractice: match.isPractice === true || match.is_practice === true,
+  isForfeit: match.isForfeit === true || match.is_forfeit === true,
+  forfeitingTeamId: match.forfeitingTeamId || match.forfeiting_team_id || null,
 });
 export const sameScores = (a: Match, b: Match): boolean => stableJson(scoringState(a)) === stableJson(scoringState(b));
 

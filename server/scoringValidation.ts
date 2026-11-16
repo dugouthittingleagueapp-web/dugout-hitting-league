@@ -49,6 +49,15 @@ export const validateScoringFlags = (body: Record<string, unknown>): void => {
   if (body.isComplete !== undefined && typeof body.isComplete !== 'boolean') invalid();
 };
 
+export const validatedForfeitWinner = (flag: boolean, forfeiter: unknown, winner: unknown, homeId: string, awayId: string): string | null => {
+  if (winner !== null && winner !== undefined && winner !== homeId && winner !== awayId) invalid('The winning team must belong to this game. No changes were saved.');
+  if (!flag) return null;
+  if (forfeiter !== homeId && forfeiter !== awayId) invalid('Choose the forfeiting team from this game. No changes were saved.');
+  const expected = forfeiter === homeId ? awayId : homeId;
+  if (winner !== null && winner !== undefined && winner !== expected) invalid('The forfeit result does not match these teams. No changes were saved.');
+  return expected;
+};
+
 const same = (a: unknown, b: unknown) => stableJson(a) === stableJson(b);
 /** Legacy full snapshots may add scores, but cannot alter/delete existing results. */
 export const assertSafeSnapshotTransition = (before: Match, after: Match, intent: unknown, role: 'admin' | 'umpire'): void => {

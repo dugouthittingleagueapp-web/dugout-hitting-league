@@ -6,7 +6,7 @@ import { requireRole, getAuthFromRequest } from './auth.js';
 import { withActiveSeason, ScheduleError } from '../server/scheduleTransaction.js';
 import { mapMatchFromDB, mapTeamFromDB } from '../utils/dbMappers.js';
 import { applyPitchCommand, validatePitchCommand, stableJson, ScoringProtocolError } from '../utils/scoringProtocol.js';
-import { validateScoreState, validateScoringFlags, assertSafeSnapshotTransition } from '../server/scoringValidation.js';
+import { validateScoreState, validateScoringFlags, validatedForfeitWinner, assertSafeSnapshotTransition } from '../server/scoringValidation.js';
 
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -225,7 +225,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           matchIsForfeit,
           forfeitTeamId,
           forfeitNote,
-          winningId
+          validatedForfeitWinner(matchIsForfeit, forfeitTeamId, winningId, homeTeamId, awayTeamId)
         ];
 
         const { rows } = await client.query(query, values);
@@ -415,6 +415,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const home = rosterRows.rows.find(t => t.id === next.homeTeamId), away = rosterRows.rows.find(t => t.id === next.awayTeamId);
         if (!home || !away || home.id === away.id) throw new ScoringProtocolError('INVALID_SCORING_STATE', 'Both teams must be available. No changes were saved.');
         validateScoreState(next, mapTeamFromDB(home), mapTeamFromDB(away));
+        const effectiveForfeit = forfeitFlag ?? current.isForfeit ?? false;
+        const effectiveForfeiter = forfeitTeamId ?? current.forfeitingTeamId;
+        values[17] = validatedForfeitWinner(effectiveForfeit, effectiveForfeiter, winningId ?? current.winningTeamId, next.homeTeamId, next.awayTeamId);
+        if (effectiveForfeit) values[15] = effectiveForfeiter;
         if (!command) assertSafeSnapshotTransition(current, next, req.body.intent, role);
         values[2] = next.isComplete;
         values[3] = JSON.stringify(next.innings);

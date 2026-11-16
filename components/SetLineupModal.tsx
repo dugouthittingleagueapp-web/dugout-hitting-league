@@ -249,7 +249,7 @@ export const SetLineupModal: React.FC<SetLineupModalProps> = ({
         forfeit_reason: forfeitEval.reason,
         status: andStartScoring ? 'IN_PROGRESS' : updatedMatch.status
       };
-      const savedMatch = await storage.updateMatch(updatedMatch, { requireServerSave: true });
+      const savedMatch = await storage.updateMatch(updatedMatch, { requireServerSave: true, baseMatch: workingMatch });
       await onSave(savedMatch, andStartScoring);
       onClose();
     } catch (err: any) {

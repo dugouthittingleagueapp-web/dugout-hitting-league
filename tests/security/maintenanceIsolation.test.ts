@@ -3,8 +3,8 @@ import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { selectDatabaseConnectionString } from '../../server/databaseConnection';
 
 describe('No deployed maintenance bypass', () => {
-  it('pins the scoring release Preview to its own isolated database endpoint', () => {
-    const config = { VERCEL_ENV: 'preview', VERCEL_GIT_COMMIT_REF: 'release/scoring-safety-nov16' };
+  it.each(['release/scoring-safety-nov16', 'fix/game-day-reliability'])('pins %s to the isolated scoring testing database endpoint', branch => {
+    const config = { VERCEL_ENV: 'preview', VERCEL_GIT_COMMIT_REF: branch };
     const url = 'postgres://synthetic:synthetic@ep-holy-scene-a40t91vm-pooler.us-east-1.aws.neon.tech/neondb';
     expect(selectDatabaseConnectionString({ ...config, Database_url: url })).toBe(url);
     expect(() => selectDatabaseConnectionString({ ...config, Database_url: url.replace('holy-scene-a40t91vm', 'bold-term-a4y8a4nu') })).toThrow(/unexpected Neon endpoint/);

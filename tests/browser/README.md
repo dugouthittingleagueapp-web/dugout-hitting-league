@@ -33,8 +33,50 @@ selection does not affect active Schedule; new league creation; team rename;
 invalid edit rejected; notes/cage survive save/reopen; repeated import after rename
 creates no copy; remove cancel/confirm; refresh; mobile file upload and editable
 controls; updated league and team names visible from the league dashboard.
+The workflow also checks conflicts within a CSV, the same team in different
+tunnels, bookings in another saved league, disabled Import on conflicts, and
+rejection of a conflicting edit followed by a successful correction.
 
 For real PostgreSQL API/transaction regressions, set `DUGOUT_TEST_DATABASE_URL` to
 another disposable localhost database named `dugout_test_*` and run `npm test`.
 Those tests create their own schema and never read `DATABASE_URL`. GitHub CI
 provides its own PostgreSQL service and runs these tests on every PR build.
+
+## Critical scoring fault regression
+
+Create a separate localhost database named `dugout_test_scoring_browser`, then:
+
+```sh
+export DUGOUT_BROWSER_DATABASE_URL=postgres://dugout_test@127.0.0.1:55432/dugout_test_scoring_browser
+node tests/browser/scoringSafetySetup.mjs
+npx vite --config tests/browser/vite.config.ts
+```
+
+The same local CSS prerequisite applies. This test server selects port **3400**.
+In a second terminal run `python3 -u tests/browser/scoringSafetyWorkflow.py`.
+Fixture creation adds fresh synthetic games; it does not delete existing records.
+Never expose the local test-session route or run this server as a deployment.
+
+Coverage: real UI/API/database behavior under hanging requests, lost responses,
+unavailable storage, offline refresh, missing tab token, stale profile reads,
+copied tabs, all 5/3/1 extra rounds, mobile 15th pitch, failed finalization and a
+finished umpire game with a retained recovery copy. The unit/PostgreSQL suite
+additionally covers malformed requests, rollback, substitutions, undo and forfeits.
+Playwright may log route-cancellation warnings when navigation deliberately
+interrupts a held request; application page errors are collected separately and
+fail the workflow.
+
+## Scheduled-game entry regression
+
+With the same localhost scoring database and port 3400 test server running:
+
+```sh
+node tests/browser/lineupStartSetup.mjs
+python3 -u tests/browser/lineupStartWorkflow.py
+```
+
+The setup adds fresh synthetic scheduled games. The workflow uses an umpire
+session to change batting order and Save & Start, records a pitch, tests direct
+Start Game, verifies genuine other-device ownership is respected, confirms a
+failed start stays on the dashboard, and checks Save Lineup alone does not
+reserve scoring access. No Neon URL or real game is used.

@@ -1,5 +1,7 @@
 import type { Match, Team } from '../types';
 import { mapMatchFromDB } from '../utils/dbMappers';
+import { hasJournalPending } from './scoringJournal';
+import { sameScores } from '../utils/scoringProtocol';
 
 // Browser-only pending writes and save warnings. These keys stay unchanged
 // so a deployment cannot make existing offline scores inaccessible.
@@ -19,7 +21,7 @@ export const publishScoringSaveState = (matchId: string, state: ScoringSaveState
 export const hasPendingMatchSync = (matchId: string): boolean => {
   try {
     const pending = JSON.parse(localStorage.getItem(PENDING_MATCHES_KEY) || '{}');
-    return Object.prototype.hasOwnProperty.call(pending, matchId);
+    return Object.prototype.hasOwnProperty.call(pending, matchId) || hasJournalPending(matchId);
   } catch { return false; }
 };
 
@@ -29,7 +31,7 @@ export const hasPendingMatchSync = (matchId: string): boolean => {
 export const containsEarlierScores = (earlier: Match, later: Match): boolean => {
   if (earlier.id !== later.id || earlier.homeTeamId !== later.homeTeamId ||
       earlier.awayTeamId !== later.awayTeamId) return false;
-  return (earlier.innings || []).every((inning, inningIndex) => {
+  const regulation = (earlier.innings || []).every((inning, inningIndex) => {
     const next = later.innings?.[inningIndex];
     if (!next || inning.number !== next.number) return false;
     return (['home', 'away'] as const).every(side => {
@@ -43,6 +45,11 @@ export const containsEarlierScores = (earlier: Match, later: Match): boolean => 
           pitch.points === null || newPlayer.pitches[index]?.points === pitch.points);
       });
     });
+  });
+  return regulation && (earlier.tieBreaker || []).every(round => {
+    const next = later.tieBreaker?.find(r => r.roundNumber === round.roundNumber);
+    return !!next && next.pitchLimit === round.pitchLimit && next.homePlayerId === round.homePlayerId && next.awayPlayerId === round.awayPlayerId &&
+      (['homeScores', 'awayScores'] as const).every(side => round[side].every((v, i) => v === null || next[side][i] === v));
   });
 };
 export const getScoringSyncWarning = (id: string): string | null => {
@@ -66,6 +73,7 @@ export const clearScoringSyncWarning = (id: string) => {
     delete items[id];
     localStorage.setItem(SYNC_CONFLICTS_KEY, JSON.stringify(items));
   } catch {}
+  if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('dugout:scoring-sync-warning', { detail: { matchId: id, message: null } }));
 };
 
 export const enqueuePendingMatchSync = (match: Match) => {
@@ -74,8 +82,10 @@ export const enqueuePendingMatchSync = (match: Match) => {
     const raw = localStorage.getItem(PENDING_MATCHES_KEY);
     const map: Record<string, Match> = raw ? JSON.parse(raw) : {};
     map[match.id] = match;
-    localStorage.setItem(PENDING_MATCHES_KEY, JSON.stringify(map));
-  } catch (e) {}
+    const encoded = JSON.stringify(map);
+    localStorage.setItem(PENDING_MATCHES_KEY, encoded);
+    if (localStorage.getItem(PENDING_MATCHES_KEY) !== encoded) throw new Error('Backup verification failed');
+  } catch { throw new Error('The device storage could not save a recovery copy. Keep this page open and ask for help.'); }
 };
 
 export const dequeuePendingMatchSync = (matchId: string) => {
@@ -194,14 +204,20 @@ export const createOfflineSynchronizer = (dependencies: OfflineSyncDependencies)
               });
               if (res.ok) {
                 const saved = recordRevision(mapMatchFromDB(await res.json()));
+                if (!sameScores(match, saved) || saved.revision !== (match.revision ?? -2) + 1) {
+                  markScoringSyncWarning(matchId, 'The app could not confirm these saved pitches. Your recovery copy stays on this device. Ask the person running the league for help.');
+                  return;
+                }
                 const current: Record<string, Match> = JSON.parse(localStorage.getItem(PENDING_MATCHES_KEY) || '{}');
                 if (JSON.stringify(current[matchId]) === JSON.stringify(match)) {
                   delete current[matchId];
                   if (Object.keys(current).length) localStorage.setItem(PENDING_MATCHES_KEY, JSON.stringify(current));
                   else localStorage.removeItem(PENDING_MATCHES_KEY);
                   localStorage.setItem(`dugout_match_${matchId}`, JSON.stringify(saved));
-                  clearScoringSyncWarning(matchId);
-                  publishScoringSaveState(matchId, 'saved');
+                  if (!hasJournalPending(matchId)) {
+                    clearScoringSyncWarning(matchId);
+                    publishScoringSaveState(matchId, 'saved');
+                  }
                 } else {
                   // Another snapshot replaced this one during the request.
                   // Never overwrite the local cache or erase unsent pitches.

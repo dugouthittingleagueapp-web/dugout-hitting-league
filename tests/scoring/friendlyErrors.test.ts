@@ -56,6 +56,12 @@ describe('Calm, easy-to-follow umpire messages', () => {
     expect(message).toContain('not confirmed');
     simpleWords(message);
   });
+  it('does not invent another umpire when scoring access has not been acquired', () => {
+    const message = explainSaveError(new Error('HTTP 423: Scoring is not ready yet. Reopen the game to secure scoring access.'), 'lineup');
+    expect(message).toContain('Scoring access is not ready');
+    expect(message).not.toContain('Another umpire');
+    simpleWords(message);
+  });
   it('does not expose raw errors in the scoreboard banner', () => {
     for (const raw of ['HTTP 409: Another device changed this pitch', 'HTTP 500: database failure', 'Offline pitch backup is unreadable']) {
       const message = explainPitchSyncIssue(raw);

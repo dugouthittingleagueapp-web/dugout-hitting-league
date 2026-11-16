@@ -12,7 +12,7 @@ describe('Deployed server module loading', () => {
     mkdirSync('work', { recursive: true });
     const outDir = mkdtempSync(path.resolve('work/server-esm-'));
     try {
-      const roots = ['api/leagues.ts', 'api/teams.ts', 'api/matches.ts', 'api/schedule-admin.ts'];
+      const roots = ['api/leagues.ts', 'api/teams.ts', 'api/matches.ts', 'api/scoring.ts', 'api/schedule-admin.ts'];
       const program = ts.createProgram(roots, {
         target: ts.ScriptTarget.ES2020, module: ts.ModuleKind.ESNext,
         moduleResolution: ts.ModuleResolutionKind.Bundler, esModuleInterop: true,

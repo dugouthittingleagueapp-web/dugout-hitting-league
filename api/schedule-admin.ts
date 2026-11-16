@@ -5,6 +5,8 @@ import { withActiveSeason, ScheduleError, assertScheduleGamesUnlocked } from '..
 import { planScheduleImport, executeScheduleImport, importReceiptKey, previousImport } from '../server/scheduleImport.js';
 import pool from './db.js';
 import { createEmptyInning } from '../utils/inningTemplate.js';
+import { readScheduleBookings } from '../server/scheduleBookings.js';
+import { findScheduleConflicts } from '../utils/scheduleConflicts.js';
 
 // Admin-only calendar maintenance. Do not route this through the normal scoring
 // PUT endpoint: a schedule correction must not rewrite inning/pitch histories.
@@ -98,12 +100,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         throw new ScheduleError(400, validationError);
       }
       const teams = await client.query(
-        'SELECT id FROM teams WHERE id = ANY($1::text[]) AND season = $2 AND LOWER(TRIM(league)) = LOWER(TRIM($3))',
+        'SELECT id, name FROM teams WHERE id = ANY($1::text[]) AND season = $2 AND LOWER(TRIM(league)) = LOWER(TRIM($3))',
         [[homeTeamId, awayTeamId], season, game.league]
       );
       if (teams.rows.length !== 2) {
         throw new ScheduleError(400, 'Both teams must belong to this league and season.');
       }
+      const bookings = await readScheduleBookings(client, season);
+      const byName = new Map(teams.rows.map(row => [row.id, row.name]));
+      const conflicts = findScheduleConflicts({ id, league: game.league, date, startTime, endTime, location,
+        homeTeamId, awayTeamId, homeTeamName: byName.get(homeTeamId), awayTeamName: byName.get(awayTeamId) }, bookings);
+      if (conflicts.length) throw new ScheduleError(409, 'This change would create a schedule conflict. No changes were saved.', conflicts);
       // Keep the inning template consistent with the selected players. Never carry
       // inning player IDs from a previous matchup into a newly assigned team.
       const oldTeams = await client.query('SELECT home_team_id, away_team_id FROM matches WHERE id = $1', [id]);

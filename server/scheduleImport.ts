@@ -5,6 +5,8 @@ import { parseScheduleCsv, isDuplicateMatch } from '../utils/scheduleImporter.js
 import { normalizeLeague } from '../utils/leagueNames.js';
 import { createEmptyInning } from '../utils/inningTemplate.js';
 import { ScheduleError } from './scheduleTransaction.js';
+import { readScheduleBookings } from './scheduleBookings.js';
+import { findScheduleConflicts } from '../utils/scheduleConflicts.js';
 
 export interface ImportPlan extends ScheduleImportPreview {
   leaguesToCreate: League[];
@@ -35,9 +37,8 @@ export const planScheduleImport = async (client: PoolClient, season: string, csv
 
   const leagues: League[] = (await client.query('SELECT id, season FROM leagues WHERE season = $1', [season])).rows;
   const teams: Team[] = (await client.query('SELECT id, name, league, season, players, subs FROM teams WHERE season = $1', [season])).rows;
-  const matches: Match[] = (await client.query(
-    'SELECT id, league, season, home_team_id AS "homeTeamId", away_team_id AS "awayTeamId", date, is_practice FROM matches WHERE season = $1 AND (is_practice IS FALSE OR is_practice IS NULL)', [season]
-  )).rows.map(row => ({ ...row, date: row.date instanceof Date ? row.date.toISOString() : String(row.date) }));
+  const matches = await readScheduleBookings(client, season);
+  const conflicts: string[] = [];
   const plan: ImportPlan = {
     games: [], leaguesToCreate: [], teamsToCreate: [], matchesToCreate: [],
     summary: { totalRows: parsed.games.length, createdMatches: 0, skippedDuplicates: 0, createdLeagues: [], createdTeams: [], errors: [] }
@@ -90,10 +91,14 @@ export const planScheduleImport = async (client: PoolClient, season: string, csv
       location: game.location, notes: game.notes, status: 'SCHEDULED', isComplete: false, is_practice: false,
       innings: Array.from({ length: 6 }, (_, i) => createEmptyInning(i + 1, homeIds, awayIds))
     };
-    matches.push(match);
+    const booking = { ...match, csvRow: source.csvRow, homeTeamName: home.name, awayTeamName: away.name };
+    conflicts.push(...findScheduleConflicts(booking, matches));
+    if (conflicts.length >= 50) break;
+    matches.push(booking);
     plan.matchesToCreate.push(match);
     plan.summary.createdMatches++;
   }
+  if (conflicts.length) throw new ScheduleError(409, 'Schedule conflicts found. No games were imported. Fix the games below and try again.', conflicts.slice(0, 50));
   return plan;
 };
 

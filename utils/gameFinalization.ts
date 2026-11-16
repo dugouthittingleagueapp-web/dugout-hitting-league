@@ -52,22 +52,34 @@ export const createNextTieBreakerRound = (
   };
 };
 
-/** A tied display is insufficient: every prior pitch must be recorded. */
-export const canAdvanceExtraRound = (match: Match): boolean => {
-  const scored = (n: unknown): n is number => typeof n === 'number' && Number.isInteger(n) && n >= 0 && n <= 4;
-  if (match.isComplete || match.status === 'FINAL' || match.isForfeit || match.is_forfeit || !match.innings.length) return false;
-  if (!match.innings.every(i => (['home', 'away'] as const).every(side =>
-    i[side].playerScores.length > 0 && i[side].playerScores.every(p => p.pitches.length > 0 && p.pitches.every(v => scored(v.points)))))) return false;
+/** Completion is checked across the whole game, not just the last cell. */
+export const areRegulationPitchesRecorded = (match: Match): boolean =>
+  match.innings.length > 0 && match.innings.every(i => (['home', 'away'] as const).every(side =>
+    i[side].playerScores.length > 0 && i[side].playerScores.every(p => p.pitches.length > 0 &&
+      p.pitches.every(v => typeof v.points === 'number' && Number.isInteger(v.points) && v.points >= 0 && v.points <= 4))));
+
+/** Explain a blocked action instead of leaving an apparently active button. */
+export const getExtraRoundBlockReason = (match: Match): string | null => {
+  if (match.isComplete || match.status === 'FINAL') return 'This game is finished. Return to scoring to view its result.';
+  if (match.isForfeit || match.is_forfeit) return 'This game is marked as a forfeit. Return to scoring to review the lineup and result.';
+  if (!areRegulationPitchesRecorded(match)) return 'Record the remaining regulation pitches before starting extras. Use Back to scoring to finish them.';
   const regulation = getMatchScores({ ...match, tieBreaker: [] });
-  if (regulation.home !== regulation.away) return false;
-  return (match.tieBreaker || []).every(round =>
-    round.homeScores.length === round.pitchLimit && round.awayScores.length === round.pitchLimit &&
-    [...round.homeScores, ...round.awayScores].every(scored) &&
-    round.homeScores.reduce<number>((sum, n) => sum + (n ?? 0), 0) === round.awayScores.reduce<number>((sum, n) => sum + (n ?? 0), 0));
+  if (regulation.home !== regulation.away) return 'The score must be tied before starting extras.';
+  for (const round of match.tieBreaker || []) {
+    if (round.homeScores.length !== round.pitchLimit || round.awayScores.length !== round.pitchLimit ||
+        [...round.homeScores, ...round.awayScores].some(n => typeof n !== 'number' || !Number.isInteger(n) || n < 0 || n > 4))
+      return 'Record every pitch in the current extra round before starting another.';
+    if (round.homeScores.reduce<number>((sum, n) => sum + (n ?? 0), 0) !== round.awayScores.reduce<number>((sum, n) => sum + (n ?? 0), 0))
+      return 'The extra round must end in a tie before starting another.';
+  }
+  return null;
 };
+
+/** A tied display is insufficient: every prior pitch must be recorded. */
+export const canAdvanceExtraRound = (match: Match): boolean => getExtraRoundBlockReason(match) === null;
 
 /** Copy just the tie-breaker rounds that change, never mutate earlier results. */
 export const appendTieBreakerRound = (match: Match, round: TieBreakerRound): Match => {
-  if (!canAdvanceExtraRound(match)) throw new Error('Finish recording every pitch in the tied round before starting another round.');
+  if (!canAdvanceExtraRound(match)) throw new Error(getExtraRoundBlockReason(match)!);
   return { ...match, tieBreaker: [...(match.tieBreaker || []), round], isComplete: false, status: 'IN_PROGRESS' };
 };

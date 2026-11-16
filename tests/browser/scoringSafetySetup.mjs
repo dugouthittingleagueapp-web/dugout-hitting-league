@@ -18,7 +18,7 @@ const home = { id: randomUUID(), name: 'Home Test', players: ['Alpha', 'Bravo', 
 const away = { id: randomUUID(), name: 'Away Test', players: ['Delta', 'Echo', 'Foxtrot'].map(name => ({ id: randomUUID(), name })), subs: [] };
 for (const t of [home, away]) await db.query('INSERT INTO teams(id,name,league,season,players,subs) VALUES($1,$2,$3,$4,$5,$6)', [t.id, t.name, league, '2026', JSON.stringify(t.players), JSON.stringify(t.subs)]);
 const ids = {};
-for (const scenario of ['hanging', 'lost-response', 'storage', 'stale-profile', 'duplicate-tabs', 'extras-five', 'extras-three', 'extras-one', 'finalize', 'two-player', 'substitution']) {
+for (const scenario of ['hanging', 'lost-response', 'storage', 'stale-profile', 'duplicate-tabs', 'extras-five', 'extras-three', 'extras-one', 'finalize', 'two-player', 'substitution', 'initial-extras', 'incomplete-extras']) {
   const id = randomUUID(); ids[scenario] = id;
   const hc = scenario === 'two-player' ? 2 : 3;
   const innings = Array.from({ length: 6 }, (_, i) => ({ number: i + 1,
@@ -26,9 +26,10 @@ for (const scenario of ['hanging', 'lost-response', 'storage', 'stale-profile', 
     away: { teamId: 'away', playerScores: away.players.map(p => ({ playerId: p.id, pitches: Array.from({ length: 10 }, () => ({ points: null })) })) },
   }));
   let extras = null;
-  if (scenario.startsWith('extras-') || scenario === 'finalize') {
+  if (scenario.startsWith('extras-') || scenario === 'finalize' || scenario === 'initial-extras') {
     for (const i of innings) for (const side of ['home', 'away']) for (const p of i[side].playerScores) for (const pitch of p.pitches) pitch.points = 0;
-    if (scenario === 'finalize') { innings[0].away.playerScores[0].pitches[0].points = 1; innings[5].home.playerScores[2].pitches[9].points = null; }
+    if (scenario === 'initial-extras') { innings[5].home.playerScores[2].pitches[9].points = null; }
+    else if (scenario === 'finalize') { innings[0].away.playerScores[0].pitches[0].points = 1; innings[5].home.playerScores[2].pitches[9].points = null; }
     else {
       const rounds = scenario === 'extras-five' ? 1 : scenario === 'extras-three' ? 2 : 3;
       extras = [5, 3, 1].slice(0, rounds).map((n, index) => ({ roundNumber: index + 1, pitchLimit: n, homePlayerId: home.players[0].id, awayPlayerId: away.players[0].id,

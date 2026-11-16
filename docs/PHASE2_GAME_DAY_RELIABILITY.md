@@ -39,3 +39,11 @@ Verification did not rely on compilation alone. Chromium fault-suite teardown em
 - Repeated automatic network retries were not added. Manual retry is still sometimes necessary.
 - Browser tests use Chromium and a mobile viewport with synthetic test sessions. Physical umpire devices and real password entry require a later Preview smoke test.
 - No deployment has been made for this phase. After review, approve a separate isolated Preview deployment and test extra-round progression, retry and admin correction on actual devices before considering Production.
+
+## Initial Extras popup follow-up
+
+The initial setup popup could be opened by scoring the last regulation cell even when earlier pitches were blank. Its safety-disabled Start Extras button still looked orange, it had no reason or return action, and portal text/selects lacked explicit dark-mode colors. The earlier online checks covered advancing existing extra rounds but missed this initial-popup path.
+
+The automatic prompt now requires recorded pitches across all regulation innings. Explicit early Extras explains the block, styles its disabled button clearly, and offers Back to scoring. The popup has labelled selectors, explicit high-contrast light/dark colors, busy feedback and visible save errors. The exit wording correctly describes the existing 5/3/1 formats. Scoring protections are preserved.
+
+The new browser regression checks an incomplete game, returning to scoring, text/select contrast of at least 4.5:1, and first-round creation after a held final-pitch save, including both chosen batters and preservation of all regulation scores. The complete local suite now passes 379 tests, TypeScript and the build. This follow-up is Preview-only.

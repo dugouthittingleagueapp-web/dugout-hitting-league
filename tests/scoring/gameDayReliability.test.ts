@@ -1,5 +1,5 @@
 import {afterEach,beforeEach,describe,expect,it,vi} from 'vitest';
-import {appendTieBreakerRound,createNextTieBreakerRound} from '../../utils/gameFinalization';
+import {appendTieBreakerRound,createNextTieBreakerRound,areRegulationPitchesRecorded,getExtraRoundBlockReason} from '../../utils/gameFinalization';
 import {scoringFixture,memoryScoringStorage} from './scoringFixtures';
 import {retrySavedScoring,getScoringSyncWarning} from '../../services/storageService';
 import {markScoringSyncWarning} from '../../services/offlineSync';
@@ -11,12 +11,12 @@ describe('Game-day reliability',()=>{
  beforeEach(()=>{vi.stubGlobal('localStorage',memoryScoringStorage());vi.stubGlobal('sessionStorage',memoryScoringStorage());vi.stubGlobal('navigator',{onLine:true});vi.stubGlobal('window',{dispatchEvent:vi.fn(),addEventListener:vi.fn()});});
  afterEach(()=>{vi.restoreAllMocks();vi.unstubAllGlobals();});
  it('rejects starting extras while regulation pitches are missing even at 0-0',()=>{
-  const g=scoringFixture().game;expect(()=>appendTieBreakerRound(g,createNextTieBreakerRound([], 'h1','a1'))).toThrow(/recording|complete/i);
+  const g=scoringFixture().game;expect(()=>appendTieBreakerRound(g,createNextTieBreakerRound([], 'h1','a1'))).toThrow(/record|complete/i);
  });
  it.each([5,3,1])('rejects advancing an incomplete %i-pitch round despite tied totals',limit=>{
   const g=complete();g.tieBreaker=[5,3,1].slice(0,limit===5?1:limit===3?2:3).map((n,i)=>({roundNumber:i+1,pitchLimit:n,homePlayerId:'h1',awayPlayerId:'a1',homeScores:Array(n).fill(0),awayScores:Array(n).fill(0)}));
   g.tieBreaker[g.tieBreaker.length-1].homeScores[0]=null;
-  expect(()=>appendTieBreakerRound(g,createNextTieBreakerRound(g.tieBreaker,'h1','a1'))).toThrow(/recording|complete/i);
+  expect(()=>appendTieBreakerRound(g,createNextTieBreakerRound(g.tieBreaker,'h1','a1'))).toThrow(/record|complete/i);
  });
  it('rejects advancing a completed winning round or finished game',()=>{
   const g=complete();g.innings[0].home.playerScores[0].pitches[0].points=1;
@@ -70,6 +70,16 @@ describe('Game-day reliability',()=>{
   }));
   await retrySavedScoring(g.id);expect(calls).toEqual(['/api/scoring-lock','/api/matches']);
   expect(localStorage.getItem('dugout_pending_sync_matches')).toBeNull();expect(getScoringSyncWarning(g.id)).toBeNull();
+ });
+
+ it('explains incomplete and forfeited games and enables extras only after the final recorded tied pitch',()=>{
+  const g=complete();g.innings[5].home.playerScores[2].pitches[9].points=null;
+  expect(areRegulationPitchesRecorded(g)).toBe(false);
+  expect(getExtraRoundBlockReason(g)).toMatch(/remaining regulation pitches/);
+  g.innings[5].home.playerScores[2].pitches[9].points=0;
+  expect(areRegulationPitchesRecorded(g)).toBe(true);expect(getExtraRoundBlockReason(g)).toBeNull();
+  expect(getExtraRoundBlockReason({...g,isForfeit:true})).toMatch(/forfeit/);
+  expect(getExtraRoundBlockReason({...g,isComplete:true,status:'FINAL'})).toMatch(/finished/);
  });
 
 });

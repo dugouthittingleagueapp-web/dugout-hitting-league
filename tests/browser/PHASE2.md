@@ -15,6 +15,7 @@ In a second terminal at the repository root with the same `DUGOUT_BROWSER_DATABA
 
 ```sh
 python3 -u tests/browser/gameDayReliabilityWorkflow.py
+python3 -u tests/browser/startExtrasWorkflow.py
 python3 -u tests/browser/statsEntryWorkflow.py
 # The fault suite needs fresh games after the progression/retry checks.
 node tests/browser/scoringSafetySetup.mjs

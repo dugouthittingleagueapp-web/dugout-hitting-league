@@ -47,3 +47,9 @@ The initial setup popup could be opened by scoring the last regulation cell even
 The automatic prompt now requires recorded pitches across all regulation innings. Explicit early Extras explains the block, styles its disabled button clearly, and offers Back to scoring. The popup has labelled selectors, explicit high-contrast light/dark colors, busy feedback and visible save errors. The exit wording correctly describes the existing 5/3/1 formats. Scoring protections are preserved.
 
 The new browser regression checks an incomplete game, returning to scoring, text/select contrast of at least 4.5:1, and first-round creation after a held final-pitch save, including both chosen batters and preservation of all regulation scores. The complete local suite now passes 379 tests, TypeScript and the build. This follow-up is Preview-only.
+
+## Recorded-score tie follow-up
+
+The initial completion flow still depended on entering a new final home pitch. Editing recorded regulation or extra-round scores to a tie did not open setup. Completion prompts now follow the whole before/after score state, including edits and filling the last missing pitch out of order. They never prompt with unrecorded pitches, on finalized games, or on the first of two ordinary corrections that temporarily breaks a tie. Score edits close the editor rather than advancing to another pitch.
+
+A completed tied regulation game also exposes Start Extras after takeover or refresh; returning from setup does not require another score edit. Setup describes the actual next pitch limit. A dedicated browser regression performs admin takeover, edits regulation to 1-1, refreshes/reopens setup, and edits a completed extra round to a tie before advancing to three pitches. Every prior score is checked. Full local validation passes 384 tests plus TypeScript/build and the existing scoring fault/substitution/finalization browser flows. Preview only; no Production changes.

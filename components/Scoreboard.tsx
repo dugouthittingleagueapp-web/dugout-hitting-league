@@ -11,7 +11,7 @@ import { setPitchScore, setTieBreakerPitchScore } from '../utils/scorePatches';
 import { calculateTeamInningTotal, calculateTeamGameTotal as getTeamGameTotal } from '../utils/scoreTotals';
 import { getLiveInningIndex } from '../utils/liveInning';
 import { useScreenWakeLock } from '../hooks/useScreenWakeLock';
-import { prepareFinalizedMatch, getFinalizationDecision, getFinalizationMessage, createNextTieBreakerRound, appendTieBreakerRound, canAdvanceExtraRound, areRegulationPitchesRecorded, getExtraRoundBlockReason } from '../utils/gameFinalization';
+import { prepareFinalizedMatch, getFinalizationDecision, getFinalizationMessage, createNextTieBreakerRound, appendTieBreakerRound, canAdvanceExtraRound, getExtraRoundBlockReason, getScoringCompletionPrompt } from '../utils/gameFinalization';
 import { resolveLineupPlayer } from '../utils/lineupPlayerLookup';
 import { isFinishedScoringLockError } from '../utils/scoringAccess';
 import type { PitchCommand } from '../utils/scoringProtocol';
@@ -357,22 +357,15 @@ const ScoringBoardContent: React.FC<ScoreboardProps & { saveState?: storage.Scor
     }
     setMatch(newMatch); 
     
-    // Automated Completion Flow Check
     const totalPitches = teamData.playerScores[lineupIdx].pitches.length;
-    const isLastPitchOfRegulation = targetInningIdx === 5 && side === 'home' && lineupIdx === teamData.playerScores.length - 1 && pitchIdx === totalPitches - 1;
-
-    if (isLastPitchOfRegulation && !isEdit && areRegulationPitchesRecorded(newMatch)) {
-        const hT = calculateTeamGameTotal('home', newMatch);
-        const aT = calculateTeamGameTotal('away', newMatch);
-        if (hT === aT) {
-            setTimeout(() => setShowTieBreakerSetup(true), 500);
-        } else {
-            setTimeout(() => setShowFinishModal(true), 500);
-        }
+    const completionPrompt = getScoringCompletionPrompt(match, newMatch);
+    if (completionPrompt) {
+        setShowTieBreakerSetup(completionPrompt === 'extras');
+        setShowFinishModal(completionPrompt === 'finish');
         setActiveCell(null);
     } else {
         let nextCell: { side: 'home' | 'away'; lineupIdx: number; pitchIdx: number; roundIdx?: number } | null = null;
-        if (activeCell) {
+        if (activeCell && !isEdit) {
             if (pitchIdx < totalPitches - 1) {
                 // Batter still has pitches left in their at-bat: auto-advance to next pitch
                 nextCell = { side, lineupIdx, pitchIdx: pitchIdx + 1 };
@@ -442,14 +435,10 @@ const ScoringBoardContent: React.FC<ScoreboardProps & { saveState?: storage.Scor
       }
       setMatch(newMatch);
       
-      // Auto-Completion for tie breakers
-      const isFinalPitchOfRound = side === 'home' && pitchIdx === limit - 1;
-      if (isFinalPitchOfRound && !isEdit) {
-          const hT = calculateTeamGameTotal('home', newMatch);
-          const aT = calculateTeamGameTotal('away', newMatch);
-          if (hT !== aT) {
-              setTimeout(() => setShowFinishModal(true), 500);
-          }
+      const completionPrompt = getScoringCompletionPrompt(match, newMatch);
+      if (completionPrompt) {
+          setShowTieBreakerSetup(completionPrompt === 'extras');
+          setShowFinishModal(completionPrompt === 'finish');
           setActiveCell(null);
       } else {
           let next = null;
@@ -774,6 +763,12 @@ const ScoringBoardContent: React.FC<ScoreboardProps & { saveState?: storage.Scor
           </div>
         )}
         {!isReadOnly && (saveState === 'offline' || saveState === 'attention') && <div className="px-4 py-2"><ScoringRecovery matchId={matchId} /></div>}
+        {!isReadOnly && userRole !== 'fan' && !match.tieBreaker?.length && canAdvanceExtraRound(match) && (
+          <div className="flex items-center justify-between gap-3 border-b border-amber-300 bg-amber-50 px-4 py-2 text-sm text-amber-950 dark:border-amber-700 dark:bg-amber-950 dark:text-amber-100">
+            <span>Regulation is complete and tied.</span>
+            <button type="button" onClick={() => { setExtraRoundError(null); setShowTieBreakerSetup(true); }} className="shrink-0 rounded-lg bg-amber-700 px-3 py-2 font-bold text-white hover:bg-amber-800">Start Extras</button>
+          </div>
+        )}
         <div className="max-w-7xl mx-auto px-4 py-3 flex justify-between items-center gap-4">
           <div className="flex gap-8 items-center flex-1 min-w-0">
             <div className="text-center flex-1 min-w-0"><div className="text-[10px] uppercase font-bold text-slate-500">Away</div><div className="text-xl font-bold text-blue-700 truncate">{teams.away.name}</div><div className="text-2xl font-sans tabular-nums font-bold dark:text-white">{awayTotal}</div></div>
@@ -1000,7 +995,7 @@ const ScoringBoardContent: React.FC<ScoreboardProps & { saveState?: storage.Scor
           <div className="fixed inset-0 z-[70] flex items-center justify-center bg-slate-950/90 p-4">
               <div role="dialog" aria-modal="true" aria-labelledby="extras-setup-title" aria-describedby="extras-setup-help" className="w-full max-w-md rounded-2xl border border-slate-300 bg-white p-6 text-slate-900 shadow-2xl dark:border-slate-500 dark:bg-slate-900 dark:text-slate-100">
                   <h2 id="extras-setup-title" className="text-2xl font-bold mb-3 text-center text-slate-900 dark:text-white">Tie Breaker Setup</h2>
-                  <p id="extras-setup-help" className="mb-5 text-sm text-slate-600 dark:text-slate-300">Choose one batter from each team. The first extra round has 5 pitches per batter, followed by 3, then 1 if still tied.</p>
+                  <p id="extras-setup-help" className="mb-5 text-sm text-slate-600 dark:text-slate-300">Choose one batter from each team. The next extra round has {!match.tieBreaker?.length ? 5 : match.tieBreaker.length === 1 ? 3 : 1} pitches per batter. Rounds progress from 5 to 3 to 1 if still tied.</p>
                   <div className="space-y-4 mb-5">
                       <div><label htmlFor="extras-home-batter" className="block text-sm text-slate-700 dark:text-slate-200 mb-2 font-bold">Home batter</label><select id="extras-home-batter" disabled={extraRoundSaving} className="w-full p-3 border border-slate-400 rounded-lg font-bold bg-white text-slate-900 dark:border-slate-500 dark:bg-slate-800 dark:text-white" value={tbHomePlayerId} onChange={e => setTbHomePlayerId(e.target.value)}>{teams.home?.players.map(p => <option key={p.id} value={p.id}>{formatName(p)}</option>)}</select></div>
                       <div><label htmlFor="extras-away-batter" className="block text-sm text-slate-700 dark:text-slate-200 mb-2 font-bold">Away batter</label><select id="extras-away-batter" disabled={extraRoundSaving} className="w-full p-3 border border-slate-400 rounded-lg font-bold bg-white text-slate-900 dark:border-slate-500 dark:bg-slate-800 dark:text-white" value={tbAwayPlayerId} onChange={e => setTbAwayPlayerId(e.target.value)}>{teams.away?.players.map(p => <option key={p.id} value={p.id}>{formatName(p)}</option>)}</select></div>

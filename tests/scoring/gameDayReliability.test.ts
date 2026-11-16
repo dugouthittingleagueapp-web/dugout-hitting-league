@@ -1,5 +1,5 @@
 import {afterEach,beforeEach,describe,expect,it,vi} from 'vitest';
-import {appendTieBreakerRound,createNextTieBreakerRound,areRegulationPitchesRecorded,getExtraRoundBlockReason} from '../../utils/gameFinalization';
+import {appendTieBreakerRound,createNextTieBreakerRound,areRegulationPitchesRecorded,getExtraRoundBlockReason,getScoringCompletionPrompt} from '../../utils/gameFinalization';
 import {scoringFixture,memoryScoringStorage} from './scoringFixtures';
 import {retrySavedScoring,getScoringSyncWarning} from '../../services/storageService';
 import {markScoringSyncWarning} from '../../services/offlineSync';
@@ -80,6 +80,27 @@ describe('Game-day reliability',()=>{
   expect(areRegulationPitchesRecorded(g)).toBe(true);expect(getExtraRoundBlockReason(g)).toBeNull();
   expect(getExtraRoundBlockReason({...g,isForfeit:true})).toMatch(/forfeit/);
   expect(getExtraRoundBlockReason({...g,isComplete:true,status:'FINAL'})).toMatch(/finished/);
+ });
+
+ it('opens extras when edits change a completed regulation game to 1-1, without interrupting the first correction',()=>{
+  const tied=complete(),homeLeads=structuredClone(tied);homeLeads.innings[0].home.playerScores[0].pitches[0].points=1;
+  expect(getScoringCompletionPrompt(tied,homeLeads)).toBeNull();
+  const corrected=structuredClone(homeLeads);corrected.innings[0].away.playerScores[0].pitches[0].points=1;
+  expect(getScoringCompletionPrompt(homeLeads,corrected)).toBe('extras');
+  expect(getScoringCompletionPrompt(corrected,corrected)).toBeNull();
+  expect(getScoringCompletionPrompt({...homeLeads,isComplete:true},{...corrected,isComplete:true})).toBeNull();
+ });
+ it('prompts when the last missing regulation pitch is filled in any inning, but never with other blanks remaining',()=>{
+  const before=complete();before.innings[0].away.playerScores[0].pitches[0].points=null;
+  expect(getScoringCompletionPrompt(before,complete())).toBe('extras');
+  const incomplete=structuredClone(before);incomplete.innings[5].home.playerScores[2].pitches[9].points=null;
+  expect(getScoringCompletionPrompt(incomplete,before)).toBeNull();
+ });
+ it.each([5,3,1])('prompts for another extra round when edits tie a fully recorded %i-pitch round',limit=>{
+  const before=complete();before.tieBreaker=[5,3,1].slice(0,limit===5?1:limit===3?2:3).map((n,i)=>({roundNumber:i+1,pitchLimit:n,homePlayerId:'h1',awayPlayerId:'a1',homeScores:Array(n).fill(0),awayScores:Array(n).fill(0)}));
+  before.tieBreaker[before.tieBreaker.length-1].homeScores[0]=1;
+  const after=structuredClone(before);after.tieBreaker![after.tieBreaker!.length-1].awayScores[0]=1;
+  expect(getScoringCompletionPrompt(before,after)).toBe('extras');
  });
 
 });

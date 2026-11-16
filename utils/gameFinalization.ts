@@ -78,6 +78,21 @@ export const getExtraRoundBlockReason = (match: Match): string | null => {
 /** A tied display is insufficient: every prior pitch must be recorded. */
 export const canAdvanceExtraRound = (match: Match): boolean => getExtraRoundBlockReason(match) === null;
 
+/** Prompt on a completed scoring transition, including edits and out-of-order entry.
+ * Editing a winning score alone does not interrupt another correction.
+ */
+export const getScoringCompletionPrompt = (before: Match, after: Match): 'extras' | 'finish' | null => {
+  if (before.isComplete || after.isComplete || after.status === 'FINAL' || after.isForfeit || after.is_forfeit) return null;
+  const recorded = (game: Match) => areRegulationPitchesRecorded(game) && (game.tieBreaker || []).every(round =>
+    round.homeScores.length === round.pitchLimit && round.awayScores.length === round.pitchLimit &&
+    [...round.homeScores, ...round.awayScores].every(n => typeof n === 'number' && Number.isInteger(n) && n >= 0 && n <= 4));
+  if (!recorded(after)) return null;
+  const oldScore = getMatchScores(before), score = getMatchScores(after);
+  if (canAdvanceExtraRound(after) && (!recorded(before) || oldScore.home !== oldScore.away)) return 'extras';
+  if (!recorded(before) && score.home !== score.away) return 'finish';
+  return null;
+};
+
 /** Copy just the tie-breaker rounds that change, never mutate earlier results. */
 export const appendTieBreakerRound = (match: Match, round: TieBreakerRound): Match => {
   if (!canAdvanceExtraRound(match)) throw new Error(getExtraRoundBlockReason(match)!);

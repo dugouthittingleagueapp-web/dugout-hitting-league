@@ -59,6 +59,10 @@ export const selectDatabaseConnectionString = (environment: DatabaseEnvironment)
     if (!scopedUrl) {
       throw new Error('Database_url must be configured separately for this Vercel environment');
     }
+    if (vercelEnvironment === 'preview') {
+      const host = new URL(scopedUrl).hostname.toLowerCase().replace(/-pooler(?=\.)/, '');
+      if (host === PRODUCTION_HOST) throw new Error('Database safety check failed: unexpected Neon endpoint; Preview cannot connect to Production');
+    }
     if (vercelEnvironment === 'production') {
       assertExpectedHost(scopedUrl, PRODUCTION_HOST, 'Production');
     } else if (vercelEnvironment === 'preview' &&

@@ -21,6 +21,7 @@ import matches from '../../api/matches';
 import scoringLock from '../../api/scoring-lock';
 import { mapMatchFromDB, mapTeamFromDB } from '../../utils/dbMappers';
 import { calculateLeagueStandings } from '../../utils/leagueStandings';
+import { createEmptyInning } from '../../utils/inningTemplate';
 
 const csv = (rows: string[]) => ['Date,Start Time,End Time,Location,Group,Home Team,Away Team,Notes', ...rows].join('\n');
 const file = csv(['2027-11-01,6:00 pm,7:00 pm,Tunnels 5/6,CSV Group,Eagles,Panthers,Bring balls']);
@@ -175,9 +176,9 @@ describe.skipIf(!process.env.DUGOUT_TEST_DATABASE_URL)('Schedule workflows on di
   it('allows only one of starting a game or deleting its league, leaving no orphaned records', async () => {
     await importFile();
     await pool.query('DELETE FROM matches'); // Only synthetic local data.
-    const roster = (await pool.query('SELECT id FROM teams')).rows;
+    const roster = (await pool.query('SELECT id, players FROM teams')).rows;
     const results = await Promise.all([
-      request(matches, 'POST', { id: 'concurrent-game', season: '2027', league: '11U', homeTeamId: roster[0].id, awayTeamId: roster[1].id, status: 'IN_PROGRESS', innings: [] }),
+      request(matches, 'POST', { id: 'concurrent-game', season: '2027', league: '11U', homeTeamId: roster[0].id, awayTeamId: roster[1].id, status: 'IN_PROGRESS', innings: Array.from({ length: 6 }, (_, i) => createEmptyInning(i + 1, roster[0].players.map((p: any) => p.id), roster[1].players.map((p: any) => p.id))) }),
       request(leagues, 'DELETE', {}, { id: '11U', season: '2027' })
     ]);
     expect(results[0].statusCode === 201 ? results[1].statusCode === 409 : results[1].statusCode === 200).toBe(true);

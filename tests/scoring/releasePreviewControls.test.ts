@@ -21,7 +21,7 @@ describe('Consolidated release: scoring controls are not accidentally reverted',
     expect(dialog).toContain('✓ Saved');
     expect(storage).toContain("publishScoringSaveState(match.id, 'saving')");
     expect(storage).toContain("publishScoringSaveState(match.id, 'saved')");
-    expect(storage).toContain("publishScoringSaveState(match.id, 'offline')");
+    expect(read('services/scoringJournal.ts')).toContain("d.notify(id, 'offline')");
   });
 
   it('keeps Guide and Exit Admin clickable above the navigation overlay', () => {

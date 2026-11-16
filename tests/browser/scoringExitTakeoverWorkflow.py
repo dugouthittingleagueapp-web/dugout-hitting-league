@@ -2,7 +2,7 @@
 from playwright.sync_api import sync_playwright, expect
 import json, re
 
-base = 'http://127.0.0.1:3600'
+base = 'http://127.0.0.1:3700'
 fixture = json.load(open('work/browser/lineup-fixtures.json'))
 with sync_playwright() as p:
     browser = p.chromium.launch(executable_path='/usr/bin/chromium', headless=True, args=['--no-sandbox'])
@@ -13,7 +13,7 @@ with sync_playwright() as p:
         page.on('pageerror', lambda e: errors.append(str(e)))
         page.alerts = []
         page.on('dialog', lambda d: (page.alerts.append(d.message), d.accept()))
-        page.goto(base)
+        page.goto(base);page.wait_for_load_state('networkidle')
         token = page.request.get(base+'/test-session?role=umpire').json()['token']
         page.evaluate('''x=>{localStorage.setItem('dugout_auth_token',x.token);sessionStorage.setItem('dugout_auth_token',x.token);localStorage.setItem('userRole','umpire');localStorage.setItem('lastActivity',String(Date.now()));localStorage.setItem('dugout_app_state',JSON.stringify({view:'dashboard',currentLeague:x.league,season:'2026',dashboardTab:'matches'}));}''', {'token':token,'league':fixture['league']})
         page.reload()

@@ -2,7 +2,7 @@
 from playwright.sync_api import sync_playwright, expect
 import json, re
 
-base = 'http://127.0.0.1:3600'
+base = 'http://127.0.0.1:3700'
 fixture = json.load(open('work/browser/scoring-fixtures.json'))
 
 with sync_playwright() as p:
@@ -16,7 +16,7 @@ with sync_playwright() as p:
         page.on('pageerror', lambda e: errors.append(str(e)))
         page.alerts = []
         page.on('dialog', lambda d: (page.alerts.append(d.message), d.accept()))
-        page.goto(base)
+        page.goto(base);page.wait_for_load_state('networkidle')
         auth = page.request.get(base + '/test-session?role=' + role).json()['token']
         game_id = fixture['ids'][scenario]
         state = {'view': 'scoring', 'currentLeague': fixture['league'], 'currentMatchId': game_id, 'season': '2026', 'dashboardTab': 'matches'}

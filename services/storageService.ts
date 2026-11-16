@@ -239,7 +239,22 @@ export const syncOfflineData = async () => {
   try { await scoringJournal.syncAll(); await syncLegacyData(); }
   catch (error) { console.warn('Recovery needs checking; saved copies were retained.', error); }
 };
-export const retrySavedScoring = async (id: string) => { clearScoringSyncWarning(id); await syncOfflineData(); };
+export const retrySavedScoring = async (id: string) => {
+  try {
+    inspectScoringRecovery(id);
+    // Restore this device's access before replay. Never take over or rebase.
+    const access = await requestScoringLock(id, 'acquire');
+    if (!access.owned) throw new Error('Scoring access could not be confirmed. Your saved scores stay on this device.');
+    clearScoringSyncWarning(id);
+    await scoringJournal.syncGame(id);
+    if (!hasJournalPending(id)) await syncLegacyData(id);
+    if (hasPendingMatchSync(id) || getScoringSyncWarning(id))
+      throw new Error(getScoringSyncWarning(id) || 'Your scores are still saved on this device. Check the connection and try again.');
+  } catch (error) {
+    markScoringSyncWarning(id, getScoringSyncWarning(id) || (error instanceof Error ? error.message : 'Your saved scores need checking. Keep this page open and ask for help.'));
+    throw error;
+  }
+};
 
 // Automatic listener to sync queued items once internet reconnects
 if (typeof window !== 'undefined') {

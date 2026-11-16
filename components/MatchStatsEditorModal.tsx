@@ -86,6 +86,9 @@ export const MatchStatsEditorModal: React.FC<MatchStatsEditorModalProps> = ({
     setSaveSuccessMsg(null);
 
     try {
+      // Corrections require the same explicit ownership as live scoring.
+      // Check before roster writes; never take over another device implicitly.
+      await storage.requestScoringLock(match.id, 'acquire');
       let finalMapping: Record<string, string> = { ...mappings };
       let updatedHomeTeam = homeTeam ? { ...homeTeam } : null;
       let updatedAwayTeam = awayTeam ? { ...awayTeam } : null;

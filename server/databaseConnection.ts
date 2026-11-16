@@ -82,7 +82,8 @@ export const selectDatabaseConnectionString = (environment: DatabaseEnvironment)
         environment.VERCEL_GIT_COMMIT_REF === CONSOLIDATED_REVIEW_BRANCH) {
       assertExpectedHost(scopedUrl, CONSOLIDATED_REVIEW_HOST, 'Consolidated Review Preview');
     } else if (vercelEnvironment === 'preview' &&
-        environment.VERCEL_GIT_COMMIT_REF === SCORING_RELEASE_BRANCH) {
+        (environment.VERCEL_GIT_COMMIT_REF === SCORING_RELEASE_BRANCH ||
+          environment.VERCEL_GIT_COMMIT_REF === 'fix/game-day-reliability')) {
       assertExpectedHost(scopedUrl, SCORING_RELEASE_HOST, 'Scoring Release Preview');
     }
     return scopedUrl;

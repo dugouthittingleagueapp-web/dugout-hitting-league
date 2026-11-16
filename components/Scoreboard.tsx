@@ -11,7 +11,7 @@ import { setPitchScore, setTieBreakerPitchScore } from '../utils/scorePatches';
 import { calculateTeamInningTotal, calculateTeamGameTotal as getTeamGameTotal } from '../utils/scoreTotals';
 import { getLiveInningIndex } from '../utils/liveInning';
 import { useScreenWakeLock } from '../hooks/useScreenWakeLock';
-import { prepareFinalizedMatch, getFinalizationDecision, getFinalizationMessage, createNextTieBreakerRound, appendTieBreakerRound } from '../utils/gameFinalization';
+import { prepareFinalizedMatch, getFinalizationDecision, getFinalizationMessage, createNextTieBreakerRound, appendTieBreakerRound, canAdvanceExtraRound, getExtraRoundBlockReason, getScoringCompletionPrompt } from '../utils/gameFinalization';
 import { resolveLineupPlayer } from '../utils/lineupPlayerLookup';
 import { isFinishedScoringLockError } from '../utils/scoringAccess';
 import type { PitchCommand } from '../utils/scoringProtocol';
@@ -42,6 +42,9 @@ const ScoringBoardContent: React.FC<ScoreboardProps & { saveState?: storage.Scor
   const [showTieBreakerSetup, setShowTieBreakerSetup] = useState(false);
   const [tbHomePlayerId, setTbHomePlayerId] = useState('');
   const [tbAwayPlayerId, setTbAwayPlayerId] = useState('');
+  const startingExtraRound = useRef(false);
+  const [extraRoundSaving, setExtraRoundSaving] = useState(false);
+  const [extraRoundError, setExtraRoundError] = useState<string | null>(null);
 
   // Roster Editing State
   const [rosterSide, setRosterSide] = useState<'home' | 'away' | null>(null);
@@ -239,14 +242,18 @@ const ScoringBoardContent: React.FC<ScoreboardProps & { saveState?: storage.Scor
     getTeamGameTotal(side, matchData || match);
 
   const startTieBreakerRound = async () => {
-      if (!match || !teams.home || !teams.away || !tbHomePlayerId || !tbAwayPlayerId) return;
-      const round = createNextTieBreakerRound(match.tieBreaker, tbHomePlayerId, tbAwayPlayerId);
-      const updatedMatch = appendTieBreakerRound(match, round);
+      if (isReadOnly || userRole === 'fan' || startingExtraRound.current || !match || !canAdvanceExtraRound(match) || !teams.home || !teams.away || !tbHomePlayerId || !tbAwayPlayerId) return;
+      startingExtraRound.current = true;
+      setExtraRoundSaving(true);
+      setExtraRoundError(null);
       try {
+          const round = createNextTieBreakerRound(match.tieBreaker, tbHomePlayerId, tbAwayPlayerId);
+          const updatedMatch = appendTieBreakerRound(match, round);
           setMatch(await storage.updateMatch(updatedMatch, { baseMatch: match, requireServerSave: true }));
           setShowTieBreakerSetup(false);
           setActiveInningIdx(6);
-      } catch (error) { alert(explainSaveError(error, 'match')); }
+      } catch (error) { setExtraRoundError(explainSaveError(error, 'match')); setShowTieBreakerSetup(true); }
+      finally { startingExtraRound.current = false; setExtraRoundSaving(false); }
   };
 
   const confirmResetPracticeMatch = async () => {
@@ -350,22 +357,15 @@ const ScoringBoardContent: React.FC<ScoreboardProps & { saveState?: storage.Scor
     }
     setMatch(newMatch); 
     
-    // Automated Completion Flow Check
     const totalPitches = teamData.playerScores[lineupIdx].pitches.length;
-    const isLastPitchOfRegulation = targetInningIdx === 5 && side === 'home' && lineupIdx === teamData.playerScores.length - 1 && pitchIdx === totalPitches - 1;
-
-    if (isLastPitchOfRegulation && !isEdit) {
-        const hT = calculateTeamGameTotal('home', newMatch);
-        const aT = calculateTeamGameTotal('away', newMatch);
-        if (hT === aT) {
-            setTimeout(() => setShowTieBreakerSetup(true), 500);
-        } else {
-            setTimeout(() => setShowFinishModal(true), 500);
-        }
+    const completionPrompt = getScoringCompletionPrompt(match, newMatch);
+    if (completionPrompt) {
+        setShowTieBreakerSetup(completionPrompt === 'extras');
+        setShowFinishModal(completionPrompt === 'finish');
         setActiveCell(null);
     } else {
         let nextCell: { side: 'home' | 'away'; lineupIdx: number; pitchIdx: number; roundIdx?: number } | null = null;
-        if (activeCell) {
+        if (activeCell && !isEdit) {
             if (pitchIdx < totalPitches - 1) {
                 // Batter still has pitches left in their at-bat: auto-advance to next pitch
                 nextCell = { side, lineupIdx, pitchIdx: pitchIdx + 1 };
@@ -435,14 +435,10 @@ const ScoringBoardContent: React.FC<ScoreboardProps & { saveState?: storage.Scor
       }
       setMatch(newMatch);
       
-      // Auto-Completion for tie breakers
-      const isFinalPitchOfRound = side === 'home' && pitchIdx === limit - 1;
-      if (isFinalPitchOfRound && !isEdit) {
-          const hT = calculateTeamGameTotal('home', newMatch);
-          const aT = calculateTeamGameTotal('away', newMatch);
-          if (hT !== aT) {
-              setTimeout(() => setShowFinishModal(true), 500);
-          }
+      const completionPrompt = getScoringCompletionPrompt(match, newMatch);
+      if (completionPrompt) {
+          setShowTieBreakerSetup(completionPrompt === 'extras');
+          setShowFinishModal(completionPrompt === 'finish');
           setActiveCell(null);
       } else {
           let next = null;
@@ -670,7 +666,7 @@ const ScoringBoardContent: React.FC<ScoreboardProps & { saveState?: storage.Scor
                   const aS = round.awayScores.reduce((a,b)=>(a||0)+(b||0),0);
                   return (
                     <div key={idx}>
-                         <div className="bg-amber-50 dark:bg-amber-950 p-3 rounded-t-xl border border-amber-200 flex justify-between items-center"><h3 className="font-bold text-amber-800 font-sans">Extra Round {round.roundNumber}</h3>{idx === match.tieBreaker!.length - 1 && !match.isComplete && hS === aS && <button onClick={() => startTieBreakerRound()} className="bg-amber-600 text-white font-bold px-4 py-2 rounded-lg">Next Round</button>}</div>
+                         <div className="bg-amber-50 dark:bg-amber-950 p-3 rounded-t-xl border border-amber-200 flex justify-between items-center"><h3 className="font-bold text-amber-800 font-sans">Extra Round {round.roundNumber}</h3>{!isReadOnly && userRole !== 'fan' && idx === match.tieBreaker!.length - 1 && canAdvanceExtraRound(match) && <button onClick={() => startTieBreakerRound()} className="bg-amber-600 text-white font-bold px-4 py-2 rounded-lg">Next Round</button>}</div>
                          <div className="bg-white dark:bg-slate-900 border-x border-b border-slate-200 rounded-b-xl overflow-x-auto"><table className="w-full"><tbody>
                              <tr className="bg-blue-50/10">
                                 <td className="px-4 py-3 font-medium w-[150px]">
@@ -767,6 +763,12 @@ const ScoringBoardContent: React.FC<ScoreboardProps & { saveState?: storage.Scor
           </div>
         )}
         {!isReadOnly && (saveState === 'offline' || saveState === 'attention') && <div className="px-4 py-2"><ScoringRecovery matchId={matchId} /></div>}
+        {!isReadOnly && userRole !== 'fan' && !match.tieBreaker?.length && canAdvanceExtraRound(match) && (
+          <div className="flex items-center justify-between gap-3 border-b border-amber-300 bg-amber-50 px-4 py-2 text-sm text-amber-950 dark:border-amber-700 dark:bg-amber-950 dark:text-amber-100">
+            <span>Regulation is complete and tied.</span>
+            <button type="button" onClick={() => { setExtraRoundError(null); setShowTieBreakerSetup(true); }} className="shrink-0 rounded-lg bg-amber-700 px-3 py-2 font-bold text-white hover:bg-amber-800">Start Extras</button>
+          </div>
+        )}
         <div className="max-w-7xl mx-auto px-4 py-3 flex justify-between items-center gap-4">
           <div className="flex gap-8 items-center flex-1 min-w-0">
             <div className="text-center flex-1 min-w-0"><div className="text-[10px] uppercase font-bold text-slate-500">Away</div><div className="text-xl font-bold text-blue-700 truncate">{teams.away.name}</div><div className="text-2xl font-sans tabular-nums font-bold dark:text-white">{awayTotal}</div></div>
@@ -990,14 +992,20 @@ const ScoringBoardContent: React.FC<ScoreboardProps & { saveState?: storage.Scor
       )}
 
       {showTieBreakerSetup && createPortal(
-          <div className="fixed inset-0 z-[70] flex items-center justify-center bg-slate-900/80 p-4">
-              <div className="bg-white dark:bg-slate-900 p-8 rounded-2xl w-[90%] max-w-md">
-                  <h2 className="text-xl font-bold mb-4 text-center">Tie Breaker Setup</h2>
-                  <div className="space-y-4 mb-6">
-                      <div><label className="block text-xs uppercase text-slate-500 mb-1 font-bold">Home</label><select className="w-full p-3 border rounded-lg font-bold" value={tbHomePlayerId} onChange={e => setTbHomePlayerId(e.target.value)}>{teams.home?.players.map(p => <option key={p.id} value={p.id}>{formatName(p)}</option>)}</select></div>
-                      <div><label className="block text-xs uppercase text-slate-500 mb-1 font-bold">Away</label><select className="w-full p-3 border rounded-lg font-bold" value={tbAwayPlayerId} onChange={e => setTbAwayPlayerId(e.target.value)}>{teams.away?.players.map(p => <option key={p.id} value={p.id}>{formatName(p)}</option>)}</select></div>
+          <div className="fixed inset-0 z-[70] flex items-center justify-center bg-slate-950/90 p-4">
+              <div role="dialog" aria-modal="true" aria-labelledby="extras-setup-title" aria-describedby="extras-setup-help" className="w-full max-w-md rounded-2xl border border-slate-300 bg-white p-6 text-slate-900 shadow-2xl dark:border-slate-500 dark:bg-slate-900 dark:text-slate-100">
+                  <h2 id="extras-setup-title" className="text-2xl font-bold mb-3 text-center text-slate-900 dark:text-white">Tie Breaker Setup</h2>
+                  <p id="extras-setup-help" className="mb-5 text-sm text-slate-600 dark:text-slate-300">Choose one batter from each team. The next extra round has {!match.tieBreaker?.length ? 5 : match.tieBreaker.length === 1 ? 3 : 1} pitches per batter. Rounds progress from 5 to 3 to 1 if still tied.</p>
+                  <div className="space-y-4 mb-5">
+                      <div><label htmlFor="extras-home-batter" className="block text-sm text-slate-700 dark:text-slate-200 mb-2 font-bold">Home batter</label><select id="extras-home-batter" disabled={extraRoundSaving} className="w-full p-3 border border-slate-400 rounded-lg font-bold bg-white text-slate-900 dark:border-slate-500 dark:bg-slate-800 dark:text-white" value={tbHomePlayerId} onChange={e => setTbHomePlayerId(e.target.value)}>{teams.home?.players.map(p => <option key={p.id} value={p.id}>{formatName(p)}</option>)}</select></div>
+                      <div><label htmlFor="extras-away-batter" className="block text-sm text-slate-700 dark:text-slate-200 mb-2 font-bold">Away batter</label><select id="extras-away-batter" disabled={extraRoundSaving} className="w-full p-3 border border-slate-400 rounded-lg font-bold bg-white text-slate-900 dark:border-slate-500 dark:bg-slate-800 dark:text-white" value={tbAwayPlayerId} onChange={e => setTbAwayPlayerId(e.target.value)}>{teams.away?.players.map(p => <option key={p.id} value={p.id}>{formatName(p)}</option>)}</select></div>
                   </div>
-                  <button onClick={startTieBreakerRound} className="w-full py-3 bg-amber-600 text-white font-bold rounded-xl">Start Extras</button>
+                  {getExtraRoundBlockReason(match) && <p role="status" className="mb-4 rounded-lg border border-amber-400 bg-amber-50 p-3 text-sm text-amber-950 dark:bg-amber-950 dark:text-amber-100">{getExtraRoundBlockReason(match)}</p>}
+                  {extraRoundError && <p role="alert" className="mb-4 rounded-lg border border-red-400 bg-red-50 p-3 text-sm text-red-900 dark:bg-red-950 dark:text-red-100">{extraRoundError}</p>}
+                  <div className="flex gap-3">
+                      <button type="button" disabled={extraRoundSaving} onClick={() => { setShowTieBreakerSetup(false); setExtraRoundError(null); }} className="flex-1 py-3 rounded-xl border border-slate-400 font-bold text-slate-700 dark:border-slate-500 dark:text-slate-100 disabled:opacity-60">Back to scoring</button>
+                      <button type="button" disabled={extraRoundSaving || isReadOnly || userRole === 'fan' || !tbHomePlayerId || !tbAwayPlayerId || !canAdvanceExtraRound(match)} onClick={startTieBreakerRound} className="flex-1 py-3 bg-amber-700 text-white font-bold rounded-xl hover:bg-amber-800 disabled:bg-slate-200 disabled:text-slate-500 disabled:cursor-not-allowed dark:disabled:bg-slate-700 dark:disabled:text-slate-300">{extraRoundSaving ? 'Starting extras…' : 'Start Extras'}</button>
+                  </div>
               </div>
           </div>,
           document.body
@@ -1045,7 +1053,7 @@ const ScoringBoardContent: React.FC<ScoreboardProps & { saveState?: storage.Scor
                               <span>Game Is Tied ({homeTotal} - {awayTotal})</span>
                           </div>
                           <p className="text-xs text-amber-700 dark:text-amber-400 mb-3">
-                              Would you like to start a 1-pitch Tie-Breaker Extra Inning, or finalize the game as an official Tie?
+                              Would you like to start extra innings, or finalize the game as an official tie?
                           </p>
                           <div className="flex gap-2">
                               <button
@@ -1178,9 +1186,13 @@ export const Scoreboard: React.FC<ScoreboardProps> = (props) => {
     };
   }, [props.matchId]);
   const isSpectator = props.isReadOnly || props.userRole === 'fan';
+  const [retrying, setRetrying] = useState(false);
   const retryRecovery = async () => {
+    if (retrying) return;
+    setRetrying(true);
     try { await storage.retrySavedScoring(props.matchId); await checkAccess(); }
     catch { setMessage('Your saved scores still need checking. Keep this page open and ask the person running the league for help.'); }
+    finally { setRetrying(false); }
   };
 
   const checkAccess = async (takeover = false) => {
@@ -1219,7 +1231,7 @@ export const Scoreboard: React.FC<ScoreboardProps> = (props) => {
         <div className="max-w-md w-full rounded-2xl border border-amber-500 p-6 text-center space-y-4">
           <h2 className="text-xl font-bold">Scores need checking</h2>
           <p>{syncWarning || 'This game is finished, and this device still has changes to check. Your saved copy is safe. Ask the person running the league to compare it before continuing.'}</p>
-          <button type="button" onClick={() => void retryRecovery()} className="px-4 py-3 rounded-lg bg-blue-600 text-white font-semibold">Try syncing again</button>
+          <button type="button" disabled={retrying} onClick={() => void retryRecovery()} className="px-4 py-3 rounded-lg bg-blue-600 text-white font-semibold">{retrying ? 'Checking saved scores…' : 'Try syncing again'}</button>
           <ScoringRecovery matchId={props.matchId} />
           <button type="button" onClick={() => props.onExit()} className="px-4 py-3 rounded-lg border border-gray-400">Back to schedule</button>
         </div>

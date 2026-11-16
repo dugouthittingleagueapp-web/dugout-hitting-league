@@ -1,5 +1,6 @@
 import type { Match, Team } from '../types';
 import { validPoints, stableJson, ScoringProtocolError } from '../utils/scoringProtocol.js';
+import { canAdvanceExtraRound } from '../utils/gameFinalization.js';
 import { remapMatchPlayerIds } from '../utils/statsEditorHelper.js';
 
 export type SnapshotIntent = { kind: 'resetPractice' } | { kind: 'reassign'; mapping: Record<string, string> };
@@ -69,6 +70,9 @@ export const assertSafeSnapshotTransition = (before: Match, after: Match, intent
   }
   if (before.isComplete && (!after.isComplete || after.status !== before.status))
     throw new ScoringProtocolError('FINAL_GAME_LOCKED', 'This game is finished. Its results cannot be reopened.');
+  if ((after.tieBreaker?.length || 0) > (before.tieBreaker?.length || 0) &&
+      ((after.tieBreaker?.length || 0) !== (before.tieBreaker?.length || 0) + 1 || !canAdvanceExtraRound(before)))
+    invalid('Finish recording every pitch in the tied round before starting another round. No changes were saved.');
   let protectedBefore = before;
   if ((intent as SnapshotIntent)?.kind === 'reassign') {
     if (role !== 'admin') invalid('Only an admin can reassign recorded player results.');

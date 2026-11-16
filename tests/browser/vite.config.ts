@@ -13,8 +13,8 @@ import { signSessionToken } from '../../api/auth';
 
 const localUrl = process.env.DUGOUT_BROWSER_DATABASE_URL || '';
 const local = new URL(localUrl);
-if (local.hostname !== '127.0.0.1' || !['/dugout_test_release_browser'].includes(local.pathname)) throw new Error('Browser test server must use the disposable local database.');
-const scoringRun = local.pathname === '/dugout_test_release_browser';
+if (local.hostname !== '127.0.0.1' || !['/dugout_test_phase2_browser'].includes(local.pathname)) throw new Error('Browser test server must use the disposable local database.');
+const scoringRun = local.pathname === '/dugout_test_phase2_browser';
 // Rebind only this test process to the explicitly chosen local pool. The
 // deployed TLS/database selector is never weakened for browser tests.
 const testPool = new pg.Pool({connectionString:localUrl,ssl:false});
@@ -42,4 +42,4 @@ export default defineConfig({plugins:[react(),{
    } catch(error) { console.error(error);res.statusCode=500;res.end(JSON.stringify({error:'Local test API failed'})); }
   });
  }
-}],server:{host:'127.0.0.1',port:3600}});
+}],server:{host:'127.0.0.1',port:3700}});

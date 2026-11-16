@@ -126,33 +126,34 @@ export interface OfflineSyncDependencies {
  * serialization and revision tracking as foreground scoring.
  * Dependencies are injected to avoid circular imports from storageService.
  */
-export const createOfflineSynchronizer = (dependencies: OfflineSyncDependencies): (() => Promise<void>) => {
+export const createOfflineSynchronizer = (dependencies: OfflineSyncDependencies): ((matchId?: string) => Promise<void>) => {
   const { apiFetch, serializeMatchOperation, matchWriteHeaders, recordRevision } = dependencies;
-  let inFlightOfflineSync: Promise<void> | null = null;
+  const inFlightOfflineSync = new Map<string, Promise<void>>();
   
   /**
    * Avoid overlapping reconnect sync passes that could resend the same queued
-   * roster or game to Neon. All listeners share this one in-flight operation.
+   * roster or game to Neon. Identical scopes share one in-flight operation;
+   * per-game serialization also protects targeted retry versus reconnect.
    */
-  const syncOfflineData = (): Promise<void> => {
-    if (!inFlightOfflineSync) {
-      const running = performOfflineSync();
-      const settled = running.finally(() => {
-        if (inFlightOfflineSync === settled) inFlightOfflineSync = null;
-      });
-      inFlightOfflineSync = settled;
-    }
-    return inFlightOfflineSync;
+  const syncOfflineData = (matchId?: string): Promise<void> => {
+    const key = matchId ?? '*';
+    const prior = inFlightOfflineSync.get(key);
+    if (prior) return prior;
+    const settled = performOfflineSync(matchId).finally(() => {
+      if (inFlightOfflineSync.get(key) === settled) inFlightOfflineSync.delete(key);
+    });
+    inFlightOfflineSync.set(key, settled);
+    return settled;
   };
   
-  const performOfflineSync = async (): Promise<void> => {
+  const performOfflineSync = async (onlyMatchId?: string): Promise<void> => {
     if (typeof window === 'undefined') return;
     if (typeof navigator !== 'undefined' && !navigator.onLine) return;
   
     // 1. Sync pending teams
     try {
       const rawTeams = localStorage.getItem(PENDING_TEAMS_KEY);
-      if (rawTeams) {
+      if (rawTeams && onlyMatchId === undefined) {
         const teamMap: Record<string, Team> = JSON.parse(rawTeams);
         const teamIds = Object.keys(teamMap);
         for (const teamId of teamIds) {
@@ -181,7 +182,7 @@ export const createOfflineSynchronizer = (dependencies: OfflineSyncDependencies)
       const rawMatches = localStorage.getItem(PENDING_MATCHES_KEY);
       if (rawMatches) {
         const matchMap: Record<string, Match> = JSON.parse(rawMatches);
-        const matchIds = Object.keys(matchMap);
+        const matchIds = Object.keys(matchMap).filter(id => onlyMatchId === undefined || id === onlyMatchId);
         for (const matchId of matchIds) {
           // A reconnect replay must never run concurrently with a pitch being
           // entered on the same device. Re-read the pending snapshot only after

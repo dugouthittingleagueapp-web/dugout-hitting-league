@@ -25,7 +25,7 @@ const game = (id: string, revision = 3): Match => ({
 const responseRow = (id: string, revision: number) => ({
   id, revision, league: '11U', season: '2026',
   home_team_id: 'home', away_team_id: 'away', date: '2026-11-11',
-  is_complete: false, is_practice: false, innings: [],
+  status: 'IN_PROGRESS', is_complete: false, is_practice: false, innings: [],
 });
 
 describe('Isolated offline synchronizer', () => {
@@ -90,5 +90,13 @@ describe('Isolated offline synchronizer', () => {
     const reconnect = createOfflineSynchronizer(dependencies(apiFetch));
     await reconnect();
     expect(JSON.parse(localStorage.getItem('dugout_pending_sync_teams') || '{}')['team-2']).toBeDefined();
+  });
+  it('never discards a legacy extras backup when a successful response omits its scores', async () => {
+    const original = { ...game('legacy-extra-ack', 3), tieBreaker: [{ roundNumber: 1, pitchLimit: 5, homePlayerId: 'h', awayPlayerId: 'a', homeScores: [4, null, null, null, null], awayScores: [0, null, null, null, null] }] };
+    enqueuePendingMatchSync(original);
+    const reconnect = createOfflineSynchronizer(dependencies(vi.fn(async () => new Response(JSON.stringify(responseRow(original.id, 4))))));
+    await reconnect();
+    expect(JSON.parse(localStorage.getItem('dugout_pending_sync_matches') || '{}')[original.id]).toEqual(original);
+    expect(getScoringSyncWarning(original.id)).toContain('could not confirm');
   });
 });

@@ -23,6 +23,8 @@ const SCORING_PREVIEW_HOST = 'ep-red-tree-a46hwgra.us-east-1.aws.neon.tech';
 const SCORING_PREVIEW_BRANCH = 'refactor/network-and-sync-foundation';
 const CONSOLIDATED_REVIEW_BRANCH = 'review/consolidated-final-nov12';
 const CONSOLIDATED_REVIEW_HOST = 'ep-divine-smoke-a4lyo8af.us-east-1.aws.neon.tech';
+const SCORING_RELEASE_BRANCH = 'release/scoring-safety-nov16';
+const SCORING_RELEASE_HOST = 'ep-holy-scene-a40t91vm.us-east-1.aws.neon.tech';
 
 const normalizeUrl = (value: string): string =>
   value.trim().replace(/^(['"])(.*)\1$/, '$2').trim();
@@ -57,6 +59,19 @@ export const selectDatabaseConnectionString = (environment: DatabaseEnvironment)
     if (!scopedUrl) {
       throw new Error('Database_url must be configured separately for this Vercel environment');
     }
+    // pg accepts query parameters that override the URL's hostname. Validate
+    // the connection the driver will use, rather than trusting its visible host.
+    const deployedUrl = new URL(scopedUrl);
+    if (!['postgres:', 'postgresql:'].includes(deployedUrl.protocol)) {
+      throw new Error(`Invalid ${vercelEnvironment === 'production' ? 'Production' : 'Preview'} database connection URL`);
+    }
+    if ([...deployedUrl.searchParams.keys()].some(key => ['host', 'hostaddr', 'service', 'options'].includes(key.toLowerCase()))) {
+      throw new Error('Database safety check failed: deployed connection cannot override its database endpoint');
+    }
+    if (vercelEnvironment === 'preview') {
+      const host = new URL(scopedUrl).hostname.toLowerCase().replace(/-pooler(?=\.)/, '');
+      if (host === PRODUCTION_HOST) throw new Error('Database safety check failed: unexpected Neon endpoint; Preview cannot connect to Production');
+    }
     if (vercelEnvironment === 'production') {
       assertExpectedHost(scopedUrl, PRODUCTION_HOST, 'Production');
     } else if (vercelEnvironment === 'preview' &&
@@ -66,6 +81,9 @@ export const selectDatabaseConnectionString = (environment: DatabaseEnvironment)
     } else if (vercelEnvironment === 'preview' &&
         environment.VERCEL_GIT_COMMIT_REF === CONSOLIDATED_REVIEW_BRANCH) {
       assertExpectedHost(scopedUrl, CONSOLIDATED_REVIEW_HOST, 'Consolidated Review Preview');
+    } else if (vercelEnvironment === 'preview' &&
+        environment.VERCEL_GIT_COMMIT_REF === SCORING_RELEASE_BRANCH) {
+      assertExpectedHost(scopedUrl, SCORING_RELEASE_HOST, 'Scoring Release Preview');
     }
     return scopedUrl;
   }

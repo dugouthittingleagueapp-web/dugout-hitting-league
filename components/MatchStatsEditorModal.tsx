@@ -151,7 +151,7 @@ export const MatchStatsEditorModal: React.FC<MatchStatsEditorModalProps> = ({
           };
         }
       }
-      const savedMatch = await storage.updateMatch(updatedMatch, { requireServerSave: true });
+      const savedMatch = await storage.updateMatch(updatedMatch, { requireServerSave: true, baseMatch: match, intent: { kind: 'reassign', mapping: finalMapping } });
 
       setSaveSuccessMsg('Match player stats successfully re-assigned!');
       setTimeout(() => {

@@ -31,61 +31,31 @@ describe('Offline reconnect safety', () => {
   });
   afterEach(() => { vi.unstubAllGlobals(); });
 
-  it('serializes reconnect replay before the next live score and uses the latest revision', async () => {
+  it('does not borrow a legacy replay acknowledgement for an older foreground snapshot', async () => {
     const id = 'reconnect-serialized';
-    const offlineScore = game(id, 1);
-    enqueuePendingMatchSync(offlineScore);
+    enqueuePendingMatchSync(game(id, 1));
     let finishReplay!: (response: Response) => void;
     const first = new Promise<Response>(resolve => { finishReplay = resolve; });
-    const fetcher = vi.fn()
-      .mockImplementationOnce(() => first)
-      .mockImplementationOnce(() => Promise.resolve(new Response(JSON.stringify(savedRow(id, 3)))));
+    const fetcher = vi.fn().mockImplementationOnce(() => first)
+      .mockResolvedValueOnce(new Response(JSON.stringify({ error: 'Newer scores on server' }), { status: 409 }));
     vi.stubGlobal('fetch', fetcher);
-
     const reconnecting = syncOfflineData();
     await vi.waitFor(() => expect(fetcher).toHaveBeenCalledTimes(1));
-    const newPitch = { ...game(id, 1), notes: 'next pitch' };
-    const writing = updateMatch(newPitch, { requireServerSave: true });
-    await Promise.resolve();
-    expect(fetcher).toHaveBeenCalledTimes(1);
-
+    const writing = updateMatch({ ...game(id, 1), notes: 'older snapshot' }, { requireServerSave: true });
+    const rejected = expect(writing).rejects.toThrow('Newer scores');
     finishReplay(new Response(JSON.stringify(savedRow(id, 2))));
-    await reconnecting;
-    const saved = await writing;
-    expect(saved.revision).toBe(3);
-    expect(fetcher).toHaveBeenCalledTimes(2);
-    const body = JSON.parse(fetcher.mock.calls[1][1].body as string);
-    expect(body.revision).toBe(2);
+    await reconnecting; await rejected;
+    expect(JSON.parse(fetcher.mock.calls[1][1].body).revision).toBe(1);
     expect(localStorage.getItem('dugout_pending_sync_matches')).toBeNull();
   });
 
-  it('clears an older queued pitch when a newer successful save includes it', async () => {
-    const id = 'reconnect-newer-score';
-    const inning = {
-      number: 1,
-      home: { teamId: 'home', playerScores: [{ playerId: 'p1', pitches: [{ points: 2 }, { points: null }] }] },
-      away: { teamId: 'away', playerScores: [{ playerId: 'p2', pitches: [{ points: null }] }] }
-    };
-    const first = { ...game(id, 0), innings: [inning] };
-    const second = {
-      ...game(id, 0),
-      innings: [{
-        ...inning,
-        home: { ...inning.home, playerScores: [{
-          playerId: 'p1', pitches: [{ points: 2 }, { points: 3 }]
-        }] }
-      }]
-    };
-    const fetcher = vi.fn()
-      .mockRejectedValueOnce(new Error('Wi-Fi disconnected'))
-      .mockResolvedValueOnce(new Response(JSON.stringify(savedRow(id, 1))));
-    vi.stubGlobal('fetch', fetcher);
-    await updateMatch(first);
-    expect(JSON.parse(localStorage.getItem('dugout_pending_sync_matches') || '{}')[id]).toBeTruthy();
-    await updateMatch(second);
-    expect(localStorage.getItem('dugout_pending_sync_matches')).toBeNull();
-    expect(JSON.parse(localStorage.getItem('dugout_scoring_sync_conflicts') || '{}')[id]).toBeUndefined();
-    expect(fetcher).toHaveBeenCalledTimes(2);
+  it('retains older recovery data and rejects another snapshot when synchronization fails', async () => {
+    const id = 'legacy-recovery-not-discarded';
+    const older = { ...game(id, 0), tieBreaker: [{ roundNumber: 1, pitchLimit: 5, homePlayerId: 'p1', awayPlayerId: 'p2', homeScores: [4, null, null, null, null], awayScores: [null, null, null, null, null] }] };
+    enqueuePendingMatchSync(older);
+    vi.stubGlobal('fetch', vi.fn(async () => new Response('{}', { status: 503 })));
+    await expect(updateMatch(game(id, 0))).rejects.toThrow(/only saved on this device/);
+    expect(JSON.parse(localStorage.getItem('dugout_pending_sync_matches') || '{}')[id]).toEqual(older);
   });
 
   it('preserves unsent pitches and warns when the server rejects a stale offline snapshot', async () => {

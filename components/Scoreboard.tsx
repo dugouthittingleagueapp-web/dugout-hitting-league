@@ -14,6 +14,8 @@ import { useScreenWakeLock } from '../hooks/useScreenWakeLock';
 import { prepareFinalizedMatch, getFinalizationDecision, getFinalizationMessage, createNextTieBreakerRound, appendTieBreakerRound } from '../utils/gameFinalization';
 import { resolveLineupPlayer } from '../utils/lineupPlayerLookup';
 import { isFinishedScoringLockError } from '../utils/scoringAccess';
+import type { PitchCommand } from '../utils/scoringProtocol';
+import { ScoringRecovery } from './ScoringRecovery';
 
 interface ScoreboardProps {
   matchId: string;
@@ -77,11 +79,11 @@ const ScoringBoardContent: React.FC<ScoreboardProps & { saveState?: storage.Scor
   };
 
   const handleSaveAndExit = async () => {
-      if (match) {
-          await storage.updateMatch(match);
-      }
-      setShowExitMenuModal(false);
-      onExit({ savedPractice: false });
+      try {
+          if (match) await storage.updateMatch(match, { baseMatch: match, requireServerSave: true });
+          setShowExitMenuModal(false);
+          onExit({ savedPractice: false });
+      } catch (error) { alert(explainSaveError(error, 'match')); }
   };
 
   const finalizeMatch = async (source: 'exit' | 'finish', forceTie = false) => {
@@ -99,7 +101,7 @@ const ScoringBoardContent: React.FC<ScoreboardProps & { saveState?: storage.Scor
 
       // A failed server save must never navigate away or clear the active game.
       try {
-          const saved = await storage.updateMatch(prepareFinalizedMatch(match), { requireServerSave: true });
+          const saved = await storage.updateMatch(prepareFinalizedMatch(match), { requireServerSave: true, baseMatch: match });
           setMatch(saved);
       } catch (err: any) {
           alert(explainSaveError(err, 'finalize'));
@@ -240,10 +242,11 @@ const ScoringBoardContent: React.FC<ScoreboardProps & { saveState?: storage.Scor
       if (!match || !teams.home || !teams.away || !tbHomePlayerId || !tbAwayPlayerId) return;
       const round = createNextTieBreakerRound(match.tieBreaker, tbHomePlayerId, tbAwayPlayerId);
       const updatedMatch = appendTieBreakerRound(match, round);
-      setMatch(updatedMatch);
-      await storage.updateMatch(updatedMatch);
-      setShowTieBreakerSetup(false);
-      setActiveInningIdx(6);
+      try {
+          setMatch(await storage.updateMatch(updatedMatch, { baseMatch: match, requireServerSave: true }));
+          setShowTieBreakerSetup(false);
+          setActiveInningIdx(6);
+      } catch (error) { alert(explainSaveError(error, 'match')); }
   };
 
   const confirmResetPracticeMatch = async () => {
@@ -274,38 +277,42 @@ const ScoringBoardContent: React.FC<ScoreboardProps & { saveState?: storage.Scor
       tieBreaker: []
     };
 
-    setMatch(resetMatch);
+    try { setMatch(await storage.updateMatch(resetMatch, { baseMatch: match, intent: { kind: 'resetPractice' }, requireServerSave: true })); }
+    catch (error) { alert(explainSaveError(error, 'match')); return; }
     setActiveInningIdx(0);
     setActiveCell(null);
     setShowFinishModal(false);
     setShowTieBreakerSetup(false);
     setShowResetConfirmModal(false);
-    await storage.updateMatch(resetMatch).catch(err => {
-      console.error('Practice reset failed:', err);
-      alert(explainSaveError(err, 'match'));
-    });
   };
 
   const handleUndo = async (side: 'home' | 'away', lineupIdx: number, currentPitchIdx: number, roundIdx?: number) => {
       if (!match) return;
       const prevPitchIdx = currentPitchIdx - 1;
       if (prevPitchIdx < 0) return;
-      const newMatch = roundIdx !== undefined
-        ? setTieBreakerPitchScore(match, roundIdx, side, prevPitchIdx, null)
-        : setPitchScore(match, activeInningIdx, side, lineupIdx, prevPitchIdx, null);
-      if (newMatch === match) return;
+      const round = roundIdx === undefined ? undefined : match.tieBreaker?.[roundIdx];
+      const player = match.innings[activeInningIdx]?.[side]?.playerScores[lineupIdx];
+      const expected = round ? (side === 'home' ? round.homeScores : round.awayScores)[prevPitchIdx] : player?.pitches[prevPitchIdx]?.points;
+      if (expected === undefined || expected === null) return;
+      const command: PitchCommand = round ? { kind: 'extraPitch', round: round.roundNumber, side,
+        playerId: side === 'home' ? round.homePlayerId : round.awayPlayerId, pitchIndex: prevPitchIdx, expected, points: null }
+        : { kind: 'pitch', inning: match.innings[activeInningIdx].number, side, playerId: player.playerId, pitchIndex: prevPitchIdx, expected, points: null };
+      let staged: ReturnType<typeof storage.stagePitch>;
+      try { staged = storage.stagePitch(match, command); }
+      catch (error) { alert(explainSaveError(error, 'match')); return; }
+      const newMatch = staged.match;
       setActiveCell({ side, lineupIdx: roundIdx !== undefined ? 0 : lineupIdx, pitchIdx: prevPitchIdx, ...(roundIdx !== undefined ? { roundIdx } : {}) });
       // Final-game corrections must be confirmed by the server before display.
       if (match.isComplete) {
         try {
-          setMatch(await storage.updateMatch(newMatch, { requireServerSave: true }));
+          setMatch(await staged.saved);
         } catch (err) {
           alert(explainSaveError(err, 'match'));
         }
         return;
       }
       setMatch(newMatch);
-      await storage.updateMatch(newMatch).catch(err => {
+      await staged.saved.catch(err => {
         console.error('Undo failed:', err);
         alert(explainSaveError(err, 'match'));
       });
@@ -325,12 +332,16 @@ const ScoringBoardContent: React.FC<ScoreboardProps & { saveState?: storage.Scor
     if (!teamData?.playerScores?.[lineupIdx]?.pitches?.[pitchIdx]) return;
     const existingValue = teamData.playerScores[lineupIdx].pitches[pitchIdx].points;
     const isEdit = existingValue !== null;
-    const newMatch = setPitchScore(match, targetInningIdx, side, lineupIdx, pitchIdx, val);
-    if (newMatch === match) return;
+    if (existingValue === val) return;
+    let staged: ReturnType<typeof storage.stagePitch>;
+    try { staged = storage.stagePitch(match, { kind: 'pitch', inning: inning.number, side,
+      playerId: teamData.playerScores[lineupIdx].playerId, pitchIndex: pitchIdx, expected: existingValue, points: val }); }
+    catch (error) { alert(explainSaveError(error, 'match')); return; }
+    const newMatch = staged.match;
     if (match.isComplete) {
       // Do not optimistically show or queue changes to official final results.
       try {
-        setMatch(await storage.updateMatch(newMatch, { requireServerSave: true }));
+        setMatch(await staged.saved);
       } catch (err) {
         alert(explainSaveError(err, 'match'));
       }
@@ -374,11 +385,11 @@ const ScoringBoardContent: React.FC<ScoreboardProps & { saveState?: storage.Scor
             }
         }
     }
-    await storage.updateMatch(newMatch).catch(async err => {
+    await staged.saved.catch(async err => {
       console.error('Score could not be confirmed:', err);
       alert(explainSaveError(err, 'match'));
-      const latest = await storage.getMatch(matchId);
-      if (latest) setMatch(latest);
+      // Keep the accepted local journal visible. Recovery never replaces it
+      // with a server read that might omit unsent scores.
     });
   };
 
@@ -391,7 +402,7 @@ const ScoringBoardContent: React.FC<ScoreboardProps & { saveState?: storage.Scor
     const nextIsComplete = !match.isComplete;
     const updated: Match = { ...match, isComplete: nextIsComplete, status: nextIsComplete ? 'FINAL' : 'IN_PROGRESS' };
     try {
-        const saved = await storage.updateMatch(updated, { requireServerSave: true });
+        const saved = await storage.updateMatch(updated, { requireServerSave: true, baseMatch: match });
         setMatch(saved);
     } catch (err: any) {
         alert(explainSaveError(err, 'finalize'));
@@ -407,11 +418,15 @@ const ScoringBoardContent: React.FC<ScoreboardProps & { saveState?: storage.Scor
       const existing = scores[pitchIdx];
       if (existing === undefined) return;
       const isEdit = existing !== null;
-      const newMatch = setTieBreakerPitchScore(match, roundIdx, side, pitchIdx, val);
-      if (newMatch === match) return;
+      if (existing === val) return;
+      let staged: ReturnType<typeof storage.stagePitch>;
+      try { staged = storage.stagePitch(match, { kind: 'extraPitch', round: cur.roundNumber, side,
+        playerId: side === 'home' ? cur.homePlayerId : cur.awayPlayerId, pitchIndex: pitchIdx, expected: existing, points: val }); }
+      catch (error) { alert(explainSaveError(error, 'match')); return; }
+      const newMatch = staged.match;
       if (match.isComplete) {
         try {
-          setMatch(await storage.updateMatch(newMatch, { requireServerSave: true }));
+          setMatch(await staged.saved);
         } catch (err) {
           alert(explainSaveError(err, 'match'));
         }
@@ -434,7 +449,7 @@ const ScoringBoardContent: React.FC<ScoreboardProps & { saveState?: storage.Scor
           if (!isEdit && pitchIdx < limit - 1) next = { side, lineupIdx: 0, pitchIdx: pitchIdx + 1, roundIdx };
           setActiveCell(next);
       }
-      await storage.updateMatch(newMatch).catch(err => {
+      await staged.saved.catch(err => {
         console.error('Tie-breaker score could not be saved:', err);
         alert(explainSaveError(err, 'match'));
       });
@@ -503,7 +518,7 @@ const ScoringBoardContent: React.FC<ScoreboardProps & { saveState?: storage.Scor
                   forfeit_reason: verdict.reason
               };
           }
-          const saved = await storage.updateMatch(updated, { requireServerSave: true });
+          const saved = await storage.updateMatch(updated, { requireServerSave: true, baseMatch: match });
           setMatch(saved);
           return true;
       } catch (err: any) {
@@ -751,6 +766,7 @@ const ScoringBoardContent: React.FC<ScoreboardProps & { saveState?: storage.Scor
             {saveState === 'attention' && <span>Some scores need checking before you continue.</span>}
           </div>
         )}
+        {!isReadOnly && (saveState === 'offline' || saveState === 'attention') && <div className="px-4 py-2"><ScoringRecovery matchId={matchId} /></div>}
         <div className="max-w-7xl mx-auto px-4 py-3 flex justify-between items-center gap-4">
           <div className="flex gap-8 items-center flex-1 min-w-0">
             <div className="text-center flex-1 min-w-0"><div className="text-[10px] uppercase font-bold text-slate-500">Away</div><div className="text-xl font-bold text-blue-700 truncate">{teams.away.name}</div><div className="text-2xl font-sans tabular-nums font-bold dark:text-white">{awayTotal}</div></div>
@@ -1146,7 +1162,7 @@ export const Scoreboard: React.FC<ScoreboardProps> = (props) => {
   useEffect(() => {
     setSyncWarning(storage.getScoringSyncWarning(props.matchId));
     const onWarning = (event: Event) => {
-      const detail = (event as CustomEvent<{ matchId: string; message: string }>).detail;
+      const detail = (event as CustomEvent<{ matchId: string; message: string | null }>).detail;
       if (detail?.matchId === props.matchId) setSyncWarning(detail.message);
     };
     const onSaveState = (event: Event) => {
@@ -1162,10 +1178,15 @@ export const Scoreboard: React.FC<ScoreboardProps> = (props) => {
     };
   }, [props.matchId]);
   const isSpectator = props.isReadOnly || props.userRole === 'fan';
+  const retryRecovery = async () => {
+    try { await storage.retrySavedScoring(props.matchId); await checkAccess(); }
+    catch { setMessage('Your saved scores still need checking. Keep this page open and ask the person running the league for help.'); }
+  };
 
   const checkAccess = async (takeover = false) => {
     setAccess('checking');
     try {
+      storage.inspectScoringRecovery(props.matchId);
       await storage.requestScoringLock(props.matchId, takeover ? 'takeover' : 'acquire');
       setAccess('granted');
       setMessage('');
@@ -1188,27 +1209,31 @@ export const Scoreboard: React.FC<ScoreboardProps> = (props) => {
     void checkAccess();
   }, [props.matchId, isSpectator]);
 
-  if (isSpectator || (props.userRole === 'umpire' && access === 'finished')) {
+  const finishedRecovery = props.userRole === 'umpire' && (props.isReadOnly || access === 'finished') && storage.hasPendingMatchSync(props.matchId);
+  if (props.userRole === 'fan') {
     return <ScoringBoardContent {...props} isReadOnly />;
   }
-  if (syncWarning) {
+  if (syncWarning || finishedRecovery) {
     return (
       <div className="min-h-[60vh] flex items-center justify-center px-4">
         <div className="max-w-md w-full rounded-2xl border border-amber-500 p-6 text-center space-y-4">
           <h2 className="text-xl font-bold">Scores need checking</h2>
-          <p>{syncWarning}</p>
-          <button type="button" onClick={() => void storage.syncOfflineData()} className="px-4 py-3 rounded-lg bg-blue-600 text-white font-semibold">Try syncing again</button>
+          <p>{syncWarning || 'This game is finished, and this device still has changes to check. Your saved copy is safe. Ask the person running the league to compare it before continuing.'}</p>
+          <button type="button" onClick={() => void retryRecovery()} className="px-4 py-3 rounded-lg bg-blue-600 text-white font-semibold">Try syncing again</button>
+          <ScoringRecovery matchId={props.matchId} />
           <button type="button" onClick={() => props.onExit()} className="px-4 py-3 rounded-lg border border-gray-400">Back to schedule</button>
         </div>
       </div>
     );
   }
-  if (access === 'granted') return <ScoringBoardContent {...props} saveState={saveState} onRetrySync={() => void storage.syncOfflineData()} />;
+  if (isSpectator || (props.userRole === 'umpire' && access === 'finished')) return <ScoringBoardContent {...props} isReadOnly />;
+  if (access === 'granted') return <ScoringBoardContent {...props} saveState={saveState} onRetrySync={() => void retryRecovery()} />;
   return (
     <div className="min-h-[60vh] flex items-center justify-center px-4">
       <div className="max-w-md w-full rounded-2xl border border-gray-300 dark:border-gray-700 p-6 text-center space-y-4">
         <h2 className="text-xl font-bold">{access === 'checking' ? 'Opening the game…' : 'Scoring is unavailable'}</h2>
         {access !== 'checking' && <p className="text-base">{message}</p>}
+        {access !== 'checking' && <ScoringRecovery matchId={props.matchId} />}
         {access !== 'checking' && (
           <div className="flex flex-wrap gap-3 justify-center">
             <button type="button" onClick={() => void checkAccess()} className="px-4 py-3 rounded-lg bg-blue-600 text-white font-semibold">Try again</button>

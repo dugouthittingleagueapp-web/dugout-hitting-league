@@ -443,12 +443,6 @@ function devApiPlugin(): Plugin {
             }
           }
 
-          if (pathname === '/api/admin/fix-crushers' || pathname === '/api/fix-crushers') {
-            const cleanupResult = migrateCrushersInDbData(db);
-            saveDb(db);
-            return sendJson(res, 200, cleanupResult);
-          }
-
           return sendJson(res, 404, { error: 'API route not found' });
         } catch (err: any) {
           console.error('[Dev API] Server error:', err);

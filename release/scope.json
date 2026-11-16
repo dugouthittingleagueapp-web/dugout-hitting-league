@@ -1,0 +1,21 @@
+{
+  "productionBase": "c6fa6532c0813b8e89168641aced4d9870a3b450",
+  "unchangedFiles": {
+    "components/AdminDashboard.tsx": "6f6212ca6b68bfe59a15949f9c9e78951a2c9a74293a0930e274a69b4abcc5e1",
+    "components/ScheduleImportModal.tsx": "ef6187153c04e46e71afe0162592ef163237b63beae6d3e69370a22c612d7fc7",
+    "utils/scheduleImporter.ts": "d75dec0c704bd1beb1b92f2c23521f41b329dfa86731d472a10aa793350fdd44",
+    "api/leagues.ts": "43996cec8108f9facd510f2146f0b9d205f0383ca075a1a74fbfc10fe76ebeba",
+    "api/teams.ts": "0f99eaa6a4f6b44e5d7ee4207d5d258c2ec4aa17e428beb4c5805d9b9c82bd41",
+    "types.ts": "91d04ce201c31af26e01a76428c01ec144343e1b971b2a2d693d899c4e90dfc9",
+    "schema.sql": "fd6c83e3c9e7356e2ddb61495078373b0ef8e37a6a038ea30fe372f9a48c6c65",
+    "api/migrations.ts": "8e9812978f822a32302a3b7e6f11c15f6539be11f672cabc03c829f94998f605"
+  },
+  "legacyImportFunctionSha256": "e73de26f24e1b95b9ca604d8b6235c449597068a4643b07e334ccf10f08761da",
+  "excludedNewFiles": [
+    "components/AdminSchedule.tsx",
+    "api/schedule-admin.ts",
+    "server/scheduleImport.ts",
+    "server/scheduleBookings.ts",
+    "utils/scheduleConflicts.ts"
+  ]
+}

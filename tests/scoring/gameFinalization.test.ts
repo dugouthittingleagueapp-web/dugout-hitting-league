@@ -59,6 +59,7 @@ describe('Scoreboard finalization behavior', () => {
     const limits: number[] = [];
     let current = original;
     for (let i = 0; i < 4; i++) {
+      for (const round of current.tieBreaker || []) { round.homeScores.fill(0); round.awayScores.fill(0); }
       const next: TieBreakerRound = createNextTieBreakerRound(current.tieBreaker, 'a', 'b');
       limits.push(next.pitchLimit);
       expect(next.roundNumber).toBe(i + 1);

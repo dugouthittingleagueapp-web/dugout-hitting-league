@@ -3,7 +3,7 @@ import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { randomUUID } from 'node:crypto';
 const connectionString = process.env.DUGOUT_BROWSER_DATABASE_URL || '';
 const url = new URL(connectionString);
-if (url.hostname !== '127.0.0.1' || url.pathname !== '/dugout_test_release_browser') throw new Error('Scoring browser fixtures require the disposable localhost database.');
+if (url.hostname !== '127.0.0.1' || url.pathname !== '/dugout_test_phase2_browser') throw new Error('Scoring browser fixtures require the disposable localhost database.');
 const db = new pg.Client({ connectionString, ssl: false }); await db.connect();
 await db.query(readFileSync(new URL('../../schema.sql', import.meta.url), 'utf8'));
 await db.query(`ALTER TABLE matches ADD COLUMN IF NOT EXISTS revision BIGINT NOT NULL DEFAULT 0,
@@ -38,6 +38,19 @@ for (const scenario of ['hanging', 'lost-response', 'storage', 'stale-profile', 
   await db.query('INSERT INTO matches(id,league,season,home_team_id,away_team_id,date,start_time,end_time,location,status,innings,tie_breaker) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)',
     [id, league, '2026', home.id, away.id, '2026-11-17T18:00:00Z', '6:00 pm', '7:00 pm', 'The Dugout: Tunnels 5/6', 'IN_PROGRESS', JSON.stringify(innings), extras ? JSON.stringify(extras) : null]);
 }
+// A dedicated finalized game exercises dashboard corrections without opening
+// Scoreboard first (which would hide a missing-lock defect).
+const statsAwayId = randomUUID();
+await db.query('INSERT INTO teams(id,name,league,season,players,subs) VALUES($1,$2,$3,$4,$5,$6)',
+  [statsAwayId, 'Stats Repair Away', league, '2026', JSON.stringify(away.players), '[]']);
+const statsInnings = Array.from({ length: 6 }, (_, i) => ({ number: i + 1,
+  home: { teamId: 'home', playerScores: home.players.map(p => ({ playerId: p.id, pitches: Array.from({ length: 10 }, () => ({ points: 0 })) })) },
+  away: { teamId: 'away', playerScores: away.players.map(p => ({ playerId: p.id, pitches: Array.from({ length: 10 }, () => ({ points: 0 })) })) },
+}));
+statsInnings[5].home.playerScores[2].pitches[9].points = 2;
+ids['stats-repair'] = randomUUID();
+await db.query('INSERT INTO matches(id,league,season,home_team_id,away_team_id,date,status,is_complete,innings,location) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)',
+  [ids['stats-repair'], league, '2026', home.id, statsAwayId, '2026-11-17T18:00:00Z', 'FINAL', true, JSON.stringify(statsInnings), 'The Dugout: Tunnels 5/6']);
 mkdirSync('work/browser', { recursive: true });
 writeFileSync('work/browser/scoring-fixtures.json', JSON.stringify({ league, ids, home, away }));
 await db.end(); console.log('Synthetic scoring scenarios prepared. No Neon database or existing game was used.');

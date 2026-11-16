@@ -3,7 +3,7 @@ import { randomUUID } from 'node:crypto';
 import { mkdirSync, writeFileSync } from 'node:fs';
 
 const url = new URL(process.env.DUGOUT_BROWSER_DATABASE_URL || '');
-if (url.hostname !== '127.0.0.1' || url.pathname !== '/dugout_test_release_browser')
+if (url.hostname !== '127.0.0.1' || url.pathname !== '/dugout_test_phase2_browser')
   throw new Error('Lineup fixtures require the isolated localhost scoring test database.');
 const db = new pg.Client({ connectionString: url.toString(), ssl: false });
 await db.connect();

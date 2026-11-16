@@ -187,6 +187,36 @@ describe.skipIf(!process.env.DUGOUT_TEST_DATABASE_URL)('Scoring safety on isolat
       expect(await snapshot()).toBe(before);
     }
   });
+  it('phase2 rejects starting extras before regulation is complete without changing the game', async () => {
+    const before = await snapshot();
+    const round = { roundNumber: 1, pitchLimit: 5, homePlayerId: 'h1', awayPlayerId: 'a1', homeScores: Array(5).fill(null), awayScores: Array(5).fill(null) };
+    expect((await request(matches, { id: 'journal-test', revision: 0, tieBreaker: [round] })).statusCode).toBe(400);
+    expect(await snapshot()).toBe(before);
+  });
+  it.each([5, 3, 1])('phase2 rejects premature advancement from an incomplete %i-pitch round', async limit => {
+    const game = scoringFixture().game;
+    for (const inning of game.innings) for (const side of ['home', 'away'] as const) for (const player of inning[side].playerScores) for (const pitch of player.pitches) pitch.points = 0;
+    const extras = [5, 3, 1].slice(0, limit === 5 ? 1 : limit === 3 ? 2 : 3).map((n, i) => ({ roundNumber: i + 1, pitchLimit: n, homePlayerId: 'h1', awayPlayerId: 'a1', homeScores: Array<number | null>(n).fill(0), awayScores: Array<number | null>(n).fill(0) }));
+    extras[extras.length - 1].homeScores[0] = null;
+    await pool.query('UPDATE matches SET innings=$1,tie_breaker=$2 WHERE id=$3', [JSON.stringify(game.innings), JSON.stringify(extras), game.id]);
+    const before = await snapshot(), n = limit === 5 ? 3 : 1;
+    const next = { roundNumber: extras.length + 1, pitchLimit: n, homePlayerId: 'h1', awayPlayerId: 'a1', homeScores: Array(n).fill(null), awayScores: Array(n).fill(null) };
+    expect((await request(matches, { id: game.id, revision: 0, tieBreaker: [...extras, next] })).statusCode).toBe(400);
+    expect(await snapshot()).toBe(before);
+  });
+  it('phase2 serializes concurrent valid round advancement and blocks fan/foreign owner writes', async () => {
+    const game = scoringFixture().game;
+    for (const inning of game.innings) for (const side of ['home', 'away'] as const) for (const player of inning[side].playerScores) for (const pitch of player.pitches) pitch.points = 0;
+    await pool.query('UPDATE matches SET innings=$1 WHERE id=$2', [JSON.stringify(game.innings), game.id]);
+    const round = { roundNumber: 1, pitchLimit: 5, homePlayerId: 'h1', awayPlayerId: 'a1', homeScores: Array(5).fill(null), awayScores: Array(5).fill(null) };
+    const payload = { id: game.id, revision: 0, tieBreaker: [round] }, before = await snapshot();
+    expect((await request(matches, payload, 'umpire', 'PUT', '22222222-2222-4222-8222-222222222222')).statusCode).toBe(423);
+    expect(await snapshot()).toBe(before);
+    const writes = await Promise.all([request(matches, payload), request(matches, payload)]);
+    expect(writes.map(w => w.statusCode).sort()).toEqual([200, 409]);
+    const state = await stored(); expect(state.tie_breaker).toEqual([round]); expect(state.revision).toBe('1'); expect(state.innings).toEqual(game.innings);
+  });
+
   it('preserves extras when a partial update omits them and rejects explicit clearing', async () => {
     const extras = [{ roundNumber: 1, pitchLimit: 5, homePlayerId: 'h1', awayPlayerId: 'a1', homeScores: [4, null, null, null, null], awayScores: [0, null, null, null, null] }];
     await pool.query('UPDATE matches SET tie_breaker=$1 WHERE id=$2', [JSON.stringify(extras), 'journal-test']);

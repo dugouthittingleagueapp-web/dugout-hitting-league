@@ -62,3 +62,18 @@ additionally covers malformed requests, rollback, substitutions, undo and forfei
 Playwright may log route-cancellation warnings when navigation deliberately
 interrupts a held request; application page errors are collected separately and
 fail the workflow.
+
+## Scheduled-game entry regression
+
+With the same localhost scoring database and port 3400 test server running:
+
+```sh
+node tests/browser/lineupStartSetup.mjs
+python3 -u tests/browser/lineupStartWorkflow.py
+```
+
+The setup adds fresh synthetic scheduled games. The workflow uses an umpire
+session to change batting order and Save & Start, records a pitch, tests direct
+Start Game, verifies genuine other-device ownership is respected, confirms a
+failed start stays on the dashboard, and checks Save Lineup alone does not
+reserve scoring access. No Neon URL or real game is used.

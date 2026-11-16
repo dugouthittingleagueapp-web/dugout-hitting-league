@@ -94,6 +94,15 @@ Verification on the repair branch:
 
 ## Recommended Preview acceptance procedure
 
+Scheduled-game entry follow-up: both dashboard Start Game and lineup Save & Start
+must acquire scoring ownership **before** attempting the protected IN_PROGRESS
+save. The captured source revision is retained and navigation waits for the saved
+response. A missing-access error no longer falsely claims another umpire owns
+the game. Ordinary Save Lineup on an unowned scheduled game does not reserve it.
+The follow-up suite passes 403 tests in 55 files, TypeScript and build; the local
+browser regression covers both entry paths, an actual other-device owner,
+failed status saves, saved batting order and the first recorded pitch.
+
 Only after separate authorization to publish this branch:
 
 1. Verify the repair deployment uses the intended isolated Preview database and

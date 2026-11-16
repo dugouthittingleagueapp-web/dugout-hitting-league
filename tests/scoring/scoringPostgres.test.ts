@@ -61,6 +61,30 @@ describe.skipIf(!process.env.DUGOUT_TEST_DATABASE_URL)('Scoring safety on isolat
   afterEach(() => { vi.restoreAllMocks(); });
   afterAll(async () => { await pool.end(); vi.unstubAllEnvs(); });
 
+  it('requires acquisition before Save & Start on an unowned scheduled game', async () => {
+    await pool.query("UPDATE matches SET status='SCHEDULED'; DELETE FROM scoring_locks");
+    const before = await snapshot();
+    const premature = await request(matches, { id: 'journal-test', revision: 0, status: 'IN_PROGRESS' });
+    expect(premature.statusCode).toBe(423);
+    expect(premature.body.error).toContain('Scoring is not ready');
+    expect(await snapshot()).toBe(before);
+    expect((await request(scoringLock, { matchId: 'journal-test', token: owner, action: 'acquire' }, 'umpire', 'POST')).statusCode).toBe(200);
+    const started = await request(matches, { id: 'journal-test', revision: 0, status: 'IN_PROGRESS' });
+    expect(started.statusCode).toBe(200);
+    expect(started.body.status).toBe('IN_PROGRESS');
+    expect((await request(matches, { ...command(), revision: 1 })).statusCode).toBe(200);
+  });
+
+  it('never takes over another umpire while starting a scheduled game', async () => {
+    await pool.query("UPDATE matches SET status='SCHEDULED'");
+    const before = await snapshot(), other = '22222222-2222-4222-8222-222222222222';
+    const locked = await request(scoringLock, { matchId: 'journal-test', token: other, action: 'acquire' }, 'umpire', 'POST');
+    expect(locked.statusCode).toBe(423);
+    expect((await request(matches, { id: 'journal-test', revision: 0, status: 'IN_PROGRESS' }, 'umpire', 'PUT', other)).statusCode).toBe(423);
+    expect(await snapshot()).toBe(before);
+    expect((await request(scoringLock, { matchId: 'journal-test', token: owner, action: 'status' }, 'umpire', 'POST')).body.owned).toBe(true);
+  });
+
   it('applies a pitch and its durable retry receipt in one transaction', async () => {
     const body = command(0);
     const first = await request(matches, body);

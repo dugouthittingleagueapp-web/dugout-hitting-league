@@ -911,6 +911,14 @@ export const createPracticeMatch = async (params: {
   return match;
 };
 
+/** Starting from a dashboard must secure access before the protected status save.
+ * Keep the captured source revision: acquiring access never rebases a lineup.
+ */
+export const startMatchScoring = async (match: Match, baseMatch: Match = match): Promise<Match> => {
+    await requestScoringLock(match.id, 'acquire');
+    return updateMatch({ ...match, status: 'IN_PROGRESS' }, { requireServerSave: true, baseMatch });
+};
+
 export const updateMatch = async (match: Match, options?: { requireServerSave?: boolean; baseMatch?: Match; intent?: SnapshotIntent }): Promise<Match> => {
     if (typeof window !== 'undefined') {
         await scoringJournal.syncGame(match.id);

@@ -189,6 +189,7 @@ export const parseScheduleCsv = (
       location,
       group,
       csvGroup: csvGroup || undefined,
+      csvRow: rowNum,
       homeTeamName,
       awayTeamName,
       notes,
@@ -207,7 +208,7 @@ export const isDuplicateMatch = (
   candidate: ScheduledGameRecord,
   homeTeamId: string,
   awayTeamId: string,
-  existingMatches: Match[]
+  existingMatches: (Pick<Match, 'league' | 'homeTeamId' | 'awayTeamId' | 'date'> & { season?: string })[]
 ): boolean => {
   const candidateDay = candidate.scheduledIsoDate.substring(0, 10);
 

@@ -84,7 +84,7 @@ export const AdminSchedule: React.FC<Props> = ({ season, onImport, refreshToken 
     });
     if (!res.ok) {
       const response = await res.json().catch(() => ({}));
-      throw new Error(response.error || 'Could not save this change.');
+      throw new Error([response.error || 'Could not save this change.', ...(response.errors || [])].join('\n'));
     }
     return res.json();
   };
@@ -165,7 +165,7 @@ export const AdminSchedule: React.FC<Props> = ({ season, onImport, refreshToken 
           </select>
           <input aria-label="Find games" placeholder="Find a team, date, or cage..." value={search} onChange={e => setSearch(e.target.value)} className={inputClass}/>
         </div>
-        {error && <div role="alert" className="rounded-lg bg-red-50 text-red-700 dark:bg-red-950/40 dark:text-red-300 p-3 text-sm">{error}</div>}
+        {error && <div role="alert" className="whitespace-pre-line rounded-lg bg-red-50 text-red-700 dark:bg-red-950/40 dark:text-red-300 p-3 text-sm">{error}</div>}
         {success && <div role="status" className="text-green-700 dark:text-green-400 text-sm">{success}</div>}
       </div>
 
@@ -228,7 +228,7 @@ export const AdminSchedule: React.FC<Props> = ({ season, onImport, refreshToken 
         <div className="fixed inset-0 z-[9999] bg-slate-950/80 p-3 flex items-center justify-center" role="dialog" aria-modal="true" aria-label="Edit scheduled game">
           <div className="bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl p-5 w-full max-w-lg max-h-[90vh] overflow-y-auto space-y-3">
             <h3 className="font-black text-lg text-slate-900 dark:text-white">Edit scheduled game · {editing.league}</h3>
-            {error && <div className="p-2 text-sm bg-red-50 dark:bg-red-950/40 text-red-700 dark:text-red-300 rounded">{error}</div>}
+            {error && <div className="whitespace-pre-line p-2 text-sm bg-red-50 dark:bg-red-950/40 text-red-700 dark:text-red-300 rounded">{error}</div>}
             <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">Date
               <input type="date" value={draft.date} onChange={e => setDraft({ ...draft, date: e.target.value })} className={inputClass}/>
             </label>

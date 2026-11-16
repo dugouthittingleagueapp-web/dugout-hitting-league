@@ -91,6 +91,7 @@ export interface ScheduledGameRecord {
   location: string;
   group: string;
   csvGroup?: string;
+  csvRow?: number;
   homeTeamName: string;
   awayTeamName: string;
   notes?: string;

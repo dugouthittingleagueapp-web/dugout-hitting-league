@@ -80,6 +80,137 @@ describe.skipIf(!process.env.DUGOUT_TEST_DATABASE_URL)('Schedule workflows on di
     expect(await counts()).toEqual({ leagues: 1, teams: 2, matches: 1 });
   });
 
+  const otherPayload = (rows: string[], name = '12U') => ({ ...payload, csvText: csv(rows),
+    leagueDestinations: { 'CSV Group': { mode: 'new', name } } });
+  const editPayload = (game: any, changes: Record<string, unknown> = {}) => ({
+    action: 'update_game', season: '2027', id: game.id, revision: Number(game.revision),
+    date: game.date.toISOString().slice(0, 10), startTime: game.start_time, endTime: game.end_time,
+    location: game.location, notes: game.notes || '', homeTeamId: game.home_team_id, awayTeamId: game.away_team_id, ...changes,
+  });
+
+  it('blocks overlapping CSV rows before provisioning any leagues, teams, games or receipts', async () => {
+    const bad = otherPayload([
+      '2027-11-01,6:00 pm,7:00 pm,Tunnels 5/6,CSV Group,A,B,',
+      '2027-11-01,6:30 pm,7:30 pm,Tunnels 5/6,CSV Group,C,D,',
+    ]);
+    for (const action of ['preview_import', 'import_schedule']) {
+      const result = await request(schedule, 'POST', { ...bad, action });
+      expect(result.statusCode).toBe(409);
+      expect(result.body.errors[0]).toContain('CSV row 3');
+      expect(result.body.errors[0]).toContain('CSV row 2');
+      expect(result.body.errors[0]).toContain('already booked');
+      expect(await counts()).toEqual({ leagues: 0, teams: 0, matches: 0 });
+    }
+    expect((await pool.query("SELECT key FROM app_settings WHERE key LIKE 'schedule_import:%'")).rows).toEqual([]);
+  });
+
+  it('checks bookings across CSV groups mapped to different leagues', async () => {
+    const result = await request(schedule, 'POST', { ...payload, csvText: csv([
+      '2027-11-01,6:00 pm,7:00 pm,Tunnels 5/6,CSV Group,A,B,',
+      '2027-11-01,6:00 pm,7:00 pm,Tunnels 5/6,Older Group,C,D,',
+    ]), leagueDestinations: { ...payload.leagueDestinations, 'Older Group': { mode: 'new', name: '12U' } } });
+    expect(result.statusCode).toBe(409);
+    expect(await counts()).toEqual({ leagues: 0, teams: 0, matches: 0 });
+  });
+
+  it('checks imports against saved games in another league without changing them', async () => {
+    await importFile();
+    const before = (await pool.query('SELECT * FROM matches')).rows;
+    const result = await request(schedule, 'POST', otherPayload(['2027-11-01,18:30,19:30,Tunnels 5/6,CSV Group,Bears,Owls,']));
+    expect(result.statusCode).toBe(409);
+    expect(result.body.errors[0]).toContain('Eagles vs Panthers (11U)');
+    expect(result.body.errors[0]).toContain('Bears vs Owls (12U)');
+    expect((await pool.query('SELECT * FROM matches')).rows).toEqual(before);
+    expect(await counts()).toEqual({ leagues: 1, teams: 2, matches: 1 });
+  });
+
+  it('blocks the same team in another tunnels slot on the same date', async () => {
+    await importFile();
+    const result = await request(schedule, 'POST', otherPayload(['2027-11-01,6:30 pm,7:30 pm,Tunnels 7/8,CSV Group,Bears,Eagles,'], '11U'));
+    expect(result.statusCode).toBe(409);
+    expect(result.body.errors[0]).toContain('Eagles already has a game');
+    expect(await counts()).toEqual({ leagues: 1, teams: 2, matches: 1 });
+  });
+
+  it('allows adjacent times and simultaneous different-tunnels games with different teams', async () => {
+    await importFile();
+    const result = await request(schedule, 'POST', otherPayload([
+      '2027-11-01,7:00 pm,8:00 pm,Tunnels 5/6,CSV Group,Eagles,Bears,',
+      '2027-11-01,6:00 pm,7:00 pm,Tunnels 7/8,CSV Group,Owls,Wolves,',
+    ], '11U'));
+    expect(result.statusCode).toBe(200);
+    expect(result.body.createdMatches).toBe(2);
+  });
+
+  it('still skips exact imported duplicates instead of treating them as competing bookings', async () => {
+    await importFile();
+    const result = await request(schedule, 'POST', { ...payload, csvText: file.replace('Bring balls', 'Same saved schedule') });
+    expect(result.statusCode).toBe(200);
+    expect(result.body).toMatchObject({ createdMatches: 0, skippedDuplicates: 1 });
+  });
+
+  it('blocks edits into another league booking and leaves revision, metadata and innings unchanged', async () => {
+    await importFile();
+    await request(schedule, 'POST', otherPayload(['2027-11-01,6:00 pm,7:00 pm,Tunnels 7/8,CSV Group,Bears,Owls,']));
+    const game = (await pool.query("SELECT * FROM matches WHERE league='12U'")).rows[0];
+    const result = await request(schedule, 'PATCH', editPayload(game, { location: 'Tunnels 5/6' }));
+    expect(result.statusCode).toBe(409);
+    expect(result.body.errors[0]).toContain('Eagles vs Panthers');
+    expect((await pool.query('SELECT * FROM matches WHERE id=$1', [game.id])).rows[0]).toEqual(game);
+    expect((await request(schedule, 'PATCH', editPayload(game, { startTime: '7:00 pm', endTime: '8:00 pm', location: 'Tunnels 5/6' }))).statusCode).toBe(200);
+  });
+
+  it('checks team changes when editing even if the tunnels differ', async () => {
+    await importFile();
+    await request(schedule, 'POST', otherPayload(['2027-11-01,6:00 pm,7:00 pm,Tunnels 7/8,CSV Group,Bears,Owls,'], '11U'));
+    const game = (await pool.query("SELECT * FROM matches WHERE location LIKE '%7/8'")).rows[0];
+    const eagle = (await pool.query("SELECT id FROM teams WHERE name='Eagles'")).rows[0].id;
+    const result = await request(schedule, 'PATCH', editPayload(game, { homeTeamId: eagle }));
+    expect(result.statusCode).toBe(409);
+    expect(result.body.errors[0]).toContain('Eagles already has a game');
+    expect((await pool.query('SELECT * FROM matches WHERE id=$1', [game.id])).rows[0]).toEqual(game);
+  });
+
+  it('rechecks after preview and serializes simultaneous imports competing for the same tunnels', async () => {
+    const second = otherPayload(['2027-11-01,6:30 pm,7:30 pm,Tunnels 5/6,CSV Group,Bears,Owls,']);
+    for (const item of [payload, second]) expect((await request(schedule, 'POST', { ...item, action: 'preview_import' })).statusCode).toBe(200);
+    const results = await Promise.all([request(schedule, 'POST', payload), request(schedule, 'POST', second)]);
+    expect(results.map(r => r.statusCode).sort()).toEqual([200, 409]);
+    expect(await counts()).toEqual({ leagues: 1, teams: 2, matches: 1 });
+    expect((await pool.query("SELECT key FROM app_settings WHERE key LIKE 'schedule_import:%'")).rows).toHaveLength(1);
+  });
+
+  it('serializes an import racing a schedule edit for the same free slot', async () => {
+    await importFile();
+    const game = (await pool.query('SELECT * FROM matches')).rows[0];
+    const incoming = otherPayload(['2027-11-08,6:00 pm,7:00 pm,Tunnels 5/6,CSV Group,Bears,Owls,']);
+    const results = await Promise.all([request(schedule, 'PATCH', editPayload(game, { date: '2027-11-08' })), request(schedule, 'POST', incoming)]);
+    expect(results.map(r => r.statusCode).sort()).toEqual([200, 409]);
+    expect((await pool.query("SELECT id FROM matches WHERE date::date='2027-11-08' AND location LIKE '%5/6'")).rows).toHaveLength(1);
+  });
+
+  it('allows only one of two concurrent edits to claim the same free tunnels slot', async () => {
+    await importFile();
+    await request(schedule, 'POST', otherPayload(['2027-11-01,6:00 pm,7:00 pm,Tunnels 7/8,CSV Group,Bears,Owls,']));
+    const games = (await pool.query('SELECT * FROM matches ORDER BY id')).rows;
+    const results = await Promise.all(games.map(game => request(schedule, 'PATCH', editPayload(game, { date: '2027-11-08', location: 'Tunnels 5/6' }))));
+    expect(results.map(r => r.statusCode).sort()).toEqual([200, 409]);
+    const loser = games[results.findIndex(r => r.statusCode === 409)];
+    expect((await pool.query('SELECT * FROM matches WHERE id=$1', [loser.id])).rows[0]).toEqual(loser);
+    expect((await pool.query("SELECT id FROM matches WHERE date::date='2027-11-08' AND location LIKE '%5/6'")).rows).toHaveLength(1);
+  });
+
+  it('ignores practice games but does not guess the time of an incomplete official booking', async () => {
+    await importFile();
+    await pool.query('UPDATE matches SET end_time=NULL');
+    const incoming = otherPayload(['2027-11-01,6:00 pm,7:00 pm,Tunnels 5/6,CSV Group,Bears,Owls,']);
+    const blocked = await request(schedule, 'POST', incoming);
+    expect(blocked.statusCode).toBe(409);
+    expect(blocked.body.errors[0]).toContain('missing valid start/end times');
+    await pool.query('UPDATE matches SET is_practice=true');
+    expect((await request(schedule, 'POST', incoming)).statusCode).toBe(200);
+  });
+
   it('rolls back leagues, teams, games and receipt if the final insert fails', async () => {
     const spy = vi.spyOn(console, 'error').mockImplementation(() => {});
     const result = await request(schedule, 'POST', { ...payload, csvText: file.replace('Bring balls', 'fail-insert') });

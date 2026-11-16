@@ -1559,7 +1559,7 @@ const requestScheduleImport = async (csvText: string, options: ScheduleImportOpt
   }
   let data;
   try { data = await res.json(); } catch { throw new Error('Could not confirm the result. Refresh and retry the same CSV safely.'); }
-  if (!res.ok) throw new Error([data.error || 'Could not import this schedule.', ...(data.errors || []).slice(0, 5)].join(' '));
+  if (!res.ok) throw new Error([data.error || 'Could not import this schedule.', ...(data.errors || [])].join('\n'));
   return data;
 };
 export const previewScheduleImport = (csvText: string, options: ScheduleImportOptions, signal?: AbortSignal): Promise<ScheduleImportPreview> =>

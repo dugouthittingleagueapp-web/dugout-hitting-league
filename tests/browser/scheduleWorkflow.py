@@ -27,6 +27,17 @@ with sync_playwright() as p:
  page.get_by_role('button',name='Schedule',exact=True).click()
  expect(page.get_by_role('heading',name='Season Schedule · 2027')).to_be_visible()
  imp=page.get_by_role('button',name='+ Import Schedule CSV',exact=True)
+ # Reject conflicts inside the CSV before any team/league/game is provisioned.
+ imp.click();modal=page.get_by_role('dialog');modal.get_by_role('button',name='Paste CSV Text').click()
+ bad_csv='Date,Start Time,End Time,Location,Group,Home Team,Away Team\n2027-11-01,6:00 pm,7:00 pm,Tunnels 5/6,Conflict CSV,A,B\n2027-11-01,6:30 pm,7:30 pm,Tunnels 5/6,Conflict CSV,C,D\n2027-11-01,6:45 pm,7:45 pm,Tunnels 7/8,Conflict CSV,E,A'
+ modal.locator('textarea').fill(bad_csv)
+ modal.get_by_label('Destination for Conflict CSV').select_option('__new__')
+ modal.get_by_label('New league name for Conflict CSV').fill('Blocked Conflicts')
+ expect(modal.get_by_text(re.compile('Tunnels 5/6 is already booked'))).to_be_visible()
+ expect(modal.get_by_text(re.compile('A already has a game'))).to_be_visible()
+ expect(modal.get_by_role('button',name='Import Season Schedule (3 Games)',exact=True)).to_be_disabled()
+ assert page.request.get(base+'/api/matches?season=2027').json()==[]
+ modal.get_by_role('button',name='Cancel',exact=True).click()
  expect(imp).to_be_enabled();imp.click()
  modal=page.get_by_role('dialog')
  expect(modal.get_by_text('Import into active season: 2027',exact=True)).to_be_visible()
@@ -41,6 +52,15 @@ with sync_playwright() as p:
  page.screenshot(path='work/browser/import-desktop.png',full_page=True)
  import_button.click()
  expect(modal).not_to_be_visible()
+ expect(page.get_by_role('button',name='Edit',exact=True)).to_have_count(48)
+ # A new league still shares the physical tunnels with all saved leagues.
+ imp.click();modal=page.get_by_role('dialog');modal.get_by_role('button',name='Paste CSV Text').click()
+ modal.locator('textarea').fill('Date,Start Time,End Time,Location,Group,Home Team,Away Team\n2027-11-01,18:30,19:30,Tunnels 5/6,Other CSV,New Home,New Away')
+ modal.get_by_label('Destination for Other CSV').select_option('__new__')
+ modal.get_by_label('New league name for Other CSV').fill('Other League')
+ expect(modal.get_by_text(re.compile('Saved game: Iron Eagles vs Powerhouse Panthers'))).to_be_visible()
+ expect(modal.get_by_role('button',name='Import Season Schedule (1 Games)',exact=True)).to_be_disabled()
+ modal.get_by_role('button',name='Cancel',exact=True).click()
  expect(page.get_by_role('button',name='Edit',exact=True)).to_have_count(48)
  page.get_by_role('button',name='Rename teams',exact=True).click()
  panel=page.locator('#schedule-team-names')
@@ -61,11 +81,15 @@ with sync_playwright() as p:
  edit.get_by_role('combobox',name='Cage / location',exact=True).select_option('The Dugout: Tunnels 7/8')
  edit.get_by_role('textbox',name='Notes',exact=True).fill('Arrive 10 minutes early')
  edit.get_by_role('button',name='Save changes',exact=True).click()
+ expect(edit.get_by_text(re.compile('This change would create a schedule conflict'))).to_be_visible()
+ # The other tunnels already have a 6pm game. Retain the free original tunnels.
+ edit.get_by_role('combobox',name='Cage / location',exact=True).select_option('The Dugout: Tunnels 5/6')
+ edit.get_by_role('button',name='Save changes',exact=True).click()
  expect(edit).not_to_be_visible()
  expect(page.get_by_role('button',name='Edit',exact=True)).to_have_count(48)
  page.get_by_role('button',name='Edit',exact=True).first.click()
  expect(edit.get_by_role('textbox',name='Notes',exact=True)).to_have_value('Arrive 10 minutes early')
- expect(edit.get_by_role('combobox',name='Cage / location',exact=True)).to_have_value('The Dugout: Tunnels 7/8')
+ expect(edit.get_by_role('combobox',name='Cage / location',exact=True)).to_have_value('The Dugout: Tunnels 5/6')
  edit.get_by_role('button',name='Cancel',exact=True).click()
  # Retry original CSV after a team rename and a schedule edit: receipt prevents another copy.
  imp.click();modal=page.get_by_role('dialog');modal.get_by_role('button',name='Paste CSV Text').click();modal.locator('textarea').fill(csv)
@@ -103,5 +127,5 @@ with sync_playwright() as p:
  page.get_by_role('button').filter(has=page.get_by_role('heading',name='11U - Tuesdays',exact=True)).click()
  expect(page.locator('div,span').filter(has_text=re.compile(r'^Golden Eagles$')).last).to_be_visible()
  assert not errors, errors
- print('PASS: full app → real API → disposable PostgreSQL. 48-game import, archive/active isolation, rename, edit/notes/cage save/reopen, safe retry after rename, cancel/remove/refresh, mobile CSV upload and edit, league-dashboard renamed display. Production/Neon were never used.')
+ print('PASS: full app → real API → disposable PostgreSQL. CSV tunnel/team conflicts and cross-league saved-booking conflicts block Import; conflicting edit is rejected before correction. 48-game import, archive/active isolation, rename, edit/notes/cage save/reopen, safe retry after rename, cancel/remove/refresh, mobile CSV upload and edit, league-dashboard renamed display. Production/Neon were never used.')
  b.close()

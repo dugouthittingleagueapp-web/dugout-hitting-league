@@ -33,6 +33,9 @@ selection does not affect active Schedule; new league creation; team rename;
 invalid edit rejected; notes/cage survive save/reopen; repeated import after rename
 creates no copy; remove cancel/confirm; refresh; mobile file upload and editable
 controls; updated league and team names visible from the league dashboard.
+The workflow also checks conflicts within a CSV, the same team in different
+tunnels, bookings in another saved league, disabled Import on conflicts, and
+rejection of a conflicting edit followed by a successful correction.
 
 For real PostgreSQL API/transaction regressions, set `DUGOUT_TEST_DATABASE_URL` to
 another disposable localhost database named `dugout_test_*` and run `npm test`.

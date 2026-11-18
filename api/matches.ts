@@ -3,7 +3,10 @@ import crypto from 'crypto';
 import pool from './db.js';
 import { changesPracticeClassification, hasRecordedScores } from '../server/matchWritePolicy.js';
 import { requireRole, getAuthFromRequest } from './auth.js';
-import { withActiveSeason, ScheduleError } from '../server/scheduleTransaction.js';
+import { withActiveMatchSeason, MatchCreationError } from '../server/matchCreation.js';
+import { mapMatchFromDB, mapTeamFromDB } from '../utils/dbMappers.js';
+import { applyPitchCommand, validatePitchCommand, stableJson, ScoringProtocolError } from '../utils/scoringProtocol.js';
+import { validateScoreState, validateScoringFlags, validatedForfeitWinner, assertSafeSnapshotTransition } from '../server/scoringValidation.js';
 
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -176,14 +179,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const allowedRoles = ['admin', 'umpire'];
       const role = requireRole(req, res, allowedRoles as ('admin' | 'umpire')[]);
       if (!role) return;
+      validateScoringFlags(req.body || {});
 
-      const row = await withActiveSeason(season, async (client, matchSeason) => {
+      const row = await withActiveMatchSeason(season, async (client, matchSeason) => {
         if (typeof league !== 'string' || typeof homeTeamId !== 'string' || typeof awayTeamId !== 'string' || homeTeamId === awayTeamId)
-          throw new ScheduleError(400, 'Choose a league and two different teams.');
+          throw new MatchCreationError(400, 'Choose a league and two different teams.');
         const destination = await client.query('SELECT id FROM leagues WHERE season = $1 AND LOWER(TRIM(id)) = LOWER(TRIM($2))', [matchSeason, league]);
-        if (destination.rows.length !== 1) throw new ScheduleError(400, 'Choose a league in the active season.');
-        const teams = await client.query('SELECT id FROM teams WHERE id = ANY($1::text[]) AND season = $2 AND LOWER(TRIM(league)) = LOWER(TRIM($3))', [[homeTeamId, awayTeamId], matchSeason, league]);
-        if (teams.rows.length !== 2) throw new ScheduleError(400, 'Both teams must belong to this league in the active season.');
+        if (destination.rows.length !== 1) throw new MatchCreationError(400, 'Choose a league in the active season.');
+        const teams = await client.query('SELECT * FROM teams WHERE id = ANY($1::text[]) AND season = $2 AND LOWER(TRIM(league)) = LOWER(TRIM($3))', [[homeTeamId, awayTeamId], matchSeason, league]);
+        if (teams.rows.length !== 2) throw new MatchCreationError(400, 'Both teams must belong to this league in the active season.');
+
+        if ((isComplete !== undefined && isComplete !== false) || (status !== undefined && !['SCHEDULED', 'IN_PROGRESS'].includes(status)) || hasRecordedScores(innings, req.body.tieBreaker))
+          throw new MatchCreationError(400, 'Create an unplayed game first. Recorded results must use scoring access.');
+        validateScoreState({ ...req.body, is_practice: matchIsPractice, tieBreaker: req.body.tieBreaker },
+          mapTeamFromDB(teams.rows.find(t => t.id === homeTeamId)), mapTeamFromDB(teams.rows.find(t => t.id === awayTeamId)));
 
         const matchStatus = status || (isComplete ? 'FINAL' : 'SCHEDULED');
 
@@ -216,7 +225,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           matchIsForfeit,
           forfeitTeamId,
           forfeitNote,
-          winningId
+          validatedForfeitWinner(matchIsForfeit, forfeitTeamId, winningId, homeTeamId, awayTeamId)
         ];
 
         const { rows } = await client.query(query, values);
@@ -239,6 +248,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       // Scoring and updating matches allowed for ADMIN and UMPIRE
       const role = requireRole(req, res, ['admin', 'umpire']);
       if (!role) return;
+      validateScoringFlags(req.body || {});
 
       const {
         revision, id, isComplete, innings, tieBreaker, league, location, startTime, 
@@ -303,12 +313,35 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       try {
         await client.query('BEGIN');
         const target = await client.query(
-          'SELECT id, status, is_complete, revision, is_practice, innings, tie_breaker FROM matches WHERE id::text = $1 OR id::text = $2 FOR UPDATE',
+          'SELECT * FROM matches WHERE id::text = $1 OR id::text = $2 FOR UPDATE',
           [rawId, strippedId]
         );
         if (!target.rows.length) {
           await client.query('ROLLBACK');
           return res.status(404).json({ error: 'Game not found. No changes were saved.' });
+        }
+        const current = mapMatchFromDB(target.rows[0]);
+        const command = req.body.command === undefined ? undefined : validatePitchCommand(req.body.command);
+        const writeId = req.body.writeId;
+        if ((command && (typeof writeId !== 'string' || !UUID_REGEX.test(writeId))) ||
+            (writeId !== undefined && (typeof writeId !== 'string' || !UUID_REGEX.test(writeId))))
+          throw new ScoringProtocolError('INVALID_COMMAND', 'This save needs a valid recovery number. No changes were saved.');
+        if (command && Object.keys(req.body).some(k => !['id', 'revision', 'writeId', 'command'].includes(k)))
+          throw new ScoringProtocolError('INVALID_COMMAND', 'A pitch save cannot change other game information.');
+        const supplied = req.headers['x-scoring-token'];
+        const callerHash = crypto.createHash('sha256').update(typeof supplied === 'string' ? supplied : '').digest('hex');
+        const digest = writeId ? crypto.createHash('sha256').update(stableJson(req.body)).digest('hex') : '';
+        const receiptKey = `scoring_ack:${current.id}`;
+        if (writeId) {
+          const prior = await client.query('SELECT value FROM app_settings WHERE key = $1', [receiptKey]);
+          const receipt = prior.rows[0] ? JSON.parse(prior.rows[0].value) : null;
+          if (receipt?.writeId === writeId) {
+            if (receipt.digest !== digest || receipt.callerHash !== callerHash || receipt.role !== role || receipt.revision !== current.revision)
+              throw new ScoringProtocolError('PITCH_CONFLICT', 'This recovery save needs checking. No changes were applied.');
+            await client.query('COMMIT');
+            if (isPracticePrefix && !String(target.rows[0].id).startsWith('practice-')) target.rows[0].id = rawId;
+            return res.status(200).json(target.rows[0]);
+          }
         }
         // Official/practice identity is set at game creation. Never let a PUT
         // turn a protected official game into a deletable practice game (or
@@ -335,7 +368,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const suppliedToken = req.headers['x-scoring-token'];
         const token = typeof suppliedToken === 'string' ? suppliedToken : '';
         const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
-        const scoringStarted = target.rows[0].status === 'IN_PROGRESS' ||
+        const scoringStarted = !!command || target.rows[0].status === 'IN_PROGRESS' ||
           status === 'IN_PROGRESS' || target.rows[0].is_complete === true ||
           isComplete === true ||
           hasRecordedScores(target.rows[0].innings, target.rows[0].tie_breaker) ||
@@ -366,8 +399,36 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             error: 'Please reopen this game before entering more scores.'
           });
         }
+        const next = command ? applyPitchCommand(current, command) : {
+          ...current,
+          ...(innings !== undefined ? { innings } : {}),
+          ...(tieBreaker !== undefined ? { tieBreaker } : {}),
+          ...(isComplete !== undefined ? { isComplete } : {}),
+          ...(status !== undefined ? { status } : isComplete === true ? { status: 'FINAL' as const } : {}),
+          ...(homeTeamId !== undefined ? { homeTeamId } : {}),
+          ...(awayTeamId !== undefined ? { awayTeamId } : {}),
+        };
+        if (typeof next.isComplete !== 'boolean' || !['SCHEDULED', 'IN_PROGRESS', 'FINAL'].includes(next.status || '') ||
+            (!next.isComplete && next.status === 'FINAL') || (!current.isComplete && next.isComplete && next.status !== 'FINAL'))
+          throw new ScoringProtocolError('INVALID_SCORING_STATE', 'The game status is not valid. No changes were saved.');
+        const rosterRows = await client.query('SELECT * FROM teams WHERE id = ANY($1::text[])', [[next.homeTeamId, next.awayTeamId]]);
+        const home = rosterRows.rows.find(t => t.id === next.homeTeamId), away = rosterRows.rows.find(t => t.id === next.awayTeamId);
+        if (!home || !away || home.id === away.id) throw new ScoringProtocolError('INVALID_SCORING_STATE', 'Both teams must be available. No changes were saved.');
+        validateScoreState(next, mapTeamFromDB(home), mapTeamFromDB(away));
+        const effectiveForfeit = forfeitFlag ?? current.isForfeit ?? false;
+        const effectiveForfeiter = forfeitTeamId ?? current.forfeitingTeamId;
+        values[17] = validatedForfeitWinner(effectiveForfeit, effectiveForfeiter, winningId ?? current.winningTeamId, next.homeTeamId, next.awayTeamId);
+        if (effectiveForfeit) values[15] = effectiveForfeiter;
+        if (!command) assertSafeSnapshotTransition(current, next, req.body.intent, role);
+        values[2] = next.isComplete;
+        values[3] = JSON.stringify(next.innings);
+        values[4] = next.tieBreaker?.length ? JSON.stringify(next.tieBreaker) : null;
+        values[12] = next.status;
         const result = await client.query(queryUpdate, values);
         row = result.rows[0];
+        if (writeId) await client.query(
+          'INSERT INTO app_settings (key, value) VALUES ($1, $2) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value',
+          [receiptKey, JSON.stringify({ writeId, digest, callerHash, role, revision: Number(row.revision) })]);
         // Finalizing an active game releases its scoring lock. Admin score
         // corrections on an ALREADY finalized game retain the lock so multiple
         // confirmed corrections remain possible in the same editing session.
@@ -466,7 +527,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
     return res.status(405).json({ error: 'Method not allowed' });
   } catch (error: any) {
-    if (error instanceof ScheduleError) return res.status(error.status).json({ error: error.message });
+    if (error instanceof MatchCreationError) return res.status(error.status).json({ error: error.message });
+    if (error instanceof ScoringProtocolError) return res.status(['PITCH_CONFLICT', 'SCORE_HISTORY_LOCKED', 'FINAL_GAME_LOCKED'].includes(error.code) ? 409 : 400).json({ code: error.code, error: error.message });
     console.error('[API] Matches Error:', error);
     return res.status(500).json({ error: error.message });
   }

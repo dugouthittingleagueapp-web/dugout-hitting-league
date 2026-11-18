@@ -11,9 +11,11 @@ import { setPitchScore, setTieBreakerPitchScore } from '../utils/scorePatches';
 import { calculateTeamInningTotal, calculateTeamGameTotal as getTeamGameTotal } from '../utils/scoreTotals';
 import { getLiveInningIndex } from '../utils/liveInning';
 import { useScreenWakeLock } from '../hooks/useScreenWakeLock';
-import { prepareFinalizedMatch, getFinalizationDecision, getFinalizationMessage, createNextTieBreakerRound, appendTieBreakerRound } from '../utils/gameFinalization';
+import { prepareFinalizedMatch, getFinalizationDecision, getFinalizationMessage, createNextTieBreakerRound, appendTieBreakerRound, canAdvanceExtraRound, getExtraRoundBlockReason, getScoringCompletionPrompt } from '../utils/gameFinalization';
 import { resolveLineupPlayer } from '../utils/lineupPlayerLookup';
 import { isFinishedScoringLockError } from '../utils/scoringAccess';
+import type { PitchCommand } from '../utils/scoringProtocol';
+import { ScoringRecovery } from './ScoringRecovery';
 
 interface ScoreboardProps {
   matchId: string;
@@ -40,6 +42,9 @@ const ScoringBoardContent: React.FC<ScoreboardProps & { saveState?: storage.Scor
   const [showTieBreakerSetup, setShowTieBreakerSetup] = useState(false);
   const [tbHomePlayerId, setTbHomePlayerId] = useState('');
   const [tbAwayPlayerId, setTbAwayPlayerId] = useState('');
+  const startingExtraRound = useRef(false);
+  const [extraRoundSaving, setExtraRoundSaving] = useState(false);
+  const [extraRoundError, setExtraRoundError] = useState<string | null>(null);
 
   // Roster Editing State
   const [rosterSide, setRosterSide] = useState<'home' | 'away' | null>(null);
@@ -77,11 +82,11 @@ const ScoringBoardContent: React.FC<ScoreboardProps & { saveState?: storage.Scor
   };
 
   const handleSaveAndExit = async () => {
-      if (match) {
-          await storage.updateMatch(match);
-      }
-      setShowExitMenuModal(false);
-      onExit({ savedPractice: false });
+      try {
+          if (match) await storage.updateMatch(match, { baseMatch: match, requireServerSave: true });
+          setShowExitMenuModal(false);
+          onExit({ savedPractice: false });
+      } catch (error) { alert(explainSaveError(error, 'match')); }
   };
 
   const finalizeMatch = async (source: 'exit' | 'finish', forceTie = false) => {
@@ -99,7 +104,7 @@ const ScoringBoardContent: React.FC<ScoreboardProps & { saveState?: storage.Scor
 
       // A failed server save must never navigate away or clear the active game.
       try {
-          const saved = await storage.updateMatch(prepareFinalizedMatch(match), { requireServerSave: true });
+          const saved = await storage.updateMatch(prepareFinalizedMatch(match), { requireServerSave: true, baseMatch: match });
           setMatch(saved);
       } catch (err: any) {
           alert(explainSaveError(err, 'finalize'));
@@ -237,13 +242,18 @@ const ScoringBoardContent: React.FC<ScoreboardProps & { saveState?: storage.Scor
     getTeamGameTotal(side, matchData || match);
 
   const startTieBreakerRound = async () => {
-      if (!match || !teams.home || !teams.away || !tbHomePlayerId || !tbAwayPlayerId) return;
-      const round = createNextTieBreakerRound(match.tieBreaker, tbHomePlayerId, tbAwayPlayerId);
-      const updatedMatch = appendTieBreakerRound(match, round);
-      setMatch(updatedMatch);
-      await storage.updateMatch(updatedMatch);
-      setShowTieBreakerSetup(false);
-      setActiveInningIdx(6);
+      if (isReadOnly || userRole === 'fan' || startingExtraRound.current || !match || !canAdvanceExtraRound(match) || !teams.home || !teams.away || !tbHomePlayerId || !tbAwayPlayerId) return;
+      startingExtraRound.current = true;
+      setExtraRoundSaving(true);
+      setExtraRoundError(null);
+      try {
+          const round = createNextTieBreakerRound(match.tieBreaker, tbHomePlayerId, tbAwayPlayerId);
+          const updatedMatch = appendTieBreakerRound(match, round);
+          setMatch(await storage.updateMatch(updatedMatch, { baseMatch: match, requireServerSave: true }));
+          setShowTieBreakerSetup(false);
+          setActiveInningIdx(6);
+      } catch (error) { setExtraRoundError(explainSaveError(error, 'match')); setShowTieBreakerSetup(true); }
+      finally { startingExtraRound.current = false; setExtraRoundSaving(false); }
   };
 
   const confirmResetPracticeMatch = async () => {
@@ -274,38 +284,42 @@ const ScoringBoardContent: React.FC<ScoreboardProps & { saveState?: storage.Scor
       tieBreaker: []
     };
 
-    setMatch(resetMatch);
+    try { setMatch(await storage.updateMatch(resetMatch, { baseMatch: match, intent: { kind: 'resetPractice' }, requireServerSave: true })); }
+    catch (error) { alert(explainSaveError(error, 'match')); return; }
     setActiveInningIdx(0);
     setActiveCell(null);
     setShowFinishModal(false);
     setShowTieBreakerSetup(false);
     setShowResetConfirmModal(false);
-    await storage.updateMatch(resetMatch).catch(err => {
-      console.error('Practice reset failed:', err);
-      alert(explainSaveError(err, 'match'));
-    });
   };
 
   const handleUndo = async (side: 'home' | 'away', lineupIdx: number, currentPitchIdx: number, roundIdx?: number) => {
       if (!match) return;
       const prevPitchIdx = currentPitchIdx - 1;
       if (prevPitchIdx < 0) return;
-      const newMatch = roundIdx !== undefined
-        ? setTieBreakerPitchScore(match, roundIdx, side, prevPitchIdx, null)
-        : setPitchScore(match, activeInningIdx, side, lineupIdx, prevPitchIdx, null);
-      if (newMatch === match) return;
+      const round = roundIdx === undefined ? undefined : match.tieBreaker?.[roundIdx];
+      const player = match.innings[activeInningIdx]?.[side]?.playerScores[lineupIdx];
+      const expected = round ? (side === 'home' ? round.homeScores : round.awayScores)[prevPitchIdx] : player?.pitches[prevPitchIdx]?.points;
+      if (expected === undefined || expected === null) return;
+      const command: PitchCommand = round ? { kind: 'extraPitch', round: round.roundNumber, side,
+        playerId: side === 'home' ? round.homePlayerId : round.awayPlayerId, pitchIndex: prevPitchIdx, expected, points: null }
+        : { kind: 'pitch', inning: match.innings[activeInningIdx].number, side, playerId: player.playerId, pitchIndex: prevPitchIdx, expected, points: null };
+      let staged: ReturnType<typeof storage.stagePitch>;
+      try { staged = storage.stagePitch(match, command); }
+      catch (error) { alert(explainSaveError(error, 'match')); return; }
+      const newMatch = staged.match;
       setActiveCell({ side, lineupIdx: roundIdx !== undefined ? 0 : lineupIdx, pitchIdx: prevPitchIdx, ...(roundIdx !== undefined ? { roundIdx } : {}) });
       // Final-game corrections must be confirmed by the server before display.
       if (match.isComplete) {
         try {
-          setMatch(await storage.updateMatch(newMatch, { requireServerSave: true }));
+          setMatch(await staged.saved);
         } catch (err) {
           alert(explainSaveError(err, 'match'));
         }
         return;
       }
       setMatch(newMatch);
-      await storage.updateMatch(newMatch).catch(err => {
+      await staged.saved.catch(err => {
         console.error('Undo failed:', err);
         alert(explainSaveError(err, 'match'));
       });
@@ -325,12 +339,16 @@ const ScoringBoardContent: React.FC<ScoreboardProps & { saveState?: storage.Scor
     if (!teamData?.playerScores?.[lineupIdx]?.pitches?.[pitchIdx]) return;
     const existingValue = teamData.playerScores[lineupIdx].pitches[pitchIdx].points;
     const isEdit = existingValue !== null;
-    const newMatch = setPitchScore(match, targetInningIdx, side, lineupIdx, pitchIdx, val);
-    if (newMatch === match) return;
+    if (existingValue === val) return;
+    let staged: ReturnType<typeof storage.stagePitch>;
+    try { staged = storage.stagePitch(match, { kind: 'pitch', inning: inning.number, side,
+      playerId: teamData.playerScores[lineupIdx].playerId, pitchIndex: pitchIdx, expected: existingValue, points: val }); }
+    catch (error) { alert(explainSaveError(error, 'match')); return; }
+    const newMatch = staged.match;
     if (match.isComplete) {
       // Do not optimistically show or queue changes to official final results.
       try {
-        setMatch(await storage.updateMatch(newMatch, { requireServerSave: true }));
+        setMatch(await staged.saved);
       } catch (err) {
         alert(explainSaveError(err, 'match'));
       }
@@ -339,22 +357,15 @@ const ScoringBoardContent: React.FC<ScoreboardProps & { saveState?: storage.Scor
     }
     setMatch(newMatch); 
     
-    // Automated Completion Flow Check
     const totalPitches = teamData.playerScores[lineupIdx].pitches.length;
-    const isLastPitchOfRegulation = targetInningIdx === 5 && side === 'home' && lineupIdx === teamData.playerScores.length - 1 && pitchIdx === totalPitches - 1;
-
-    if (isLastPitchOfRegulation && !isEdit) {
-        const hT = calculateTeamGameTotal('home', newMatch);
-        const aT = calculateTeamGameTotal('away', newMatch);
-        if (hT === aT) {
-            setTimeout(() => setShowTieBreakerSetup(true), 500);
-        } else {
-            setTimeout(() => setShowFinishModal(true), 500);
-        }
+    const completionPrompt = getScoringCompletionPrompt(match, newMatch);
+    if (completionPrompt) {
+        setShowTieBreakerSetup(completionPrompt === 'extras');
+        setShowFinishModal(completionPrompt === 'finish');
         setActiveCell(null);
     } else {
         let nextCell: { side: 'home' | 'away'; lineupIdx: number; pitchIdx: number; roundIdx?: number } | null = null;
-        if (activeCell) {
+        if (activeCell && !isEdit) {
             if (pitchIdx < totalPitches - 1) {
                 // Batter still has pitches left in their at-bat: auto-advance to next pitch
                 nextCell = { side, lineupIdx, pitchIdx: pitchIdx + 1 };
@@ -374,11 +385,11 @@ const ScoringBoardContent: React.FC<ScoreboardProps & { saveState?: storage.Scor
             }
         }
     }
-    await storage.updateMatch(newMatch).catch(async err => {
+    await staged.saved.catch(async err => {
       console.error('Score could not be confirmed:', err);
       alert(explainSaveError(err, 'match'));
-      const latest = await storage.getMatch(matchId);
-      if (latest) setMatch(latest);
+      // Keep the accepted local journal visible. Recovery never replaces it
+      // with a server read that might omit unsent scores.
     });
   };
 
@@ -391,7 +402,7 @@ const ScoringBoardContent: React.FC<ScoreboardProps & { saveState?: storage.Scor
     const nextIsComplete = !match.isComplete;
     const updated: Match = { ...match, isComplete: nextIsComplete, status: nextIsComplete ? 'FINAL' : 'IN_PROGRESS' };
     try {
-        const saved = await storage.updateMatch(updated, { requireServerSave: true });
+        const saved = await storage.updateMatch(updated, { requireServerSave: true, baseMatch: match });
         setMatch(saved);
     } catch (err: any) {
         alert(explainSaveError(err, 'finalize'));
@@ -407,11 +418,15 @@ const ScoringBoardContent: React.FC<ScoreboardProps & { saveState?: storage.Scor
       const existing = scores[pitchIdx];
       if (existing === undefined) return;
       const isEdit = existing !== null;
-      const newMatch = setTieBreakerPitchScore(match, roundIdx, side, pitchIdx, val);
-      if (newMatch === match) return;
+      if (existing === val) return;
+      let staged: ReturnType<typeof storage.stagePitch>;
+      try { staged = storage.stagePitch(match, { kind: 'extraPitch', round: cur.roundNumber, side,
+        playerId: side === 'home' ? cur.homePlayerId : cur.awayPlayerId, pitchIndex: pitchIdx, expected: existing, points: val }); }
+      catch (error) { alert(explainSaveError(error, 'match')); return; }
+      const newMatch = staged.match;
       if (match.isComplete) {
         try {
-          setMatch(await storage.updateMatch(newMatch, { requireServerSave: true }));
+          setMatch(await staged.saved);
         } catch (err) {
           alert(explainSaveError(err, 'match'));
         }
@@ -420,21 +435,17 @@ const ScoringBoardContent: React.FC<ScoreboardProps & { saveState?: storage.Scor
       }
       setMatch(newMatch);
       
-      // Auto-Completion for tie breakers
-      const isFinalPitchOfRound = side === 'home' && pitchIdx === limit - 1;
-      if (isFinalPitchOfRound && !isEdit) {
-          const hT = calculateTeamGameTotal('home', newMatch);
-          const aT = calculateTeamGameTotal('away', newMatch);
-          if (hT !== aT) {
-              setTimeout(() => setShowFinishModal(true), 500);
-          }
+      const completionPrompt = getScoringCompletionPrompt(match, newMatch);
+      if (completionPrompt) {
+          setShowTieBreakerSetup(completionPrompt === 'extras');
+          setShowFinishModal(completionPrompt === 'finish');
           setActiveCell(null);
       } else {
           let next = null;
           if (!isEdit && pitchIdx < limit - 1) next = { side, lineupIdx: 0, pitchIdx: pitchIdx + 1, roundIdx };
           setActiveCell(next);
       }
-      await storage.updateMatch(newMatch).catch(err => {
+      await staged.saved.catch(err => {
         console.error('Tie-breaker score could not be saved:', err);
         alert(explainSaveError(err, 'match'));
       });
@@ -503,7 +514,7 @@ const ScoringBoardContent: React.FC<ScoreboardProps & { saveState?: storage.Scor
                   forfeit_reason: verdict.reason
               };
           }
-          const saved = await storage.updateMatch(updated, { requireServerSave: true });
+          const saved = await storage.updateMatch(updated, { requireServerSave: true, baseMatch: match });
           setMatch(saved);
           return true;
       } catch (err: any) {
@@ -598,7 +609,7 @@ const ScoringBoardContent: React.FC<ScoreboardProps & { saveState?: storage.Scor
                         {visiblePitches.map((pitch: any, idx: number) => {
                             const realIdx = pitchStartIndex + idx;
                             return (
-                                <ScoreInput saveState={saveState} onRetrySync={onRetrySync} key={realIdx} pitchNumber={isGhostRow ? pitchStartIndex+idx+1 : realIdx+1} value={pitch.points} pitchesRemaining={pitchesLeft} readOnly={isReadOnly || (match.isComplete && userRole !== 'admin')} isEditing={activeCell?.side === side && activeCell.lineupIdx === lineupIdx && activeCell.pitchIdx === realIdx} onOpen={() => setActiveCell({ side, lineupIdx, pitchIdx: realIdx })} onClose={() => setActiveCell(null)} onChange={(val) => handleScoreUpdate(side, lineupIdx, realIdx, val)} onUndo={realIdx > 0 ? () => handleUndo(side, lineupIdx, realIdx) : undefined} />
+                                <ScoreInput saveState={saveState} onRetrySync={onRetrySync} key={realIdx} pitchNumber={isGhostRow ? pitchStartIndex+idx+1 : realIdx+1} value={pitch.points} previousScore={playerScore.pitches[realIdx - 1]?.points} pitchesRemaining={pitchesLeft} readOnly={isReadOnly || (match.isComplete && userRole !== 'admin')} isEditing={activeCell?.side === side && activeCell.lineupIdx === lineupIdx && activeCell.pitchIdx === realIdx} onOpen={() => setActiveCell({ side, lineupIdx, pitchIdx: realIdx })} onClose={() => setActiveCell(null)} onChange={(val) => handleScoreUpdate(side, lineupIdx, realIdx, val)} onUndo={realIdx > 0 ? () => handleUndo(side, lineupIdx, realIdx) : undefined} />
                             );
                         })}
                     </div>
@@ -628,10 +639,10 @@ const ScoringBoardContent: React.FC<ScoreboardProps & { saveState?: storage.Scor
                         </td>
                         <td className="px-0.5 sm:px-2 py-1 sm:py-2"><div className="flex w-full landscape:justify-between items-center gap-1 sm:gap-2 justify-start overflow-x-auto scrollbar-hide py-1 touch-auto">
                                 {inningData.playerScores[0].pitches.slice(10, 15).map((pitch, idx) => (
-                                    <ScoreInput saveState={saveState} onRetrySync={onRetrySync} key={`p1-${10+idx}`} pitchNumber={11+idx} value={pitch.points} pitchesRemaining={15 - inningData.playerScores[0].pitches.filter((p:any) => p.points !== null).length} readOnly={isReadOnly || (match.isComplete && userRole !== 'admin')} isEditing={activeCell?.side === side && activeCell.lineupIdx === 0 && activeCell.pitchIdx === 10+idx} onOpen={() => setActiveCell({ side, lineupIdx: 0, pitchIdx: 10+idx })} onClose={() => setActiveCell(null)} onChange={(val) => handleScoreUpdate(side, 0, 10+idx, val)} onUndo={() => handleUndo(side, 0, 10+idx)} />
+                                    <ScoreInput saveState={saveState} onRetrySync={onRetrySync} key={`p1-${10+idx}`} pitchNumber={11+idx} value={pitch.points} previousScore={inningData.playerScores[0].pitches[9+idx]?.points} pitchesRemaining={15 - inningData.playerScores[0].pitches.filter((p:any) => p.points !== null).length} readOnly={isReadOnly || (match.isComplete && userRole !== 'admin')} isEditing={activeCell?.side === side && activeCell.lineupIdx === 0 && activeCell.pitchIdx === 10+idx} onOpen={() => setActiveCell({ side, lineupIdx: 0, pitchIdx: 10+idx })} onClose={() => setActiveCell(null)} onChange={(val) => handleScoreUpdate(side, 0, 10+idx, val)} onUndo={() => handleUndo(side, 0, 10+idx)} />
                                 ))}<div className="w-px h-10 sm:h-14 bg-slate-300 dark:bg-slate-700 mx-1"></div>
                                 {inningData.playerScores[1].pitches.slice(10, 15).map((pitch, idx) => (
-                                    <ScoreInput saveState={saveState} onRetrySync={onRetrySync} key={`p2-${10+idx}`} pitchNumber={11+idx} value={pitch.points} pitchesRemaining={15 - inningData.playerScores[1].pitches.filter((p:any) => p.points !== null).length} readOnly={isReadOnly || (match.isComplete && userRole !== 'admin')} isEditing={activeCell?.side === side && activeCell.lineupIdx === 1 && activeCell.pitchIdx === 10+idx} onOpen={() => setActiveCell({ side, lineupIdx: 1, pitchIdx: 10+idx })} onClose={() => setActiveCell(null)} onChange={(val) => handleScoreUpdate(side, 1, 10+idx, val)} onUndo={() => handleUndo(side, 1, 10+idx)} />
+                                    <ScoreInput saveState={saveState} onRetrySync={onRetrySync} key={`p2-${10+idx}`} pitchNumber={11+idx} value={pitch.points} previousScore={inningData.playerScores[1].pitches[9+idx]?.points} pitchesRemaining={15 - inningData.playerScores[1].pitches.filter((p:any) => p.points !== null).length} readOnly={isReadOnly || (match.isComplete && userRole !== 'admin')} isEditing={activeCell?.side === side && activeCell.lineupIdx === 1 && activeCell.pitchIdx === 10+idx} onOpen={() => setActiveCell({ side, lineupIdx: 1, pitchIdx: 10+idx })} onClose={() => setActiveCell(null)} onChange={(val) => handleScoreUpdate(side, 1, 10+idx, val)} onUndo={() => handleUndo(side, 1, 10+idx)} />
                                 ))}</div></td>
                         <td className="px-1 sm:px-3 py-1 sm:py-2 text-center align-middle border-l border-slate-200 dark:border-slate-700 bg-slate-50/30 dark:bg-slate-900/30">
                              <div className="text-sm sm:text-base font-sans tabular-nums font-bold text-slate-800 dark:text-slate-200 w-5 sm:w-8">{inningData.playerScores[0].pitches.slice(10, 15).reduce((s,p)=>s+(p.points||0),0) + inningData.playerScores[1].pitches.slice(10, 15).reduce((s,p)=>s+(p.points||0),0)}</div>
@@ -655,7 +666,7 @@ const ScoringBoardContent: React.FC<ScoreboardProps & { saveState?: storage.Scor
                   const aS = round.awayScores.reduce((a,b)=>(a||0)+(b||0),0);
                   return (
                     <div key={idx}>
-                         <div className="bg-amber-50 dark:bg-amber-950 p-3 rounded-t-xl border border-amber-200 flex justify-between items-center"><h3 className="font-bold text-amber-800 font-sans">Extra Round {round.roundNumber}</h3>{idx === match.tieBreaker!.length - 1 && !match.isComplete && hS === aS && <button onClick={() => startTieBreakerRound()} className="bg-amber-600 text-white font-bold px-4 py-2 rounded-lg">Next Round</button>}</div>
+                         <div className="bg-amber-50 dark:bg-amber-950 p-3 rounded-t-xl border border-amber-200 flex justify-between items-center"><h3 className="font-bold text-amber-800 font-sans">Extra Round {round.roundNumber}</h3>{!isReadOnly && userRole !== 'fan' && idx === match.tieBreaker!.length - 1 && canAdvanceExtraRound(match) && <button onClick={() => startTieBreakerRound()} className="bg-amber-600 text-white font-bold px-4 py-2 rounded-lg">Next Round</button>}</div>
                          <div className="bg-white dark:bg-slate-900 border-x border-b border-slate-200 rounded-b-xl overflow-x-auto"><table className="w-full"><tbody>
                              <tr className="bg-blue-50/10">
                                 <td className="px-4 py-3 font-medium w-[150px]">
@@ -675,7 +686,7 @@ const ScoringBoardContent: React.FC<ScoreboardProps & { saveState?: storage.Scor
                                         );
                                     })()}
                                 </td>
-                                <td className="px-2 py-3"><div className="flex gap-2">{round.awayScores.map((s, pI) => (<ScoreInput saveState={saveState} onRetrySync={onRetrySync} key={pI} pitchNumber={pI+1} value={s} readOnly={isReadOnly || (match.isComplete && userRole !== 'admin')} isEditing={activeCell?.side === 'away' && activeCell?.roundIdx === idx && activeCell?.pitchIdx === pI} onOpen={() => setActiveCell({ side: 'away', lineupIdx: 0, pitchIdx: pI, roundIdx: idx })} onClose={() => setActiveCell(null)} onChange={v => handleTieBreakerScore(idx, 'away', pI, v)} onUndo={() => handleUndo('away', 0, pI, idx)} />))}</div></td>
+                                <td className="px-2 py-3"><div className="flex gap-2">{round.awayScores.map((s, pI) => (<ScoreInput saveState={saveState} onRetrySync={onRetrySync} key={pI} pitchNumber={pI+1} value={s} previousScore={round.awayScores[pI - 1]} readOnly={isReadOnly || (match.isComplete && userRole !== 'admin')} isEditing={activeCell?.side === 'away' && activeCell?.roundIdx === idx && activeCell?.pitchIdx === pI} onOpen={() => setActiveCell({ side: 'away', lineupIdx: 0, pitchIdx: pI, roundIdx: idx })} onClose={() => setActiveCell(null)} onChange={v => handleTieBreakerScore(idx, 'away', pI, v)} onUndo={() => handleUndo('away', 0, pI, idx)} />))}</div></td>
                                 <td className="px-4 py-3 font-bold text-xl text-center tabular-nums">{aS}</td>
                             </tr>
                             <tr className="bg-red-50/10">
@@ -695,7 +706,7 @@ const ScoringBoardContent: React.FC<ScoreboardProps & { saveState?: storage.Scor
                                         );
                                     })()}
                                 </td>
-                                <td className="px-2 py-3"><div className="flex gap-2">{round.homeScores.map((s, pI) => (<ScoreInput saveState={saveState} onRetrySync={onRetrySync} key={pI} pitchNumber={pI+1} value={s} readOnly={isReadOnly || (match.isComplete && userRole !== 'admin')} isEditing={activeCell?.side === 'home' && activeCell?.roundIdx === idx && activeCell?.pitchIdx === pI} onOpen={() => setActiveCell({ side: 'home', lineupIdx: 0, pitchIdx: pI, roundIdx: idx })} onClose={() => setActiveCell(null)} onChange={v => handleTieBreakerScore(idx, 'home', pI, v)} onUndo={() => handleUndo('home', 0, pI, idx)} />))}</div></td>
+                                <td className="px-2 py-3"><div className="flex gap-2">{round.homeScores.map((s, pI) => (<ScoreInput saveState={saveState} onRetrySync={onRetrySync} key={pI} pitchNumber={pI+1} value={s} previousScore={round.homeScores[pI - 1]} readOnly={isReadOnly || (match.isComplete && userRole !== 'admin')} isEditing={activeCell?.side === 'home' && activeCell?.roundIdx === idx && activeCell?.pitchIdx === pI} onOpen={() => setActiveCell({ side: 'home', lineupIdx: 0, pitchIdx: pI, roundIdx: idx })} onClose={() => setActiveCell(null)} onChange={v => handleTieBreakerScore(idx, 'home', pI, v)} onUndo={() => handleUndo('home', 0, pI, idx)} />))}</div></td>
                                 <td className="px-4 py-3 font-bold text-xl text-center tabular-nums">{hS}</td>
                             </tr>
                          </tbody></table></div>
@@ -707,7 +718,7 @@ const ScoringBoardContent: React.FC<ScoreboardProps & { saveState?: storage.Scor
   };
 
   return (
-    <div className="min-h-full w-full overflow-x-hidden pb-20 font-sans">
+    <div className="min-h-full w-full pb-20 font-sans">
       {/* Official Forfeit Sticky Banner */}
       {(match.isForfeit || match.is_forfeit) && (() => {
         const forfeitingId = match.forfeitingTeamId || match.forfeiting_team_id;
@@ -749,6 +760,13 @@ const ScoringBoardContent: React.FC<ScoreboardProps & { saveState?: storage.Scor
               </>
             )}
             {saveState === 'attention' && <span>Some scores need checking before you continue.</span>}
+          </div>
+        )}
+        {!isReadOnly && (saveState === 'offline' || saveState === 'attention') && <div className="px-4 py-2"><ScoringRecovery matchId={matchId} /></div>}
+        {!isReadOnly && userRole !== 'fan' && !match.tieBreaker?.length && canAdvanceExtraRound(match) && (
+          <div className="flex items-center justify-between gap-3 border-b border-amber-300 bg-amber-50 px-4 py-2 text-sm text-amber-950 dark:border-amber-700 dark:bg-amber-950 dark:text-amber-100">
+            <span>Regulation is complete and tied.</span>
+            <button type="button" onClick={() => { setExtraRoundError(null); setShowTieBreakerSetup(true); }} className="shrink-0 rounded-lg bg-amber-700 px-3 py-2 font-bold text-white hover:bg-amber-800">Start Extras</button>
           </div>
         )}
         <div className="max-w-7xl mx-auto px-4 py-3 flex justify-between items-center gap-4">
@@ -974,14 +992,20 @@ const ScoringBoardContent: React.FC<ScoreboardProps & { saveState?: storage.Scor
       )}
 
       {showTieBreakerSetup && createPortal(
-          <div className="fixed inset-0 z-[70] flex items-center justify-center bg-slate-900/80 p-4">
-              <div className="bg-white dark:bg-slate-900 p-8 rounded-2xl w-[90%] max-w-md">
-                  <h2 className="text-xl font-bold mb-4 text-center">Tie Breaker Setup</h2>
-                  <div className="space-y-4 mb-6">
-                      <div><label className="block text-xs uppercase text-slate-500 mb-1 font-bold">Home</label><select className="w-full p-3 border rounded-lg font-bold" value={tbHomePlayerId} onChange={e => setTbHomePlayerId(e.target.value)}>{teams.home?.players.map(p => <option key={p.id} value={p.id}>{formatName(p)}</option>)}</select></div>
-                      <div><label className="block text-xs uppercase text-slate-500 mb-1 font-bold">Away</label><select className="w-full p-3 border rounded-lg font-bold" value={tbAwayPlayerId} onChange={e => setTbAwayPlayerId(e.target.value)}>{teams.away?.players.map(p => <option key={p.id} value={p.id}>{formatName(p)}</option>)}</select></div>
+          <div className="fixed inset-0 z-[70] flex items-center justify-center bg-slate-950/90 p-4">
+              <div role="dialog" aria-modal="true" aria-labelledby="extras-setup-title" aria-describedby="extras-setup-help" className="w-full max-w-md rounded-2xl border border-slate-300 bg-white p-6 text-slate-900 shadow-2xl dark:border-slate-500 dark:bg-slate-900 dark:text-slate-100">
+                  <h2 id="extras-setup-title" className="text-2xl font-bold mb-3 text-center text-slate-900 dark:text-white">Tie Breaker Setup</h2>
+                  <p id="extras-setup-help" className="mb-5 text-sm text-slate-600 dark:text-slate-300">Choose one batter from each team. The next extra round has {!match.tieBreaker?.length ? 5 : match.tieBreaker.length === 1 ? 3 : 1} pitches per batter. Rounds progress from 5 to 3 to 1 if still tied.</p>
+                  <div className="space-y-4 mb-5">
+                      <div><label htmlFor="extras-home-batter" className="block text-sm text-slate-700 dark:text-slate-200 mb-2 font-bold">Home batter</label><select id="extras-home-batter" disabled={extraRoundSaving} className="w-full p-3 border border-slate-400 rounded-lg font-bold bg-white text-slate-900 dark:border-slate-500 dark:bg-slate-800 dark:text-white" value={tbHomePlayerId} onChange={e => setTbHomePlayerId(e.target.value)}>{teams.home?.players.map(p => <option key={p.id} value={p.id}>{formatName(p)}</option>)}</select></div>
+                      <div><label htmlFor="extras-away-batter" className="block text-sm text-slate-700 dark:text-slate-200 mb-2 font-bold">Away batter</label><select id="extras-away-batter" disabled={extraRoundSaving} className="w-full p-3 border border-slate-400 rounded-lg font-bold bg-white text-slate-900 dark:border-slate-500 dark:bg-slate-800 dark:text-white" value={tbAwayPlayerId} onChange={e => setTbAwayPlayerId(e.target.value)}>{teams.away?.players.map(p => <option key={p.id} value={p.id}>{formatName(p)}</option>)}</select></div>
                   </div>
-                  <button onClick={startTieBreakerRound} className="w-full py-3 bg-amber-600 text-white font-bold rounded-xl">Start Extras</button>
+                  {getExtraRoundBlockReason(match) && <p role="status" className="mb-4 rounded-lg border border-amber-400 bg-amber-50 p-3 text-sm text-amber-950 dark:bg-amber-950 dark:text-amber-100">{getExtraRoundBlockReason(match)}</p>}
+                  {extraRoundError && <p role="alert" className="mb-4 rounded-lg border border-red-400 bg-red-50 p-3 text-sm text-red-900 dark:bg-red-950 dark:text-red-100">{extraRoundError}</p>}
+                  <div className="flex gap-3">
+                      <button type="button" disabled={extraRoundSaving} onClick={() => { setShowTieBreakerSetup(false); setExtraRoundError(null); }} className="flex-1 py-3 rounded-xl border border-slate-400 font-bold text-slate-700 dark:border-slate-500 dark:text-slate-100 disabled:opacity-60">Back to scoring</button>
+                      <button type="button" disabled={extraRoundSaving || isReadOnly || userRole === 'fan' || !tbHomePlayerId || !tbAwayPlayerId || !canAdvanceExtraRound(match)} onClick={startTieBreakerRound} className="flex-1 py-3 bg-amber-700 text-white font-bold rounded-xl hover:bg-amber-800 disabled:bg-slate-200 disabled:text-slate-500 disabled:cursor-not-allowed dark:disabled:bg-slate-700 dark:disabled:text-slate-300">{extraRoundSaving ? 'Starting extras…' : 'Start Extras'}</button>
+                  </div>
               </div>
           </div>,
           document.body
@@ -1029,7 +1053,7 @@ const ScoringBoardContent: React.FC<ScoreboardProps & { saveState?: storage.Scor
                               <span>Game Is Tied ({homeTotal} - {awayTotal})</span>
                           </div>
                           <p className="text-xs text-amber-700 dark:text-amber-400 mb-3">
-                              Would you like to start a 1-pitch Tie-Breaker Extra Inning, or finalize the game as an official Tie?
+                              Would you like to start extra innings, or finalize the game as an official tie?
                           </p>
                           <div className="flex gap-2">
                               <button
@@ -1146,7 +1170,7 @@ export const Scoreboard: React.FC<ScoreboardProps> = (props) => {
   useEffect(() => {
     setSyncWarning(storage.getScoringSyncWarning(props.matchId));
     const onWarning = (event: Event) => {
-      const detail = (event as CustomEvent<{ matchId: string; message: string }>).detail;
+      const detail = (event as CustomEvent<{ matchId: string; message: string | null }>).detail;
       if (detail?.matchId === props.matchId) setSyncWarning(detail.message);
     };
     const onSaveState = (event: Event) => {
@@ -1162,10 +1186,19 @@ export const Scoreboard: React.FC<ScoreboardProps> = (props) => {
     };
   }, [props.matchId]);
   const isSpectator = props.isReadOnly || props.userRole === 'fan';
+  const [retrying, setRetrying] = useState(false);
+  const retryRecovery = async () => {
+    if (retrying) return;
+    setRetrying(true);
+    try { await storage.retrySavedScoring(props.matchId); await checkAccess(); }
+    catch { setMessage('Your saved scores still need checking. Keep this page open and ask the person running the league for help.'); }
+    finally { setRetrying(false); }
+  };
 
   const checkAccess = async (takeover = false) => {
     setAccess('checking');
     try {
+      storage.inspectScoringRecovery(props.matchId);
       await storage.requestScoringLock(props.matchId, takeover ? 'takeover' : 'acquire');
       setAccess('granted');
       setMessage('');
@@ -1188,27 +1221,31 @@ export const Scoreboard: React.FC<ScoreboardProps> = (props) => {
     void checkAccess();
   }, [props.matchId, isSpectator]);
 
-  if (isSpectator || (props.userRole === 'umpire' && access === 'finished')) {
+  const finishedRecovery = props.userRole === 'umpire' && (props.isReadOnly || access === 'finished') && storage.hasPendingMatchSync(props.matchId);
+  if (props.userRole === 'fan') {
     return <ScoringBoardContent {...props} isReadOnly />;
   }
-  if (syncWarning) {
+  if (syncWarning || finishedRecovery) {
     return (
       <div className="min-h-[60vh] flex items-center justify-center px-4">
         <div className="max-w-md w-full rounded-2xl border border-amber-500 p-6 text-center space-y-4">
           <h2 className="text-xl font-bold">Scores need checking</h2>
-          <p>{syncWarning}</p>
-          <button type="button" onClick={() => void storage.syncOfflineData()} className="px-4 py-3 rounded-lg bg-blue-600 text-white font-semibold">Try syncing again</button>
+          <p>{syncWarning || 'This game is finished, and this device still has changes to check. Your saved copy is safe. Ask the person running the league to compare it before continuing.'}</p>
+          <button type="button" disabled={retrying} onClick={() => void retryRecovery()} className="px-4 py-3 rounded-lg bg-blue-600 text-white font-semibold">{retrying ? 'Checking saved scores…' : 'Try syncing again'}</button>
+          <ScoringRecovery matchId={props.matchId} />
           <button type="button" onClick={() => props.onExit()} className="px-4 py-3 rounded-lg border border-gray-400">Back to schedule</button>
         </div>
       </div>
     );
   }
-  if (access === 'granted') return <ScoringBoardContent {...props} saveState={saveState} onRetrySync={() => void storage.syncOfflineData()} />;
+  if (isSpectator || (props.userRole === 'umpire' && access === 'finished')) return <ScoringBoardContent {...props} isReadOnly />;
+  if (access === 'granted') return <ScoringBoardContent {...props} saveState={saveState} onRetrySync={() => void retryRecovery()} />;
   return (
     <div className="min-h-[60vh] flex items-center justify-center px-4">
       <div className="max-w-md w-full rounded-2xl border border-gray-300 dark:border-gray-700 p-6 text-center space-y-4">
         <h2 className="text-xl font-bold">{access === 'checking' ? 'Opening the game…' : 'Scoring is unavailable'}</h2>
         {access !== 'checking' && <p className="text-base">{message}</p>}
+        {access !== 'checking' && <ScoringRecovery matchId={props.matchId} />}
         {access !== 'checking' && (
           <div className="flex flex-wrap gap-3 justify-center">
             <button type="button" onClick={() => void checkAccess()} className="px-4 py-3 rounded-lg bg-blue-600 text-white font-semibold">Try again</button>

@@ -6,6 +6,7 @@ import type { ScoringSaveState } from '../services/storageService';
 interface ScoreInputProps {
   pitchNumber: number;
   value: number | null;
+  previousScore?: number | null;
   pitchesRemaining?: number;
   saveState?: ScoringSaveState;
   onRetrySync?: () => void;
@@ -20,6 +21,7 @@ interface ScoreInputProps {
 export const ScoreInput: React.FC<ScoreInputProps> = ({ 
   pitchNumber, 
   value, 
+  previousScore,
   pitchesRemaining,
   saveState,
   onRetrySync,
@@ -40,7 +42,7 @@ export const ScoreInput: React.FC<ScoreInputProps> = ({
 
   // Lock body scroll when modal is open
   useEffect(() => {
-    if (isEditing) {
+    if (isEditing && !readOnly) {
       document.body.style.overflow = 'hidden';
       
       const preventScroll = (e: Event) => {
@@ -54,7 +56,7 @@ export const ScoreInput: React.FC<ScoreInputProps> = ({
         document.body.removeEventListener('touchmove', preventScroll);
       };
     }
-  }, [isEditing]);
+  }, [isEditing, readOnly]);
 
   const handleSelect = (score: number) => {
     triggerHaptic('score');
@@ -92,6 +94,9 @@ export const ScoreInput: React.FC<ScoreInputProps> = ({
     }
   };
 
+  const tileLabel = `Pitch ${pitchNumber}, Score: ${value !== null ? value : 'None'}`;
+  const tileClassName = `w-7 h-9 sm:w-14 sm:h-20 rounded sm:rounded-lg flex items-center justify-center text-sm sm:text-3xl font-bold shadow-sm border-2 transition-all duration-150 font-sans ${value !== null ? getValueColor(value) : 'border-dashed border-slate-300 dark:border-slate-700 hover:border-slate-400 dark:hover:border-slate-600 bg-slate-50 dark:bg-slate-900/50 text-slate-300 dark:text-slate-600'}`;
+
   return (
     <>
       <div className="flex flex-col items-center gap-0.5 min-w-[28px] sm:min-w-[40px]">
@@ -99,24 +104,29 @@ export const ScoreInput: React.FC<ScoreInputProps> = ({
             {pitchNumber}
         </div>
         
-        <button
-          disabled={readOnly}
-          onClick={() => {
-            if (!readOnly) {
+        {/* Fan scores are text, not disabled form controls that can intercept touch gestures. */}
+        {readOnly ? (
+          <span role="img" aria-label={tileLabel} className={tileClassName}>
+            {value !== null ? value : '-'}
+          </span>
+        ) : (
+          <button
+            type="button"
+            onClick={() => {
               triggerHaptic('tap');
               onOpen();
-            }
-          }}
-          aria-label={`Pitch ${pitchNumber}, Score: ${value !== null ? value : 'None'}`}
-          className={`w-7 h-9 sm:w-14 sm:h-20 rounded sm:rounded-lg flex items-center justify-center text-sm sm:text-3xl font-bold shadow-sm border-2 transition-all duration-150 font-sans cursor-pointer ${value !== null ? getValueColor(value) : 'border-dashed border-slate-300 dark:border-slate-700 hover:border-slate-400 dark:hover:border-slate-600 bg-slate-50 dark:bg-slate-900/50 text-slate-300 dark:text-slate-600'}`}
-        >
-          {value !== null ? value : '-'}
-        </button>
+            }}
+            aria-label={tileLabel}
+            className={`${tileClassName} cursor-pointer`}
+          >
+            {value !== null ? value : '-'}
+          </button>
+        )}
       </div>
       
-      {isEditing && createPortal(
+      {isEditing && !readOnly && createPortal(
         <div 
-            className="fixed inset-0 z-[9999] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200 p-4 touch-none" 
+            className="fixed inset-0 z-[9999] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200 p-4 touch-auto"
             onClick={onClose} 
             role="dialog" 
             aria-modal="true" 
@@ -124,10 +134,15 @@ export const ScoreInput: React.FC<ScoreInputProps> = ({
             onTouchMove={(e) => { if(e.target === e.currentTarget) e.preventDefault(); }}
         >
             <div 
-                className="bg-white dark:bg-slate-900 p-4 sm:p-6 rounded-2xl shadow-2xl w-full max-w-sm sm:max-w-md transform scale-100 animate-in zoom-in-95 duration-200 font-sans border border-slate-200 dark:border-slate-800" 
+                className="bg-white dark:bg-slate-900 p-4 sm:p-6 rounded-2xl shadow-2xl w-full max-w-sm sm:max-w-md max-h-[calc(100dvh-2rem)] overflow-y-auto overscroll-contain transform scale-100 animate-in zoom-in-95 duration-200 font-sans border border-slate-200 dark:border-slate-800"
                 onClick={e => e.stopPropagation()}
                 onTouchMove={e => e.stopPropagation()}
             >
+                {value === null && previousScore !== undefined && previousScore !== null && pitchNumber > 1 && (
+                    <div className="mb-4 rounded-xl border border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-950 p-3 text-center text-sm text-slate-800 dark:text-slate-100">
+                        <p>Previous pitch (#{pitchNumber - 1}): <strong>{previousScore} {previousScore === 1 ? 'point' : 'points'}</strong></p>
+                    </div>
+                )}
                 <div className="mb-4 sm:mb-6">
                     <div className="flex justify-between items-center gap-2 mb-2">
                          <div className="bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 text-xs sm:text-sm font-bold px-3 py-1 rounded-full font-sans">
@@ -155,6 +170,7 @@ export const ScoreInput: React.FC<ScoreInputProps> = ({
                       )}
                     </div>
                 </div>
+
                 
                 <div className="grid grid-cols-5 gap-2 sm:gap-3 mb-6">
                     {[0, 1, 2, 3, 4].map((score) => {

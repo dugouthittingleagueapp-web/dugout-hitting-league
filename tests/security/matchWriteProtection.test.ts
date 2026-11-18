@@ -1,5 +1,6 @@
 import { beforeEach, afterEach, describe, expect, it, vi } from 'vitest';
 import { signSessionToken } from '../../api/auth';
+import { scoringFixture } from '../scoring/scoringFixtures';
 
 // Real route handler, with only PostgreSQL mocked. Nothing touches a live DB.
 const connect = vi.fn();
@@ -9,11 +10,11 @@ vi.mock('../../api/db.js', () => ({
 
 import matchHandler from '../../api/matches';
 
-const blank = (points: number | null = null) => [{
-  number: 1,
-  home: { teamId: 'home', playerScores: [{ playerId: 'p1', pitches: [{ points }] }] },
-  away: { teamId: 'away', playerScores: [] },
-}];
+const blank = (points: number | null = null) => {
+  const innings = scoringFixture().game.innings;
+  innings[0].home.playerScores[0].pitches[0].points = points;
+  return innings;
+};
 
 const makeRequest = (body: Record<string, unknown>, role: 'admin' | 'umpire' = 'umpire', scoringToken?: string) => ({
   method: 'PUT',
@@ -41,7 +42,9 @@ describe('Match PUT protects game classification and scheduled scoring', () => {
   beforeEach(() => {
     vi.stubEnv('SESSION_SECRET', 'unit-test-only-match-write-security-secret-2026');
     match = {
+      ...scoringFixture().game,
       id: 'official-game-1',
+      home_team_id: 'home', away_team_id: 'away',
       status: 'SCHEDULED',
       is_complete: false,
       is_practice: false,
@@ -54,6 +57,7 @@ describe('Match PUT protects game classification and scheduled scoring', () => {
       if (sql === 'BEGIN' || sql === 'ROLLBACK' || sql === 'COMMIT') return { rows: [] };
       if (sql.includes('FROM matches') && sql.includes('FOR UPDATE')) return { rows: [match] };
       if (sql.includes('FROM scoring_locks')) return { rows: [] };
+      if (sql.includes('FROM teams')) return { rows: [scoringFixture().home, scoringFixture().away] };
       if (sql.includes('UPDATE matches')) return { rows: [{ ...match, revision: '6' }] };
       throw new Error(`Unexpected SQL in test: ${sql}`);
     });

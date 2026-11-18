@@ -9,6 +9,7 @@ import { MatchSetup } from './components/MatchSetup';
 import { RosterImportModal } from './components/RosterImportModal';
 import { PlayerCareerModal } from './components/PlayerCareerModal';
 import { SetLineupModal } from './components/SetLineupModal';
+import { explainSaveError } from './utils/friendlyErrors';
 import { PracticeSetupModal } from './components/PracticeSetupModal';
 import { MatchStatsEditorModal } from './components/MatchStatsEditorModal';
 import * as storage from './services/storageService';
@@ -900,7 +901,7 @@ const App: React.FC = () => {
         )}
         
         {/* Scrollable Main Content Area */}
-        <main className="relative flex-1 w-full overflow-y-auto overflow-x-hidden scroll-touch">
+        <main className="relative flex-1 min-h-0 w-full overflow-y-auto overflow-x-hidden scroll-touch">
             {/* Dashboard Toast / Finalize Success Notification */}
             {dashboardToast && (
                 <div className="bg-emerald-600 text-white px-4 py-3 flex items-center justify-between shadow-lg z-[1150] sticky top-0 animate-in fade-in slide-in-from-top-2 duration-200">
@@ -1079,7 +1080,7 @@ const App: React.FC = () => {
 
             {/* SCORING VIEW */}
             {state.view === 'scoring' && state.currentMatchId && (
-                <div className="flex-1 bg-slate-100 dark:bg-slate-950 text-slate-800 dark:text-slate-200 w-full overflow-hidden">
+                <div className="flex-1 bg-slate-100 dark:bg-slate-950 text-slate-800 dark:text-slate-200 w-full">
                     <Scoreboard matchId={state.currentMatchId} onExit={handleScoreboardExit} isReadOnly={userRole === 'fan' || (userRole === 'umpire' && matches.some(m => m.id === state.currentMatchId && (m.isComplete || m.status === 'FINAL')))} userRole={userRole} onPlayerClick={setSelectedCareerPlayer} />
                 </div>
             )}
@@ -1415,15 +1416,18 @@ const App: React.FC = () => {
                                                     
                                                     <button 
                                                         onClick={async () => {
-                                                            if (!match.isComplete && userRole !== 'fan') {
-                                                                safeStorage.setItem('dugout_active_match_id', match.id);
-                                                                if (matchStatus === 'SCHEDULED') {
-                                                                    const updatedMatch = { ...match, status: 'IN_PROGRESS' as const };
-                                                                    await storage.updateMatch(updatedMatch).catch(console.error);
-                                                                    setMatches(prev => prev.map(m => m.id === match.id ? updatedMatch : m));
+                                                            try {
+                                                                if (!match.isComplete && userRole !== 'fan') {
+                                                                    if (matchStatus === 'SCHEDULED') {
+                                                                        const saved = await storage.startMatchScoring(match);
+                                                                        setMatches(prev => prev.map(m => m.id === match.id ? saved : m));
+                                                                    }
+                                                                    safeStorage.setItem('dugout_active_match_id', match.id);
                                                                 }
+                                                                setState({ ...state, view: 'scoring', currentMatchId: match.id });
+                                                            } catch (error) {
+                                                                alert(explainSaveError(error, 'match'));
                                                             }
-                                                            setState({ ...state, view: 'scoring', currentMatchId: match.id });
                                                         }} 
                                                         className="flex-1 lg:flex-none text-center px-3 py-1.5 sm:py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800/50 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 hover:text-slate-900 dark:hover:white font-bold text-xs sm:text-sm transition-all font-sans cursor-pointer whitespace-nowrap shadow-sm"
                                                     >

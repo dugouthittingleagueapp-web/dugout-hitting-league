@@ -5,6 +5,7 @@ import { withActiveSeason, ScheduleError, assertScheduleGamesUnlocked } from '..
 import { planScheduleImport, executeScheduleImport, importReceiptKey, previousImport } from '../server/scheduleImport.js';
 import pool from './db.js';
 import { createEmptyInning } from '../utils/inningTemplate.js';
+import { scheduleConflict } from '../utils/scheduleConflicts.js';
 
 // Admin-only calendar maintenance. Do not route this through the normal scoring
 // PUT endpoint: a schedule correction must not rewrite inning/pitch histories.
@@ -104,6 +105,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       if (teams.rows.length !== 2) {
         throw new ScheduleError(400, 'Both teams must belong to this league and season.');
       }
+      const calendar = await client.query(`SELECT id,date,start_time AS "startTime",end_time AS "endTime",location,
+        home_team_id AS "homeTeamId",away_team_id AS "awayTeamId" FROM matches
+        WHERE season=$1 AND (is_practice IS FALSE OR is_practice IS NULL)`,[season]);
+      const conflict = scheduleConflict({id,date,startTime,endTime,location,homeTeamId,awayTeamId},
+        calendar.rows.map(row=>({...row,date:row.date instanceof Date ? row.date.toISOString() : String(row.date)})));
+      if (conflict) throw new ScheduleError(409, conflict);
       // Keep the inning template consistent with the selected players. Never carry
       // inning player IDs from a previous matchup into a newly assigned team.
       const oldTeams = await client.query('SELECT home_team_id, away_team_id FROM matches WHERE id = $1', [id]);

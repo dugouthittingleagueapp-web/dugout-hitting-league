@@ -5,6 +5,7 @@ import { parseScheduleCsv, isDuplicateMatch } from '../utils/scheduleImporter.js
 import { normalizeLeague } from '../utils/leagueNames.js';
 import { createEmptyInning } from '../utils/inningTemplate.js';
 import { ScheduleError } from './scheduleTransaction.js';
+import { scheduleConflict } from '../utils/scheduleConflicts.js';
 
 export interface ImportPlan extends ScheduleImportPreview {
   leaguesToCreate: League[];
@@ -36,7 +37,7 @@ export const planScheduleImport = async (client: PoolClient, season: string, csv
   const leagues: League[] = (await client.query('SELECT id, season FROM leagues WHERE season = $1', [season])).rows;
   const teams: Team[] = (await client.query('SELECT id, name, league, season, players, subs FROM teams WHERE season = $1', [season])).rows;
   const matches: Match[] = (await client.query(
-    'SELECT id, league, season, home_team_id AS "homeTeamId", away_team_id AS "awayTeamId", date, is_practice FROM matches WHERE season = $1 AND (is_practice IS FALSE OR is_practice IS NULL)', [season]
+    'SELECT id, league, season, home_team_id AS "homeTeamId", away_team_id AS "awayTeamId", date, start_time AS "startTime", end_time AS "endTime", location, is_practice FROM matches WHERE season = $1 AND (is_practice IS FALSE OR is_practice IS NULL)', [season]
   )).rows.map(row => ({ ...row, date: row.date instanceof Date ? row.date.toISOString() : String(row.date) }));
   const plan: ImportPlan = {
     games: [], leaguesToCreate: [], teamsToCreate: [], matchesToCreate: [],
@@ -62,8 +63,7 @@ export const planScheduleImport = async (client: PoolClient, season: string, csv
     const candidates = teams.filter(team => normalizeLeague(team.league) === normalizeLeague(league) && team.name.trim().toLowerCase() === name.trim().toLowerCase());
     if (candidates.length > 1) throw new ScheduleError(409, `More than one team is named "${name}" in ${league}. Ask an admin to review it.`);
     if (candidates[0]) return candidates[0];
-    const team: Team = { id: randomUUID(), name: name.trim(), league, season, subs: [],
-      players: Array.from({ length: 3 }, (_, i) => ({ id: randomUUID(), name: `${name.trim()} Player ${i + 1}` })) };
+    const team: Team = { id: randomUUID(), name: name.trim(), league, season, subs: [], players: [] };
     teams.push(team);
     plan.teamsToCreate.push(team);
     plan.summary.createdTeams.push(team.name);
@@ -90,6 +90,8 @@ export const planScheduleImport = async (client: PoolClient, season: string, csv
       location: game.location, notes: game.notes, status: 'SCHEDULED', isComplete: false, is_practice: false,
       innings: Array.from({ length: 6 }, (_, i) => createEmptyInning(i + 1, homeIds, awayIds))
     };
+    const conflict = scheduleConflict(match, matches);
+    if (conflict) throw new ScheduleError(409, conflict);
     matches.push(match);
     plan.matchesToCreate.push(match);
     plan.summary.createdMatches++;

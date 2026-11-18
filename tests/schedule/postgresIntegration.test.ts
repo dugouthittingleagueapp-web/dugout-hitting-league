@@ -1,5 +1,6 @@
 import { beforeAll, beforeEach, afterAll, describe, it, expect, vi } from 'vitest';
 import { readFileSync } from 'node:fs';
+import {randomUUID} from 'node:crypto';
 import { signSessionToken } from '../../api/auth';
 
 // Opt in only to a disposable LOCAL database. Never use DATABASE_URL or a Neon URL.
@@ -34,7 +35,15 @@ const request = async (handler: any, method: string, body: any = {}, query: any 
   return res;
 };
 const counts = async () => (await pool.query('SELECT (SELECT COUNT(*)::int FROM leagues) AS leagues, (SELECT COUNT(*)::int FROM teams) AS teams, (SELECT COUNT(*)::int FROM matches) AS matches')).rows[0];
-const importFile = () => request(schedule, 'POST', payload);
+const importFile = async (readyRosters = false) => {
+  const result = await request(schedule, 'POST', payload);
+  if (readyRosters) for (const team of (await pool.query('SELECT * FROM teams')).rows) {
+    if (team.players.length) continue;
+    const players=Array.from({length:3},(_,i)=>({id:`${team.id}-actual-${i}`,name:`Actual ${i+1}`,lastName:team.name}));
+    expect((await request(teams,'PUT',{action:'update_roster',id:team.id,season:'2027',expectedRoster:{players:[],subs:[]},players,subs:[]})).statusCode).toBe(200);
+  }
+  return result;
+};
 
 describe.skipIf(!process.env.DUGOUT_TEST_DATABASE_URL)('Schedule workflows on disposable local PostgreSQL', () => {
   beforeAll(async () => {
@@ -122,7 +131,7 @@ describe.skipIf(!process.env.DUGOUT_TEST_DATABASE_URL)('Schedule workflows on di
   });
 
   it.each([0, '0'])('protects scored legacy SCHEDULED games from edit, removal and league deletion: %s', async points => {
-    await importFile();
+    await importFile(true);
     const game = (await pool.query('SELECT * FROM matches')).rows[0];
     game.innings[0].home.playerScores[0].pitches[0].points = points;
     await pool.query('UPDATE matches SET innings = $1 WHERE id = $2', [JSON.stringify(game.innings), game.id]);
@@ -157,7 +166,7 @@ describe.skipIf(!process.env.DUGOUT_TEST_DATABASE_URL)('Schedule workflows on di
   });
 
   it('preserves finished results, stats and practice classification during unrelated schedule work', async () => {
-    await importFile();
+    await importFile(true);
     const original = (await pool.query('SELECT * FROM matches')).rows[0];
     original.innings[0].home.playerScores[0].pitches[0].points = 4;
     await pool.query("UPDATE matches SET innings = $1, is_complete = true, status = 'FINAL' WHERE id = $2", [JSON.stringify(original.innings), original.id]);
@@ -201,7 +210,7 @@ describe.skipIf(!process.env.DUGOUT_TEST_DATABASE_URL)('Schedule workflows on di
   });
 
   it('keeps score writes and stale offline snapshots protected after schedule operations', async () => {
-    await importFile();
+    await importFile(true);
     const game = mapMatchFromDB((await pool.query('SELECT * FROM matches')).rows[0]);
     const token = '11111111-1111-4111-8111-111111111111';
     expect((await request(scoringLock, 'POST', { matchId: game.id, token, action: 'acquire' }, {}, 'umpire')).statusCode).toBe(200);
@@ -247,7 +256,7 @@ describe.skipIf(!process.env.DUGOUT_TEST_DATABASE_URL)('Schedule workflows on di
     await importFile();
     const team = (await pool.query("SELECT * FROM teams WHERE name='Eagles'")).rows[0];
     const players = Array.from({ length: count }, (_, i) => ({ id: `roster-player-${i}`, name: `Player ${i + 1}`, lastName: 'Test' }));
-    await pool.query('UPDATE teams SET players=$2, subs=$3 WHERE id=$1', [team.id, JSON.stringify(players), JSON.stringify([{id:'roster-sub',name:'Sub',lastName:'Test'}])]);
+    expect((await request(teams,'PUT',{action:'update_roster',id:team.id,season:'2027',expectedRoster:{players:[],subs:[]},players,subs:[{id:'roster-sub',name:'Sub',lastName:'Test'}]})).statusCode).toBe(200);
     return (await pool.query('SELECT * FROM teams WHERE id=$1', [team.id])).rows[0];
   };
   const rosterBody = (team: any) => ({action:'update_roster',id:team.id,season:'2027',
@@ -376,7 +385,8 @@ describe.skipIf(!process.env.DUGOUT_TEST_DATABASE_URL)('Schedule workflows on di
   });
   it('rejects two roster entries linked to the same permanent player',async()=>{
     const team=await rosterTeam(2),id=await oldIdentity('Player 1');
-    const body={...rosterBody(team),players:[team.players[0],{...team.players[1],name:'Unrelated'},{id:'same-person-again',name:'Player 1',lastName:'Test'}],identityChoices:{'roster-player-0':id,'same-person-again':id}};
+    const currentPerson=(await pool.query("SELECT player_id FROM player_identity_links WHERE roster_player_id='roster-player-0'")).rows[0].player_id;
+    const body={...rosterBody(team),players:[team.players[0],{...team.players[1],name:'Unrelated'},{id:'same-person-again',name:'Player 1',lastName:'Test'}],identityChoices:{'roster-player-0':id,'same-person-again':id},expectedIdentityLinks:{'roster-player-0':currentPerson}};
     expect((await request(teams,'PUT',body)).statusCode).toBe(400);
   });
 
@@ -410,6 +420,110 @@ describe.skipIf(!process.env.DUGOUT_TEST_DATABASE_URL)('Schedule workflows on di
     expect(update.statusCode).toBe(409);
     expect((await request(teams,'PUT',{id:team.id,name:team.name,season:'2027',players:[team.players[0],team.players[0]],subs:team.subs})).statusCode).toBe(400);
     expect((await pool.query('SELECT * FROM teams WHERE id=$1',[team.id])).rows[0]).toEqual(team);
+  });
+
+  const createPayload = (name='Eagles',size=3) => ({action:'create_team_roster',id:randomUUID(),name,league:'11U',season:'2027',
+    players:Array.from({length:size},(_,i)=>({id:randomUUID(),name:`Real ${i+1}`,lastName:'Member'})),subs:[] as {id:string;name:string;lastName:string}[]});
+  const addLeague = () => request(leagues,'POST',{id:'11U',season:'2027'});
+  it.each([2,3])('creates a %s-player team before import and reuses its exact roster and identities',async size=>{
+    await addLeague();const body=createPayload('Eagles',size);const created=await request(teams,'POST',body);
+    expect(created.statusCode).toBe(201);
+    const links=created.body.identityLinks;
+    const result=await request(schedule,'POST',{...payload,csvText:file.replace('Eagles',' eAgLeS ')});
+    expect(result.statusCode).toBe(200);expect(result.body.createdTeams).toEqual(['Panthers']);
+    const saved=(await pool.query('SELECT * FROM matches')).rows[0];
+    expect(saved.home_team_id).toBe(body.id);expect(saved.innings[0].home.playerScores.map((p:any)=>p.playerId)).toEqual(body.players.map(p=>p.id));
+    expect((await pool.query('SELECT * FROM teams WHERE id=$1',[body.id])).rows[0].players).toEqual(created.body.players);
+    expect((await request(teams,'GET',{}, {adminRoster:'1',season:'2027'})).body.identityLinks).toEqual(links);
+  });
+  it('imports empty rosters and initializes only their unplayed lineups when real rosters are filled',async()=>{
+    await importFile();const imported=(await pool.query('SELECT * FROM teams ORDER BY name')).rows;
+    expect(imported.every(team=>team.players.length===0)).toBe(true);
+    const before=(await pool.query('SELECT * FROM matches')).rows[0];
+    for(const [index,team] of imported.entries()){
+      const size=index===0?2:3;
+      expect((await request(teams,'PUT',{action:'update_roster',id:team.id,season:'2027',expectedRoster:{players:[],subs:[]},players:createPayload('Roster',size).players,subs:[]})).statusCode).toBe(200);
+    }
+    const game=(await pool.query('SELECT * FROM matches')).rows[0];
+    expect(game.id).toBe(before.id);expect(game.status).toBe('SCHEDULED');
+    expect(game.innings[0].home.playerScores).toHaveLength(2);expect(game.innings[0].home.playerScores[0].pitches).toHaveLength(15);
+    expect(game.innings[0].away.playerScores).toHaveLength(3);expect(game.innings.every((inning:any)=>[...inning.home.playerScores,...inning.away.playerScores].every((p:any)=>p.pitches.every((pitch:any)=>pitch.points===null)))).toBe(true);
+  });
+  it('creates a team after import, edits an unplayed matchup, and appends future CSV games without changing its roster',async()=>{
+    await importFile();const body=createPayload('New Team');expect((await request(teams,'POST',body)).statusCode).toBe(201);
+    const original=(await pool.query('SELECT * FROM matches')).rows[0];
+    const result=await request(schedule,'PATCH',{action:'update_game',season:'2027',id:original.id,revision:Number(original.revision),date:'2027-11-01',startTime:'6:00 pm',endTime:'7:00 pm',location:'Tunnels 5/6',notes:'New team added',homeTeamId:body.id,awayTeamId:original.away_team_id});
+    expect(result.statusCode).toBe(200);
+    const edited=(await pool.query('SELECT * FROM matches WHERE id=$1',[original.id])).rows[0];
+    expect(edited.home_team_id).toBe(body.id);
+    expect(edited.innings[0].home.playerScores.map((p:any)=>p.playerId)).toEqual(body.players.map(p=>p.id));
+    const after=(await pool.query('SELECT * FROM matches WHERE id=$1',[original.id])).rows[0];
+    const added=await request(schedule,'POST',{...payload,csvText:file.replace('Eagles','New Team').replace('2027-11-01','2027-11-08')});
+    expect(added.statusCode).toBe(200);expect(added.body.createdTeams).toEqual([]);
+    expect((await pool.query('SELECT * FROM matches WHERE id=$1',[original.id])).rows[0]).toEqual(after);
+    expect((await pool.query('SELECT * FROM teams WHERE id=$1',[body.id])).rows[0].players).toEqual(body.players);
+  });
+  it('rejects a replacement CSV in an occupied slot with guidance to edit, without creating its team or changing games',async()=>{
+    await importFile();const before=await gameRows(),beforeCounts=await counts();
+    const result=await request(schedule,'POST',{...payload,csvText:file.replace('Eagles','Replacement Team')});
+    expect(result.statusCode).toBe(409);expect(result.body.error).toContain('Schedule → Edit');
+    expect(await gameRows()).toEqual(before);expect(await counts()).toEqual(beforeCounts);
+  });
+  it('retries a lost-response team creation without creating another team or identity',async()=>{
+    await addLeague();const body=createPayload();const first=await request(teams,'POST',body);
+    const rows=(await pool.query('SELECT * FROM player_identity_links ORDER BY roster_player_id')).rows;
+    expect((await request(teams,'POST',body)).statusCode).toBe(201);
+    expect((await counts()).teams).toBe(1);expect((await pool.query('SELECT * FROM player_identity_links ORDER BY roster_player_id')).rows).toEqual(rows);
+    expect(first.body.id).toBe(body.id);
+    expect((await request(teams,'POST',{...body,name:'Changed draft'})).statusCode).toBe(409);
+  });
+  it('serializes simultaneous duplicate team creation',async()=>{
+    await addLeague();const first=createPayload(),second=createPayload();
+    const duplicates=await Promise.all([request(teams,'POST',first),request(teams,'POST',second)]);
+    expect(duplicates.map(r=>r.statusCode).sort()).toEqual([201,409]);
+    expect((await counts()).teams).toBe(1);
+    expect((await request(schedule,'POST',payload)).statusCode).toBe(200);
+    expect((await counts()).teams).toBe(2);
+    const winner=duplicates.find(r=>r.statusCode===201)!;
+    expect((await pool.query('SELECT home_team_id FROM matches')).rows[0].home_team_id).toBe(winner.body.id);
+  });
+  it('blocks malformed, unauthenticated and archived new-team requests without partial identities',async()=>{
+    await addLeague();const body=createPayload();
+    expect((await request(teams,'POST',body,{},null)).statusCode).toBe(401);
+    expect((await request(teams,'POST',body,{},'umpire')).statusCode).toBe(403);
+    expect((await request(teams,'POST',{...body,season:'2026'})).statusCode).toBe(403);
+    expect((await request(teams,'POST',{...body,players:[body.players[0]]})).statusCode).toBe(400);
+    expect((await counts()).teams).toBe(0);expect((await pool.query('SELECT * FROM league_players')).rows).toHaveLength(0);
+  });
+
+  it('safely resolves a schedule import racing with team creation',async()=>{
+    await addLeague();const body=createPayload();
+    const [creation,imported]=await Promise.all([request(teams,'POST',body),request(schedule,'POST',payload)]);
+    expect(imported.statusCode).toBe(200);expect([201,409]).toContain(creation.statusCode);
+    const home=(await pool.query("SELECT * FROM teams WHERE name='Eagles'")).rows[0];
+    if(creation.statusCode===409)expect((await request(teams,'PUT',{action:'update_roster',id:home.id,season:'2027',expectedRoster:{players:[],subs:[]},players:body.players,subs:[]})).statusCode).toBe(200);
+    expect((await counts()).teams).toBe(2);
+    const game=(await pool.query('SELECT * FROM matches')).rows[0];
+    expect(game.home_team_id).toBe(home.id);expect(game.innings[0].home.playerScores.map((p:any)=>p.playerId)).toEqual(body.players.map(p=>p.id));
+  });
+  it('creates a roster with a confirmed returning player and a substitute atomically',async()=>{
+    await addLeague();const older=await oldIdentity('Michael'),body=createPayload('Returning Team',2);
+    body.players[0]={...body.players[0],name:'Mike',lastName:'Test'};
+    body.subs=[{id:randomUUID(),name:'Bench',lastName:'Member'}];
+    expect((await request(teams,'POST',body)).statusCode).toBe(409);
+    expect((await counts()).teams).toBe(1); // Only the synthetic previous-season team.
+    const result=await request(teams,'POST',{...body,identityChoices:{[body.players[0].id]:older}});
+    expect(result.statusCode).toBe(201);expect(result.body.subs).toHaveLength(1);
+    expect(result.body.identityLinks.find((link:any)=>link.rosterPlayerId===body.players[0].id).personId).toBe(older);
+    expect((await request(teams,'POST',{...body,identityChoices:{[body.players[0].id]:'new'}})).statusCode).toBe(409);
+  });
+  it('cannot start an imported game whose real rosters have not been supplied',async()=>{
+    await importFile();const game=(await pool.query('SELECT * FROM matches')).rows[0];
+    const token='aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
+    expect((await request(scoringLock,'POST',{matchId:game.id,token,action:'acquire'},{},'umpire')).statusCode).toBe(200);
+    const start=(req:any,res:any)=>matches({...req,headers:{...req.headers,'x-scoring-token':token}},res);
+    const result=await request(start,'PUT',{id:game.id,revision:Number(game.revision),status:'IN_PROGRESS'},{},'umpire');
+    expect(result.statusCode).toBe(400);expect((await pool.query('SELECT * FROM matches WHERE id=$1',[game.id])).rows[0]).toEqual(game);
   });
 
 });

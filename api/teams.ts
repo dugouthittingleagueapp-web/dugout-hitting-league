@@ -5,6 +5,9 @@ import { withActiveSeason, ScheduleError, assertScheduleGamesUnlocked } from '..
 import { validateRosterChange } from '../server/teamRoster.js';
 import { readIdentityLinks, readIdentityHistory, saveRosterIdentities, registerUnlinkedRosterPlayers } from '../server/playerIdentities.js';
 import { mapTeamFromDB } from '../utils/dbMappers.js';
+import { stableJson } from '../utils/scoringProtocol.js';
+import { hasRecordedScores } from '../server/matchWritePolicy.js';
+import { createEmptyInning } from '../utils/inningTemplate.js';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   try {
@@ -68,6 +71,30 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const destination = await client.query('SELECT id FROM leagues WHERE LOWER(TRIM(id)) = LOWER(TRIM($1)) AND season = $2', [league, season]);
         if (destination.rows.length !== 1) throw new ScheduleError(400, 'Choose a league in the active season.');
         const canonical = destination.rows[0].id;
+        if (body.action === 'create_team_roster') {
+          if (typeof id !== 'string' || !/^[0-9a-f-]{36}$/i.test(id)) throw new ScheduleError(400, 'Reload the new-team form and try again.');
+          const roster = validateRosterChange({players:[],subs:[]}, {...body,expectedRoster:{players:[],subs:[]}});
+          const existing = (await client.query('SELECT * FROM teams WHERE id=$1 FOR UPDATE',[id])).rows[0];
+          if (existing) {
+            const team = mapTeamFromDB(existing);
+            if (team.season !== season || team.league !== canonical || team.name !== name.trim() ||
+                stableJson({players:team.players,subs:team.subs || []}) !== stableJson(roster))
+              throw new ScheduleError(409, 'This team was already created and has changed. Reload rosters before continuing.');
+            const identityLinks = await readIdentityLinks(client);
+            for (const [playerId,choice] of Object.entries(body.identityChoices || {})) {
+              const link=identityLinks.find(link=>link.rosterPlayerId===playerId);
+              if (!link || (choice === 'new' ? link.resolution !== 'new' : link.personId !== choice))
+                throw new ScheduleError(409, 'This team was already created with a different player match. Reload rosters and edit the saved team.');
+            }
+            return {...existing,identityLinks};
+          }
+          const duplicate = await client.query('SELECT id FROM teams WHERE season=$1 AND LOWER(TRIM(league))=LOWER(TRIM($2)) AND LOWER(TRIM(name))=LOWER(TRIM($3))',[season,canonical,name]);
+          if (duplicate.rows.length) throw new ScheduleError(409, 'This team already exists in the league. Select it in Rosters to set or edit its players.');
+          await saveRosterIdentities(client,{id,name:name.trim(),league:canonical,season,players:[],subs:[]},roster,body.identityChoices,body.expectedIdentityLinks);
+          const saved = (await client.query('INSERT INTO teams(id,name,league,players,subs,season) VALUES($1,$2,$3,$4,$5,$6) RETURNING *',
+            [id,name.trim(),canonical,JSON.stringify(roster.players),JSON.stringify(roster.subs),season])).rows[0];
+          return {...saved,identityLinks:await readIdentityLinks(client)};
+        }
         const duplicate = await client.query('SELECT id FROM teams WHERE season = $1 AND LOWER(TRIM(league)) = LOWER(TRIM($2)) AND LOWER(TRIM(name)) = LOWER(TRIM($3))', [season, canonical, name]);
         if (duplicate.rows.length) throw new ScheduleError(409, 'A team with this name already exists in that league.');
         await registerUnlinkedRosterPlayers(client, {players,subs});
@@ -106,7 +133,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const roster = validateRosterChange(current, body);
         // Lock the games before inspecting scoring ownership, so opening a game
         // cannot slip between this check and the roster commit.
-        const games = await client.query(`SELECT id, status, is_complete FROM matches
+        const games = await client.query(`SELECT id, status, is_complete, is_practice, innings, tie_breaker, home_team_id, away_team_id FROM matches
           WHERE (home_team_id = $1 OR away_team_id = $1) AND season = $2
           ORDER BY id FOR UPDATE`, [id, season]);
         const unfinished = games.rows.filter(game => !game.is_complete && game.status !== 'FINAL');
@@ -119,6 +146,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         await saveRosterIdentities(client, mapTeamFromDB(current), roster, body.identityChoices, body.expectedIdentityLinks);
         const saved = (await client.query('UPDATE teams SET players = $2, subs = $3 WHERE id = $1 RETURNING *',
           [id, JSON.stringify(roster.players), JSON.stringify(roster.subs)])).rows[0];
+        // Initialize only empty, unplayed lineup templates created by schedule import.
+        // Explicit attendance choices and every recorded pitch remain untouched.
+        for (const game of games.rows) {
+          const side = game.home_team_id === id ? 'home' : 'away';
+          const innings = typeof game.innings === 'string' ? JSON.parse(game.innings) : game.innings;
+          if (game.status !== 'SCHEDULED' || game.is_complete || game.is_practice || hasRecordedScores(innings,game.tie_breaker) ||
+              !Array.isArray(innings) || !innings.length || innings.some(inning => (inning[side]?.playerScores || []).length)) continue;
+          const updated = innings.map(inning => createEmptyInning(inning.number,
+            side === 'home' ? roster.players.map(player=>player.id) : (inning.home?.playerScores || []).map((player:any)=>player.playerId),
+            side === 'away' ? roster.players.map(player=>player.id) : (inning.away?.playerScores || []).map((player:any)=>player.playerId)));
+          await client.query('UPDATE matches SET innings=$2,revision=revision+1 WHERE id=$1',[game.id,JSON.stringify(updated)]);
+        }
         return {...saved, identityLinks: await readIdentityLinks(client)};
       }
       if (req.method === 'DELETE') {

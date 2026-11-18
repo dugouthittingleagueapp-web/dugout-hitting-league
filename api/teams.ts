@@ -9,6 +9,11 @@ import { mapTeamFromDB } from '../utils/dbMappers.js';
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   try {
     if (req.method === 'GET') {
+      if (req.query.identityDirectory === '1') {
+        res.setHeader('Cache-Control', 'no-store');
+        try { return res.status(200).json(await readIdentityLinks(pool)); }
+        catch { return res.status(503).json({error:'Player history is unavailable. Please try again.'}); }
+      }
       if (req.query.adminRoster === '1') {
         if (!requireRole(req, res, ['admin'])) return;
         const { season } = req.query;
@@ -111,7 +116,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           const locks = await client.query('SELECT match_id FROM scoring_locks WHERE match_id = ANY($1::text[])', [unfinished.map(game => String(game.id))]);
           if (locks.rows.length) throw new ScheduleError(409, 'An umpire has this team open for scoring. Close scoring before changing the roster.');
         }
-        await saveRosterIdentities(client, mapTeamFromDB(current), roster, body.identityChoices);
+        await saveRosterIdentities(client, mapTeamFromDB(current), roster, body.identityChoices, body.expectedIdentityLinks);
         const saved = (await client.query('UPDATE teams SET players = $2, subs = $3 WHERE id = $1 RETURNING *',
           [id, JSON.stringify(roster.players), JSON.stringify(roster.subs)])).rows[0];
         return {...saved, identityLinks: await readIdentityLinks(client)};
@@ -133,12 +138,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const uniqueSubIds = new Set(subs.map((sub: any) => sub?.id)).size === subs.length;
         if (name !== current.name || !samePlayers || !existingSubsIntact || !uniqueSubIds)
           throw new ScheduleError(403, 'Umpires may only add substitutes; permanent roster changes require an admin.');
-        await registerUnlinkedRosterPlayers(client, {players,subs});
+        await registerUnlinkedRosterPlayers(client, {players,subs}, new Set([...storedPlayers, ...storedSubs].map(p => p.id)));
         return (await client.query('UPDATE teams SET subs = $2 WHERE id = $1 RETURNING *', [id, JSON.stringify(subs)])).rows[0];
       }
       const duplicates = await client.query('SELECT id FROM teams WHERE season = $1 AND LOWER(TRIM(league)) = LOWER(TRIM($2)) AND LOWER(TRIM(name)) = LOWER(TRIM($3)) AND id <> $4', [season, current.league, name, id]);
       if (duplicates.rows.length) throw new ScheduleError(409, 'A team with this name already exists in that league.');
-      await registerUnlinkedRosterPlayers(client, {players,subs});
+      const previousTeam = mapTeamFromDB(current);
+      await registerUnlinkedRosterPlayers(client, {players,subs}, new Set([...previousTeam.players, ...(previousTeam.subs || [])].map(p => p.id)));
       return (await client.query('UPDATE teams SET name = $2, players = $3, subs = $4 WHERE id = $1 RETURNING *', [id, name.trim(), JSON.stringify(players), JSON.stringify(subs)])).rows[0];
     });
     return res.status(req.method === 'POST' ? 201 : 200).json(result);

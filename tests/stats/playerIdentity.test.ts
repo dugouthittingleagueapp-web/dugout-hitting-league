@@ -10,6 +10,8 @@ describe('Permanent player identities',()=>{
  it('matches names only as suggestions, including initials and case',()=>{
   expect(possibleSameName({name:'Cody',lastName:'M.'},{name:'CODY',lastName:'Matthews'})).toBe(true);
   expect(possibleSameName({name:'Alex',lastName:'Jones'},{name:'Alex',lastName:'Smith'})).toBe(false);
+  expect(possibleSameName({name:'Mike',lastName:'Smith'},{name:'Michael',lastName:'Smith'})).toBe(true);
+  expect(possibleSameName({name:'Mike',lastName:'Smith'},{name:'Michael',lastName:'Jones'})).toBe(false);
  });
  it('preserves clear previous-season name matches in the initial plan',()=>{
   const plan=planPlayerIdentities([team('a','2025','old','Cody','M.'),team('b','2026','new','Cody','Matthews')],()=>crypto.randomUUID());

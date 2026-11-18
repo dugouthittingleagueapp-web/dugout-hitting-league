@@ -21,10 +21,19 @@ export const AdminRosters: React.FC<{ season: string; onDirtyChange: (dirty: boo
   const [identityLinks, setIdentityLinks] = useState<PlayerIdentityLink[]>([]);
   const [playerHistory, setPlayerHistory] = useState<PlayerIdentityCandidate[]>([]);
   const [identityChoices, setIdentityChoices] = useState<Record<string, string>>({});
+  const [historySearch, setHistorySearch] = useState<Record<string, string>>({});
   const dirty = !!selected && (Object.keys(identityChoices).length > 0 || JSON.stringify({ players, subs }) !== JSON.stringify({ players: selected.players, subs: selected.subs || [] }));
   const candidates = (player: Player) => {
     const link = identityLinks.find(link => link.rosterPlayerId === player.id);
     return link && link.resolution !== 'unreviewed' ? [] : priorPlayerCandidates(player, season, playerHistory, link?.personId);
+  };
+  const shownCandidates = (player: Player) => {
+    const query = (historySearch[player.id] || '').trim().toLowerCase();
+    const ownPersonId = identityLinks.find(link => link.rosterPlayerId === player.id)?.personId;
+    const manual = query ? playerHistory.filter(candidate => candidate.personId !== ownPersonId &&
+      [candidate.name, candidate.lastName || '', ...(candidate.aliases || []).map(alias => `${alias.name} ${alias.lastName || ''}`),
+        ...candidate.teams.map(team => `${team.teamName} ${team.season}`)].join(' ').toLowerCase().includes(query)) : [];
+    return [...new Map([...candidates(player), ...manual].map(candidate => [candidate.personId, candidate])).values()];
   };
 
   useEffect(() => { onDirtyChange(dirty); }, [dirty, onDirtyChange]);
@@ -75,7 +84,8 @@ export const AdminRosters: React.FC<{ season: string; onDirtyChange: (dirty: boo
     }
     setSaving(true); setError(''); setSuccess('');
     try {
-      const saved = await storage.saveAdminRoster(selected, players, subs, identityChoices);
+      const expectedLinks = Object.fromEntries([...players, ...subs].map(player => [player.id, identityLinks.find(link => link.rosterPlayerId === player.id)?.personId || null]));
+      const saved = await storage.saveAdminRoster(selected, players, subs, identityChoices, expectedLinks);
       setIdentityLinks(saved.identityLinks); setIdentityChoices({});
       setTeams(current => current.map(team => team.id === saved.id ? saved : team));
       setSelected(saved); setPlayers(copy(saved.players)); setSubs(copy(saved.subs || []));
@@ -91,9 +101,13 @@ export const AdminRosters: React.FC<{ season: string; onDirtyChange: (dirty: boo
       {list.map((player, index) => {
         const existing = [...(selected?.players || []), ...(selected?.subs || [])].some(p => p.id === player.id);
         const label = `${kind === 'players' ? 'Team player' : 'Substitute'} ${index + 1}`;
+        const linkedHistory = playerHistory.find(candidate => candidate.personId === identityLinks.find(link => link.rosterPlayerId === player.id)?.personId);
         return (
           <div key={player.id} className="rounded-xl border border-slate-200 dark:border-slate-700 p-3">
             <p className="mb-2 text-sm font-semibold text-slate-700 dark:text-slate-200">{label}</p>
+            {linkedHistory && <p aria-label={`${label} connected history`} className="mb-2 text-sm text-emerald-700 dark:text-emerald-300">
+              History connected: {linkedHistory.name} {linkedHistory.lastName} · {linkedHistory.teams.map(team => `${team.teamName} (${team.season})`).join(', ')}
+            </p>}
             <div className="grid gap-3 sm:grid-cols-2">
               <label className="text-sm text-slate-700 dark:text-slate-200">First name
                 <input aria-label={`${label} first name`} className={inputClass} value={player.name} maxLength={80} required disabled={saving}
@@ -104,10 +118,15 @@ export const AdminRosters: React.FC<{ season: string; onDirtyChange: (dirty: boo
                   onChange={e => edit(kind, player.id, 'lastName', e.target.value)} />
               </label>
             </div>
-            {candidates(player).length > 0 && (
+            <label className="mt-3 block text-sm text-slate-600 dark:text-slate-300">Find a previous player
+              <input type="search" aria-label={`Find a previous player for ${label}`} className={inputClass}
+                placeholder="Search an older name or team" disabled={saving} value={historySearch[player.id] || ''}
+                onChange={event => setHistorySearch(current => ({...current, [player.id]:event.target.value}))} />
+            </label>
+            {shownCandidates(player).length > 0 && (
               <div className="mt-3 rounded-xl border border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-950 p-3 text-sm text-slate-900 dark:text-slate-100" aria-label={`Previous-season matches for ${label}`}>
                 <p className="font-bold">Has this player played before?</p>
-                {candidates(player).map((candidate, candidateIndex) => (
+                {shownCandidates(player).map((candidate, candidateIndex) => (
                   <div key={candidate.personId} className="mt-3 border-t border-amber-200 dark:border-amber-800 pt-2">
                     <p className="font-semibold">{candidate.name} {candidate.lastName}</p>
                     <p>{candidate.teams.map(team => `${team.teamName} (${team.season})`).join(', ')}</p>

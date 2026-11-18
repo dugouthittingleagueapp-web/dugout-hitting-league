@@ -1320,7 +1320,7 @@ export const getPlayerCareerStats = async (playerIdentifier: string): Promise<Pl
   if (!playerIdentifier || !playerIdentifier.trim()) return null;
 
   const [teamResponse, matchResponse, response] = await Promise.all([
-    apiFetch('/api/teams'), apiFetch('/api/matches'), apiFetch('/api/player-identities')
+    apiFetch('/api/teams'), apiFetch('/api/matches'), apiFetch('/api/teams?identityDirectory=1')
   ]);
   if (![teamResponse, matchResponse, response].every(result => result.ok)) throw new Error('Player history is unavailable. Please try again.');
   const storedTeams: Team[] = (await teamResponse.json()).map(mapTeamFromDB);
@@ -1592,12 +1592,12 @@ export const getAdminRosterData = async (season: string): Promise<{ leagues: Lea
   return { leagues: data.leagues, teams: data.teams.map(mapTeamFromDB), identityLinks: data.identityLinks, playerHistory: data.playerHistory };
 };
 
-export const saveAdminRoster = async (team: Team, players: Team['players'], subs: Team['players'], identityChoices: Record<string, string> = {}): Promise<Team & { identityLinks: PlayerIdentityLink[] }> => {
+export const saveAdminRoster = async (team: Team, players: Team['players'], subs: Team['players'], identityChoices: Record<string, string> = {}, expectedIdentityLinks: Record<string, string | null> = {}): Promise<Team & { identityLinks: PlayerIdentityLink[] }> => {
   let res: Response;
   try { res = await apiFetch('/api/teams', {
     method: 'PUT', headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ action: 'update_roster', id: team.id, season: team.season,
-      expectedRoster: { players: team.players, subs: team.subs || [] }, players, subs, identityChoices })
+      expectedRoster: { players: team.players, subs: team.subs || [] }, players, subs, identityChoices, expectedIdentityLinks })
   }); } catch {
     throw new Error('Could not confirm the roster save. Reconnect, then reload rosters to check it.');
   }

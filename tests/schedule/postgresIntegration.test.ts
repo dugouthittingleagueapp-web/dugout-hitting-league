@@ -344,12 +344,13 @@ describe.skipIf(!process.env.DUGOUT_TEST_DATABASE_URL)('Schedule workflows on di
   };
   it('requires confirmation before matching a returning player and preserves historic pitches', async () => {
     const team=await rosterTeam(2),personId=await oldIdentity();const before=await gameRows();
-    const body={...rosterBody(team),players:[...team.players,{id:'returning-entry',name:'Cody',lastName:'Test'}]};
+    const body={...rosterBody(team),players:[...team.players,{id:'returning-entry',name:'Cody',lastName:''}]};
     expect((await request(teams,'PUT',body)).statusCode).toBe(409);
     expect((await pool.query("SELECT * FROM player_identity_links WHERE roster_player_id='returning-entry'")).rows).toHaveLength(0);
     const result=await request(teams,'PUT',{...body,identityChoices:{'returning-entry':personId}});
     expect(result.statusCode).toBe(200);
     expect(result.body.identityLinks.find((l:any)=>l.rosterPlayerId==='returning-entry').personId).toBe(personId);
+    expect((await pool.query('SELECT last_name FROM league_players WHERE id=$1',[personId])).rows[0].last_name).toBe('Test');
     expect(await gameRows()).toEqual(before);
   });
   it('keeps two identical names separate when the admin confirms a different person',async()=>{
@@ -377,6 +378,38 @@ describe.skipIf(!process.env.DUGOUT_TEST_DATABASE_URL)('Schedule workflows on di
     const team=await rosterTeam(2),id=await oldIdentity('Player 1');
     const body={...rosterBody(team),players:[team.players[0],{...team.players[1],name:'Unrelated'},{id:'same-person-again',name:'Player 1',lastName:'Test'}],identityChoices:{'roster-player-0':id,'same-person-again':id}};
     expect((await request(teams,'PUT',body)).statusCode).toBe(400);
+  });
+
+  it('offers shortened-name matches without automatically joining identities',async()=>{
+    const team=await rosterTeam(2),id=await oldIdentity('Michael');
+    const body={...rosterBody(team),players:[...team.players,{id:'mike-entry',name:'Mike',lastName:'Test'}]};
+    expect((await request(teams,'PUT',body)).statusCode).toBe(409);
+    const result=await request(teams,'PUT',{...body,identityChoices:{'mike-entry':id}});
+    expect(result.statusCode).toBe(200);expect(result.body.identityLinks.find((l:any)=>l.rosterPlayerId==='mike-entry').personId).toBe(id);
+  });
+  it('manually links an already-saved different name and rejects a stale identity edit',async()=>{
+    const team=await rosterTeam(),id=await oldIdentity('Michael');
+    const initial=await request(teams,'PUT',rosterBody(team));expect(initial.statusCode).toBe(200);
+    const original=initial.body.identityLinks.find((l:any)=>l.rosterPlayerId===team.players[0].id).personId;
+    const savedTeam=(await pool.query('SELECT * FROM teams WHERE id=$1',[team.id])).rows[0];
+    const body={...rosterBody(savedTeam),identityChoices:{[team.players[0].id]:id},expectedIdentityLinks:{[team.players[0].id]:original}};
+    const before=await gameRows();const linked=await request(teams,'PUT',body);
+    expect(linked.statusCode).toBe(200);expect(linked.body.identityLinks.find((l:any)=>l.rosterPlayerId===team.players[0].id).personId).toBe(id);
+    expect(await gameRows()).toEqual(before);
+    expect((await request(teams,'PUT',body)).statusCode).toBe(409);
+    expect((await pool.query('SELECT player_id FROM player_identity_links WHERE roster_player_id=$1',[team.players[0].id])).rows[0].player_id).toBe(id);
+  });
+
+  it('prevents other entry points from borrowing an older roster ID to bypass identity confirmation',async()=>{
+    const team=await rosterTeam();await oldIdentity('Michael');
+    const borrowed={id:'historic-cody',name:'Michael',lastName:'Test'};
+    const create=await request(teams,'POST',{id:'borrowed-team',name:'Borrowed Team',league:'11U',season:'2027',players:[borrowed,{id:'another-new-id',name:'Other'}],subs:[]});
+    expect(create.statusCode).toBe(409);
+    expect((await pool.query("SELECT * FROM teams WHERE id='borrowed-team'")).rows).toHaveLength(0);
+    const update=await request(teams,'PUT',{id:team.id,name:team.name,season:'2027',players:team.players,subs:[...team.subs,borrowed]},{},'umpire');
+    expect(update.statusCode).toBe(409);
+    expect((await request(teams,'PUT',{id:team.id,name:team.name,season:'2027',players:[team.players[0],team.players[0]],subs:team.subs})).statusCode).toBe(400);
+    expect((await pool.query('SELECT * FROM teams WHERE id=$1',[team.id])).rows[0]).toEqual(team);
   });
 
 });

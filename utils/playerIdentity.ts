@@ -3,6 +3,15 @@ import type { Player, Team } from '../types';
 export interface PlayerIdentityLink { rosterPlayerId: string; personId: string; resolution: string; }
 export interface PlayerIdentityCandidate { personId: string; name: string; lastName?: string; aliases?: Pick<Player, 'name' | 'lastName'>[]; teams: { teamName: string; season: string }[]; }
 const normalize = (value: string) => value.normalize('NFKD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^\p{L}\p{N}\s]/gu, '').trim();
+const nicknameFamilies = [
+  ['michael', 'mike', 'mikey'], ['robert', 'rob', 'robbie', 'bob', 'bobby'],
+  ['william', 'will', 'bill', 'billy'], ['james', 'jim', 'jimmy', 'jamie'],
+  ['daniel', 'dan', 'danny'], ['matthew', 'matt'], ['christopher', 'chris'],
+  ['joseph', 'joe', 'joey'], ['nicholas', 'nick', 'nicky'], ['thomas', 'tom', 'tommy'],
+  ['benjamin', 'ben', 'benny'], ['alexander', 'alex'], ['samuel', 'sam', 'sammy'],
+  ['andrew', 'andy', 'drew'], ['joshua', 'josh'], ['timothy', 'tim', 'timmy']
+];
+const firstNameFamily = (name: string) => nicknameFamilies.find(family => family.includes(name))?.[0] || name;
 export const identityName = (player: Pick<Player, 'name' | 'lastName'>) => {
   const words = normalize(`${player.name} ${player.lastName || ''}`).split(/\s+/).filter(Boolean);
   return { first: words[0] || '', last: words.length > 1 ? words[words.length - 1] : '' };
@@ -10,7 +19,7 @@ export const identityName = (player: Pick<Player, 'name' | 'lastName'>) => {
 /** Names only find candidates. They never authorize an identity link. */
 export const possibleSameName = (a: Pick<Player, 'name' | 'lastName'>, b: Pick<Player, 'name' | 'lastName'>): boolean => {
   const x = identityName(a), y = identityName(b);
-  return !!x.first && x.first === y.first && (!x.last || !y.last || x.last === y.last ||
+  return !!x.first && firstNameFamily(x.first) === firstNameFamily(y.first) && (!x.last || !y.last || x.last === y.last ||
     (x.last.length === 1 || y.last.length === 1) && x.last[0] === y.last[0]);
 };
 export const priorPlayerCandidates = (player: Player, season: string, history: PlayerIdentityCandidate[], ownPersonId?: string) =>

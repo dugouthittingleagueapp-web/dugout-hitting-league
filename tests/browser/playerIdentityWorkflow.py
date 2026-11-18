@@ -12,12 +12,12 @@ with sync_playwright() as p:
  def games():return [page.request.get(base+'/api/matches?id='+id).json() for id in f['ids'].values()]
  before=games()
  page.get_by_role('button',name='Add team player',exact=True).click()
- page.get_by_label('Team player 3 first name',exact=True).fill('Alex');page.get_by_label('Team player 3 last name',exact=True).fill('IdentityTest')
+ page.get_by_label('Team player 3 first name',exact=True).fill('Alex');page.get_by_label('Team player 3 last name',exact=True).fill(f.get('lastName','IdentityTest'))
  section=page.get_by_label('Previous-season matches for Team player 3',exact=True)
  expect(section.get_by_text('Has this player played before?',exact=True)).to_be_visible()
  expect(section.get_by_text('Alex Previous Team 1 (2026)',exact=True)).to_be_visible();expect(section.get_by_text('Alex Previous Team 2 (2026)',exact=True)).to_be_visible()
  page.get_by_role('button',name='Save roster',exact=True).click();expect(page.get_by_role('alert')).to_contain_text('Confirm the previous-season matches')
- section.get_by_role('button',name='Team player 3: match previous player 1',exact=True).click()
+ section.get_by_text('Alex Previous Team 1 (2026)',exact=True).locator('..').get_by_role('button').click()
  page.get_by_role('button',name='Save roster',exact=True).click();expect(page.get_by_text('Roster saved. Recorded games and scores are preserved.',exact=True)).to_be_visible()
  data=page.request.get(base+'/api/teams?adminRoster=1&season=2027',headers={'Authorization':'Bearer '+token}).json()
  team=next(t for t in data['teams'] if t['id']==f['home']['id']);new_id=team['players'][2]['id']
@@ -34,7 +34,7 @@ with sync_playwright() as p:
  assert games()==before
  print('PASS: one name-entry flow, two same-name suggestions with prior teams/seasons, confirmation required, actual ID-based career totals and rename stability',flush=True)
  page.get_by_role('button',name='Add substitute',exact=True).click()
- page.get_by_label('Substitute 2 first name',exact=True).fill('Alex');page.get_by_label('Substitute 2 last name',exact=True).fill('IdentityTest')
+ page.get_by_label('Substitute 2 first name',exact=True).fill('Alex');page.get_by_label('Substitute 2 last name',exact=True).fill(f.get('lastName','IdentityTest'))
  other=page.get_by_label('Previous-season matches for Substitute 2',exact=True)
  other.get_by_role('button',name='No, this is a different player',exact=True).click()
  page.get_by_role('button',name='Save roster',exact=True).click();expect(page.get_by_text('Roster saved. Recorded games and scores are preserved.',exact=True)).to_be_visible()
@@ -44,4 +44,19 @@ with sync_playwright() as p:
  assert games()==before
  page.screenshot(path='work/browser/player-identities-mobile.png',full_page=True)
  print('PASS: explicit different-player answer creates a separate permanent identity; saved game rows stay identical',flush=True)
+ # Correct a missed connection after the new name has already been saved.
+ page.get_by_label('Substitute 2 first name',exact=True).fill('Distinct Name')
+ page.get_by_role('button',name='Save roster',exact=True).click();expect(page.get_by_text('Roster saved. Recorded games and scores are preserved.',exact=True)).to_be_visible()
+ page.get_by_label('Find a previous player for Substitute 2',exact=True).fill('Alex Previous Team 2')
+ match=page.get_by_label('Previous-season matches for Substitute 2',exact=True)
+ match.get_by_text('Alex '+f.get('lastName','IdentityTest'),exact=True).locator('..').get_by_role('button').click()
+ page.get_by_role('button',name='Save roster',exact=True).click();expect(page.get_by_text('Roster saved. Recorded games and scores are preserved.',exact=True)).to_be_visible()
+ data=page.request.get(base+'/api/teams?adminRoster=1&season=2027',headers={'Authorization':'Bearer '+token}).json()
+ assert next(l for l in data['identityLinks'] if l['rosterPlayerId']==sub_id)['personId']==f['people'][1]['person']
+ career=page.evaluate("async id=>(await import('/services/storageService.ts')).getPlayerCareerStats(id)",sub_id)
+ assert career['careerTotals']['totalPoints']==2
+ expect(page.get_by_label('Substitute 2 connected history',exact=True)).to_contain_text('Alex Previous Team 2 (2026)')
+ assert games()==before
+ print('PASS: an already-saved different name can be manually connected to an older name; career history joins by ID without changing any pitches',flush=True)
+
  b.close()

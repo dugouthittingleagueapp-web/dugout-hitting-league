@@ -24,6 +24,23 @@ with sync_playwright() as p:
   if route.request.method=='POST':
    response=route.fetch();assert response.status==201;route.abort('internetdisconnected')
   else:route.continue_()
+ # A request that never responds must release the form and preserve stable IDs.
+ pending=[]
+ def hold(route):
+  if route.request.method=='POST':pending.append(route)
+  else:route.continue_()
+ page.route('**/api/teams',hold);page.clock.install()
+ page.get_by_role('button',name='Create team and roster',exact=True).click()
+ expect(page.get_by_role('button',name='Saving…',exact=True)).to_be_disabled()
+ page.wait_for_timeout(100);assert len(pending)==1
+ page.clock.fast_forward(15001)
+ expect(page.get_by_role('alert')).to_contain_text('Your entries are still here')
+ expect(page.get_by_role('button',name='Create team and roster',exact=True)).to_be_enabled()
+ expect(page.get_by_label('New team name',exact=True)).to_have_value('Before Import')
+ expect(page.get_by_label('Substitute 1 first name',exact=True)).to_have_value('Substitute')
+ pending[0].abort('internetdisconnected');page.unroute('**/api/teams',hold)
+ page.evaluate("async ()=>(await import('/services/storageService.ts')).getAllTeams()")
+ print('PASS: hanging request times out, releases form, preserves team/member/substitute draft',flush=True)
  page.route('**/api/teams',lose_response)
  page.get_by_role('button',name='Create team and roster',exact=True).click()
  expect(page.get_by_role('alert')).to_be_visible()
@@ -34,6 +51,11 @@ with sync_playwright() as p:
  expect(page.get_by_text('Team and roster created. You can now use this team in the schedule.',exact=True)).to_be_visible()
  def teams():return [t for t in page.request.get(base+'/api/teams?season=2027').json() if t['league']==league]
  assert len(teams())==1;before=teams()[0];assert len(before['players'])==2 and len(before['subs'])==1
+ page.route('**/api/teams?ids=*',lambda route:route.abort('internetdisconnected'))
+ offline=page.evaluate("async id=>(await import('/services/storageService.ts')).getMatchTeams(id,id)",before['id'])
+ assert len(offline)==1 and offline[0]['players']==before['players']
+ page.unroute('**/api/teams?ids=*')
+ print('PASS: successful creation is available immediately to offline game-team lookup',flush=True)
  print('PASS: mobile create team, substitute, committed-but-lost response and duplicate-free retry',flush=True)
  csv='Date,Start Time,End Time,Location,Group,Home Team,Away Team\n2027-12-24,6:00 pm,7:00 pm,Tunnels 5/6,QC, before IMPORT ,After Import'
  page.get_by_role('button',name='Schedule',exact=True).click()

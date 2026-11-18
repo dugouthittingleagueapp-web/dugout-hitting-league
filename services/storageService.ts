@@ -48,6 +48,8 @@ const formatName = (p: { name: string, lastName?: string }) =>
 import { generateUUID } from '../utils/ids';
 export { generateUUID };
 import { createEmptyInning } from '../utils/inningTemplate';
+import { withRequestDeadline } from '../utils/requestDeadline';
+import { cacheConfirmedTeam } from '../utils/teamCache';
 import { careerRosterIds, type PlayerIdentityLink, type PlayerIdentityCandidate } from '../utils/playerIdentity';
 export { createEmptyInning };
 
@@ -1611,12 +1613,17 @@ export const saveAdminRoster = async (team: Team, players: Team['players'], subs
 };
 
 export const createAdminTeamRoster = async (team: Team, identityChoices: Record<string,string> = {}): Promise<Team & {identityLinks:PlayerIdentityLink[]}> => {
-  let response: Response;
-  try { response = await apiFetch('/api/teams', {
-    method:'POST',headers:{'Content-Type':'application/json'},
-    body:JSON.stringify({...team,action:'create_team_roster',identityChoices})
-  }); } catch { throw new Error('Could not confirm team creation. Retry this form to check or finish the same team safely.'); }
-  const data=await response.json();
+  let response: Response, data: any;
+  try { ({response,data} = await withRequestDeadline(async signal => {
+    const response = await apiFetch('/api/teams', {
+      method:'POST',headers:{'Content-Type':'application/json'},signal,
+      body:JSON.stringify({...team,action:'create_team_roster',identityChoices})
+    });
+    return {response,data:await response.json()};
+  }, 15000)); } catch { throw new Error('Could not confirm team creation. Your entries are still here. Retry this form to check or finish the same team safely.'); }
   if(!response.ok)throw new Error(data.error || 'The team was not saved. Try again.');
-  return {...mapTeamFromDB(data),identityLinks:data.identityLinks};
+  const {identityLinks,...teamData} = data;
+  const saved = mapTeamFromDB(teamData);
+  if (typeof window !== 'undefined') { try { cacheConfirmedTeam(localStorage,saved); } catch {} }
+  return {...saved,identityLinks};
 };

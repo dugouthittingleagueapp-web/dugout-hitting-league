@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { requireRole } from './auth.js';
-import { scheduleDateTimeError, canonicalCage } from '../utils/scheduleValidation.js';
+import { scheduleDateTimeError, canonicalCage, scheduleDateKey, scheduleTimeMinutes } from '../utils/scheduleValidation.js';
 import { withActiveSeason, ScheduleError, assertScheduleGamesUnlocked } from '../server/scheduleTransaction.js';
 import { planScheduleImport, executeScheduleImport, importReceiptKey, previousImport } from '../server/scheduleImport.js';
 import pool from './db.js';
@@ -110,6 +110,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         WHERE season=$1 AND (is_practice IS FALSE OR is_practice IS NULL)`,[season]);
       const conflict = scheduleConflict({id,date,startTime,endTime,location,homeTeamId,awayTeamId},
         calendar.rows.map(row=>({...row,date:row.date instanceof Date ? row.date.toISOString() : String(row.date)})));
+      const original = calendar.rows.find(row => String(row.id) === id);
+      const bookingUnchanged = original &&
+        scheduleDateKey(original.date instanceof Date ? original.date.toISOString() : String(original.date)) === date &&
+        scheduleTimeMinutes(original.startTime || '') === scheduleTimeMinutes(startTime) &&
+        scheduleTimeMinutes(original.endTime || '') === scheduleTimeMinutes(endTime) &&
+        canonicalCage(original.location) === canonicalCage(location) &&
+        original.homeTeamId === homeTeamId && original.awayTeamId === awayTeamId;
+      if (bookingUnchanged) {
+        const updated = await client.query('UPDATE matches SET notes=$2, revision=revision+1 WHERE id=$1 RETURNING id,revision',[id,notes]);
+        return {game:updated.rows[0], warning:conflict ? 'Notes saved. This game still overlaps another game. Adjust its schedule to resolve the conflict.' : undefined};
+      }
       if (conflict) throw new ScheduleError(409, conflict);
       // Keep the inning template consistent with the selected players. Never carry
       // inning player IDs from a previous matchup into a newly assigned team.

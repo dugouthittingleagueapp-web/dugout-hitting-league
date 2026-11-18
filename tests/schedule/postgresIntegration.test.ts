@@ -526,4 +526,35 @@ describe.skipIf(!process.env.DUGOUT_TEST_DATABASE_URL)('Schedule workflows on di
     expect(result.statusCode).toBe(400);expect((await pool.query('SELECT * FROM matches WHERE id=$1',[game.id])).rows[0]).toEqual(game);
   });
 
+  it('saves notes on an already overlapping schedule without changing any booking or pitch fields',async()=>{
+    await importFile();const game=(await gameRows())[0];
+    await pool.query(`INSERT INTO matches(id,league,season,home_team_id,away_team_id,date,start_time,end_time,location,status,is_complete,innings)
+      SELECT $1,league,season,home_team_id,away_team_id,date,start_time,end_time,location,status,is_complete,innings FROM matches WHERE id=$2`,[randomUUID(),game.id]);
+    const body={action:'update_game',season:'2027',id:game.id,revision:Number(game.revision),date:'2027-11-01',startTime:'18:00',endTime:'19:00',location:'Tunnels 5/6',notes:'Bring helmets',homeTeamId:game.home_team_id,awayTeamId:game.away_team_id};
+    const result=await request(schedule,'PATCH',body);
+    expect(result.statusCode).toBe(200);expect(result.body.warning).toContain('still overlaps');
+    const saved=(await pool.query('SELECT * FROM matches WHERE id=$1',[game.id])).rows[0];
+    expect(saved).toEqual({...game,notes:'Bring helmets',revision:String(Number(game.revision)+1)});
+    const conflicting=await request(schedule,'PATCH',{...body,revision:Number(saved.revision),startTime:'6:05 pm'});
+    expect(conflicting.statusCode).toBe(409);expect((await pool.query('SELECT * FROM matches WHERE id=$1',[game.id])).rows[0]).toEqual(saved);
+    const resolved=await request(schedule,'PATCH',{...body,revision:Number(saved.revision),startTime:'7:00 pm',endTime:'8:00 pm'});
+    expect(resolved.statusCode).toBe(200);expect(resolved.body.warning).toBeUndefined();
+  });
+  it('still rejects a team change that overlaps its existing cage',async()=>{
+    await importFile();const game=(await gameRows())[0],newTeam=createPayload('Replacement');
+    expect((await request(teams,'POST',newTeam)).statusCode).toBe(201);
+    await pool.query(`INSERT INTO matches(id,league,season,home_team_id,away_team_id,date,start_time,end_time,location,status,is_complete,innings)
+      SELECT $1,league,season,home_team_id,away_team_id,date,start_time,end_time,location,status,is_complete,innings FROM matches WHERE id=$2`,[randomUUID(),game.id]);
+    const before=await gameRows();
+    const result=await request(schedule,'PATCH',{action:'update_game',season:'2027',id:game.id,revision:Number(game.revision),date:'2027-11-01',startTime:'6:00 pm',endTime:'7:00 pm',location:'Tunnels 5/6',notes:'Changed team',homeTeamId:newTeam.id,awayTeamId:game.away_team_id});
+    expect(result.statusCode).toBe(409);expect(await gameRows()).toEqual(before);
+  });
+  it('does not initialize an empty lineup if the opponent has a recorded zero',async()=>{
+    await importFile();const game=(await gameRows())[0];const home=(await pool.query('SELECT * FROM teams WHERE id=$1',[game.home_team_id])).rows[0];
+    const innings=game.innings;innings[0].away.playerScores=[{playerId:'opponent',pitches:[{points:0}]}];
+    await pool.query('UPDATE matches SET innings=$1 WHERE id=$2',[JSON.stringify(innings),game.id]);const before=await gameRows();
+    const result=await request(teams,'PUT',{action:'update_roster',season:'2027',id:home.id,expectedRoster:{players:[],subs:[]},players:createPayload().players,subs:[]});
+    expect(result.statusCode).toBe(200);expect(await gameRows()).toEqual(before);
+  });
+
 });

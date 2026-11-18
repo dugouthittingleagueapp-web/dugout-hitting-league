@@ -106,10 +106,10 @@ export const AdminSchedule: React.FC<Props> = ({ season, onImport, refreshToken 
     setWorkingId(editing.id);
     setError('');
     try {
-      await post({ action: 'update_game', id: editing.id, revision: editing.revision, ...draft });
+      const result = await post({ action: 'update_game', id: editing.id, revision: editing.revision, ...draft });
       setEditing(null);
       setDraft(null);
-      setSuccess('Game updated on the league dashboard.');
+      setSuccess(result.warning || 'Game updated on the league dashboard.');
       await load();
     } catch (err: any) { setError(err?.message || 'Could not update the game.'); }
     finally { setWorkingId(''); }

@@ -10,10 +10,10 @@ with sync_playwright() as p:
  def open_game(scenario):
   c=b.new_context(viewport={'width':393,'height':780},has_touch=True)
   page=c.new_page();page.set_default_timeout(12000)
-  page.goto(base)
   auth=page.request.get(base+'/test-session?role=umpire').json()['token']
-  page.evaluate('''x=>{localStorage.setItem('userRole','umpire');localStorage.setItem('dugout_auth_token',x.auth);sessionStorage.setItem('dugout_auth_token',x.auth);localStorage.setItem('lastActivity',String(Date.now()));localStorage.setItem('dugout_app_state',JSON.stringify({view:'scoring',currentLeague:x.league,currentMatchId:x.id,season:'2026'}));}''',{'auth':auth,'league':f['league'],'id':f['ids'][scenario]})
-  page.reload();expect(page.get_by_role('button',name='Inning 1',exact=True)).to_be_visible()
+  state={'auth':auth,'league':f['league'],'id':f['ids'][scenario]}
+  page.add_init_script("(" + """x=>{localStorage.setItem('userRole','umpire');localStorage.setItem('dugout_auth_token',x.auth);sessionStorage.setItem('dugout_auth_token',x.auth);localStorage.setItem('lastActivity',String(Date.now()));localStorage.setItem('dugout_app_state',JSON.stringify({view:'scoring',currentLeague:x.league,currentMatchId:x.id,season:'2026'}));}""" + ")(" + json.dumps(state) + ");")
+  page.goto(base);expect(page.get_by_role('button',name='Inning 1',exact=True)).to_be_visible()
   return page
  page=open_game('storage')
  page.get_by_role('button',name='Pitch 1, Score: None',exact=True).first.click()

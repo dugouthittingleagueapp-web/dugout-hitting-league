@@ -8,7 +8,7 @@ interface TeamManagementProps {
   league: AgeGroup;
   season: string;
   onBack: () => void;
-  onPlayerClick?: (playerName: string) => void;
+  onPlayerClick?: (playerId: string) => void;
 }
 
 interface EditablePlayer {
@@ -262,7 +262,7 @@ export const TeamManagement: React.FC<TeamManagementProps> = ({ league, season, 
                                         {onPlayerClick ? (
                                             <button
                                                 type="button"
-                                                onClick={() => onPlayerClick(stat.name)}
+                                                onClick={() => onPlayerClick(stat.playerId)}
                                                 className="text-left font-bold text-slate-800 dark:text-white hover:text-blue-600 dark:hover:text-blue-400 hover:underline cursor-pointer transition-colors"
                                                 title="View career batting record"
                                             >
@@ -396,7 +396,7 @@ export const TeamManagement: React.FC<TeamManagementProps> = ({ league, season, 
                       <button
                         type="button"
                         key={p.id}
-                        onClick={() => onPlayerClick(formatName(p))}
+                        onClick={() => onPlayerClick(p.id)}
                         className="text-left text-xs font-medium text-slate-600 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 hover:underline cursor-pointer transition-colors font-sans"
                         title="View career batting record"
                       >
@@ -417,7 +417,7 @@ export const TeamManagement: React.FC<TeamManagementProps> = ({ league, season, 
                               <button
                                 type="button"
                                 key={s.id}
-                                onClick={() => onPlayerClick(formatName(s))}
+                                onClick={() => onPlayerClick(s.id)}
                                 className="text-xs font-medium bg-slate-50 dark:bg-slate-900/50 text-slate-500 hover:text-blue-600 dark:hover:text-blue-400 hover:border-blue-300 px-2 py-0.5 rounded border border-slate-200 dark:border-slate-800 italic font-sans cursor-pointer transition-colors"
                                 title="View career batting record"
                               >

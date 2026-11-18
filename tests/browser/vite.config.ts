@@ -10,6 +10,7 @@ import schedule from '../../api/schedule-admin';
 import delta from '../../api/matches-delta';
 import scoringLock from '../../api/scoring-lock';
 import scoring from '../../api/scoring';
+import identities from '../../api/player-identities';
 import { signSessionToken } from '../../api/auth';
 
 const localUrl = process.env.DUGOUT_BROWSER_DATABASE_URL || '';
@@ -21,7 +22,7 @@ const testPool = new pg.Pool({connectionString:localUrl,ssl:false});
 pool.query = testPool.query.bind(testPool);
 pool.connect = testPool.connect.bind(testPool);
 process.env.SESSION_SECRET = 'local-only-browser-test-session-secret-not-production';
-const handlers: Record<string, any> = { '/api/settings': settings, '/api/leagues': leagues, '/api/teams': teams, '/api/matches': matches, '/api/scoring': scoring, '/api/schedule-admin': schedule, '/api/matches-delta': delta, '/api/scoring-lock': scoringLock };
+const handlers: Record<string, any> = { '/api/player-identities': identities, '/api/settings': settings, '/api/leagues': leagues, '/api/teams': teams, '/api/matches': matches, '/api/scoring': scoring, '/api/schedule-admin': schedule, '/api/matches-delta': delta, '/api/scoring-lock': scoringLock };
 export default defineConfig({plugins:[react(),{
  name:'local-only-api',
  transformIndexHtml(html) {

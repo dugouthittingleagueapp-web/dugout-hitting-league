@@ -1215,7 +1215,7 @@ const App: React.FC = () => {
                                                                 <span className="font-bold bg-white text-indigo-600 w-5 h-5 sm:w-6 sm:h-6 flex items-center justify-center rounded-full text-[10px] sm:text-xs font-sans shadow tabular-nums shrink-0">{idx+1}</span>
                                                                 <button 
                                                                     type="button"
-                                                                    onClick={() => setSelectedCareerPlayer(s.name)} 
+                                                                    onClick={() => setSelectedCareerPlayer(s.playerId)}
                                                                     className="font-semibold font-sans text-xs sm:text-base hover:underline hover:text-yellow-300 text-left cursor-pointer transition-colors truncate"
                                                                     title="View career batting record"
                                                                 >
@@ -1239,7 +1239,7 @@ const App: React.FC = () => {
                                                                 <span className="font-bold bg-white text-purple-600 w-5 h-5 sm:w-6 sm:h-6 flex items-center justify-center rounded-full text-[10px] sm:text-xs font-sans shadow tabular-nums shrink-0">{idx+1}</span>
                                                                 <button 
                                                                     type="button"
-                                                                    onClick={() => setSelectedCareerPlayer(s.name)} 
+                                                                    onClick={() => setSelectedCareerPlayer(s.playerId)}
                                                                     className="font-semibold font-sans text-xs sm:text-base hover:underline hover:text-yellow-300 text-left cursor-pointer transition-colors truncate"
                                                                     title="View career batting record"
                                                                 >
@@ -1554,7 +1554,7 @@ const App: React.FC = () => {
                                                         <td className="px-2 sm:px-6 py-2 sm:py-3 font-bold text-slate-900 dark:text-white font-sans text-xs sm:text-base">
                                                             <button
                                                                 type="button"
-                                                                onClick={() => setSelectedCareerPlayer(stat.name)}
+                                                                onClick={() => setSelectedCareerPlayer(stat.playerId)}
                                                                 className="text-left font-bold text-slate-900 dark:text-white hover:text-blue-600 dark:hover:text-blue-400 hover:underline cursor-pointer transition-colors"
                                                                 title="View career batting record"
                                                             >
@@ -1748,7 +1748,7 @@ const App: React.FC = () => {
                                             <td className="px-2 sm:px-6 py-2 sm:py-3 font-bold text-slate-900 dark:text-white font-sans text-xs sm:text-base">
                                                 <button
                                                     type="button"
-                                                    onClick={() => setSelectedCareerPlayer(stat.name)}
+                                                    onClick={() => setSelectedCareerPlayer(stat.playerId)}
                                                     className="text-left font-bold text-slate-900 dark:text-white hover:text-blue-600 dark:hover:text-blue-400 hover:underline cursor-pointer transition-colors"
                                                     title="View career batting record"
                                                 >
@@ -1816,7 +1816,7 @@ const App: React.FC = () => {
         {/* Player Career Stats Modal */}
         <PlayerCareerModal
             isOpen={!!selectedCareerPlayer}
-            playerName={selectedCareerPlayer}
+            playerId={selectedCareerPlayer}
             onClose={() => setSelectedCareerPlayer(null)}
         />
 

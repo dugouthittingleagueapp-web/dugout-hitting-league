@@ -22,7 +22,7 @@ interface ScoreboardProps {
   onExit: (options?: { endedPractice?: boolean; deletedPractice?: boolean; matchId?: string; savedPractice?: boolean; finalizedMatch?: boolean; message?: string }) => void;
   isReadOnly?: boolean;
   userRole?: 'fan' | 'umpire' | 'admin';
-  onPlayerClick?: (playerName: string) => void;
+  onPlayerClick?: (playerId: string) => void;
 }
 
 const ScoringBoardContent: React.FC<ScoreboardProps & { saveState?: storage.ScoringSaveState; onRetrySync?: () => void }> = ({ matchId, onExit, isReadOnly = false, userRole = 'fan', onPlayerClick, saveState, onRetrySync }) => {
@@ -592,7 +592,7 @@ const ScoringBoardContent: React.FC<ScoreboardProps & { saveState?: storage.Scor
                           ) : onPlayerClick ? (
                             <button
                               type="button"
-                              onClick={() => onPlayerClick(formatName(player))}
+                              onClick={() => onPlayerClick(playerScore.playerId)}
                               className="text-left font-bold text-slate-900 dark:text-slate-100 hover:text-blue-600 dark:hover:text-blue-400 hover:underline cursor-pointer truncate max-w-full transition-colors"
                               title="View career batting record"
                             >
@@ -675,7 +675,7 @@ const ScoringBoardContent: React.FC<ScoreboardProps & { saveState?: storage.Scor
                                         return onPlayerClick ? (
                                             <button
                                                 type="button"
-                                                onClick={() => onPlayerClick(pName)}
+                                                onClick={() => onPlayerClick(round.awayPlayerId)}
                                                 className="font-bold text-slate-900 dark:text-white hover:text-blue-600 dark:hover:text-blue-400 hover:underline cursor-pointer text-left transition-colors"
                                                 title="View career batting record"
                                             >
@@ -696,7 +696,7 @@ const ScoringBoardContent: React.FC<ScoreboardProps & { saveState?: storage.Scor
                                         return onPlayerClick ? (
                                             <button
                                                 type="button"
-                                                onClick={() => onPlayerClick(pName)}
+                                                onClick={() => onPlayerClick(round.homePlayerId)}
                                                 className="font-bold text-slate-900 dark:text-white hover:text-red-600 dark:hover:text-red-400 hover:underline cursor-pointer text-left transition-colors"
                                                 title="View career batting record"
                                                 children={pName}

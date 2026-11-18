@@ -3,6 +3,8 @@ import pool from './db.js';
 import { requireRole } from './auth.js';
 import { withActiveSeason, ScheduleError, assertScheduleGamesUnlocked } from '../server/scheduleTransaction.js';
 import { validateRosterChange } from '../server/teamRoster.js';
+import { readIdentityLinks, readIdentityHistory, saveRosterIdentities, registerUnlinkedRosterPlayers } from '../server/playerIdentities.js';
+import { mapTeamFromDB } from '../utils/dbMappers.js';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   try {
@@ -17,7 +19,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           pool.query('SELECT * FROM teams WHERE season = $1 ORDER BY name', [season]),
           pool.query('SELECT id, season FROM leagues WHERE season = $1 ORDER BY id', [season])
         ]);
-        return res.status(200).json({ teams: teams.rows, leagues: leagues.rows });
+        const [identityLinks, playerHistory] = await Promise.all([readIdentityLinks(pool), readIdentityHistory(pool, season)]);
+        return res.status(200).json({ teams: teams.rows, leagues: leagues.rows, identityLinks, playerHistory });
       }
       const { league, season, ids } = req.query;
       let query = 'SELECT * FROM teams';
@@ -62,6 +65,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const canonical = destination.rows[0].id;
         const duplicate = await client.query('SELECT id FROM teams WHERE season = $1 AND LOWER(TRIM(league)) = LOWER(TRIM($2)) AND LOWER(TRIM(name)) = LOWER(TRIM($3))', [season, canonical, name]);
         if (duplicate.rows.length) throw new ScheduleError(409, 'A team with this name already exists in that league.');
+        await registerUnlinkedRosterPlayers(client, {players,subs});
         return (await client.query('INSERT INTO teams (id, name, league, players, subs, season) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *',
           [id || `team-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`, name.trim(), canonical, JSON.stringify(players), JSON.stringify(subs), season])).rows[0];
       }
@@ -107,8 +111,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           const locks = await client.query('SELECT match_id FROM scoring_locks WHERE match_id = ANY($1::text[])', [unfinished.map(game => String(game.id))]);
           if (locks.rows.length) throw new ScheduleError(409, 'An umpire has this team open for scoring. Close scoring before changing the roster.');
         }
-        return (await client.query('UPDATE teams SET players = $2, subs = $3 WHERE id = $1 RETURNING *',
+        await saveRosterIdentities(client, mapTeamFromDB(current), roster, body.identityChoices);
+        const saved = (await client.query('UPDATE teams SET players = $2, subs = $3 WHERE id = $1 RETURNING *',
           [id, JSON.stringify(roster.players), JSON.stringify(roster.subs)])).rows[0];
+        return {...saved, identityLinks: await readIdentityLinks(client)};
       }
       if (req.method === 'DELETE') {
         const games = await client.query('SELECT id FROM matches WHERE home_team_id = $1 OR away_team_id = $1 LIMIT 1', [id]);
@@ -127,10 +133,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const uniqueSubIds = new Set(subs.map((sub: any) => sub?.id)).size === subs.length;
         if (name !== current.name || !samePlayers || !existingSubsIntact || !uniqueSubIds)
           throw new ScheduleError(403, 'Umpires may only add substitutes; permanent roster changes require an admin.');
+        await registerUnlinkedRosterPlayers(client, {players,subs});
         return (await client.query('UPDATE teams SET subs = $2 WHERE id = $1 RETURNING *', [id, JSON.stringify(subs)])).rows[0];
       }
       const duplicates = await client.query('SELECT id FROM teams WHERE season = $1 AND LOWER(TRIM(league)) = LOWER(TRIM($2)) AND LOWER(TRIM(name)) = LOWER(TRIM($3)) AND id <> $4', [season, current.league, name, id]);
       if (duplicates.rows.length) throw new ScheduleError(409, 'A team with this name already exists in that league.');
+      await registerUnlinkedRosterPlayers(client, {players,subs});
       return (await client.query('UPDATE teams SET name = $2, players = $3, subs = $4 WHERE id = $1 RETURNING *', [id, name.trim(), JSON.stringify(players), JSON.stringify(subs)])).rows[0];
     });
     return res.status(req.method === 'POST' ? 201 : 200).json(result);

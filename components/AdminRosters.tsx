@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import type { League, Player, Team } from '../types';
 import * as storage from '../services/storageService';
+import { priorPlayerCandidates, type PlayerIdentityLink, type PlayerIdentityCandidate } from '../utils/playerIdentity';
 
 const freshPlayer = (): Player => ({ id: storage.generateUUID(), name: '', lastName: '' });
 const copy = (players: Player[]) => players.map(p => ({ ...p }));
@@ -17,7 +18,14 @@ export const AdminRosters: React.FC<{ season: string; onDirtyChange: (dirty: boo
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [reload, setReload] = useState(0);
-  const dirty = !!selected && JSON.stringify({ players, subs }) !== JSON.stringify({ players: selected.players, subs: selected.subs || [] });
+  const [identityLinks, setIdentityLinks] = useState<PlayerIdentityLink[]>([]);
+  const [playerHistory, setPlayerHistory] = useState<PlayerIdentityCandidate[]>([]);
+  const [identityChoices, setIdentityChoices] = useState<Record<string, string>>({});
+  const dirty = !!selected && (Object.keys(identityChoices).length > 0 || JSON.stringify({ players, subs }) !== JSON.stringify({ players: selected.players, subs: selected.subs || [] }));
+  const candidates = (player: Player) => {
+    const link = identityLinks.find(link => link.rosterPlayerId === player.id);
+    return link && link.resolution !== 'unreviewed' ? [] : priorPlayerCandidates(player, season, playerHistory, link?.personId);
+  };
 
   useEffect(() => { onDirtyChange(dirty); }, [dirty, onDirtyChange]);
   useEffect(() => { onBusyChange(saving); }, [saving, onBusyChange]);
@@ -29,6 +37,7 @@ export const AdminRosters: React.FC<{ season: string; onDirtyChange: (dirty: boo
     storage.getAdminRosterData(season).then(data => {
       if (!active) return;
       setTeams(data.teams); setLeagues(data.leagues);
+      setIdentityLinks(data.identityLinks); setPlayerHistory(data.playerHistory); setIdentityChoices({});
       if (data.leagues.length === 1) setLeague(data.leagues[0].id);
     }).catch(err => { if (active) setError(err.message || 'Could not load rosters. Try again.'); })
       .finally(() => { if (active) setLoading(false); });
@@ -46,11 +55,12 @@ export const AdminRosters: React.FC<{ season: string; onDirtyChange: (dirty: boo
   const selectTeam = (id: string) => {
     if (!canLeave()) return;
     const team = teams.find(t => t.id === id) || null;
-    setSelected(team); setPlayers(copy(team?.players || [])); setSubs(copy(team?.subs || [])); setError(''); setSuccess('');
+    setSelected(team); setPlayers(copy(team?.players || [])); setSubs(copy(team?.subs || [])); setIdentityChoices({}); setError(''); setSuccess('');
   };
   const edit = (kind: 'players' | 'subs', id: string, field: 'name' | 'lastName', value: string) => {
     const update = (list: Player[]) => list.map(p => p.id === id ? { ...p, [field]: value } : p);
     (kind === 'players' ? setPlayers : setSubs)(update); setSuccess('');
+    setIdentityChoices(current => { const next = {...current}; delete next[id]; return next; });
   };
   const move = (kind: 'players' | 'subs', player: Player) => {
     if (kind === 'players') { setPlayers(players.filter(p => p.id !== player.id)); setSubs([...subs, player]); }
@@ -60,9 +70,13 @@ export const AdminRosters: React.FC<{ season: string; onDirtyChange: (dirty: boo
   const save = async (event: React.FormEvent) => {
     event.preventDefault();
     if (!selected || saving) return;
+    if ([...players, ...subs].some(player => candidates(player).length && !identityChoices[player.id])) {
+      setError('Confirm the previous-season matches shown below before saving.'); return;
+    }
     setSaving(true); setError(''); setSuccess('');
     try {
-      const saved = await storage.saveAdminRoster(selected, players, subs);
+      const saved = await storage.saveAdminRoster(selected, players, subs, identityChoices);
+      setIdentityLinks(saved.identityLinks); setIdentityChoices({});
       setTeams(current => current.map(team => team.id === saved.id ? saved : team));
       setSelected(saved); setPlayers(copy(saved.players)); setSubs(copy(saved.subs || []));
       setSuccess('Roster saved. Recorded games and scores are preserved.');
@@ -90,6 +104,25 @@ export const AdminRosters: React.FC<{ season: string; onDirtyChange: (dirty: boo
                   onChange={e => edit(kind, player.id, 'lastName', e.target.value)} />
               </label>
             </div>
+            {candidates(player).length > 0 && (
+              <div className="mt-3 rounded-xl border border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-950 p-3 text-sm text-slate-900 dark:text-slate-100" aria-label={`Previous-season matches for ${label}`}>
+                <p className="font-bold">Has this player played before?</p>
+                {candidates(player).map((candidate, candidateIndex) => (
+                  <div key={candidate.personId} className="mt-3 border-t border-amber-200 dark:border-amber-800 pt-2">
+                    <p className="font-semibold">{candidate.name} {candidate.lastName}</p>
+                    <p>{candidate.teams.map(team => `${team.teamName} (${team.season})`).join(', ')}</p>
+                    <button type="button" disabled={saving} aria-label={`${label}: match previous player ${candidateIndex + 1}`}
+                      aria-pressed={identityChoices[player.id] === candidate.personId}
+                      onClick={() => { setIdentityChoices(current => ({...current, [player.id]:candidate.personId})); setError(''); }}
+                      className="mt-2 rounded-lg border border-blue-500 px-3 py-2 font-bold text-blue-800 dark:text-blue-200">
+                      {identityChoices[player.id] === candidate.personId ? '✓ Same player selected' : 'Yes, same player'}
+                    </button>
+                  </div>
+                ))}
+                <button type="button" disabled={saving} aria-pressed={identityChoices[player.id] === 'new'} onClick={() => { setIdentityChoices(current => ({...current, [player.id]:'new'})); setError(''); }}
+                  className="mt-3 rounded-lg border border-slate-400 px-3 py-2 font-bold">{identityChoices[player.id] === 'new' ? '✓ Different player selected' : 'No, this is a different player'}</button>
+              </div>
+            )}
             <div className="mt-3 flex flex-wrap gap-3">
               <button type="button" disabled={saving || (kind === 'players' ? players.length <= 2 : players.length >= 3)}
                 onClick={() => move(kind, player)} className="text-sm font-bold text-blue-700 dark:text-blue-300 disabled:opacity-40">
@@ -137,7 +170,7 @@ export const AdminRosters: React.FC<{ season: string; onDirtyChange: (dirty: boo
         {section('subs', subs, 'Substitutes')}
         <div className="flex flex-wrap gap-3 border-t border-slate-200 dark:border-slate-700 pt-4">
           <button type="submit" disabled={saving || !dirty || players.length < 2} className="rounded-xl bg-blue-600 px-5 py-3 font-bold text-white disabled:opacity-40">{saving ? 'Saving roster…' : 'Save roster'}</button>
-          <button type="button" disabled={saving || !dirty} onClick={() => { if (!canLeave()) return; setPlayers(copy(selected.players)); setSubs(copy(selected.subs || [])); setError(''); setSuccess(''); }}
+          <button type="button" disabled={saving || !dirty} onClick={() => { if (!canLeave()) return; setPlayers(copy(selected.players)); setSubs(copy(selected.subs || [])); setIdentityChoices({}); setError(''); setSuccess(''); }}
             className="rounded-xl border border-slate-300 dark:border-slate-600 px-5 py-3 font-bold text-slate-700 dark:text-slate-200 disabled:opacity-40">Discard changes</button>
         </div>
       </form>}

@@ -48,6 +48,7 @@ const formatName = (p: { name: string, lastName?: string }) =>
 import { generateUUID } from '../utils/ids';
 export { generateUUID };
 import { createEmptyInning } from '../utils/inningTemplate';
+import { careerRosterIds, type PlayerIdentityLink, type PlayerIdentityCandidate } from '../utils/playerIdentity';
 export { createEmptyInning };
 
 // Safe fetch wrapper ensuring absolute URLs, session credentials, and Bearer authorization tokens
@@ -1317,29 +1318,24 @@ export const createTeamsBatch = async (teamsToCreate: ParsedTeamInput[], season:
 // Player Career Statistics Across All Seasons
 export const getPlayerCareerStats = async (playerIdentifier: string): Promise<PlayerCareerSummary | null> => {
   if (!playerIdentifier || !playerIdentifier.trim()) return null;
-  const target = playerIdentifier.trim().toLowerCase();
 
-  const [allTeams, allMatches] = await Promise.all([
-    getAllTeams().catch(() => []),
-    getAllMatches().catch(() => [])
+  const [teamResponse, matchResponse, response] = await Promise.all([
+    apiFetch('/api/teams'), apiFetch('/api/matches'), apiFetch('/api/player-identities')
   ]);
-
-  const matchingPlayerIds = new Set<string>();
+  if (![teamResponse, matchResponse, response].every(result => result.ok)) throw new Error('Player history is unavailable. Please try again.');
+  const storedTeams: Team[] = (await teamResponse.json()).map(mapTeamFromDB);
+  const storedMatches: Match[] = (await matchResponse.json()).map(mapMatchFromDB);
+  const allTeams = [...storedTeams, ...ARCHIVE_2025_TEAMS.filter(team => !storedTeams.some(t => t.id === team.id))];
+  const allMatches = [...storedMatches, ...ARCHIVE_2025_MATCHES.filter(game => !storedMatches.some(m => m.id === game.id))];
+  const matchingPlayerIds = careerRosterIds(playerIdentifier, await response.json());
   let canonicalName = playerIdentifier.trim();
 
   allTeams.forEach(team => {
     const list = [...(team.players || []), ...(team.subs || [])];
     list.forEach(p => {
       const fName = formatName(p);
-      const simpleName = `${p.name || ''} ${p.lastName || ''}`.trim();
-      if (
-        p.id.toLowerCase() === target ||
-        fName.toLowerCase() === target ||
-        simpleName.toLowerCase() === target ||
-        (p.name && p.name.toLowerCase() === target)
-      ) {
-        matchingPlayerIds.add(p.id);
-        if (fName && canonicalName === playerIdentifier.trim()) {
+      if (p.id === playerIdentifier || matchingPlayerIds.has(p.id)) {
+        if (fName && (p.id === playerIdentifier || canonicalName === playerIdentifier.trim())) {
           canonicalName = fName;
         }
       }
@@ -1589,19 +1585,19 @@ export const getAdminScheduleData = async (season: string): Promise<{ leagues: L
   return { leagues: data.leagues, teams: data.teams.map(mapTeamFromDB), matches: data.matches.map((row: unknown) => recordRevision(mapMatchFromDB(row))) };
 };
 
-export const getAdminRosterData = async (season: string): Promise<{ leagues: League[]; teams: Team[] }> => {
+export const getAdminRosterData = async (season: string): Promise<{ leagues: League[]; teams: Team[]; identityLinks: PlayerIdentityLink[]; playerHistory: PlayerIdentityCandidate[] }> => {
   const res = await apiFetch(`/api/teams?adminRoster=1&season=${encodeURIComponent(season)}`);
   const data = await res.json();
   if (!res.ok) throw new Error(data.error || 'Could not load rosters. Try again.');
-  return { leagues: data.leagues, teams: data.teams.map(mapTeamFromDB) };
+  return { leagues: data.leagues, teams: data.teams.map(mapTeamFromDB), identityLinks: data.identityLinks, playerHistory: data.playerHistory };
 };
 
-export const saveAdminRoster = async (team: Team, players: Team['players'], subs: Team['players']): Promise<Team> => {
+export const saveAdminRoster = async (team: Team, players: Team['players'], subs: Team['players'], identityChoices: Record<string, string> = {}): Promise<Team & { identityLinks: PlayerIdentityLink[] }> => {
   let res: Response;
   try { res = await apiFetch('/api/teams', {
     method: 'PUT', headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ action: 'update_roster', id: team.id, season: team.season,
-      expectedRoster: { players: team.players, subs: team.subs || [] }, players, subs })
+      expectedRoster: { players: team.players, subs: team.subs || [] }, players, subs, identityChoices })
   }); } catch {
     throw new Error('Could not confirm the roster save. Reconnect, then reload rosters to check it.');
   }
@@ -1611,5 +1607,5 @@ export const saveAdminRoster = async (team: Team, players: Team['players'], subs
   if (typeof window !== 'undefined') {
     try { localStorage.setItem(`dugout_team_${saved.id}`, JSON.stringify(saved)); localStorage.removeItem('dugout_all_teams_cache'); } catch {}
   }
-  return saved;
+  return {...saved, identityLinks: data.identityLinks};
 };

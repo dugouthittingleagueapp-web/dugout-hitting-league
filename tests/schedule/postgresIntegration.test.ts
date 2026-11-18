@@ -41,6 +41,7 @@ describe.skipIf(!process.env.DUGOUT_TEST_DATABASE_URL)('Schedule workflows on di
     vi.stubEnv('SESSION_SECRET', 'disposable-local-integration-test-session-secret');
     await pool.query(`CREATE SCHEMA ${(pool as any).testSchema}`);
     await pool.query(readFileSync(new URL('../../schema.sql', import.meta.url), 'utf8'));
+    await pool.query(readFileSync(new URL('../../migrations/player-identities.sql', import.meta.url), 'utf8'));
     await pool.query(`ALTER TABLE matches ADD COLUMN revision BIGINT NOT NULL DEFAULT 0,
       ADD COLUMN is_forfeit BOOLEAN DEFAULT FALSE, ADD COLUMN forfeiting_team_id TEXT,
       ADD COLUMN forfeit_reason TEXT, ADD COLUMN winning_team_id TEXT,
@@ -48,7 +49,7 @@ describe.skipIf(!process.env.DUGOUT_TEST_DATABASE_URL)('Schedule workflows on di
       CREATE TABLE scoring_locks (match_id TEXT PRIMARY KEY, token_hash TEXT NOT NULL, updated_at TIMESTAMPTZ DEFAULT NOW());`);
   });
   beforeEach(async () => {
-    await pool.query('TRUNCATE leagues, teams, matches, app_settings, scoring_locks');
+    await pool.query('TRUNCATE leagues, teams, matches, app_settings, scoring_locks, player_identity_links, league_players');
     await pool.query("INSERT INTO app_settings VALUES ('current_season', '2027')");
   });
   afterAll(async () => { await pool.end(); vi.unstubAllEnvs(); });
@@ -333,6 +334,49 @@ describe.skipIf(!process.env.DUGOUT_TEST_DATABASE_URL)('Schedule workflows on di
     expect((await request(teams,'PUT',{...rosterBody(team),season:'2026'})).statusCode).toBe(403);
     await pool.query("UPDATE teams SET season='2026' WHERE id=$1",[team.id]);
     expect((await request(teams,'PUT',rosterBody(team))).statusCode).toBe(403);
+  });
+
+  const oldIdentity = async (name = 'Cody', rosterId = 'historic-cody', personId = '10000000-0000-4000-8000-000000000001') => {
+    await pool.query("INSERT INTO league_players(id,name,last_name) VALUES($1,$2,'Test')",[personId,name]);
+    await pool.query("INSERT INTO player_identity_links(roster_player_id,player_id,resolution) VALUES($1,$2,'existing')",[rosterId,personId]);
+    await pool.query("INSERT INTO teams(id,name,league,season,players,subs) VALUES($1,'Previous Team','Past','2026',$2,'[]')",[rosterId+'-team',JSON.stringify([{id:rosterId,name,lastName:'Test'}])]);
+    return personId;
+  };
+  it('requires confirmation before matching a returning player and preserves historic pitches', async () => {
+    const team=await rosterTeam(2),personId=await oldIdentity();const before=await gameRows();
+    const body={...rosterBody(team),players:[...team.players,{id:'returning-entry',name:'Cody',lastName:'Test'}]};
+    expect((await request(teams,'PUT',body)).statusCode).toBe(409);
+    expect((await pool.query("SELECT * FROM player_identity_links WHERE roster_player_id='returning-entry'")).rows).toHaveLength(0);
+    const result=await request(teams,'PUT',{...body,identityChoices:{'returning-entry':personId}});
+    expect(result.statusCode).toBe(200);
+    expect(result.body.identityLinks.find((l:any)=>l.rosterPlayerId==='returning-entry').personId).toBe(personId);
+    expect(await gameRows()).toEqual(before);
+  });
+  it('keeps two identical names separate when the admin confirms a different person',async()=>{
+    const team=await rosterTeam(2),previous=await oldIdentity();
+    const result=await request(teams,'PUT',{...rosterBody(team),players:[...team.players,{id:'different-cody',name:'Cody',lastName:'Test'}],identityChoices:{'different-cody':'new'}});
+    expect(result.statusCode).toBe(200);
+    expect(result.body.identityLinks.find((l:any)=>l.rosterPlayerId==='different-cody').personId).not.toBe(previous);
+  });
+  it('rejects forged identity choices and does not partially save names or links',async()=>{
+    const team=await rosterTeam(2);await oldIdentity();const before=await gameRows();
+    const result=await request(teams,'PUT',{...rosterBody(team),players:[...team.players,{id:'forged',name:'Cody',lastName:'Test'}],identityChoices:{forged:'99999999-9999-4999-8999-999999999999'}});
+    expect(result.statusCode).toBe(400);expect(await gameRows()).toEqual(before);
+    expect((await pool.query('SELECT * FROM teams WHERE id=$1',[team.id])).rows[0]).toEqual(team);
+    expect((await pool.query("SELECT * FROM player_identity_links WHERE roster_player_id='forged'")).rows).toHaveLength(0);
+  });
+  it('keeps permanent identity when a registered player name changes',async()=>{
+    const team=await rosterTeam();await request(teams,'PUT',rosterBody(team));
+    const before=(await pool.query('SELECT * FROM player_identity_links ORDER BY roster_player_id')).rows;
+    const body={...rosterBody(team),players:[{...team.players[0],name:'Corrected Name'},...team.players.slice(1)]};
+    expect((await request(teams,'PUT',body)).statusCode).toBe(200);
+    const after=(await pool.query('SELECT * FROM player_identity_links ORDER BY roster_player_id')).rows;
+    expect(after).toEqual(before);
+  });
+  it('rejects two roster entries linked to the same permanent player',async()=>{
+    const team=await rosterTeam(2),id=await oldIdentity('Player 1');
+    const body={...rosterBody(team),players:[team.players[0],{...team.players[1],name:'Unrelated'},{id:'same-person-again',name:'Player 1',lastName:'Test'}],identityChoices:{'roster-player-0':id,'same-person-again':id}};
+    expect((await request(teams,'PUT',body)).statusCode).toBe(400);
   });
 
 });

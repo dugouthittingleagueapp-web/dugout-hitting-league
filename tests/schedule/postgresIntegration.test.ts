@@ -242,4 +242,97 @@ describe.skipIf(!process.env.DUGOUT_TEST_DATABASE_URL)('Schedule workflows on di
     expect((await pool.query('SELECT league, revision FROM matches')).rows[0]).toMatchObject({ league: '12U', revision: '1' });
   });
 
+  const rosterTeam = async (count = 3) => {
+    await importFile();
+    const team = (await pool.query("SELECT * FROM teams WHERE name='Eagles'")).rows[0];
+    const players = Array.from({ length: count }, (_, i) => ({ id: `roster-player-${i}`, name: `Player ${i + 1}`, lastName: 'Test' }));
+    await pool.query('UPDATE teams SET players=$2, subs=$3 WHERE id=$1', [team.id, JSON.stringify(players), JSON.stringify([{id:'roster-sub',name:'Sub',lastName:'Test'}])]);
+    return (await pool.query('SELECT * FROM teams WHERE id=$1', [team.id])).rows[0];
+  };
+  const rosterBody = (team: any) => ({action:'update_roster',id:team.id,season:'2027',
+    expectedRoster:{players:team.players,subs:team.subs},players:team.players,subs:team.subs});
+  const gameRows = async () => (await pool.query('SELECT * FROM matches ORDER BY id')).rows;
+
+  it('loads active-season rosters only for admins', async () => {
+    await rosterTeam();
+    for (const role of [null, 'umpire'] as const) expect((await request(teams, 'GET', {}, {adminRoster:'1',season:'2027'}, role)).statusCode).toBe(role ? 403 : 401);
+    const result = await request(teams, 'GET', {}, {adminRoster:'1',season:'2027'});
+    expect(result.statusCode).toBe(200); expect(result.body.teams).toHaveLength(2);
+    expect((await request(teams, 'GET', {}, {adminRoster:'1',season:'2026'})).statusCode).toBe(409);
+  });
+
+  it('edits names and adds substitutes without changing game lineups, scores or status', async () => {
+    const team = await rosterTeam(), before = await gameRows();
+    const body = rosterBody(team); body.players = body.players.map((p: any, i: number) => i === 0 ? {...p,name:'Corrected'} : p);
+    body.subs = [...body.subs, {id:'new-sub',name:'New',lastName:'Player'}];
+    const result = await request(teams, 'PUT', body);
+    expect(result.statusCode).toBe(200); expect(result.body.players[0]).toMatchObject({id:'roster-player-0',name:'Corrected'});
+    expect(await gameRows()).toEqual(before);
+  });
+
+  it('keeps player identities when moving between the regular roster and substitutes', async () => {
+    const team = await rosterTeam();
+    const body = {...rosterBody(team),players:[...team.players.slice(0,2),team.subs[0]],subs:[team.players[2]]};
+    expect((await request(teams,'PUT',body)).statusCode).toBe(200);
+    const saved = (await pool.query('SELECT * FROM teams WHERE id=$1',[team.id])).rows[0];
+    expect(saved.players.map((p:any)=>p.id)).toEqual(['roster-player-0','roster-player-1','roster-sub']);
+    expect(saved.subs[0].id).toBe('roster-player-2');
+  });
+
+  it('adds a third regular player to a two-player roster without replacing existing IDs', async () => {
+    const team = await rosterTeam(2);
+    const result = await request(teams,'PUT',{...rosterBody(team),players:[...team.players,{id:'third',name:'Third'}]});
+    expect(result.statusCode).toBe(200);expect(result.body.players.map((p:any)=>p.id)).toEqual(['roster-player-0','roster-player-1','third']);
+  });
+
+  it.each(['erase', 'duplicate', 'blank', 'too-many', 'bad-last-name'])('rejects invalid roster %s without changing saved records', async kind => {
+    const team = await rosterTeam();const body=rosterBody(team);
+    if(kind==='erase') body.players=team.players.slice(0,2);
+    if(kind==='duplicate') body.subs=[team.players[0]];
+    if(kind==='blank') body.players=[{...team.players[0],name:'  '},...team.players.slice(1)];
+    if(kind==='too-many') body.players=[...team.players,{id:'extra',name:'Extra'}];
+    if(kind==='bad-last-name') body.players=[{...team.players[0],lastName:{}},...team.players.slice(1)];
+    expect([400,409]).toContain((await request(teams,'PUT',body)).statusCode);
+    expect((await pool.query('SELECT * FROM teams WHERE id=$1',[team.id])).rows[0]).toEqual(team);
+  });
+
+  it('rejects a missing or stale source roster and serializes concurrent admin edits', async () => {
+    const team=await rosterTeam();
+    expect((await request(teams,'PUT',{...rosterBody(team),expectedRoster:undefined})).statusCode).toBe(409);
+    const responses=await Promise.all(['First','Second'].map(name=>request(teams,'PUT',{...rosterBody(team),players:[{...team.players[0],name},...team.players.slice(1)]})));
+    expect(responses.map(r=>r.statusCode).sort()).toEqual([200,409]);
+    const saved=(await pool.query('SELECT * FROM teams WHERE id=$1',[team.id])).rows[0];
+    expect(['First','Second']).toContain(saved.players[0].name);
+    expect(saved.players.slice(1)).toEqual(team.players.slice(1));
+  });
+
+  it('blocks roster edits during an in-progress game or acquired scoring session', async () => {
+    const team=await rosterTeam();const game=(await gameRows())[0];
+    await pool.query("UPDATE matches SET status='IN_PROGRESS' WHERE id=$1",[game.id]);
+    expect((await request(teams,'PUT',rosterBody(team))).statusCode).toBe(409);
+    await pool.query("UPDATE matches SET status='SCHEDULED' WHERE id=$1",[game.id]);
+    const token='aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
+    expect((await request(scoringLock,'POST',{matchId:game.id,token,action:'acquire'},{},'umpire')).statusCode).toBe(200);
+    expect((await request(teams,'PUT',rosterBody(team))).statusCode).toBe(409);
+    expect((await pool.query('SELECT * FROM teams WHERE id=$1',[team.id])).rows[0]).toEqual(team);
+    expect((await request(scoringLock,'POST',{matchId:game.id,token,action:'release'},{},'umpire')).statusCode).toBe(200);
+    expect((await request(teams,'PUT',rosterBody(team))).statusCode).toBe(200);
+  });
+
+  it('preserves completed game records when updating the current team roster', async () => {
+    const team=await rosterTeam();
+    await pool.query("UPDATE matches SET status='FINAL',is_complete=true,innings=$1",[JSON.stringify([{number:1,home:{playerScores:[{playerId:team.players[0].id,pitches:[{points:4}]}]},away:{playerScores:[]}}])]);
+    const before=await gameRows();const body={...rosterBody(team),players:[{...team.players[0],name:'Corrected'},...team.players.slice(1)]};
+    expect((await request(teams,'PUT',body)).statusCode).toBe(200);expect(await gameRows()).toEqual(before);
+  });
+
+  it('rejects roster mutations from umpires, anonymous callers and archived seasons', async () => {
+    const team=await rosterTeam();
+    expect((await request(teams,'PUT',rosterBody(team),{},'umpire')).statusCode).toBe(403);
+    expect((await request(teams,'PUT',rosterBody(team),{},null)).statusCode).toBe(401);
+    expect((await request(teams,'PUT',{...rosterBody(team),season:'2026'})).statusCode).toBe(403);
+    await pool.query("UPDATE teams SET season='2026' WHERE id=$1",[team.id]);
+    expect((await request(teams,'PUT',rosterBody(team))).statusCode).toBe(403);
+  });
+
 });

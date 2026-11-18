@@ -6,6 +6,7 @@ import { Team, League } from '../types';
 import { UserGuide } from './UserGuide';
 import { ScheduleImportModal } from './ScheduleImportModal';
 import { AdminSchedule } from './AdminSchedule';
+import { AdminRosters } from './AdminRosters';
 
 export const AdminDashboard: React.FC<{ 
   onBack: () => void; 
@@ -18,7 +19,11 @@ export const AdminDashboard: React.FC<{
   const [newLeagueName, setNewLeagueName] = useState('');
   const [creatingLeague, setCreatingLeague] = useState(false);
   const [showScheduleImportModal, setShowScheduleImportModal] = useState(false);
-  const [adminTab, setAdminTab] = useState<'overview' | 'schedule'>('overview');
+  const [adminTab, setAdminTab] = useState<'overview' | 'schedule' | 'rosters'>('overview');
+  const [rosterDirty, setRosterDirty] = useState(false);
+  const [rosterSaving, setRosterSaving] = useState(false);
+  const leaveRoster = () => !rosterDirty || window.confirm('Leave without saving this roster?');
+  const switchAdminTab = (tab: typeof adminTab) => { if (tab === adminTab || rosterSaving || !leaveRoster()) return; setAdminTab(tab); };
   const [scheduleRefreshToken, setScheduleRefreshToken] = useState(0);
   const [scheduleLeagues, setScheduleLeagues] = useState<League[]>([]);
   
@@ -280,7 +285,8 @@ export const AdminDashboard: React.FC<{
           <div className="flex items-center gap-2 self-start sm:self-auto flex-wrap">
               {onStartPractice && (
                   <button 
-                      onClick={onStartPractice} 
+                      disabled={rosterSaving}
+                      onClick={() => { if (leaveRoster()) onStartPractice?.(); }}
                       className="px-3 py-1.5 sm:px-4 sm:py-2 bg-amber-500 hover:bg-amber-600 text-slate-950 rounded-lg text-xs sm:text-sm font-bold font-sans transition-colors cursor-pointer shadow-sm flex items-center gap-1.5"
                   >
                       <span>🧪</span>
@@ -296,7 +302,8 @@ export const AdminDashboard: React.FC<{
               </button>
               <button 
                   type="button"
-                  onClick={(event) => { event.preventDefault(); event.stopPropagation(); onBack(); }} 
+                  disabled={rosterSaving}
+                  onClick={(event) => { if (rosterSaving || !leaveRoster()) return; event.preventDefault(); event.stopPropagation(); onBack(); }}
                   className="relative z-[1201] pointer-events-auto px-3 py-1.5 sm:px-4 sm:py-2 bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 rounded-lg text-slate-700 dark:text-slate-300 text-xs sm:text-sm font-bold font-sans transition-colors cursor-pointer"
               >
                   ← Exit Admin
@@ -305,16 +312,21 @@ export const AdminDashboard: React.FC<{
       </div>
 
       <nav className="mb-5 flex flex-wrap gap-2 border-b border-slate-200 dark:border-slate-800 pb-3" aria-label="Admin dashboard tabs">
-        <button type="button" onClick={() => setAdminTab('overview')}
+        <button type="button" disabled={rosterSaving} onClick={() => switchAdminTab('overview')}
           aria-current={adminTab === 'overview' ? 'page' : undefined}
           className={`px-5 py-2.5 rounded-xl font-bold text-sm transition-colors ${adminTab === 'overview' ? 'bg-blue-600 text-white' : 'bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-200'}`}>Dashboard</button>
-        <button type="button" onClick={() => setAdminTab('schedule')}
+        <button type="button" disabled={rosterSaving} onClick={() => switchAdminTab('schedule')}
           aria-current={adminTab === 'schedule' ? 'page' : undefined}
           className={`px-5 py-2.5 rounded-xl font-bold text-sm transition-colors ${adminTab === 'schedule' ? 'bg-blue-600 text-white' : 'bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-200'}`}>Schedule</button>
+        <button type="button" disabled={rosterSaving} onClick={() => switchAdminTab('rosters')}
+          aria-current={adminTab === 'rosters' ? 'page' : undefined}
+          className={`px-5 py-2.5 rounded-xl font-bold text-sm transition-colors ${adminTab === 'rosters' ? 'bg-blue-600 text-white' : 'bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-200'}`}>Rosters</button>
       </nav>
       {adminTab === 'schedule' ? (
         <AdminSchedule season={currentSeason}
           refreshToken={scheduleRefreshToken} onImport={activeLeagues => { setScheduleLeagues(activeLeagues); setShowScheduleImportModal(true); }} />
+      ) : adminTab === 'rosters' ? (
+        <AdminRosters season={currentSeason} onDirtyChange={setRosterDirty} onBusyChange={setRosterSaving} />
       ) : (
       <div className="space-y-4 sm:space-y-6">
         

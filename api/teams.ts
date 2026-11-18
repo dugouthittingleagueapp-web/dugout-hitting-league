@@ -2,10 +2,23 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 import pool from './db.js';
 import { requireRole } from './auth.js';
 import { withActiveSeason, ScheduleError, assertScheduleGamesUnlocked } from '../server/scheduleTransaction.js';
+import { validateRosterChange } from '../server/teamRoster.js';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   try {
     if (req.method === 'GET') {
+      if (req.query.adminRoster === '1') {
+        if (!requireRole(req, res, ['admin'])) return;
+        const { season } = req.query;
+        const active = await pool.query("SELECT value FROM app_settings WHERE key = 'current_season'");
+        if (typeof season !== 'string' || season !== active.rows[0]?.value)
+          throw new ScheduleError(409, 'The active season changed. Refresh the admin dashboard.');
+        const [teams, leagues] = await Promise.all([
+          pool.query('SELECT * FROM teams WHERE season = $1 ORDER BY name', [season]),
+          pool.query('SELECT id, season FROM leagues WHERE season = $1 ORDER BY id', [season])
+        ]);
+        return res.status(200).json({ teams: teams.rows, leagues: leagues.rows });
+      }
       const { league, season, ids } = req.query;
       let query = 'SELECT * FROM teams';
       const params: any[] = [];
@@ -79,6 +92,24 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const current = found.rows[0];
       if (!current) throw new ScheduleError(404, 'Team not found.');
       if (current.season !== season) throw new ScheduleError(403, 'Archived teams are preserved. Only the active season can be changed.');
+      if (req.method === 'PUT' && body.action === 'update_roster') {
+        if (role !== 'admin') throw new ScheduleError(403, 'Only an admin can change team rosters.');
+        const roster = validateRosterChange(current, body);
+        // Lock the games before inspecting scoring ownership, so opening a game
+        // cannot slip between this check and the roster commit.
+        const games = await client.query(`SELECT id, status, is_complete FROM matches
+          WHERE (home_team_id = $1 OR away_team_id = $1) AND season = $2
+          ORDER BY id FOR UPDATE`, [id, season]);
+        const unfinished = games.rows.filter(game => !game.is_complete && game.status !== 'FINAL');
+        if (unfinished.some(game => game.status === 'IN_PROGRESS'))
+          throw new ScheduleError(409, 'This team has a game in progress. Finish the game before changing its roster.');
+        if (unfinished.length) {
+          const locks = await client.query('SELECT match_id FROM scoring_locks WHERE match_id = ANY($1::text[])', [unfinished.map(game => String(game.id))]);
+          if (locks.rows.length) throw new ScheduleError(409, 'An umpire has this team open for scoring. Close scoring before changing the roster.');
+        }
+        return (await client.query('UPDATE teams SET players = $2, subs = $3 WHERE id = $1 RETURNING *',
+          [id, JSON.stringify(roster.players), JSON.stringify(roster.subs)])).rows[0];
+      }
       if (req.method === 'DELETE') {
         const games = await client.query('SELECT id FROM matches WHERE home_team_id = $1 OR away_team_id = $1 LIMIT 1', [id]);
         if (games.rows.length) throw new ScheduleError(409, 'This team has games on the schedule. Keep it, or remove its unplayed games first.');

@@ -1588,3 +1588,28 @@ export const getAdminScheduleData = async (season: string): Promise<{ leagues: L
   if (!res.ok) throw new Error(data.error || 'Could not load the schedule. Refresh and try again.');
   return { leagues: data.leagues, teams: data.teams.map(mapTeamFromDB), matches: data.matches.map((row: unknown) => recordRevision(mapMatchFromDB(row))) };
 };
+
+export const getAdminRosterData = async (season: string): Promise<{ leagues: League[]; teams: Team[] }> => {
+  const res = await apiFetch(`/api/teams?adminRoster=1&season=${encodeURIComponent(season)}`);
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || 'Could not load rosters. Try again.');
+  return { leagues: data.leagues, teams: data.teams.map(mapTeamFromDB) };
+};
+
+export const saveAdminRoster = async (team: Team, players: Team['players'], subs: Team['players']): Promise<Team> => {
+  let res: Response;
+  try { res = await apiFetch('/api/teams', {
+    method: 'PUT', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ action: 'update_roster', id: team.id, season: team.season,
+      expectedRoster: { players: team.players, subs: team.subs || [] }, players, subs })
+  }); } catch {
+    throw new Error('Could not confirm the roster save. Reconnect, then reload rosters to check it.');
+  }
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || 'The roster was not saved. Try again.');
+  const saved = mapTeamFromDB(data);
+  if (typeof window !== 'undefined') {
+    try { localStorage.setItem(`dugout_team_${saved.id}`, JSON.stringify(saved)); localStorage.removeItem('dugout_all_teams_cache'); } catch {}
+  }
+  return saved;
+};

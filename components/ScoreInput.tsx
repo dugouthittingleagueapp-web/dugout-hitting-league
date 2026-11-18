@@ -40,7 +40,7 @@ export const ScoreInput: React.FC<ScoreInputProps> = ({
 
   // Lock body scroll when modal is open
   useEffect(() => {
-    if (isEditing) {
+    if (isEditing && !readOnly) {
       document.body.style.overflow = 'hidden';
       
       const preventScroll = (e: Event) => {
@@ -54,7 +54,7 @@ export const ScoreInput: React.FC<ScoreInputProps> = ({
         document.body.removeEventListener('touchmove', preventScroll);
       };
     }
-  }, [isEditing]);
+  }, [isEditing, readOnly]);
 
   const handleSelect = (score: number) => {
     triggerHaptic('score');
@@ -92,6 +92,9 @@ export const ScoreInput: React.FC<ScoreInputProps> = ({
     }
   };
 
+  const tileLabel = `Pitch ${pitchNumber}, Score: ${value !== null ? value : 'None'}`;
+  const tileClassName = `w-7 h-9 sm:w-14 sm:h-20 rounded sm:rounded-lg flex items-center justify-center text-sm sm:text-3xl font-bold shadow-sm border-2 transition-all duration-150 font-sans ${value !== null ? getValueColor(value) : 'border-dashed border-slate-300 dark:border-slate-700 hover:border-slate-400 dark:hover:border-slate-600 bg-slate-50 dark:bg-slate-900/50 text-slate-300 dark:text-slate-600'}`;
+
   return (
     <>
       <div className="flex flex-col items-center gap-0.5 min-w-[28px] sm:min-w-[40px]">
@@ -99,22 +102,27 @@ export const ScoreInput: React.FC<ScoreInputProps> = ({
             {pitchNumber}
         </div>
         
-        <button
-          disabled={readOnly}
-          onClick={() => {
-            if (!readOnly) {
+        {/* Fan scores are text, not disabled form controls that can intercept touch gestures. */}
+        {readOnly ? (
+          <span role="img" aria-label={tileLabel} className={tileClassName}>
+            {value !== null ? value : '-'}
+          </span>
+        ) : (
+          <button
+            type="button"
+            onClick={() => {
               triggerHaptic('tap');
               onOpen();
-            }
-          }}
-          aria-label={`Pitch ${pitchNumber}, Score: ${value !== null ? value : 'None'}`}
-          className={`w-7 h-9 sm:w-14 sm:h-20 rounded sm:rounded-lg flex items-center justify-center text-sm sm:text-3xl font-bold shadow-sm border-2 transition-all duration-150 font-sans cursor-pointer ${value !== null ? getValueColor(value) : 'border-dashed border-slate-300 dark:border-slate-700 hover:border-slate-400 dark:hover:border-slate-600 bg-slate-50 dark:bg-slate-900/50 text-slate-300 dark:text-slate-600'}`}
-        >
-          {value !== null ? value : '-'}
-        </button>
+            }}
+            aria-label={tileLabel}
+            className={`${tileClassName} cursor-pointer`}
+          >
+            {value !== null ? value : '-'}
+          </button>
+        )}
       </div>
       
-      {isEditing && createPortal(
+      {isEditing && !readOnly && createPortal(
         <div 
             className="fixed inset-0 z-[9999] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200 p-4 touch-none" 
             onClick={onClose} 

@@ -718,7 +718,7 @@ const ScoringBoardContent: React.FC<ScoreboardProps & { saveState?: storage.Scor
   };
 
   return (
-    <div className="min-h-full w-full overflow-x-hidden pb-20 font-sans">
+    <div className="min-h-full w-full pb-20 font-sans">
       {/* Official Forfeit Sticky Banner */}
       {(match.isForfeit || match.is_forfeit) && (() => {
         const forfeitingId = match.forfeitingTeamId || match.forfeiting_team_id;

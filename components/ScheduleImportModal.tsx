@@ -132,6 +132,7 @@ export const ScheduleImportModal: React.FC<ScheduleImportModalProps> = ({
               <p className="text-xs text-slate-500 dark:text-slate-400 font-sans">
                 Import into the active season with duplicate checks and automatic team creation
               </p>
+              <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Existing team rosters are reused. New teams can be filled in under Rosters. Imports add games; use Schedule → Edit to change an existing matchup.</p>
             </div>
           </div>
           <button

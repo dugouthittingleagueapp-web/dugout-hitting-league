@@ -1609,3 +1609,14 @@ export const saveAdminRoster = async (team: Team, players: Team['players'], subs
   }
   return {...saved, identityLinks: data.identityLinks};
 };
+
+export const createAdminTeamRoster = async (team: Team, identityChoices: Record<string,string> = {}): Promise<Team & {identityLinks:PlayerIdentityLink[]}> => {
+  let response: Response;
+  try { response = await apiFetch('/api/teams', {
+    method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({...team,action:'create_team_roster',identityChoices})
+  }); } catch { throw new Error('Could not confirm team creation. Retry this form to check or finish the same team safely.'); }
+  const data=await response.json();
+  if(!response.ok)throw new Error(data.error || 'The team was not saved. Try again.');
+  return {...mapTeamFromDB(data),identityLinks:data.identityLinks};
+};

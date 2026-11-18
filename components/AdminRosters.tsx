@@ -22,7 +22,10 @@ export const AdminRosters: React.FC<{ season: string; onDirtyChange: (dirty: boo
   const [playerHistory, setPlayerHistory] = useState<PlayerIdentityCandidate[]>([]);
   const [identityChoices, setIdentityChoices] = useState<Record<string, string>>({});
   const [historySearch, setHistorySearch] = useState<Record<string, string>>({});
-  const dirty = !!selected && (Object.keys(identityChoices).length > 0 || JSON.stringify({ players, subs }) !== JSON.stringify({ players: selected.players, subs: selected.subs || [] }));
+  const [creating, setCreating] = useState(false);
+  const [teamName, setTeamName] = useState('');
+  const matchingExistingTeam = creating ? teams.find(team => storage.leaguesMatch(team.league,league) && team.name.trim().toLowerCase() === teamName.trim().toLowerCase()) : undefined;
+  const dirty = !!selected && (creating || Object.keys(identityChoices).length > 0 || JSON.stringify({ players, subs }) !== JSON.stringify({ players: selected.players, subs: selected.subs || [] }));
   const candidates = (player: Player) => {
     const link = identityLinks.find(link => link.rosterPlayerId === player.id);
     return link && link.resolution !== 'unreviewed' ? [] : priorPlayerCandidates(player, season, playerHistory, link?.personId);
@@ -42,7 +45,7 @@ export const AdminRosters: React.FC<{ season: string; onDirtyChange: (dirty: boo
 
   useEffect(() => {
     let active = true;
-    setLoading(true); setError(''); setSuccess(''); setSelected(null); setLeague(''); setTeams([]); setLeagues([]);
+    setLoading(true); setError(''); setSuccess(''); setSelected(null); setCreating(false); setLeague(''); setTeams([]); setLeagues([]);
     storage.getAdminRosterData(season).then(data => {
       if (!active) return;
       setTeams(data.teams); setLeagues(data.leagues);
@@ -64,7 +67,13 @@ export const AdminRosters: React.FC<{ season: string; onDirtyChange: (dirty: boo
   const selectTeam = (id: string) => {
     if (!canLeave()) return;
     const team = teams.find(t => t.id === id) || null;
-    setSelected(team); setPlayers(copy(team?.players || [])); setSubs(copy(team?.subs || [])); setIdentityChoices({}); setError(''); setSuccess('');
+    setSelected(team); setCreating(false); setPlayers(copy(team?.players || [])); setSubs(copy(team?.subs || [])); setIdentityChoices({}); setHistorySearch({}); setError(''); setSuccess('');
+  };
+  const startCreate = () => {
+    if (!league || !canLeave()) return;
+    setSelected({id:storage.generateUUID(),name:'',league,season,players:[],subs:[]});
+    setCreating(true); setTeamName(''); setPlayers([freshPlayer(),freshPlayer()]); setSubs([]);
+    setIdentityChoices({}); setHistorySearch({}); setError(''); setSuccess('');
   };
   const edit = (kind: 'players' | 'subs', id: string, field: 'name' | 'lastName', value: string) => {
     const update = (list: Player[]) => list.map(p => p.id === id ? { ...p, [field]: value } : p);
@@ -85,11 +94,14 @@ export const AdminRosters: React.FC<{ season: string; onDirtyChange: (dirty: boo
     setSaving(true); setError(''); setSuccess('');
     try {
       const expectedLinks = Object.fromEntries([...players, ...subs].map(player => [player.id, identityLinks.find(link => link.rosterPlayerId === player.id)?.personId || null]));
-      const saved = await storage.saveAdminRoster(selected, players, subs, identityChoices, expectedLinks);
+      const saved = creating
+        ? await storage.createAdminTeamRoster({...selected,name:teamName.trim(),players,subs},identityChoices)
+        : await storage.saveAdminRoster(selected, players, subs, identityChoices, expectedLinks);
       setIdentityLinks(saved.identityLinks); setIdentityChoices({});
-      setTeams(current => current.map(team => team.id === saved.id ? saved : team));
+      setTeams(current => current.some(team=>team.id===saved.id) ? current.map(team => team.id === saved.id ? saved : team) : [...current,saved]);
       setSelected(saved); setPlayers(copy(saved.players)); setSubs(copy(saved.subs || []));
-      setSuccess('Roster saved. Recorded games and scores are preserved.');
+      setCreating(false);
+      setSuccess(creating ? 'Team and roster created. You can now use this team in the schedule.' : 'Roster saved. Recorded games and scores are preserved.');
     } catch (err: any) { setError(err.message || 'The roster was not saved. Try again.'); }
     finally { setSaving(false); }
   };
@@ -173,24 +185,32 @@ export const AdminRosters: React.FC<{ season: string; onDirtyChange: (dirty: boo
       {!loading && leagues.length === 0 && !error && <p>Create a league or import its schedule first.</p>}
       <div className="grid gap-3 sm:grid-cols-2">
         <label className="text-sm font-bold text-slate-700 dark:text-slate-200">League
-          <select aria-label="League" className={inputClass} value={league} disabled={loading || saving} onChange={e => { if (!canLeave()) return; setLeague(e.target.value); setSelected(null); setSuccess(''); setError(''); }}>
+          <select aria-label="League" className={inputClass} value={league} disabled={loading || saving} onChange={e => { if (!canLeave()) return; setLeague(e.target.value); setSelected(null); setCreating(false); setSuccess(''); setError(''); }}>
             <option value="">Choose a league</option>{leagues.map(l => <option key={l.id} value={l.id}>{l.id}</option>)}
           </select>
         </label>
         <label className="text-sm font-bold text-slate-700 dark:text-slate-200">Team
-          <select aria-label="Team" className={inputClass} value={selected?.id || ''} disabled={!league || loading || saving} onChange={e => selectTeam(e.target.value)}>
-            <option value="">Choose a team</option>{teams.filter(t => storage.leaguesMatch(t.league, league)).map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+          <select aria-label="Team" className={inputClass} value={creating ? '' : selected?.id || ''} disabled={!league || loading || saving || creating} onChange={e => selectTeam(e.target.value)}>
+            <option value="">Choose a team</option>{teams.filter(t => storage.leaguesMatch(t.league, league)).map(t => <option key={t.id} value={t.id}>{t.name}{t.players.length<2 ? ' — roster needed' : ''}</option>)}
           </select>
         </label>
       </div>
-      {league && !loading && !teams.some(t => storage.leaguesMatch(t.league, league)) && <p>No teams in this league yet. Import its schedule or add teams from its league page.</p>}
+      <button type="button" disabled={!league || loading || saving || creating} onClick={startCreate} className="rounded-xl bg-blue-600 px-5 py-3 font-bold text-white disabled:opacity-40">Create team</button>
+      {league && !loading && !teams.some(t => storage.leaguesMatch(t.league, league)) && <p>No teams yet. Create a team and roster here, or import the schedule first.</p>}
       {selected && <form onSubmit={save} className="space-y-6">
+        {creating && <div><label className="text-sm font-bold text-slate-700 dark:text-slate-200">Team name
+          <input aria-label="New team name" className={inputClass} value={teamName} required maxLength={100} disabled={saving} onChange={event=>setTeamName(event.target.value)} />
+        </label><p className="mt-2 text-sm text-slate-500 dark:text-slate-400">Use this same team name in the schedule CSV so its roster is reused.</p></div>}
+        {matchingExistingTeam && <p className="rounded-xl bg-blue-50 dark:bg-blue-950 p-3 text-sm text-blue-900 dark:text-blue-100">
+          This team already exists. Its schedule and roster will be kept.
+          <button type="button" className="ml-2 font-bold underline" onClick={()=>selectTeam(matchingExistingTeam.id)}>Open existing team</button>
+        </p>}
         {section('players', players, 'Team players')}
         {section('subs', subs, 'Substitutes')}
         <div className="flex flex-wrap gap-3 border-t border-slate-200 dark:border-slate-700 pt-4">
-          <button type="submit" disabled={saving || !dirty || players.length < 2} className="rounded-xl bg-blue-600 px-5 py-3 font-bold text-white disabled:opacity-40">{saving ? 'Saving roster…' : 'Save roster'}</button>
-          <button type="button" disabled={saving || !dirty} onClick={() => { if (!canLeave()) return; setPlayers(copy(selected.players)); setSubs(copy(selected.subs || [])); setIdentityChoices({}); setError(''); setSuccess(''); }}
-            className="rounded-xl border border-slate-300 dark:border-slate-600 px-5 py-3 font-bold text-slate-700 dark:text-slate-200 disabled:opacity-40">Discard changes</button>
+          <button type="submit" disabled={saving || !dirty || players.length < 2 || !!matchingExistingTeam} className="rounded-xl bg-blue-600 px-5 py-3 font-bold text-white disabled:opacity-40">{saving ? 'Saving…' : creating ? 'Create team and roster' : 'Save roster'}</button>
+          <button type="button" disabled={saving || !dirty} onClick={() => { if (!canLeave()) return; if (creating) { setSelected(null); setCreating(false); } else { setPlayers(copy(selected.players)); setSubs(copy(selected.subs || [])); } setIdentityChoices({}); setError(''); setSuccess(''); }}
+            className="rounded-xl border border-slate-300 dark:border-slate-600 px-5 py-3 font-bold text-slate-700 dark:text-slate-200 disabled:opacity-40">{creating ? 'Cancel new team' : 'Discard changes'}</button>
         </div>
       </form>}
     </section>

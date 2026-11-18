@@ -1,7 +1,7 @@
 from playwright.sync_api import sync_playwright, expect
 import json, re, os
 os.makedirs("work/browser", exist_ok=True)
-base='http://127.0.0.1:3200'
+base=os.environ.get('DUGOUT_BROWSER_BASE_URL','http://127.0.0.1:4100')
 teams=['Iron Eagles','Powerhouse Panthers','Diamond Wolves','River City Raptors','Storm Chasers','Midnight Mavericks','Falcon Flyers','Capital Sluggers']
 rows=['Date,Start Time,End Time,Location,Group,Home Team,Away Team,Notes']
 for day in range(1,13):
@@ -61,11 +61,14 @@ with sync_playwright() as p:
  edit.get_by_role('combobox',name='Cage / location',exact=True).select_option('The Dugout: Tunnels 7/8')
  edit.get_by_role('textbox',name='Notes',exact=True).fill('Arrive 10 minutes early')
  edit.get_by_role('button',name='Save changes',exact=True).click()
+ expect(edit.get_by_text('this cage already has a game',exact=False)).to_be_visible()
+ edit.get_by_role('combobox',name='Cage / location',exact=True).select_option('The Dugout: Tunnels 5/6')
+ edit.get_by_role('button',name='Save changes',exact=True).click()
  expect(edit).not_to_be_visible()
  expect(page.get_by_role('button',name='Edit',exact=True)).to_have_count(48)
  page.get_by_role('button',name='Edit',exact=True).first.click()
  expect(edit.get_by_role('textbox',name='Notes',exact=True)).to_have_value('Arrive 10 minutes early')
- expect(edit.get_by_role('combobox',name='Cage / location',exact=True)).to_have_value('The Dugout: Tunnels 7/8')
+ expect(edit.get_by_role('combobox',name='Cage / location',exact=True)).to_have_value('The Dugout: Tunnels 5/6')
  edit.get_by_role('button',name='Cancel',exact=True).click()
  # Retry original CSV after a team rename and a schedule edit: receipt prevents another copy.
  imp.click();modal=page.get_by_role('dialog');modal.get_by_role('button',name='Paste CSV Text').click();modal.locator('textarea').fill(csv)

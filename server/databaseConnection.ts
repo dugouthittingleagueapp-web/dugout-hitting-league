@@ -83,7 +83,8 @@ export const selectDatabaseConnectionString = (environment: DatabaseEnvironment)
       assertExpectedHost(scopedUrl, CONSOLIDATED_REVIEW_HOST, 'Consolidated Review Preview');
     } else if (vercelEnvironment === 'preview' &&
         (environment.VERCEL_GIT_COMMIT_REF === SCORING_RELEASE_BRANCH ||
-          environment.VERCEL_GIT_COMMIT_REF === 'fix/game-day-reliability')) {
+          environment.VERCEL_GIT_COMMIT_REF === 'fix/game-day-reliability' ||
+          environment.VERCEL_GIT_COMMIT_REF === 'fix/fan-scoreboard-scroll')) {
       assertExpectedHost(scopedUrl, SCORING_RELEASE_HOST, 'Scoring Release Preview');
     }
     return scopedUrl;

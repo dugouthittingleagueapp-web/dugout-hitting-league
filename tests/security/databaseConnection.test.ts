@@ -7,6 +7,14 @@ const consolidatedUrl = 'postgresql://user:test@ep-divine-smoke-a4lyo8af-pooler.
 const sharedIntegrationUrl = 'postgresql://user:test@ep-purple-sea-a42guhf9.us-east-1.aws.neon.tech/neondb';
 
 describe('Environment-isolated Neon database routing', () => {
+  it('pins the fan scoreboard Preview to its isolated testing database', () => {
+    const environment = { VERCEL_ENV: 'preview', VERCEL_GIT_COMMIT_REF: 'fix/fan-scoreboard-scroll' };
+    const testingUrl = 'postgresql://user:test@ep-holy-scene-a40t91vm.us-east-1.aws.neon.tech/neondb';
+    expect(selectDatabaseConnectionString({ ...environment, Database_url: testingUrl })).toBe(testingUrl);
+    for (const Database_url of [productionUrl, previewUrl]) {
+      expect(() => selectDatabaseConnectionString({ ...environment, Database_url })).toThrow(/unexpected Neon endpoint/);
+    }
+  });
   it('uses the dedicated Preview URL and ignores the shared Production integration URL', () => {
     expect(selectDatabaseConnectionString({
       VERCEL_ENV: 'preview',

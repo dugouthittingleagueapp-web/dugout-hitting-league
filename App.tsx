@@ -901,7 +901,7 @@ const App: React.FC = () => {
         )}
         
         {/* Scrollable Main Content Area */}
-        <main className="relative flex-1 w-full overflow-y-auto overflow-x-hidden scroll-touch">
+        <main className="relative flex-1 min-h-0 w-full overflow-y-auto overflow-x-hidden scroll-touch">
             {/* Dashboard Toast / Finalize Success Notification */}
             {dashboardToast && (
                 <div className="bg-emerald-600 text-white px-4 py-3 flex items-center justify-between shadow-lg z-[1150] sticky top-0 animate-in fade-in slide-in-from-top-2 duration-200">
@@ -1079,7 +1079,7 @@ const App: React.FC = () => {
 
             {/* SCORING VIEW */}
             {state.view === 'scoring' && state.currentMatchId && (
-                <div className="flex-1 bg-slate-100 dark:bg-slate-950 text-slate-800 dark:text-slate-200 w-full overflow-hidden">
+                <div className="flex-1 bg-slate-100 dark:bg-slate-950 text-slate-800 dark:text-slate-200 w-full">
                     <Scoreboard matchId={state.currentMatchId} onExit={handleScoreboardExit} isReadOnly={userRole === 'fan' || (userRole === 'umpire' && matches.some(m => m.id === state.currentMatchId && (m.isComplete || m.status === 'FINAL')))} userRole={userRole} onPlayerClick={setSelectedCareerPlayer} />
                 </div>
             )}

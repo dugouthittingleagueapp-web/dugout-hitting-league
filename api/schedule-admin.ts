@@ -67,7 +67,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         throw new ScheduleError(400, 'Choose a game first.');
       }
       const existing = await client.query(
-        'SELECT id, season, league, status, is_complete, is_practice, revision, innings, tie_breaker FROM matches WHERE id::text = $1 AND season = $2 FOR UPDATE',
+        'SELECT id, season, league, status, is_complete, is_practice, revision, innings, tie_breaker, notes FROM matches WHERE id::text = $1 AND season = $2 FOR UPDATE',
         [id, season]
       );
       if (!existing.rows.length) {
@@ -90,7 +90,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           typeof startTime !== 'string' || !startTime.trim() ||
           typeof endTime !== 'string' || !endTime.trim() ||
           typeof location !== 'string' || !canonicalCage(location) ||
-          typeof notes !== 'string' || notes.length > 2000 ||
+          (notes !== undefined && (typeof notes !== 'string' || notes.length > 2000)) ||
           typeof homeTeamId !== 'string' || typeof awayTeamId !== 'string' || homeTeamId === awayTeamId) {
         throw new ScheduleError(400, 'Enter a date, times, cage (5/6 or 7/8), and two different teams.');
       }
@@ -98,6 +98,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       if (validationError) {
         throw new ScheduleError(400, validationError);
       }
+      // Booking-only clients omit notes. Preserve legacy metadata without requiring an editable field.
+      const savedNotes = notes === undefined ? game.notes : notes;
       const teams = await client.query(
         'SELECT id FROM teams WHERE id = ANY($1::text[]) AND season = $2 AND LOWER(TRIM(league)) = LOWER(TRIM($3))',
         [[homeTeamId, awayTeamId], season, game.league]
@@ -118,8 +120,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         canonicalCage(original.location) === canonicalCage(location) &&
         original.homeTeamId === homeTeamId && original.awayTeamId === awayTeamId;
       if (bookingUnchanged) {
-        const updated = await client.query('UPDATE matches SET notes=$2, revision=revision+1 WHERE id=$1 RETURNING id,revision',[id,notes]);
-        return {game:updated.rows[0], warning:conflict ? 'Notes saved. This game still overlaps another game. Adjust its schedule to resolve the conflict.' : undefined};
+        const updated = await client.query('UPDATE matches SET notes=$2, revision=revision+1 WHERE id=$1 RETURNING id,revision',[id,savedNotes]);
+        return {game:updated.rows[0], warning:conflict ? 'Saved. This game still overlaps another game. Adjust its schedule to resolve the conflict.' : undefined};
       }
       if (conflict) throw new ScheduleError(409, conflict);
       // Keep the inning template consistent with the selected players. Never carry
@@ -140,8 +142,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
          location = $5, notes = $6, home_team_id = $7, away_team_id = $8, innings = ${inningsSql}${inningValue === null ? '' : ', is_forfeit = FALSE, forfeiting_team_id = NULL, winning_team_id = NULL, forfeit_reason = NULL'}
          WHERE id = $1 RETURNING id, revision`,
         inningValue == null
-          ? [id, date + 'T12:00:00.000Z', startTime.trim(), endTime.trim(), canonicalCage(location), notes, homeTeamId, awayTeamId]
-          : [id, date + 'T12:00:00.000Z', startTime.trim(), endTime.trim(), canonicalCage(location), notes, homeTeamId, awayTeamId, inningValue]
+          ? [id, date + 'T12:00:00.000Z', startTime.trim(), endTime.trim(), canonicalCage(location), savedNotes, homeTeamId, awayTeamId]
+          : [id, date + 'T12:00:00.000Z', startTime.trim(), endTime.trim(), canonicalCage(location), savedNotes, homeTeamId, awayTeamId, inningValue]
       );
       return { game: updated.rows[0] };
     });

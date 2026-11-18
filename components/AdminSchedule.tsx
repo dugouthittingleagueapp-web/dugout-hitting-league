@@ -11,7 +11,6 @@ type ScheduleEdit = {
   startTime: string;
   endTime: string;
   location: string;
-  notes: string;
   homeTeamId: string;
   awayTeamId: string;
 };
@@ -96,7 +95,7 @@ export const AdminSchedule: React.FC<Props> = ({ season, onImport, refreshToken 
     setDraft({
       date: dateKey(game.date), startTime: game.startTime || '6:00 pm',
       endTime: game.endTime || '7:00 pm', location: canonicalCage(game.location) || '',
-      notes: game.notes || '', homeTeamId: game.homeTeamId, awayTeamId: game.awayTeamId
+      homeTeamId: game.homeTeamId, awayTeamId: game.awayTeamId
     });
   };
   const save = async () => {
@@ -251,9 +250,6 @@ export const AdminSchedule: React.FC<Props> = ({ season, onImport, refreshToken 
               <select value={draft.awayTeamId} onChange={e => setDraft({ ...draft, awayTeamId: e.target.value })} className={inputClass}>
                 {leagueTeams(editing.league).map(team => <option key={team.id} value={team.id}>{team.name}</option>)}
               </select>
-            </label>
-            <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">Notes
-              <textarea value={draft.notes} onChange={e => setDraft({ ...draft, notes: e.target.value })} rows={2} className={inputClass}/>
             </label>
             <div className="flex justify-end gap-2">
               <button onClick={() => { setEditing(null); setDraft(null); setError(''); }} className="rounded-lg px-4 py-2 bg-slate-200 dark:bg-slate-700 text-slate-900 dark:text-white">Cancel</button>

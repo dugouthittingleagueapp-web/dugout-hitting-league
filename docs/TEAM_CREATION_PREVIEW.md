@@ -32,3 +32,9 @@ Next acceptance: log in normally to protected Preview, create a team and roster 
 Validation: 492 tests in 61 files passed with disposable PostgreSQL enabled; TypeScript and production build passed. Eight new regression cases cover hanging request/body, stable retry payloads, late-result isolation, offline availability, failed saves/storage failures, notes-only legacy conflict corrections, blocked conflicting team/time changes, and recorded-zero preservation. Real mobile Chromium UI → API → local PostgreSQL checks confirm timeout recovery, lost-response retry, immediate offline team lookup, both team/import orders, visible notes warning and rejected conflicting reschedule. No deployed authenticated mutation acceptance is claimed.
 
 No schema, credential or environment settings changes are required for these repairs. All repair tests wrote only to guarded localhost databases. No Neon records, including the owner's test-league deletions, were modified during the repair pass. The branch remains Preview-only; a Production release still needs separate approval.
+
+## Simplified schedule editor
+
+The Schedule edit dialog now contains date, start/end time, one of the two allowed tunnel locations, and home/away teams. The Notes field is removed. Booking-only requests omit notes; the API retains any existing stored notes, including legacy values longer than today's edit limit. No database cleanup or migration is involved. Existing API clients that send notes remain compatible.
+
+Validation for this change: 493 automated tests in 61 files pass, including booking-only edits that preserve long legacy notes and unchanged pitch arrays. TypeScript/build pass. Browser checks verify the absence of the Notes field on desktop/mobile, normal schedule changes, preserved imported metadata, and unchanged conflict protections.

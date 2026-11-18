@@ -557,4 +557,12 @@ describe.skipIf(!process.env.DUGOUT_TEST_DATABASE_URL)('Schedule workflows on di
     expect(result.statusCode).toBe(200);expect(await gameRows()).toEqual(before);
   });
 
+  it('allows booking-only edits and preserves even long legacy notes that the editor no longer exposes',async()=>{
+    await importFile();const game=(await gameRows())[0],legacyNotes='Historical detail '.repeat(150);
+    await pool.query('UPDATE matches SET notes=$1 WHERE id=$2',[legacyNotes,game.id]);
+    const result=await request(schedule,'PATCH',{action:'update_game',season:'2027',id:game.id,revision:Number(game.revision),date:'2027-11-08',startTime:'6:00 pm',endTime:'7:00 pm',location:'Tunnels 7/8',homeTeamId:game.home_team_id,awayTeamId:game.away_team_id});
+    expect(result.statusCode).toBe(200);const saved=(await pool.query('SELECT * FROM matches WHERE id=$1',[game.id])).rows[0];
+    expect(saved.notes).toBe(legacyNotes);expect(saved.innings).toEqual(game.innings);expect(saved.location).toBe('The Dugout: Tunnels 7/8');
+  });
+
 });

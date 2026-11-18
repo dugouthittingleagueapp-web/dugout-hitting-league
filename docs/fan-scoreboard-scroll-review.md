@@ -24,3 +24,11 @@ The reported failure is Android Firefox not reaching the home team's third hitte
 All database activity used disposable localhost PostgreSQL databases. No cloud deployment, merge, Production environment change, or live/historical database write was performed.
 
 Before calling the reported problem fixed, publish an approved isolated Preview connected to a verified testing database, then check Firefox on the user's Android phone with automatic font sizing enabled. Swipe upward starting on both score tiles and empty areas, reach all three home hitters, scroll horizontally to pitch 10, switch innings, and confirm live score refresh. Also check Chrome and iPhone Safari. Production promotion requires separate approval.
+
+## Previous-pitch confirmation
+
+The user also requested the previous recorded pitch at the top of the scoring modal, with no undo reminder. The existing Undo Previous button remains unchanged. The display uses the preceding pitch for the same batter and round, includes zero, and never borrows a result from another batter or an earlier extra-inning round. Scoring writes, recovery, and ownership behavior are unchanged. The modal can scroll internally when larger text or a small viewport requires it.
+
+Local browser checks passed: regulation scoring, zero points, undo/re-entry and the actual persisted replacement, refresh, 150% text controls, the two-player pitch 10/11 ghost-row boundary, five- and three-pitch extras, and no previous-round score on one-pitch extras. Full suite after adding the Preview database pin: 393 tests across 54 files passed; TypeScript/build passed.
+
+Preview deployment is authorized without further approval. This branch is pinned to testing endpoint ep-holy-scene-a40t91vm (br-broad-tooth-a40fip7k); only branch-scoped Preview Database_url and SESSION_SECRET were added. No Production environment setting is changed.

@@ -138,6 +138,11 @@ export const ScoreInput: React.FC<ScoreInputProps> = ({
                 onClick={e => e.stopPropagation()}
                 onTouchMove={e => e.stopPropagation()}
             >
+                {value === null && previousScore !== undefined && previousScore !== null && pitchNumber > 1 && (
+                    <div className="mb-4 rounded-xl border border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-950 p-3 text-center text-sm text-slate-800 dark:text-slate-100">
+                        <p>Previous pitch (#{pitchNumber - 1}): <strong>{previousScore} {previousScore === 1 ? 'point' : 'points'}</strong></p>
+                    </div>
+                )}
                 <div className="mb-4 sm:mb-6">
                     <div className="flex justify-between items-center gap-2 mb-2">
                          <div className="bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 text-xs sm:text-sm font-bold px-3 py-1 rounded-full font-sans">
@@ -166,12 +171,6 @@ export const ScoreInput: React.FC<ScoreInputProps> = ({
                     </div>
                 </div>
 
-                {value === null && previousScore !== undefined && previousScore !== null && pitchNumber > 1 && (
-                    <div className="mb-4 rounded-xl border border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-950 p-3 text-center text-sm text-slate-800 dark:text-slate-100">
-                        <p>Previous pitch (#{pitchNumber - 1}): <strong>{previousScore} {previousScore === 1 ? 'point' : 'points'}</strong></p>
-                        <p className="mt-1 text-xs text-slate-600 dark:text-slate-300">Need to correct it? Tap Undo Previous.</p>
-                    </div>
-                )}
                 
                 <div className="grid grid-cols-5 gap-2 sm:gap-3 mb-6">
                     {[0, 1, 2, 3, 4].map((score) => {

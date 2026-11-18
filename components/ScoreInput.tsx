@@ -6,6 +6,7 @@ import type { ScoringSaveState } from '../services/storageService';
 interface ScoreInputProps {
   pitchNumber: number;
   value: number | null;
+  previousScore?: number | null;
   pitchesRemaining?: number;
   saveState?: ScoringSaveState;
   onRetrySync?: () => void;
@@ -20,6 +21,7 @@ interface ScoreInputProps {
 export const ScoreInput: React.FC<ScoreInputProps> = ({ 
   pitchNumber, 
   value, 
+  previousScore,
   pitchesRemaining,
   saveState,
   onRetrySync,
@@ -124,7 +126,7 @@ export const ScoreInput: React.FC<ScoreInputProps> = ({
       
       {isEditing && !readOnly && createPortal(
         <div 
-            className="fixed inset-0 z-[9999] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200 p-4 touch-none" 
+            className="fixed inset-0 z-[9999] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200 p-4 touch-auto"
             onClick={onClose} 
             role="dialog" 
             aria-modal="true" 
@@ -132,7 +134,7 @@ export const ScoreInput: React.FC<ScoreInputProps> = ({
             onTouchMove={(e) => { if(e.target === e.currentTarget) e.preventDefault(); }}
         >
             <div 
-                className="bg-white dark:bg-slate-900 p-4 sm:p-6 rounded-2xl shadow-2xl w-full max-w-sm sm:max-w-md transform scale-100 animate-in zoom-in-95 duration-200 font-sans border border-slate-200 dark:border-slate-800" 
+                className="bg-white dark:bg-slate-900 p-4 sm:p-6 rounded-2xl shadow-2xl w-full max-w-sm sm:max-w-md max-h-[calc(100dvh-2rem)] overflow-y-auto overscroll-contain transform scale-100 animate-in zoom-in-95 duration-200 font-sans border border-slate-200 dark:border-slate-800"
                 onClick={e => e.stopPropagation()}
                 onTouchMove={e => e.stopPropagation()}
             >
@@ -163,6 +165,13 @@ export const ScoreInput: React.FC<ScoreInputProps> = ({
                       )}
                     </div>
                 </div>
+
+                {value === null && previousScore !== undefined && previousScore !== null && pitchNumber > 1 && (
+                    <div className="mb-4 rounded-xl border border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-950 p-3 text-center text-sm text-slate-800 dark:text-slate-100">
+                        <p>Previous pitch (#{pitchNumber - 1}): <strong>{previousScore} {previousScore === 1 ? 'point' : 'points'}</strong></p>
+                        <p className="mt-1 text-xs text-slate-600 dark:text-slate-300">Need to correct it? Tap Undo Previous.</p>
+                    </div>
+                )}
                 
                 <div className="grid grid-cols-5 gap-2 sm:gap-3 mb-6">
                     {[0, 1, 2, 3, 4].map((score) => {

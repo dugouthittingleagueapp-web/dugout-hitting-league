@@ -15,9 +15,9 @@ with sync_playwright() as p:
  page.get_by_label('Team player 3 first name',exact=True).fill('Alexander');page.get_by_label('Team player 3 last name',exact=True).fill(f['lastName'][0])
  section=page.get_by_label('Previous-season matches for Team player 3',exact=True)
  expect(section.get_by_text('Has this player played before?',exact=True)).to_be_visible()
- expect(section.get_by_text('Alex Previous Team 1 (2026)',exact=True)).to_be_visible();expect(section.get_by_text('Alex Previous Team 2 (2026)',exact=True)).to_be_visible()
+ expect(section.get_by_text('Alex Previous Team 1 · Identity History (2026)',exact=True)).to_be_visible();expect(section.get_by_text('Alex Previous Team 2 · Identity History (2026)',exact=True)).to_be_visible()
  page.get_by_role('button',name='Save roster',exact=True).click();expect(page.get_by_role('alert')).to_contain_text('Confirm the previous-season matches')
- section.get_by_text('Alex Previous Team 1 (2026)',exact=True).locator('..').get_by_role('button').click()
+ section.get_by_text('Alex Previous Team 1 · Identity History (2026)',exact=True).locator('..').get_by_role('button').click()
  expect(page.get_by_label('Team player 3 first name',exact=True)).to_have_value('Alex')
  expect(page.get_by_label('Team player 3 last name',exact=True)).to_have_value(f['lastName'])
  page.get_by_role('button',name='Save roster',exact=True).click();expect(page.get_by_text('Roster saved. Recorded games and scores are preserved.',exact=True)).to_be_visible()
@@ -63,7 +63,7 @@ with sync_playwright() as p:
  assert next(l for l in data['identityLinks'] if l['rosterPlayerId']==sub_id)['personId']==f['people'][1]['person']
  career=page.evaluate("async id=>(await import('/services/storageService.ts')).getPlayerCareerStats(id)",sub_id)
  assert career['careerTotals']['totalPoints']==2
- expect(page.get_by_label('Substitute 2 connected history',exact=True)).to_contain_text('Alex Previous Team 2 (2026)')
+ expect(page.get_by_label('Substitute 2 connected history',exact=True)).to_contain_text('Alex Previous Team 2 · Identity History (2026)')
  assert games()==before
  print('PASS: selecting a previous player autofills both name fields, saves them and retains the roster ID; career history joins by ID without changing any pitches',flush=True)
 
@@ -72,7 +72,7 @@ with sync_playwright() as p:
  page.get_by_label('New team name',exact=True).fill('Autofill Creation Test')
  page.get_by_label('Find a previous player for Team player 1',exact=True).fill('Alex Previous Team 1')
  creation_match=page.get_by_label('Previous-season matches for Team player 1',exact=True)
- creation_match.get_by_text('Alex Previous Team 1 (2026)',exact=True).locator('..').get_by_role('button').click()
+ creation_match.get_by_text('Alex Previous Team 1 · Identity History (2026)',exact=True).locator('..').get_by_role('button').click()
  expect(page.get_by_label('Team player 1 first name',exact=True)).to_have_value('Alex')
  expect(page.get_by_label('Team player 1 last name',exact=True)).to_have_value(f['lastName'])
  page.get_by_label('Team player 2 first name',exact=True).fill('Unmatched Teammate')

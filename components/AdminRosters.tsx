@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import type { League, Player, Team } from '../types';
 import * as storage from '../services/storageService';
-import { priorPlayerCandidates, type PlayerIdentityLink, type PlayerIdentityCandidate } from '../utils/playerIdentity';
+import { priorPlayerCandidates, playerHistoryTeamLabel, type PlayerIdentityLink, type PlayerIdentityCandidate } from '../utils/playerIdentity';
 
 const freshPlayer = (): Player => ({ id: storage.generateUUID(), name: '', lastName: '' });
 const copy = (players: Player[]) => players.map(p => ({ ...p }));
@@ -35,7 +35,7 @@ export const AdminRosters: React.FC<{ season: string; onDirtyChange: (dirty: boo
     const ownPersonId = identityLinks.find(link => link.rosterPlayerId === player.id)?.personId;
     const manual = query ? playerHistory.filter(candidate => candidate.personId !== ownPersonId &&
       [candidate.name, candidate.lastName || '', ...(candidate.aliases || []).map(alias => `${alias.name} ${alias.lastName || ''}`),
-        ...candidate.teams.map(team => `${team.teamName} ${team.season}`)].join(' ').toLowerCase().includes(query)) : [];
+        ...candidate.teams.map(team => `${team.teamName} ${team.league || ''} ${team.season}`)].join(' ').toLowerCase().includes(query)) : [];
     return [...new Map([...candidates(player), ...manual].map(candidate => [candidate.personId, candidate])).values()];
   };
 
@@ -124,7 +124,7 @@ export const AdminRosters: React.FC<{ season: string; onDirtyChange: (dirty: boo
           <div key={player.id} className="rounded-xl border border-slate-200 dark:border-slate-700 p-3">
             <p className="mb-2 text-sm font-semibold text-slate-700 dark:text-slate-200">{label}</p>
             {linkedHistory && <p aria-label={`${label} connected history`} className="mb-2 text-sm text-emerald-700 dark:text-emerald-300">
-              History connected: {linkedHistory.name} {linkedHistory.lastName} · {linkedHistory.teams.map(team => `${team.teamName} (${team.season})`).join(', ')}
+              History connected: {linkedHistory.name} {linkedHistory.lastName} · {linkedHistory.teams.map(playerHistoryTeamLabel).join(', ')}
             </p>}
             <div className="grid gap-3 sm:grid-cols-2">
               <label className="text-sm text-slate-700 dark:text-slate-200">First name
@@ -147,7 +147,7 @@ export const AdminRosters: React.FC<{ season: string; onDirtyChange: (dirty: boo
                 {shownCandidates(player).map((candidate, candidateIndex) => (
                   <div key={candidate.personId} className="mt-3 border-t border-amber-200 dark:border-amber-800 pt-2">
                     <p className="font-semibold">{candidate.name} {candidate.lastName}</p>
-                    <p>{candidate.teams.map(team => `${team.teamName} (${team.season})`).join(', ')}</p>
+                    <p>{candidate.teams.map(playerHistoryTeamLabel).join(', ')}</p>
                     <button type="button" disabled={saving} aria-label={`${label}: match previous player ${candidateIndex + 1}`}
                       aria-pressed={identityChoices[player.id] === candidate.personId}
                       onClick={() => matchPreviousPlayer(kind, player.id, candidate)}

@@ -103,7 +103,8 @@ export const ScheduleImportModal: React.FC<ScheduleImportModalProps> = ({
   if (!isOpen) return null;
 
   const distinctTeams = previewGames
-    ? Array.from(new Set(previewGames.flatMap(g => [g.homeTeamName, g.awayTeamName])))
+    ? Array.from(new Set(previewGames.flatMap(g => [g.homeTeamName, g.awayTeamName].map(name =>
+      JSON.stringify([g.group.trim().toLowerCase(), name.trim().toLowerCase()])))))
     : [];
 
   const distinctDates = previewGames

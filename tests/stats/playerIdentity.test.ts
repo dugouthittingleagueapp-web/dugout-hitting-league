@@ -1,5 +1,5 @@
 import {describe,it,expect} from 'vitest';
-import {careerRosterIds,possibleSameName,planPlayerIdentities} from '../../utils/playerIdentity';
+import {careerRosterIds,possibleSameName,planPlayerIdentities,playerHistoryTeamLabel} from '../../utils/playerIdentity';
 import type {Team} from '../../types';
 const team=(id:string,season:string,pid:string,name:string,lastName=''):Team=>({id,name:id,league:'QC',season,players:[{id:pid,name,lastName}],subs:[]});
 describe('Permanent player identities',()=>{
@@ -26,4 +26,9 @@ describe('Permanent player identities',()=>{
   const plan=planPlayerIdentities(reversed?teams.reverse():teams,()=>crypto.randomUUID());
   expect(new Set(plan.links.map(l=>l.personId)).size).toBe(3);
  });
+ it('labels identical team names with league and season without renaming them',()=>{
+  expect(playerHistoryTeamLabel({teamName:'Eagles',league:'9U',season:'2026'})).toBe('Eagles · 9U (2026)');
+  expect(playerHistoryTeamLabel({teamName:'Eagles',league:'11U',season:'2026'})).toBe('Eagles · 11U (2026)');
+ });
+
 });

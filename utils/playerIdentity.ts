@@ -1,7 +1,9 @@
 import type { Player, Team } from '../types';
 
 export interface PlayerIdentityLink { rosterPlayerId: string; personId: string; resolution: string; }
-export interface PlayerIdentityCandidate { personId: string; name: string; lastName?: string; aliases?: Pick<Player, 'name' | 'lastName'>[]; teams: { teamName: string; season: string }[]; }
+export interface PlayerIdentityCandidate { personId: string; name: string; lastName?: string; aliases?: Pick<Player, 'name' | 'lastName'>[]; teams: { teamId?: string; teamName: string; league?: string; season: string }[]; }
+export const playerHistoryTeamLabel = (team: PlayerIdentityCandidate['teams'][number]): string =>
+  `${team.teamName}${team.league ? ` · ${team.league}` : ''} (${team.season})`;
 const normalize = (value: string) => value.normalize('NFKD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^\p{L}\p{N}\s]/gu, '').trim();
 const nicknameFamilies = [
   ['michael', 'mike', 'mikey'], ['robert', 'rob', 'robbie', 'bob', 'bobby'],

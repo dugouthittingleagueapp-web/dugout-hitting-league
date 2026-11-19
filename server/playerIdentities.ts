@@ -42,7 +42,7 @@ export const readIdentityHistory = async (db: Reader, season: string): Promise<P
     const person = people.rows.find(row => row.id === link.personId); if (!person) continue;
     const candidate: PlayerIdentityCandidate = result.get(person.id) || { personId: person.id, name: person.name, lastName: person.last_name, teams: [], aliases: [] };
     candidate.aliases!.push({name:player.name,lastName:player.lastName});
-    if (!candidate.teams.some(t => t.teamName === team.name && t.season === team.season)) candidate.teams.push({ teamName: team.name, season: team.season });
+    if (!candidate.teams.some(t => t.teamId === team.id)) candidate.teams.push({ teamId: team.id, teamName: team.name, league: team.league, season: team.season });
     result.set(person.id, candidate);
   }
   return [...result.values()];

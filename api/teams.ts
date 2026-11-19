@@ -105,10 +105,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const { action, teamIds, targetLeague } = body;
         if (action !== 'move_teams' || !Array.isArray(teamIds) || !teamIds.length || teamIds.length > 100 || teamIds.some(id => typeof id !== 'string') || typeof targetLeague !== 'string')
           throw new ScheduleError(400, 'Choose teams and a destination league.');
-        const selected = await client.query('SELECT id FROM teams WHERE id = ANY($1::text[]) AND season = $2 FOR UPDATE', [teamIds, season]);
+        const selected = await client.query('SELECT id, name FROM teams WHERE id = ANY($1::text[]) AND season = $2 FOR UPDATE', [teamIds, season]);
         if (selected.rows.length !== new Set(teamIds).size) throw new ScheduleError(403, 'Only teams in the active season can be moved.');
         const destination = await client.query('SELECT id FROM leagues WHERE LOWER(TRIM(id)) = LOWER(TRIM($1)) AND season = $2', [targetLeague, season]);
         if (destination.rows.length !== 1) throw new ScheduleError(400, 'Choose a league in the active season.');
+        const existingNames = await client.query('SELECT name FROM teams WHERE season=$1 AND LOWER(TRIM(league))=LOWER(TRIM($2)) AND NOT (id=ANY($3::text[]))',[season,destination.rows[0].id,teamIds]);
+        const names = new Set(existingNames.rows.map(team => team.name.trim().toLowerCase()));
+        for (const team of selected.rows) {
+          const name = team.name.trim().toLowerCase();
+          if (names.has(name)) throw new ScheduleError(409, `${team.name} already exists in ${destination.rows[0].id}. Rename one team before moving it.`);
+          names.add(name);
+        }
         const games = await client.query('SELECT id, home_team_id, away_team_id, status, is_complete, innings, tie_breaker FROM matches WHERE home_team_id = ANY($1::text[]) OR away_team_id = ANY($1::text[]) FOR UPDATE', [teamIds]);
         await assertScheduleGamesUnlocked(client, games.rows);
         const selectedIds = new Set(teamIds);

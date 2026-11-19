@@ -565,4 +565,41 @@ describe.skipIf(!process.env.DUGOUT_TEST_DATABASE_URL)('Schedule workflows on di
     expect(saved.notes).toBe(legacyNotes);expect(saved.innings).toEqual(game.innings);expect(saved.location).toBe('The Dugout: Tunnels 7/8');
   });
 
+  it('keeps identically named teams separate across leagues and years through import, rename and roster edits',async()=>{
+    for(const league of ['9U','11U'])expect((await request(leagues,'POST',{id:league,season:'2027'})).statusCode).toBe(201);
+    const first={...createPayload('Eagles',2),league:'9U'},second=createPayload('Eagles',3);
+    expect((await request(teams,'POST',first)).statusCode).toBe(201);expect((await request(teams,'POST',second)).statusCode).toBe(201);
+    const priorId=randomUUID();await pool.query("INSERT INTO teams(id,name,league,season,players,subs) VALUES($1,'Eagles','9U','2026','[]','[]')",[priorId]);
+    const imported=await request(schedule,'POST',{action:'import_schedule',season:'2027',csvText:csv([
+      '2027-11-01,6:00 pm,7:00 pm,Tunnels 5/6,Young,Eagles,Panthers,',
+      '2027-11-01,6:00 pm,7:00 pm,Tunnels 7/8,Older,Eagles,Panthers,'
+    ]),leagueDestinations:{Young:{mode:'existing',name:'9U'},Older:{mode:'existing',name:'11U'}}});
+    expect(imported.statusCode).toBe(200);expect(imported.body.createdMatches).toBe(2);
+    const games=await gameRows();expect(games.find(g=>g.league==='9U').home_team_id).toBe(first.id);expect(games.find(g=>g.league==='11U').home_team_id).toBe(second.id);
+    const prior=(await pool.query('SELECT * FROM teams WHERE id=$1',[priorId])).rows[0],other=(await pool.query('SELECT * FROM teams WHERE id=$1',[second.id])).rows[0];
+    const edited=await request(teams,'PUT',{action:'update_roster',season:'2027',id:first.id,expectedRoster:{players:first.players,subs:[]},players:first.players.map((p,i)=>({...p,name:i===0?'Changed':p.name})),subs:[]});
+    expect(edited.statusCode).toBe(200);
+    expect((await request(schedule,'PATCH',{action:'rename_team',season:'2027',id:first.id,teamName:'Golden Eagles'})).statusCode).toBe(200);
+    expect((await pool.query('SELECT * FROM teams WHERE id=$1',[second.id])).rows[0]).toEqual(other);expect((await pool.query('SELECT * FROM teams WHERE id=$1',[priorId])).rows[0]).toEqual(prior);
+    expect(await gameRows()).toEqual(games);
+  });
+  it('prevents a bulk move from creating duplicate names in one league',async()=>{
+    for(const league of ['9U','11U','13U'])await request(leagues,'POST',{id:league,season:'2027'});
+    const a={...createPayload(),league:'9U'},b=createPayload();
+    await request(teams,'POST',a);await request(teams,'POST',b);
+    const before=(await pool.query('SELECT * FROM teams ORDER BY id')).rows;
+    expect((await request(teams,'PATCH',{action:'move_teams',season:'2027',teamIds:[a.id],targetLeague:'11U'})).statusCode).toBe(409);
+    expect((await request(teams,'PATCH',{action:'move_teams',season:'2027',teamIds:[a.id,b.id],targetLeague:'13U'})).statusCode).toBe(409);
+    expect((await pool.query('SELECT * FROM teams ORDER BY id')).rows).toEqual(before);
+  });
+  it('preserves two same-name historical team memberships with their league context',async()=>{
+    const person=await oldIdentity('Alex');
+    await pool.query("UPDATE teams SET name='Eagles',league='9U' WHERE season='2026'");
+    const member=randomUUID();await pool.query("INSERT INTO player_identity_links(roster_player_id,player_id,resolution) VALUES($1,$2,'confirmed')",[member,person]);
+    await pool.query("INSERT INTO teams(id,name,league,season,players,subs) VALUES($1,'Eagles','11U','2026',$2,'[]')",[randomUUID(),JSON.stringify([{id:member,name:'Alex',lastName:'Test'}])]);
+    const result=await request(teams,'GET',{}, {adminRoster:'1',season:'2027'});
+    const candidate=result.body.playerHistory.find((p:any)=>p.personId===person);
+    expect(candidate.teams).toHaveLength(2);expect(candidate.teams.map((t:any)=>t.league).sort()).toEqual(['11U','9U']);expect(new Set(candidate.teams.map((t:any)=>t.teamId)).size).toBe(2);
+  });
+
 });

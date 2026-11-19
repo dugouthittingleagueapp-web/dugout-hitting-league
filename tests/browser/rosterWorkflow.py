@@ -34,7 +34,9 @@ with sync_playwright() as p:
  assert saved['players'][0]['id']==f['home']['players'][0]['id'] and saved['players'][0]['name']=='Cody Corrected'
  assert games(page)==before
  print('PASS: admin tab, league/team filtering, rename/add roster player/substitute, saved IDs and historical/future matches preserved',flush=True)
- page.get_by_role('button',name='Move to substitutes',exact=True).nth(2).click()
+ page.get_by_label('Options for Team player 3',exact=True).click()
+ page.get_by_role('button',name='Move to substitutes',exact=True).click()
+ page.get_by_label('Options for Substitute 1',exact=True).click()
  page.get_by_role('button',name='Make team player',exact=True).first.click()
  page.get_by_role('button',name='Save roster',exact=True).click()
  expect(page.get_by_text('Roster saved. Recorded games and scores are preserved.',exact=True)).to_be_visible()

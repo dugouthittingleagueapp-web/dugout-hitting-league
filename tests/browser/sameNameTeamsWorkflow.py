@@ -13,7 +13,12 @@ with sync_playwright() as p:
  for league in ['9U','11U']:
   page.get_by_label('League',exact=True).select_option(league);page.get_by_role('button',name='Create team',exact=True).click();page.get_by_label('New team name',exact=True).fill('Eagles')
   for i in range(3):page.get_by_label(f'Team player {i+1} first name',exact=True).fill(league+' Member '+str(i+1))
-  page.get_by_role('button',name='Create team and roster',exact=True).click();expect(page.get_by_text('Team and roster created. You can now use this team in the schedule.',exact=True)).to_be_visible()
+  if league=='9U':
+   page.get_by_label('League',exact=True).select_option('11U')
+   expect(page.get_by_label('New team name',exact=True)).to_have_value('Eagles')
+   expect(page.get_by_label('Team player 3 first name',exact=True)).to_have_value('9U Member 3')
+   page.get_by_label('League',exact=True).select_option('9U')
+  page.get_by_role('button',name='Create team',exact=True).click();expect(page.get_by_text('Team and roster created. You can now use this team in the schedule.',exact=True)).to_be_visible()
   team=next(t for t in page.request.get(base+'/api/teams?season=2027').json() if t['league']==league)
   assert team['name']=='Eagles';ids[league]=team['id']
   expect(page.get_by_label('Team',exact=True).get_by_role('option',name='Eagles',exact=True)).to_have_attribute('value',team['id'])
@@ -35,10 +40,10 @@ with sync_playwright() as p:
  page.get_by_role('button',name='Rosters',exact=True).click();page.get_by_label('League',exact=True).select_option('9U');page.get_by_label('Team',exact=True).select_option(ids['9U'])
  other=next(t for t in page.request.get(base+'/api/teams?season=2027').json() if t['id']==ids['11U'])
  page.get_by_label('Team player 1 first name',exact=True).fill('Corrected Nine')
- page.get_by_role('button',name='Add substitute',exact=True).click();page.get_by_label('Find a previous player for Substitute 1',exact=True).fill('Eagles')
+ page.get_by_role('button',name='Add substitute',exact=True).click();page.get_by_role('button',name='Search history for Substitute 1',exact=True).click();page.get_by_label('Find a previous player for Substitute 1',exact=True).fill('Eagles')
  history=page.get_by_label('Previous-season matches for Substitute 1',exact=True)
  for league in ['9U','11U']:expect(history.get_by_text('Eagles · '+league+' (2026)',exact=True)).to_be_visible()
- history.get_by_text('Eagles · 11U (2026)',exact=True).locator('..').get_by_role('button').click()
+ history.get_by_text('Eagles · 11U (2026)',exact=True).locator('..').locator('..').get_by_role('button').click()
  expect(page.get_by_label('Substitute 1 first name',exact=True)).to_have_value('Alex');expect(page.get_by_label('Substitute 1 last name',exact=True)).to_have_value(f['lastName'])
  page.get_by_role('button',name='Save roster',exact=True).click();expect(page.get_by_text('Roster saved. Recorded games and scores are preserved.',exact=True)).to_be_visible()
  saved=page.request.get(base+'/api/teams?adminRoster=1&season=2027',headers=auth).json();team=next(t for t in saved['teams'] if t['id']==ids['9U'])

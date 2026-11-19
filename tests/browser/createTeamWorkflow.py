@@ -17,7 +17,9 @@ with sync_playwright() as p:
  page.get_by_label('League',exact=True).select_option(league)
  page.get_by_role('button',name='Create team',exact=True).click()
  page.get_by_label('New team name',exact=True).fill('Before Import')
- for i,name in enumerate(['First','Second'],1):page.get_by_label(f'Team player {i} first name',exact=True).fill(name)
+ expect(page.get_by_label('Team player 3 first name',exact=True)).to_be_visible()
+ expect(page.get_by_role('button',name='Add team player',exact=True)).to_be_disabled()
+ for i,name in enumerate(['First','Second','Third'],1):page.get_by_label(f'Team player {i} first name',exact=True).fill(name)
  page.get_by_role('button',name='Add substitute',exact=True).click()
  page.get_by_label('Substitute 1 first name',exact=True).fill('Substitute')
  def lose_response(route):
@@ -50,7 +52,7 @@ with sync_playwright() as p:
  page.get_by_role('button',name='Create team and roster',exact=True).click()
  expect(page.get_by_text('Team and roster created. You can now use this team in the schedule.',exact=True)).to_be_visible()
  def teams():return [t for t in page.request.get(base+'/api/teams?season=2027').json() if t['league']==league]
- assert len(teams())==1;before=teams()[0];assert len(before['players'])==2 and len(before['subs'])==1
+ assert len(teams())==1;before=teams()[0];assert len(before['players'])==3 and len(before['subs'])==1
  page.route('**/api/teams?ids=*',lambda route:route.abort('internetdisconnected'))
  offline=page.evaluate("async id=>(await import('/services/storageService.ts')).getMatchTeams(id,id)",before['id'])
  assert len(offline)==1 and offline[0]['players']==before['players']
@@ -80,10 +82,11 @@ with sync_playwright() as p:
  games=page.request.get(base+'/api/matches?season=2027').json()
  game=next(g for g in games if g['league']==league)
  assert [x['playerId'] for x in game['innings'][0]['away']['playerScores']]==[x['id'] for x in saved['players']]
- assert len(game['innings'][0]['home']['playerScores'][0]['pitches'])==15
- print('PASS: actual CSV upload UI reuses existing roster; empty imported team opens and initializes 2-v-3 game',flush=True)
+ assert len(game['innings'][0]['home']['playerScores'])==3
+ assert len(game['innings'][0]['home']['playerScores'][0]['pitches'])==10
+ print('PASS: actual CSV upload UI reuses existing roster; empty imported team opens and initializes 3-v-3 game',flush=True)
  page.get_by_role('button',name='Create team',exact=True).click();page.get_by_label('New team name',exact=True).fill('Created Later')
- for i in range(2):page.get_by_label(f'Team player {i+1} first name',exact=True).fill('Later '+str(i+1))
+ for i in range(3):page.get_by_label(f'Team player {i+1} first name',exact=True).fill('Later '+str(i+1))
  page.get_by_role('button',name='Create team and roster',exact=True).click()
  expect(page.get_by_text('Team and roster created. You can now use this team in the schedule.',exact=True)).to_be_visible()
  later=next(t for t in teams() if t['name']=='Created Later')

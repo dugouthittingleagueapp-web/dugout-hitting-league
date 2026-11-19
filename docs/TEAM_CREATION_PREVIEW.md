@@ -38,3 +38,7 @@ No schema, credential or environment settings changes are required for these rep
 The Schedule edit dialog now contains date, start/end time, one of the two allowed tunnel locations, and home/away teams. The Notes field is removed. Booking-only requests omit notes; the API retains any existing stored notes, including legacy values longer than today's edit limit. No database cleanup or migration is involved. Existing API clients that send notes remain compatible.
 
 Validation for this change: 493 automated tests in 61 files pass, including booking-only edits that preserve long legacy notes and unchanged pitch arrays. TypeScript/build pass. Browser checks verify the absence of the Notes field on desktop/mobile, normal schedule changes, preserved imported metadata, and unchanged conflict protections.
+
+## Three-player creation default
+
+Create team now opens three blank team-player rows, so Admin can enter the full standard roster without clicking Add team player. Existing saved rosters, two-player attendance/scoring formats and substitutes retain their behavior. The 497-test suite and TypeScript/build pass; local browser workflows verify the third field is present immediately, all three members persist through save/retry/import, and player history matching and same-name teams across leagues still work. No API, schema or database-data change is needed.

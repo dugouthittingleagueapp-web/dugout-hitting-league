@@ -12,7 +12,7 @@ with sync_playwright() as p:
  ids={}
  for league in ['9U','11U']:
   page.get_by_label('League',exact=True).select_option(league);page.get_by_role('button',name='Create team',exact=True).click();page.get_by_label('New team name',exact=True).fill('Eagles')
-  for i in range(2):page.get_by_label(f'Team player {i+1} first name',exact=True).fill(league+' Member '+str(i+1))
+  for i in range(3):page.get_by_label(f'Team player {i+1} first name',exact=True).fill(league+' Member '+str(i+1))
   page.get_by_role('button',name='Create team and roster',exact=True).click();expect(page.get_by_text('Team and roster created. You can now use this team in the schedule.',exact=True)).to_be_visible()
   team=next(t for t in page.request.get(base+'/api/teams?season=2027').json() if t['league']==league)
   assert team['name']=='Eagles';ids[league]=team['id']

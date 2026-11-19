@@ -72,7 +72,7 @@ export const AdminRosters: React.FC<{ season: string; onDirtyChange: (dirty: boo
   const startCreate = () => {
     if (!league || !canLeave()) return;
     setSelected({id:storage.generateUUID(),name:'',league,season,players:[],subs:[]});
-    setCreating(true); setTeamName(''); setPlayers([freshPlayer(),freshPlayer()]); setSubs([]);
+    setCreating(true); setTeamName(''); setPlayers([freshPlayer(),freshPlayer(),freshPlayer()]); setSubs([]);
     setIdentityChoices({}); setHistorySearch({}); setError(''); setSuccess('');
   };
   const edit = (kind: 'players' | 'subs', id: string, field: 'name' | 'lastName', value: string) => {

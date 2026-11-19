@@ -76,6 +76,7 @@ with sync_playwright() as p:
  expect(page.get_by_label('Team player 1 first name',exact=True)).to_have_value('Alex')
  expect(page.get_by_label('Team player 1 last name',exact=True)).to_have_value(f['lastName'])
  page.get_by_label('Team player 2 first name',exact=True).fill('Unmatched Teammate')
+ page.get_by_label('Team player 3 first name',exact=True).fill('Third Teammate')
  page.get_by_role('button',name='Create team and roster',exact=True).click()
  expect(page.get_by_text('Team and roster created. You can now use this team in the schedule.',exact=True)).to_be_visible()
  data=page.request.get(base+'/api/teams?adminRoster=1&season=2027',headers={'Authorization':'Bearer '+token}).json()

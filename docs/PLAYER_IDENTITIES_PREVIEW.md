@@ -29,3 +29,9 @@ Deployed authenticated acceptance still requires the owner's normal Preview logi
 Additional coverage: shortened names, explicit manual connections between different names, connecting a member after it has been saved, stale identity-choice rejection, and retaining fuller permanent names when a returning member is entered with first name/initials alone.
 
 Reproduce identity browser checks in a fresh disposable local `dugout_test_admin_browser` database: set DUGOUT_BROWSER_DATABASE_URL, run tests/browser/setup.mjs, rosterSetup.mjs, then playerIdentitySetup.mjs. Start the local test API using tests/browser/vite.config.ts with DUGOUT_BROWSER_PORT=4100 and generate Tailwind CSS per tests/browser/README.md. Run tests/browser/playerIdentityWorkflow.py. These setup scripts reject Neon connections. They reset only the explicitly guarded local test database.
+
+## Name autofill on confirmed history selection
+
+Selecting “Yes, same player” now fills the row's First name and Last name from that permanent player's record while retaining the row ID and selected identity decision. This applies to new teams, added members/substitutes and manual connections on already saved roster entries. The roster still requires Save; selecting a candidate does not write immediately.
+
+Validation: 493 automated tests in 61 files and TypeScript/build passed. Mobile Chromium checks against actual localhost APIs and disposable PostgreSQL verify nickname/last-initial replacement, both-field autofill for an already-saved different name, unchanged roster IDs, persisted names/identity links, unchanged historical pitches and career totals, and new-team matching from empty name fields. No database migration, cloud data write, credential change or Production action is involved.

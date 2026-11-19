@@ -85,6 +85,12 @@ export const AdminRosters: React.FC<{ season: string; onDirtyChange: (dirty: boo
     else { setSubs(subs.filter(p => p.id !== player.id)); setPlayers([...players, player]); }
     setSuccess('');
   };
+  const matchPreviousPlayer = (kind: 'players' | 'subs', playerId: string, candidate: PlayerIdentityCandidate) => {
+    (kind === 'players' ? setPlayers : setSubs)(current => current.map(player => player.id === playerId
+      ? {...player, name: candidate.name, lastName: candidate.lastName || ''} : player));
+    setIdentityChoices(current => ({...current, [playerId]:candidate.personId}));
+    setSuccess(''); setError('');
+  };
   const save = async (event: React.FormEvent) => {
     event.preventDefault();
     if (!selected || saving) return;
@@ -144,7 +150,7 @@ export const AdminRosters: React.FC<{ season: string; onDirtyChange: (dirty: boo
                     <p>{candidate.teams.map(team => `${team.teamName} (${team.season})`).join(', ')}</p>
                     <button type="button" disabled={saving} aria-label={`${label}: match previous player ${candidateIndex + 1}`}
                       aria-pressed={identityChoices[player.id] === candidate.personId}
-                      onClick={() => { setIdentityChoices(current => ({...current, [player.id]:candidate.personId})); setError(''); }}
+                      onClick={() => matchPreviousPlayer(kind, player.id, candidate)}
                       className="mt-2 rounded-lg border border-blue-500 px-3 py-2 font-bold text-blue-800 dark:text-blue-200">
                       {identityChoices[player.id] === candidate.personId ? '✓ Same player selected' : 'Yes, same player'}
                     </button>

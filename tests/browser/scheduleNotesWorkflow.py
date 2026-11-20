@@ -14,7 +14,7 @@ with sync_playwright() as p:
  root=dialog.get_by_role('region').filter(has=page.get_by_text('Game you opened',exact=True))
  expect(root.get_by_role('textbox',name='Notes',exact=True)).to_have_value('Original notes')
  expect(dialog.get_by_role('button',name='Save Changes',exact=True)).to_be_disabled()
- root.get_by_label('Start time',exact=True).fill('6:05 pm')
+ root.get_by_label('Start time',exact=True).select_option('18:15')
  expect(dialog.get_by_role('button',name='Save Changes',exact=True)).to_be_disabled()
  assert [page.request.get(base+'/api/matches?id='+id).json() for id in fixture['ids']]==before
  root.get_by_label('Date',exact=True).fill('2027-12-31')

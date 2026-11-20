@@ -23,7 +23,7 @@ with sync_playwright() as p:
    else:route.continue_()
   page.route('**/api/schedule-admin',hold_old_refresh)
   first=d.get_by_role('region').filter(has=page.get_by_text(f'{mode} Home vs {mode} Away',exact=True));second=d.get_by_role('region').filter(has=page.get_by_text(f'{mode} Other vs {mode} Fourth',exact=True))
-  first.get_by_label('Start time',exact=True).fill(start);first.get_by_label('End time',exact=True).fill(end);second.get_by_label('Date',exact=True).fill(day)
+  first.get_by_label('Start time',exact=True).select_option(start);first.get_by_label('End time',exact=True).select_option(end);second.get_by_label('Date',exact=True).fill(day)
   if mode=='partial':
    subset=header+rows[0].replace('18:00,19:00','21:00,22:00')
    result=page.request.post(base+'/api/schedule-admin',headers=headers,data={'action':'import_schedule','season':'2027','csvText':subset,'leagueDestinations':destinations})

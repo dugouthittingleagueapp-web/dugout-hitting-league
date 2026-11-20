@@ -16,3 +16,18 @@ it('combines identical warnings while retaining every other affected game',()=>{
  expect(result.get('a')).toHaveLength(1);expect([...result.get('a')![0].otherIds]).toEqual(['b','c']);
  expect(displayScheduleDate('')).toBe('Date needed');
 });
+
+import {scheduleTimeOptions,scheduleTimeValue} from '../../utils/scheduleConflictPresentation';
+it('offers every quarter hour with clear AM/PM labels',()=>{
+ const options=scheduleTimeOptions('6:00 pm');expect(options).toHaveLength(96);
+ expect(options[0]).toEqual({value:'00:00',label:'12:00 AM'});
+ expect(options.find(option=>option.value==='18:15')?.label).toBe('6:15 PM');
+ expect(options[95]).toEqual({value:'23:45',label:'11:45 PM'});
+ expect(scheduleTimeValue('6:00 pm')).toBe('18:00');
+});
+it('preserves an existing off-grid booking instead of silently rounding it',()=>{
+ const options=scheduleTimeOptions('6:10 pm');expect(options).toHaveLength(97);
+ expect(options.find(option=>option.value==='18:10')?.label).toBe('6:10 PM (current)');
+ expect(scheduleTimeValue('6:10 pm')).toBe('18:10');
+ expect(scheduleTimeOptions('18:15','6:10 pm').some(option=>option.value==='18:10')).toBe(true);
+});

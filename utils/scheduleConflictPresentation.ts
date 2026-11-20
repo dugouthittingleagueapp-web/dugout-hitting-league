@@ -22,3 +22,18 @@ export const conflictWarnings=(conflicts:ScheduleConflict[],teamName:(id:string)
  }
  return new Map([...result].map(([id,warnings])=>[id,[...warnings.values()]]));
 };
+
+export const scheduleTimeValue=(value:string)=>{
+ const minutes=scheduleTimeMinutes(value);
+ return minutes===null?'':`${String(Math.floor(minutes/60)).padStart(2,'0')}:${String(minutes%60).padStart(2,'0')}`;
+};
+const quarterHours=Array.from({length:96},(_,index)=>({value:scheduleTimeValue(`${Math.floor(index/4)}:${String(index%4*15).padStart(2,'0')}`),label:displayScheduleTime(index*15)}));
+/** Keep a saved non-quarter-hour time available without rounding the booking. */
+export const scheduleTimeOptions=(current:string,existing?:string)=>{
+ const extras=new Map<string,{value:string;label:string}>();
+ for(const value of [current,existing]){
+  if(value===undefined)continue;const minutes=scheduleTimeMinutes(value);
+  if(minutes!==null&&minutes%15!==0)extras.set(scheduleTimeValue(value),{value:scheduleTimeValue(value),label:displayScheduleTime(minutes)+' (current)'});
+ }
+ return extras.size?[...quarterHours,...extras.values()].sort((a,b)=>a.value.localeCompare(b.value)):quarterHours;
+};

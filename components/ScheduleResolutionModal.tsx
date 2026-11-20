@@ -3,7 +3,7 @@ import {createPortal} from 'react-dom';
 import type {ScheduleImportDestination,ScheduleImportSummary} from '../types';
 import {scheduleConflicts} from '../utils/scheduleConflicts';
 import {bookingFields,changedBooking,resolutionGameError,type ResolutionGame,type ResolutionWorkspace} from '../utils/scheduleResolution';
-import {conflictPairCount,conflictWarnings,displayBookingTime,displayScheduleDate} from '../utils/scheduleConflictPresentation';
+import {conflictPairCount,conflictWarnings,displayBookingTime,displayScheduleDate,scheduleTimeOptions,scheduleTimeValue} from '../utils/scheduleConflictPresentation';
 import {CAGE_LOCATIONS} from '../utils/scheduleValidation';
 import {generateUUID,requestScheduleResolution} from '../services/storageService';
 interface Props {
@@ -167,8 +167,8 @@ export const ScheduleResolutionModal:React.FC<Props>=({season,initial,importing,
               {game.kind==='new'&&<label className="text-sm font-bold">League<select aria-label="League" value={game.league} onChange={e=>update(game.id,'league',e.target.value)} className={cls('league')}>{workspace.leagues.map(l=><option key={l.id} value={l.id}>{l.id}</option>)}</select></label>}
               <div><h5 className="text-xs font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400 mb-2">Date, time &amp; tunnels</h5><div className="grid grid-cols-2 gap-3">
               <label className="text-sm font-bold col-span-2">Date<input type="date" value={game.date} onChange={e=>update(game.id,'date',e.target.value)} aria-invalid={highlighted.has('date')||undefined} className={cls('date')+' [color-scheme:light] dark:[color-scheme:dark]'}/></label>
-              <label className="text-sm font-bold">Start time<input value={game.startTime} onChange={e=>update(game.id,'startTime',e.target.value)} aria-invalid={highlighted.has('startTime')||undefined} className={cls('startTime')}/></label>
-              <label className="text-sm font-bold">End time<input value={game.endTime} onChange={e=>update(game.id,'endTime',e.target.value)} aria-invalid={highlighted.has('endTime')||undefined} className={cls('endTime')}/></label>
+              <label className="text-sm font-bold">Start time<select aria-label="Start time" value={scheduleTimeValue(game.startTime)} onChange={e=>update(game.id,'startTime',e.target.value)} aria-invalid={highlighted.has('startTime')||undefined} className={cls('startTime')}><option value="" disabled>Select time...</option>{scheduleTimeOptions(game.startTime,baseline.get(game.id)?.startTime).map(option=><option key={option.value} value={option.value}>{option.label}</option>)}</select></label>
+              <label className="text-sm font-bold">End time<select aria-label="End time" value={scheduleTimeValue(game.endTime)} onChange={e=>update(game.id,'endTime',e.target.value)} aria-invalid={highlighted.has('endTime')||undefined} className={cls('endTime')}><option value="" disabled>Select time...</option>{scheduleTimeOptions(game.endTime,baseline.get(game.id)?.endTime).map(option=><option key={option.value} value={option.value}>{option.label}</option>)}</select></label>
               <label className="text-sm font-bold col-span-2">Cage / location<select value={game.location} onChange={e=>update(game.id,'location',e.target.value)} aria-invalid={highlighted.has('location')||undefined} className={cls('location')}><option value="">Select cage...</option>{CAGE_LOCATIONS.map(c=><option key={c.value} value={c.value}>{c.label}</option>)}</select></label>
               </div></div>
               <div><h5 className="text-xs font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400 mb-2">Teams</h5><div className="grid grid-cols-1 sm:grid-cols-2 gap-3">

@@ -27,3 +27,6 @@ Thumbs.db
 # Local IDE configuration
 .idea/
 .vscode/
+
+# Local scratch work and browser-test artifacts
+work/

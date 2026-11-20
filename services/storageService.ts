@@ -1,7 +1,7 @@
 
 import { AgeGroup, Match, Team, Inning, League, PlayerStats, PlayerSeasonStatRow, PlayerCareerSummary, ScheduleImportSummary } from '../types';
 import { ARCHIVE_2025_LEAGUES, ARCHIVE_2025_TEAMS, ARCHIVE_2025_MATCHES } from './archive2025Data';
-import { parseScheduleCsv, isDuplicateMatch } from '../utils/scheduleImporter';
+import type { ScheduleImportDestination, ScheduleImportPreview } from '../types';
 import { sortMatchesChronologically } from '../utils/matchSort';
 import { detectForfeit, isForfeitMatch, getForfeitingTeamId } from './matchHelpers';
 import { coalesceInFlightGet } from '../utils/requestCoalescer';
@@ -45,23 +45,13 @@ export { sortMatchesChronologically };
 const formatName = (p: { name: string, lastName?: string }) => 
   `${p.name}${p.lastName ? ' ' + p.lastName.charAt(0) + '.' : ''}`;
 
-// Robust UUID Generator that works in insecure contexts
-export const generateUUID = (): string => {
-    // Try native crypto first if available and secure
-    if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
-        try {
-            return crypto.randomUUID();
-        } catch (e) {
-            // Fallback if crypto throws (e.g. insecure context)
-        }
-    }
-    // Standard RFC4122 v4 UUID generator
-    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
-        const r = (Math.random() * 16) | 0;
-        const v = c === 'x' ? r : (r & 0x3) | 0x8;
-        return v.toString(16);
-    });
-};
+import { generateUUID } from '../utils/ids';
+export { generateUUID };
+import { createEmptyInning } from '../utils/inningTemplate';
+import { withRequestDeadline } from '../utils/requestDeadline';
+import { cacheConfirmedTeam } from '../utils/teamCache';
+import { careerRosterIds, type PlayerIdentityLink, type PlayerIdentityCandidate } from '../utils/playerIdentity';
+export { createEmptyInning };
 
 // Safe fetch wrapper ensuring absolute URLs, session credentials, and Bearer authorization tokens
 const apiFetch = async (url: string, init?: RequestInit): Promise<Response> => {
@@ -154,7 +144,10 @@ export const deleteLeague = async (id: string, season?: string) => {
   let url = `/api/leagues?id=${encodeURIComponent(id)}`;
   if (season) url += `&season=${encodeURIComponent(season)}`;
   const res = await apiFetch(url, { method: 'DELETE' });
-  if (!res.ok) throw new Error('Failed to delete league');
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body.error || 'Unable to delete this league.');
+  }
 };
 
 // Team Methods
@@ -425,96 +418,28 @@ export const createTeam = async (name: string, league: AgeGroup, players: {name:
     subs: subs.map(s => ({ id: generateUUID(), name: s.name, lastName: s.lastName }))
   };
 
-  // Cache locally
-  if (typeof window !== 'undefined') {
-    try {
-      localStorage.setItem(`dugout_team_${newTeam.id}`, JSON.stringify(newTeam));
-      const cached = localStorage.getItem('dugout_all_teams_cache');
-      if (cached) {
-        const list: Team[] = JSON.parse(cached);
-        list.push(newTeam);
-        localStorage.setItem('dugout_all_teams_cache', JSON.stringify(list));
-      }
-    } catch (e) {}
-  }
-
-  const res = await apiFetch('/api/teams', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(newTeam)
-  });
-  if (!res.ok) throw new Error('Failed to save team');
-  const data = await res.json();
-  return mapTeamFromDB(data);
+  return persistTeam('POST',newTeam);
 };
 
-export const saveTeam = async (team: Team): Promise<Team> => {
-  if (typeof window !== 'undefined') {
-    try {
-      localStorage.setItem(`dugout_team_${team.id}`, JSON.stringify(team));
-      const cached = localStorage.getItem('dugout_all_teams_cache');
-      if (cached) {
-        const list: Team[] = JSON.parse(cached);
-        const idx = list.findIndex(t => t.id === team.id);
-        if (idx !== -1) list[idx] = team;
-        else list.push(team);
-        localStorage.setItem('dugout_all_teams_cache', JSON.stringify(list));
-      }
-    } catch (e) {}
+/** Every roster caller needs server confirmation; a stale whole-team payload is never queued. */
+const persistTeam = async (method: 'POST' | 'PUT', team: Team): Promise<Team> => {
+  let result: {response:Response;data:any};
+  try { result = await withRequestDeadline(async signal => {
+    const response = await apiFetch('/api/teams',{method,headers:{'Content-Type':'application/json'},body:JSON.stringify(team),signal});
+    const data = await response.json().catch(error => { if (response.ok) throw error; return {}; });
+    return {response,data};
+  },15000); } catch { throw new Error('Could not confirm the roster save. Keep this window open, reconnect and try again.'); }
+  if (!result.response.ok) throw new Error(result.data?.error || `Roster update rejected (HTTP ${result.response.status})`);
+  if (!result.data || result.data.id !== team.id || !Array.isArray(result.data.players) || !Array.isArray(result.data.subs)) {
+    throw new Error('Could not confirm the roster save. Keep this window open, reconnect and try again.');
   }
-
-  try {
-    const res = await apiFetch('/api/teams', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(team)
-    });
-    if (res.ok) {
-      const data = await res.json();
-      return mapTeamFromDB(data);
-    }
-  } catch (err) {}
-  return team;
+  const saved = mapTeamFromDB(result.data);
+  if(typeof window !== 'undefined') { try { cacheConfirmedTeam(localStorage,saved); } catch {} }
+  return saved;
 };
 
-export const updateTeam = async (team: Team, options?: { requireServerSave?: boolean }): Promise<Team> => {
-  // Do not show an unpersisted substitute as saved. The server must confirm
-  // official roster edits before the lineup can refer to the new player ID.
-  try {
-    const res = await apiFetch('/api/teams', {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(team)
-    });
-    if (!res.ok) {
-      const body = await res.json().catch(() => ({}));
-      // All HTTP rejections (including 400/403/500) are real failures, not offline.
-      throw new Error(body.error || `Roster update rejected (HTTP ${res.status})`);
-    }
-    const saved = mapTeamFromDB(await res.json());
-    if (typeof window !== 'undefined') {
-      try {
-        localStorage.setItem(`dugout_team_${saved.id}`, JSON.stringify(saved));
-        const cached = localStorage.getItem('dugout_all_teams_cache');
-        if (cached) {
-          const list: Team[] = JSON.parse(cached);
-          const idx = list.findIndex(t => t.id === saved.id);
-          if (idx !== -1) list[idx] = saved;
-          else list.push(saved);
-          localStorage.setItem('dugout_all_teams_cache', JSON.stringify(list));
-        }
-      } catch (e) {}
-    }
-    return saved;
-  } catch (err) {
-    // Official umpire workflows must never proceed with a substitute that
-    // exists only in browser cache. Other callers retain offline queueing.
-    if (options?.requireServerSave) throw err;
-    if (err instanceof Error && /rejected \(HTTP|Unauthorized|Forbidden|permissions|only add substitutes/i.test(err.message)) throw err;
-    enqueuePendingTeamSync(team);
-    return team;
-  }
-};
+export const saveTeam = async (team:Team):Promise<Team> => persistTeam('POST',team);
+export const updateTeam = async (team:Team, _options?:{requireServerSave?:boolean}):Promise<Team> => persistTeam('PUT',team);
 
 export const moveTeams = async (teamIds: string[], targetLeague: string): Promise<void> => {
   const res = await apiFetch('/api/teams', {
@@ -522,11 +447,12 @@ export const moveTeams = async (teamIds: string[], targetLeague: string): Promis
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ action: 'move_teams', teamIds, targetLeague })
   });
-  if (!res.ok) throw new Error('Failed to move teams');
+  if (!res.ok) { const data=await res.json().catch(()=>({})); throw new Error(data.error || 'Could not move the teams.'); }
 };
 
 export const deleteTeam = async (teamId: string) => {
-  await apiFetch(`/api/teams?id=${teamId}`, { method: 'DELETE' });
+  const response=await apiFetch(`/api/teams?id=${encodeURIComponent(teamId)}`, { method: 'DELETE' });
+  if(!response.ok) { const data=await response.json().catch(()=>({})); throw new Error(data.error || 'Could not remove this team.'); }
 };
 
 // Match Methods
@@ -936,39 +862,6 @@ export const createPracticeMatch = async (params: {
   return match;
 };
 
-export const createEmptyInning = (number: number, homeIds: string[] = [], awayIds: string[] = []): Inning => {
-    // LOGIC:
-    // 3v3: 10 pitches each (30 vs 30)
-    // 2v2: 10 pitches each (20 vs 20) - Standard scoring per user request
-    // 3v2 / 2v3: The short team gets 15 pitches (Ghost Mode) to balance the 30-pitch team.
-
-    let homePitches = 10;
-    let awayPitches = 10;
-
-    const safeHomeIds = Array.isArray(homeIds) ? homeIds : [];
-    const safeAwayIds = Array.isArray(awayIds) ? awayIds : [];
-
-    const homeCount = safeHomeIds.length;
-    const awayCount = safeAwayIds.length;
-
-    if (homeCount === 2 && awayCount === 3) {
-        homePitches = 15; // Ghost Mode for Home
-    } else if (awayCount === 2 && homeCount === 3) {
-        awayPitches = 15; // Ghost Mode for Away
-    }
-
-    const createPlayerScore = (pid: string, count: number) => ({
-        playerId: pid,
-        pitches: Array(count).fill(null).map(() => ({ points: null }))
-    });
-
-    return {
-        number,
-        home: { teamId: 'home', playerScores: homeIds.map(id => createPlayerScore(id, homePitches)) },
-        away: { teamId: 'away', playerScores: awayIds.map(id => createPlayerScore(id, awayPitches)) }
-    };
-};
-
 /** Starting from a dashboard must secure access before the protected status save.
  * Keep the captured source revision: acquiring access never rebases a lineup.
  */
@@ -1303,7 +1196,8 @@ export const getAvailableSeasons = async (): Promise<string[]> => {
 };
 
 export const updateCurrentSeason = async (season: string) => {
-    await apiFetch('/api/settings', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'update_season', season }) });
+    const response=await apiFetch('/api/settings', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'update_season', season }) });
+    if(!response.ok) { const data=await response.json().catch(()=>({})); throw new Error(data.error || 'Could not change the active season.'); }
     if (typeof window !== 'undefined') {
         try { 
             localStorage.setItem('dugout_current_season', season);
@@ -1360,29 +1254,24 @@ export const createTeamsBatch = async (teamsToCreate: ParsedTeamInput[], season:
 // Player Career Statistics Across All Seasons
 export const getPlayerCareerStats = async (playerIdentifier: string): Promise<PlayerCareerSummary | null> => {
   if (!playerIdentifier || !playerIdentifier.trim()) return null;
-  const target = playerIdentifier.trim().toLowerCase();
 
-  const [allTeams, allMatches] = await Promise.all([
-    getAllTeams().catch(() => []),
-    getAllMatches().catch(() => [])
+  const [teamResponse, matchResponse, response] = await Promise.all([
+    apiFetch('/api/teams'), apiFetch('/api/matches'), apiFetch('/api/teams?identityDirectory=1')
   ]);
-
-  const matchingPlayerIds = new Set<string>();
+  if (![teamResponse, matchResponse, response].every(result => result.ok)) throw new Error('Player history is unavailable. Please try again.');
+  const storedTeams: Team[] = (await teamResponse.json()).map(mapTeamFromDB);
+  const storedMatches: Match[] = (await matchResponse.json()).map(mapMatchFromDB);
+  const allTeams = [...storedTeams, ...ARCHIVE_2025_TEAMS.filter(team => !storedTeams.some(t => t.id === team.id))];
+  const allMatches = [...storedMatches, ...ARCHIVE_2025_MATCHES.filter(game => !storedMatches.some(m => m.id === game.id))];
+  const matchingPlayerIds = careerRosterIds(playerIdentifier, await response.json());
   let canonicalName = playerIdentifier.trim();
 
   allTeams.forEach(team => {
     const list = [...(team.players || []), ...(team.subs || [])];
     list.forEach(p => {
       const fName = formatName(p);
-      const simpleName = `${p.name || ''} ${p.lastName || ''}`.trim();
-      if (
-        p.id.toLowerCase() === target ||
-        fName.toLowerCase() === target ||
-        simpleName.toLowerCase() === target ||
-        (p.name && p.name.toLowerCase() === target)
-      ) {
-        matchingPlayerIds.add(p.id);
-        if (fName && canonicalName === playerIdentifier.trim()) {
+      if (p.id === playerIdentifier || matchingPlayerIds.has(p.id)) {
+        if (fName && (p.id === playerIdentifier || canonicalName === playerIdentifier.trim())) {
           canonicalName = fName;
         }
       }
@@ -1598,144 +1487,91 @@ export const getPlayerCareerStats = async (playerIdentifier: string): Promise<Pl
   };
 };
 
-/**
- * High-level schedule import service:
- * Parses CSV, auto-creates leagues/teams, skips duplicate games, and provisions scheduled matches.
- */
-export const importScheduleFromCsv = async (
-  csvContent: string,
-  options?: { targetLeague?: string; defaultLeague?: string; defaultSeason?: string }
-): Promise<ScheduleImportSummary> => {
-  const { games, errors } = parseScheduleCsv(csvContent, options);
-  if (games.length === 0) {
-    return {
-      totalRows: 0,
-      createdMatches: 0,
-      skippedDuplicates: 0,
-      createdTeams: [],
-      createdLeagues: [],
-      errors,
-    };
+/** Import execution and preflight use the same server planner and rules. */
+interface ScheduleImportOptions {
+  defaultSeason: string;
+  leagueDestinations: Record<string, ScheduleImportDestination>;
+}
+const requestScheduleImport = async (csvText: string, options: ScheduleImportOptions, preview: boolean, signal?: AbortSignal) => {
+  let res: Response;
+  try { res = await apiFetch('/api/schedule-admin', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    signal,
+    body: JSON.stringify({ action: preview ? 'preview_import' : 'import_schedule', season: options.defaultSeason,
+      csvText, leagueDestinations: options.leagueDestinations })
+  }); } catch (error) {
+    if (signal?.aborted) throw error;
+    throw new Error(preview ? 'Could not check the schedule. Reconnect and try again.' : 'Could not confirm the import. Reconnect and retry the same CSV; it will not create another copy.');
   }
+  let data;
+  try { data = await res.json(); } catch { throw new Error('Could not confirm the result. Refresh and retry the same CSV safely.'); }
+  if (!res.ok) throw Object.assign(new Error([data.error || 'Could not import this schedule.', ...(data.errors || []).slice(0, 5)].join(' ')),{resolution:data.resolution});
+  return data;
+};
+export const previewScheduleImport = (csvText: string, options: ScheduleImportOptions, signal?: AbortSignal): Promise<ScheduleImportPreview> =>
+  requestScheduleImport(csvText, options, true, signal);
+export const importScheduleFromCsv = (csvText: string, options: ScheduleImportOptions): Promise<ScheduleImportSummary> =>
+  requestScheduleImport(csvText, options, false);
 
-  const activeSeason = options?.defaultSeason || (await getCurrentSeason());
-  const existingLeagues = await getLeagues(activeSeason);
-  const existingTeams = await getAllTeams();
-  const existingMatches = await getAllMatches();
-
-  const createdLeaguesSet = new Set<string>();
-  const createdTeamsSet = new Set<string>();
-  let createdMatches = 0;
-  let skippedDuplicates = 0;
-
-  for (const game of games) {
-    const season = game.season || activeSeason;
-    const leagueName = game.group;
-
-    // 1. Ensure league division exists
-    const leagueFound = existingLeagues.some(
-      l => leaguesMatch(l.id, leagueName) && (l.season || activeSeason) === season
-    );
-    if (!leagueFound && !createdLeaguesSet.has(leagueName)) {
-      try {
-        await createLeague(leagueName, season);
-        existingLeagues.push({ id: leagueName, season, created_at: new Date().toISOString() });
-        createdLeaguesSet.add(leagueName);
-      } catch (err: any) {
-        errors.push(`Failed to create division "${leagueName}": ${err.message}`);
-      }
-    }
-
-    // 2. Resolve or create Home Team
-    let homeTeam = existingTeams.find(
-      t => t.name.trim().toLowerCase() === game.homeTeamName.trim().toLowerCase() &&
-           leaguesMatch(t.league, leagueName) &&
-           (t.season || activeSeason) === season
-    );
-    if (!homeTeam) {
-      try {
-        homeTeam = await createTeam(
-          game.homeTeamName.trim(),
-          leagueName,
-          [
-            { name: `${game.homeTeamName} Player 1` },
-            { name: `${game.homeTeamName} Player 2` },
-            { name: `${game.homeTeamName} Player 3` },
-          ],
-          season
-        );
-        existingTeams.push(homeTeam);
-        createdTeamsSet.add(game.homeTeamName.trim());
-      } catch (err: any) {
-        errors.push(`Failed to auto-create Home Team "${game.homeTeamName}": ${err.message}`);
-        continue;
-      }
-    }
-
-    // 3. Resolve or create Away Team
-    let awayTeam = existingTeams.find(
-      t => t.name.trim().toLowerCase() === game.awayTeamName.trim().toLowerCase() &&
-           leaguesMatch(t.league, leagueName) &&
-           (t.season || activeSeason) === season
-    );
-    if (!awayTeam) {
-      try {
-        awayTeam = await createTeam(
-          game.awayTeamName.trim(),
-          leagueName,
-          [
-            { name: `${game.awayTeamName} Player 1` },
-            { name: `${game.awayTeamName} Player 2` },
-            { name: `${game.awayTeamName} Player 3` },
-          ],
-          season
-        );
-        existingTeams.push(awayTeam);
-        createdTeamsSet.add(game.awayTeamName.trim());
-      } catch (err: any) {
-        errors.push(`Failed to auto-create Away Team "${game.awayTeamName}": ${err.message}`);
-        continue;
-      }
-    }
-
-    // 4. Duplicate check
-    const isDup = isDuplicateMatch(game, homeTeam.id, awayTeam.id, existingMatches);
-    if (isDup) {
-      skippedDuplicates++;
-      continue;
-    }
-
-    // 5. Create Scheduled Match
-    try {
-      const homePids = (homeTeam.players || []).slice(0, 3).map(p => p.id);
-      const awayPids = (awayTeam.players || []).slice(0, 3).map(p => p.id);
-      const created = await createScheduledMatch({
-        league: leagueName,
-        homeTeamId: homeTeam.id,
-        awayTeamId: awayTeam.id,
-        homePlayerIds: homePids,
-        awayPlayerIds: awayPids,
-        season,
-        date: game.scheduledIsoDate,
-        location: game.location,
-        startTime: game.startTime,
-        endTime: game.endTime,
-        notes: game.notes,
-      });
-      existingMatches.push(created);
-      createdMatches++;
-    } catch (err: any) {
-      errors.push(`Failed to schedule match ${game.homeTeamName} vs ${game.awayTeamName}: ${err.message}`);
-    }
-  }
-
-  return {
-    totalRows: games.length,
-    createdMatches,
-    skippedDuplicates,
-    createdTeams: Array.from(createdTeamsSet),
-    createdLeagues: Array.from(createdLeaguesSet),
-    errors,
-  };
+export const getAdminScheduleData = async (season: string): Promise<{ leagues: League[]; teams: Team[]; matches: Match[] }> => {
+  const res = await apiFetch(`/api/schedule-admin?season=${encodeURIComponent(season)}`);
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || 'Could not load the schedule. Refresh and try again.');
+  return { leagues: data.leagues, teams: data.teams.map(mapTeamFromDB), matches: data.matches.map((row: unknown) => recordRevision(mapMatchFromDB(row))) };
 };
 
+export const getAdminRosterData = async (season: string): Promise<{ leagues: League[]; teams: Team[]; identityLinks: PlayerIdentityLink[]; playerHistory: PlayerIdentityCandidate[] }> => {
+  const res = await apiFetch(`/api/teams?adminRoster=1&season=${encodeURIComponent(season)}`);
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || 'Could not load rosters. Try again.');
+  return { leagues: data.leagues, teams: data.teams.map(mapTeamFromDB), identityLinks: data.identityLinks, playerHistory: data.playerHistory };
+};
+
+export const saveAdminRoster = async (team: Team, players: Team['players'], subs: Team['players'], identityChoices: Record<string, string> = {}, expectedIdentityLinks: Record<string, string | null> = {}): Promise<Team & { identityLinks: PlayerIdentityLink[] }> => {
+  let res: Response;
+  try { res = await apiFetch('/api/teams', {
+    method: 'PUT', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ action: 'update_roster', id: team.id, season: team.season,
+      expectedRoster: { players: team.players, subs: team.subs || [] }, players, subs, identityChoices, expectedIdentityLinks })
+  }); } catch {
+    throw new Error('Could not confirm the roster save. Reconnect, then reload rosters to check it.');
+  }
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || 'The roster was not saved. Try again.');
+  const saved = mapTeamFromDB(data);
+  if (typeof window !== 'undefined') {
+    try { localStorage.setItem(`dugout_team_${saved.id}`, JSON.stringify(saved)); localStorage.removeItem('dugout_all_teams_cache'); } catch {}
+  }
+  return {...saved, identityLinks: data.identityLinks};
+};
+
+export const createAdminTeamRoster = async (team: Team, identityChoices: Record<string,string> = {}): Promise<Team & {identityLinks:PlayerIdentityLink[]}> => {
+  let response: Response, data: any;
+  try { ({response,data} = await withRequestDeadline(async signal => {
+    const response = await apiFetch('/api/teams', {
+      method:'POST',headers:{'Content-Type':'application/json'},signal,
+      body:JSON.stringify({...team,action:'create_team_roster',identityChoices})
+    });
+    return {response,data:await response.json()};
+  }, 15000)); } catch { throw new Error('Could not confirm team creation. Your entries are still here. Retry this form to check or finish the same team safely.'); }
+  if(!response.ok)throw new Error(data.error || 'The team was not saved. Try again.');
+  const {identityLinks,...teamData} = data;
+  const saved = mapTeamFromDB(teamData);
+  if (typeof window !== 'undefined') { try { cacheConfirmedTeam(localStorage,saved); } catch {} }
+  return {...saved,identityLinks};
+};
+
+export const requestScheduleResolution = async (season:string,payload:Record<string,unknown>,signal?:AbortSignal) => {
+  return withRequestDeadline(async deadlineSignal=>{
+    const response=await apiFetch('/api/schedule-admin',{method:'POST',headers:{'Content-Type':'application/json'},signal:signal||deadlineSignal,body:JSON.stringify({...payload,season})});
+    const data=await response.json();
+    if(!response.ok)throw Object.assign(new Error(data?.error||'Could not save these changes.'),{resolution:data?.resolution,status:response.status});
+    if(payload.action==='resolve_schedule'&&data?.saved!==true&&data?.alreadySaved!==true)throw new Error('The save could not be confirmed.');
+    if(payload.action==='preview_resolution'&&(!data||!['games','teams','leagues','rootIds'].every(key=>Array.isArray(data[key]))))throw new Error('The full schedule could not be loaded.');
+    return data;
+  },15000).catch(error=>{
+    if(error?.resolution||error?.status)throw error;
+    throw new Error(error?.message||'Could not confirm the save. Your changes are still here. Reconnect and try again.');
+  });
+};

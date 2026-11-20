@@ -2,6 +2,7 @@ import { beforeAll, beforeEach, afterEach, afterAll, describe, it, expect, vi } 
 import { readFileSync } from 'node:fs';
 import { randomUUID } from 'node:crypto';
 import { signSessionToken } from '../../api/auth';
+import scheduleApi from '../../api/schedule-admin';
 
 vi.mock('../../api/db.js', async () => {
   const { Pool } = await import('pg');
@@ -99,12 +100,12 @@ describe.skipIf(!process.env.DUGOUT_TEST_DATABASE_URL)('Scoring safety on isolat
     expect((await stored()).innings[0].home.playerScores[0].pitches[0].points).toBe(0);
   });
 
-  it('keeps the Production CSV importer compatible with validated new-game creation', async () => {
+  it('keeps transactional Admin Preview imports retry-safe alongside scoring protections', async () => {
     const local = memoryScoringStorage(), session = memoryScoringStorage();
     const auth = signSessionToken('admin'); local.setItem('dugout_auth_token', auth); session.setItem('dugout_auth_token', auth);
     vi.stubGlobal('localStorage', local); vi.stubGlobal('sessionStorage', session);
     vi.stubGlobal('window', { addEventListener: vi.fn(), dispatchEvent: vi.fn() });
-    const routes: Record<string, any> = { '/api/matches': matches, '/api/teams': teamsApi, '/api/leagues': leaguesApi };
+    const routes: Record<string, any> = { '/api/matches': matches, '/api/teams': teamsApi, '/api/leagues': leaguesApi, '/api/schedule-admin': scheduleApi };
     vi.stubGlobal('fetch', async (input: string, init?: RequestInit) => {
       const url = new URL(input, 'http://localhost'); const handler = routes[url.pathname];
       if (!handler) throw new Error(`Unexpected fixture request ${url.pathname}`);
@@ -119,11 +120,11 @@ describe.skipIf(!process.env.DUGOUT_TEST_DATABASE_URL)('Scoring safety on isolat
     });
     const { importScheduleFromCsv } = await import('../../services/storageService');
     const csv = 'Date,Start Time,End Time,Location,Group,Home Team,Away Team\n2026-12-30,6:00 pm,7:00 pm,Tunnels 5/6,QC,Imported Home,Imported Away';
-    const first = await importScheduleFromCsv(csv, { targetLeague: 'QC', defaultSeason: '2026' });
+    const first = await importScheduleFromCsv(csv, { defaultSeason: '2026', leagueDestinations: { QC: { mode: 'existing', name: 'QC' } } });
     expect(first.errors).toEqual([]); expect(first.createdMatches).toBe(1);
     const saved = (await pool.query("SELECT * FROM matches WHERE date::date='2026-12-30'")).rows;
     expect(saved).toHaveLength(1); expect(saved[0].innings).toHaveLength(6);
-    const retry = await importScheduleFromCsv(csv, { targetLeague: 'QC', defaultSeason: '2026' });
+    const retry = await importScheduleFromCsv(csv, { defaultSeason: '2026', leagueDestinations: { QC: { mode: 'existing', name: 'QC' } } });
     expect(retry).toMatchObject({ createdMatches: 0, skippedDuplicates: 1, errors: [] });
     expect((await pool.query("SELECT * FROM matches WHERE date::date='2026-12-30'")).rows).toEqual(saved);
   });

@@ -57,6 +57,8 @@ export interface Match {
   id: string;
   /** Monotonically increasing server-side version; prevents stale game overwrites. */
   revision?: number;
+  /** Read-only schedule hint; actions re-check the scoring lock on the server. */
+  scoringLocked?: boolean;
   league: AgeGroup;
   season: string;
   homeTeamId: string;
@@ -96,7 +98,19 @@ export interface ScheduledGameRecord {
   season: string;
 }
 
+export interface ScheduleImportDestination {
+  mode: 'new' | 'existing';
+  name: string;
+}
+
+export interface ScheduleImportPreview {
+  resolution?: import('./utils/scheduleResolution').ResolutionWorkspace;
+  games: (ScheduledGameRecord & { duplicate: boolean })[];
+  summary: ScheduleImportSummary;
+}
+
 export interface ScheduleImportSummary {
+  alreadyImported?: boolean;
   totalRows: number;
   createdMatches: number;
   skippedDuplicates: number;

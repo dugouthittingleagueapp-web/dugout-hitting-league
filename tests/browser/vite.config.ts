@@ -6,6 +6,7 @@ import settings from '../../api/settings';
 import leagues from '../../api/leagues';
 import teams from '../../api/teams';
 import matches from '../../api/matches';
+import schedule from '../../api/schedule-admin';
 import delta from '../../api/matches-delta';
 import scoringLock from '../../api/scoring-lock';
 import scoring from '../../api/scoring';
@@ -13,15 +14,14 @@ import { signSessionToken } from '../../api/auth';
 
 const localUrl = process.env.DUGOUT_BROWSER_DATABASE_URL || '';
 const local = new URL(localUrl);
-if (local.hostname !== '127.0.0.1' || !['/dugout_test_phase2_browser'].includes(local.pathname)) throw new Error('Browser test server must use the disposable local database.');
-const scoringRun = local.pathname === '/dugout_test_phase2_browser';
+if (local.hostname !== '127.0.0.1' || !['/dugout_test_browser', '/dugout_test_admin_browser', '/dugout_test_phase2_browser', '/dugout_test_fan_scroll_browser'].includes(local.pathname)) throw new Error('Browser test server must use the disposable local database.');
 // Rebind only this test process to the explicitly chosen local pool. The
 // deployed TLS/database selector is never weakened for browser tests.
 const testPool = new pg.Pool({connectionString:localUrl,ssl:false});
 pool.query = testPool.query.bind(testPool);
 pool.connect = testPool.connect.bind(testPool);
 process.env.SESSION_SECRET = 'local-only-browser-test-session-secret-not-production';
-const handlers: Record<string, any> = { '/api/settings': settings, '/api/leagues': leagues, '/api/teams': teams, '/api/matches': matches, '/api/scoring': scoring, '/api/matches-delta': delta, '/api/scoring-lock': scoringLock };
+const handlers: Record<string, any> = { '/api/settings': settings, '/api/leagues': leagues, '/api/teams': teams, '/api/matches': matches, '/api/scoring': scoring, '/api/schedule-admin': schedule, '/api/matches-delta': delta, '/api/scoring-lock': scoringLock };
 export default defineConfig({plugins:[react(),{
  name:'local-only-api',
  transformIndexHtml(html) {
@@ -42,4 +42,4 @@ export default defineConfig({plugins:[react(),{
    } catch(error) { console.error(error);res.statusCode=500;res.end(JSON.stringify({error:'Local test API failed'})); }
   });
  }
-}],server:{host:'127.0.0.1',port:3700}});
+}],server:{host:'127.0.0.1',port:Number(process.env.DUGOUT_BROWSER_PORT || 3700),strictPort:true}});

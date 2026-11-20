@@ -23,6 +23,8 @@ const SCORING_PREVIEW_HOST = 'ep-red-tree-a46hwgra.us-east-1.aws.neon.tech';
 const SCORING_PREVIEW_BRANCH = 'refactor/network-and-sync-foundation';
 const CONSOLIDATED_REVIEW_BRANCH = 'review/consolidated-final-nov12';
 const CONSOLIDATED_REVIEW_HOST = 'ep-divine-smoke-a4lyo8af.us-east-1.aws.neon.tech';
+const SCHEDULE_PREVIEW_BRANCH = 'fix/schedule-import-league-provisioning';
+const SCHEDULE_PREVIEW_HOST = 'ep-bold-term-a4y8a4nu.us-east-1.aws.neon.tech';
 const SCORING_RELEASE_BRANCH = 'release/scoring-safety-nov16';
 const SCORING_RELEASE_HOST = 'ep-holy-scene-a40t91vm.us-east-1.aws.neon.tech';
 
@@ -82,8 +84,12 @@ export const selectDatabaseConnectionString = (environment: DatabaseEnvironment)
         environment.VERCEL_GIT_COMMIT_REF === CONSOLIDATED_REVIEW_BRANCH) {
       assertExpectedHost(scopedUrl, CONSOLIDATED_REVIEW_HOST, 'Consolidated Review Preview');
     } else if (vercelEnvironment === 'preview' &&
+        environment.VERCEL_GIT_COMMIT_REF === SCHEDULE_PREVIEW_BRANCH) {
+      assertExpectedHost(scopedUrl, SCHEDULE_PREVIEW_HOST, 'Schedule Preview');
+    } else if (vercelEnvironment === 'preview' &&
         (environment.VERCEL_GIT_COMMIT_REF === SCORING_RELEASE_BRANCH ||
-          environment.VERCEL_GIT_COMMIT_REF === 'fix/game-day-reliability')) {
+          environment.VERCEL_GIT_COMMIT_REF === 'fix/game-day-reliability' ||
+          environment.VERCEL_GIT_COMMIT_REF === 'fix/fan-scoreboard-scroll')) {
       assertExpectedHost(scopedUrl, SCORING_RELEASE_HOST, 'Scoring Release Preview');
     }
     return scopedUrl;

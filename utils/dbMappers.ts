@@ -14,6 +14,7 @@ export const mapMatchFromDB = (dbMatch: any): Match => {
   return {
     id: dbMatch.id,
     revision: Number(dbMatch.revision ?? 0),
+    scoringLocked: dbMatch.scoring_locked === true || dbMatch.scoringLocked === true,
     league: dbMatch.league,
     homeTeamId: dbMatch.home_team_id || dbMatch.homeTeamId,
     awayTeamId: dbMatch.away_team_id || dbMatch.awayTeamId,
@@ -24,6 +25,7 @@ export const mapMatchFromDB = (dbMatch: any): Match => {
     season: inferredSeason,
     tieBreaker: dbMatch.tie_breaker ? (typeof dbMatch.tie_breaker === 'string' ? JSON.parse(dbMatch.tie_breaker) : dbMatch.tie_breaker) : (dbMatch.tieBreaker || undefined),
     location: dbMatch.location || undefined,
+    notes: dbMatch.notes ?? undefined,
     startTime: dbMatch.start_time || dbMatch.startTime || undefined,
     endTime: dbMatch.end_time || dbMatch.endTime || undefined,
     isPractice: dbMatch.is_practice !== undefined ? dbMatch.is_practice : (dbMatch.isPractice ?? false),

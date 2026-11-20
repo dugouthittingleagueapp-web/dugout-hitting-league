@@ -4,6 +4,9 @@ import { readFileSync } from 'node:fs';
 const uiFiles = [
   'App.tsx',
   'components/AdminDashboard.tsx',
+  'components/AdminSchedule.tsx',
+  'components/ScheduleResolutionModal.tsx',
+  'components/AdminRosters.tsx',
   'components/FileDropzone.tsx',
   'components/MatchSetup.tsx',
   'components/MatchStatsEditorModal.tsx',
@@ -93,7 +96,7 @@ describe('Every UI screen has connected controls', () => {
     const practice = read('components/PracticeSetupModal.tsx');
     expect(admin).toContain('setShowGuide(true)');
     expect(admin).toContain('event.stopPropagation(); onBack();');
-    expect(admin).toContain('onClick={onStartPractice}');
+    expect(admin).toContain('onStartPractice?.()');
     expect(app).toContain("allowLeagueSelection={state.view === 'admin'}");
     expect(practice).toContain('id="practice-league-select"');
     expect(practice).toContain('storage.getLeagues(season), storage.getTeams(null, season)');

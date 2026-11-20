@@ -5,28 +5,31 @@ import { getPlayerCareerStats } from '../services/storageService';
 
 interface PlayerCareerModalProps {
   isOpen: boolean;
-  playerName: string | null;
+  playerId: string | null;
   onClose: () => void;
 }
 
 export const PlayerCareerModal: React.FC<PlayerCareerModalProps> = ({
   isOpen,
-  playerName,
+  playerId,
   onClose,
 }) => {
   const [careerData, setCareerData] = useState<PlayerCareerSummary | null>(null);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
 
   useEffect(() => {
-    if (!isOpen || !playerName) {
+    if (!isOpen || !playerId) {
       setCareerData(null);
       return;
     }
 
     let isCancelled = false;
     setLoading(true);
+    setCareerData(null);
+    setError('');
 
-    getPlayerCareerStats(playerName)
+    getPlayerCareerStats(playerId)
       .then((data) => {
         if (!isCancelled) {
           setCareerData(data);
@@ -36,6 +39,7 @@ export const PlayerCareerModal: React.FC<PlayerCareerModalProps> = ({
       .catch((err) => {
         console.error('Failed to load career stats:', err);
         if (!isCancelled) {
+          setError('Player history could not be loaded. Close this window and try again.');
           setLoading(false);
         }
       });
@@ -43,7 +47,7 @@ export const PlayerCareerModal: React.FC<PlayerCareerModalProps> = ({
     return () => {
       isCancelled = true;
     };
-  }, [isOpen, playerName]);
+  }, [isOpen, playerId]);
 
   // Handle ESC key to close
   useEffect(() => {
@@ -56,9 +60,9 @@ export const PlayerCareerModal: React.FC<PlayerCareerModalProps> = ({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isOpen, onClose]);
 
-  if (!isOpen || !playerName) return null;
+  if (!isOpen || !playerId) return null;
 
-  const displayName = careerData?.playerName || playerName;
+  const displayName = careerData?.playerName || 'Player history';
 
   return createPortal(
     <div
@@ -105,6 +109,7 @@ export const PlayerCareerModal: React.FC<PlayerCareerModalProps> = ({
 
         {/* Content body */}
         <div className="overflow-y-auto flex-1 p-4 sm:p-6 space-y-6">
+          {error && <p role="alert" className="text-rose-700 dark:text-rose-300">{error}</p>}
           {loading && (
             <div className="py-16 text-center text-slate-500 space-y-3">
               <div className="inline-block w-8 h-8 border-3 border-blue-600 border-t-transparent rounded-full animate-spin" />

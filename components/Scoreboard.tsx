@@ -22,7 +22,7 @@ interface ScoreboardProps {
   onExit: (options?: { endedPractice?: boolean; deletedPractice?: boolean; matchId?: string; savedPractice?: boolean; finalizedMatch?: boolean; message?: string }) => void;
   isReadOnly?: boolean;
   userRole?: 'fan' | 'umpire' | 'admin';
-  onPlayerClick?: (playerName: string) => void;
+  onPlayerClick?: (playerId: string) => void;
 }
 
 const ScoringBoardContent: React.FC<ScoreboardProps & { saveState?: storage.ScoringSaveState; onRetrySync?: () => void }> = ({ matchId, onExit, isReadOnly = false, userRole = 'fan', onPlayerClick, saveState, onRetrySync }) => {
@@ -592,7 +592,7 @@ const ScoringBoardContent: React.FC<ScoreboardProps & { saveState?: storage.Scor
                           ) : onPlayerClick ? (
                             <button
                               type="button"
-                              onClick={() => onPlayerClick(formatName(player))}
+                              onClick={() => onPlayerClick(playerScore.playerId)}
                               className="text-left font-bold text-slate-900 dark:text-slate-100 hover:text-blue-600 dark:hover:text-blue-400 hover:underline cursor-pointer truncate max-w-full transition-colors"
                               title="View career batting record"
                             >
@@ -609,7 +609,7 @@ const ScoringBoardContent: React.FC<ScoreboardProps & { saveState?: storage.Scor
                         {visiblePitches.map((pitch: any, idx: number) => {
                             const realIdx = pitchStartIndex + idx;
                             return (
-                                <ScoreInput saveState={saveState} onRetrySync={onRetrySync} key={realIdx} pitchNumber={isGhostRow ? pitchStartIndex+idx+1 : realIdx+1} value={pitch.points} pitchesRemaining={pitchesLeft} readOnly={isReadOnly || (match.isComplete && userRole !== 'admin')} isEditing={activeCell?.side === side && activeCell.lineupIdx === lineupIdx && activeCell.pitchIdx === realIdx} onOpen={() => setActiveCell({ side, lineupIdx, pitchIdx: realIdx })} onClose={() => setActiveCell(null)} onChange={(val) => handleScoreUpdate(side, lineupIdx, realIdx, val)} onUndo={realIdx > 0 ? () => handleUndo(side, lineupIdx, realIdx) : undefined} />
+                                <ScoreInput saveState={saveState} onRetrySync={onRetrySync} key={realIdx} pitchNumber={isGhostRow ? pitchStartIndex+idx+1 : realIdx+1} value={pitch.points} previousScore={playerScore.pitches[realIdx - 1]?.points} pitchesRemaining={pitchesLeft} readOnly={isReadOnly || (match.isComplete && userRole !== 'admin')} isEditing={activeCell?.side === side && activeCell.lineupIdx === lineupIdx && activeCell.pitchIdx === realIdx} onOpen={() => setActiveCell({ side, lineupIdx, pitchIdx: realIdx })} onClose={() => setActiveCell(null)} onChange={(val) => handleScoreUpdate(side, lineupIdx, realIdx, val)} onUndo={realIdx > 0 ? () => handleUndo(side, lineupIdx, realIdx) : undefined} />
                             );
                         })}
                     </div>
@@ -639,10 +639,10 @@ const ScoringBoardContent: React.FC<ScoreboardProps & { saveState?: storage.Scor
                         </td>
                         <td className="px-0.5 sm:px-2 py-1 sm:py-2"><div className="flex w-full landscape:justify-between items-center gap-1 sm:gap-2 justify-start overflow-x-auto scrollbar-hide py-1 touch-auto">
                                 {inningData.playerScores[0].pitches.slice(10, 15).map((pitch, idx) => (
-                                    <ScoreInput saveState={saveState} onRetrySync={onRetrySync} key={`p1-${10+idx}`} pitchNumber={11+idx} value={pitch.points} pitchesRemaining={15 - inningData.playerScores[0].pitches.filter((p:any) => p.points !== null).length} readOnly={isReadOnly || (match.isComplete && userRole !== 'admin')} isEditing={activeCell?.side === side && activeCell.lineupIdx === 0 && activeCell.pitchIdx === 10+idx} onOpen={() => setActiveCell({ side, lineupIdx: 0, pitchIdx: 10+idx })} onClose={() => setActiveCell(null)} onChange={(val) => handleScoreUpdate(side, 0, 10+idx, val)} onUndo={() => handleUndo(side, 0, 10+idx)} />
+                                    <ScoreInput saveState={saveState} onRetrySync={onRetrySync} key={`p1-${10+idx}`} pitchNumber={11+idx} value={pitch.points} previousScore={inningData.playerScores[0].pitches[9+idx]?.points} pitchesRemaining={15 - inningData.playerScores[0].pitches.filter((p:any) => p.points !== null).length} readOnly={isReadOnly || (match.isComplete && userRole !== 'admin')} isEditing={activeCell?.side === side && activeCell.lineupIdx === 0 && activeCell.pitchIdx === 10+idx} onOpen={() => setActiveCell({ side, lineupIdx: 0, pitchIdx: 10+idx })} onClose={() => setActiveCell(null)} onChange={(val) => handleScoreUpdate(side, 0, 10+idx, val)} onUndo={() => handleUndo(side, 0, 10+idx)} />
                                 ))}<div className="w-px h-10 sm:h-14 bg-slate-300 dark:bg-slate-700 mx-1"></div>
                                 {inningData.playerScores[1].pitches.slice(10, 15).map((pitch, idx) => (
-                                    <ScoreInput saveState={saveState} onRetrySync={onRetrySync} key={`p2-${10+idx}`} pitchNumber={11+idx} value={pitch.points} pitchesRemaining={15 - inningData.playerScores[1].pitches.filter((p:any) => p.points !== null).length} readOnly={isReadOnly || (match.isComplete && userRole !== 'admin')} isEditing={activeCell?.side === side && activeCell.lineupIdx === 1 && activeCell.pitchIdx === 10+idx} onOpen={() => setActiveCell({ side, lineupIdx: 1, pitchIdx: 10+idx })} onClose={() => setActiveCell(null)} onChange={(val) => handleScoreUpdate(side, 1, 10+idx, val)} onUndo={() => handleUndo(side, 1, 10+idx)} />
+                                    <ScoreInput saveState={saveState} onRetrySync={onRetrySync} key={`p2-${10+idx}`} pitchNumber={11+idx} value={pitch.points} previousScore={inningData.playerScores[1].pitches[9+idx]?.points} pitchesRemaining={15 - inningData.playerScores[1].pitches.filter((p:any) => p.points !== null).length} readOnly={isReadOnly || (match.isComplete && userRole !== 'admin')} isEditing={activeCell?.side === side && activeCell.lineupIdx === 1 && activeCell.pitchIdx === 10+idx} onOpen={() => setActiveCell({ side, lineupIdx: 1, pitchIdx: 10+idx })} onClose={() => setActiveCell(null)} onChange={(val) => handleScoreUpdate(side, 1, 10+idx, val)} onUndo={() => handleUndo(side, 1, 10+idx)} />
                                 ))}</div></td>
                         <td className="px-1 sm:px-3 py-1 sm:py-2 text-center align-middle border-l border-slate-200 dark:border-slate-700 bg-slate-50/30 dark:bg-slate-900/30">
                              <div className="text-sm sm:text-base font-sans tabular-nums font-bold text-slate-800 dark:text-slate-200 w-5 sm:w-8">{inningData.playerScores[0].pitches.slice(10, 15).reduce((s,p)=>s+(p.points||0),0) + inningData.playerScores[1].pitches.slice(10, 15).reduce((s,p)=>s+(p.points||0),0)}</div>
@@ -675,7 +675,7 @@ const ScoringBoardContent: React.FC<ScoreboardProps & { saveState?: storage.Scor
                                         return onPlayerClick ? (
                                             <button
                                                 type="button"
-                                                onClick={() => onPlayerClick(pName)}
+                                                onClick={() => onPlayerClick(round.awayPlayerId)}
                                                 className="font-bold text-slate-900 dark:text-white hover:text-blue-600 dark:hover:text-blue-400 hover:underline cursor-pointer text-left transition-colors"
                                                 title="View career batting record"
                                             >
@@ -686,7 +686,7 @@ const ScoringBoardContent: React.FC<ScoreboardProps & { saveState?: storage.Scor
                                         );
                                     })()}
                                 </td>
-                                <td className="px-2 py-3"><div className="flex gap-2">{round.awayScores.map((s, pI) => (<ScoreInput saveState={saveState} onRetrySync={onRetrySync} key={pI} pitchNumber={pI+1} value={s} readOnly={isReadOnly || (match.isComplete && userRole !== 'admin')} isEditing={activeCell?.side === 'away' && activeCell?.roundIdx === idx && activeCell?.pitchIdx === pI} onOpen={() => setActiveCell({ side: 'away', lineupIdx: 0, pitchIdx: pI, roundIdx: idx })} onClose={() => setActiveCell(null)} onChange={v => handleTieBreakerScore(idx, 'away', pI, v)} onUndo={() => handleUndo('away', 0, pI, idx)} />))}</div></td>
+                                <td className="px-2 py-3"><div className="flex gap-2">{round.awayScores.map((s, pI) => (<ScoreInput saveState={saveState} onRetrySync={onRetrySync} key={pI} pitchNumber={pI+1} value={s} previousScore={round.awayScores[pI - 1]} readOnly={isReadOnly || (match.isComplete && userRole !== 'admin')} isEditing={activeCell?.side === 'away' && activeCell?.roundIdx === idx && activeCell?.pitchIdx === pI} onOpen={() => setActiveCell({ side: 'away', lineupIdx: 0, pitchIdx: pI, roundIdx: idx })} onClose={() => setActiveCell(null)} onChange={v => handleTieBreakerScore(idx, 'away', pI, v)} onUndo={() => handleUndo('away', 0, pI, idx)} />))}</div></td>
                                 <td className="px-4 py-3 font-bold text-xl text-center tabular-nums">{aS}</td>
                             </tr>
                             <tr className="bg-red-50/10">
@@ -696,7 +696,7 @@ const ScoringBoardContent: React.FC<ScoreboardProps & { saveState?: storage.Scor
                                         return onPlayerClick ? (
                                             <button
                                                 type="button"
-                                                onClick={() => onPlayerClick(pName)}
+                                                onClick={() => onPlayerClick(round.homePlayerId)}
                                                 className="font-bold text-slate-900 dark:text-white hover:text-red-600 dark:hover:text-red-400 hover:underline cursor-pointer text-left transition-colors"
                                                 title="View career batting record"
                                                 children={pName}
@@ -706,7 +706,7 @@ const ScoringBoardContent: React.FC<ScoreboardProps & { saveState?: storage.Scor
                                         );
                                     })()}
                                 </td>
-                                <td className="px-2 py-3"><div className="flex gap-2">{round.homeScores.map((s, pI) => (<ScoreInput saveState={saveState} onRetrySync={onRetrySync} key={pI} pitchNumber={pI+1} value={s} readOnly={isReadOnly || (match.isComplete && userRole !== 'admin')} isEditing={activeCell?.side === 'home' && activeCell?.roundIdx === idx && activeCell?.pitchIdx === pI} onOpen={() => setActiveCell({ side: 'home', lineupIdx: 0, pitchIdx: pI, roundIdx: idx })} onClose={() => setActiveCell(null)} onChange={v => handleTieBreakerScore(idx, 'home', pI, v)} onUndo={() => handleUndo('home', 0, pI, idx)} />))}</div></td>
+                                <td className="px-2 py-3"><div className="flex gap-2">{round.homeScores.map((s, pI) => (<ScoreInput saveState={saveState} onRetrySync={onRetrySync} key={pI} pitchNumber={pI+1} value={s} previousScore={round.homeScores[pI - 1]} readOnly={isReadOnly || (match.isComplete && userRole !== 'admin')} isEditing={activeCell?.side === 'home' && activeCell?.roundIdx === idx && activeCell?.pitchIdx === pI} onOpen={() => setActiveCell({ side: 'home', lineupIdx: 0, pitchIdx: pI, roundIdx: idx })} onClose={() => setActiveCell(null)} onChange={v => handleTieBreakerScore(idx, 'home', pI, v)} onUndo={() => handleUndo('home', 0, pI, idx)} />))}</div></td>
                                 <td className="px-4 py-3 font-bold text-xl text-center tabular-nums">{hS}</td>
                             </tr>
                          </tbody></table></div>
@@ -718,7 +718,7 @@ const ScoringBoardContent: React.FC<ScoreboardProps & { saveState?: storage.Scor
   };
 
   return (
-    <div className="min-h-full w-full overflow-x-hidden pb-20 font-sans">
+    <div className="min-h-full w-full pb-20 font-sans">
       {/* Official Forfeit Sticky Banner */}
       {(match.isForfeit || match.is_forfeit) && (() => {
         const forfeitingId = match.forfeitingTeamId || match.forfeiting_team_id;

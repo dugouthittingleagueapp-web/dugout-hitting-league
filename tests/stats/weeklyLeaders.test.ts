@@ -43,8 +43,8 @@ describe('Weekly leaderboard extraction', () => {
     });
 
     const result = calculateWeeklyLeaders([m], teams);
-    expect(result.topTotals[0]).toEqual({ name: 'p1', team: 'Tigers', score: 43 });
-    expect(result.topInnings[0]).toEqual({ name: 'p1', team: 'Tigers', score: 40 });
+    expect(result.topTotals[0]).toEqual({ playerId: 'p1', name: 'p1', team: 'Tigers', score: 43 });
+    expect(result.topInnings[0]).toEqual({ playerId: 'p1', name: 'p1', team: 'Tigers', score: 40 });
     expect(result.topTotals.find(s => s.name === 'p2')?.score).toBe(10);
     expect(result.topTotals.find(s => s.name === 'sub6')?.score).toBe(6);
   });
@@ -60,16 +60,16 @@ describe('Weekly leaderboard extraction', () => {
       isComplete: false, status: 'IN_PROGRESS',
     });
     const result = calculateWeeklyLeaders([forfeit, practice, unfinished], teams);
-    expect(result.topTotals).toEqual([{ name: 'p3', team: 'Bears', score: 2 }]);
-    expect(result.topInnings).toEqual([{ name: 'p3', team: 'Bears', score: 2 }]);
+    expect(result.topTotals).toEqual([{ playerId: 'p3', name: 'p3', team: 'Bears', score: 2 }]);
+    expect(result.topInnings).toEqual([{ playerId: 'p3', name: 'p3', team: 'Bears', score: 2 }]);
   });
 
   it('retains each player only once using their best game and best inning', () => {
     const first = game('a', [inning([['p1', [2, 4]]], [['p3', [1]]])]);
     const second = game('b', [inning([['p1', [3, 4]]], [['p3', [0]]])]);
     const result = calculateWeeklyLeaders([first, second], teams);
-    expect(result.topTotals.filter(x => x.name === 'p1')).toEqual([{ name: 'p1', team: 'Tigers', score: 7 }]);
-    expect(result.topInnings.filter(x => x.name === 'p1')).toEqual([{ name: 'p1', team: 'Tigers', score: 7 }]);
+    expect(result.topTotals.filter(x => x.name === 'p1')).toEqual([{ playerId: 'p1', name: 'p1', team: 'Tigers', score: 7 }]);
+    expect(result.topInnings.filter(x => x.name === 'p1')).toEqual([{ playerId: 'p1', name: 'p1', team: 'Tigers', score: 7 }]);
     expect(calculateWeeklyLeaders([], teams)).toEqual({ topTotals: [], topInnings: [] });
   });
 });

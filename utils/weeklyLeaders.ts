@@ -2,6 +2,7 @@ import type { Match, Team } from '../types';
 import { isForfeitMatch, getForfeitingTeamId } from '../services/matchHelpers';
 
 export interface WeeklyLeader {
+  playerId: string;
   name: string;
   team: string;
   score: number;
@@ -20,8 +21,8 @@ export const calculateWeeklyLeaders = (
       const relevantMatches = targetMatches.filter(m => m.isComplete && !m.isPractice && !m.is_practice);
 
       // Track unique players by ID to ensure they only appear once with their best score
-      const uniqueTotals = new Map<string, { name: string, team: string, score: number }>();
-      const uniqueInnings = new Map<string, { name: string, team: string, score: number }>();
+      const uniqueTotals = new Map<string, WeeklyLeader>();
+      const uniqueInnings = new Map<string, WeeklyLeader>();
 
       relevantMatches.forEach(m => {
           const home = teams.find(t => t.id === m.homeTeamId);
@@ -88,7 +89,7 @@ export const calculateWeeklyLeaders = (
                    // Check if this is the best score for this player so far
                    const existing = uniqueTotals.get(playerId);
                    if (!existing || totalScore > existing.score) {
-                       uniqueTotals.set(playerId, { name: fullName, team: teamName, score: totalScore });
+                       uniqueTotals.set(playerId, { playerId, name: fullName, team: teamName, score: totalScore });
                    }
                }
           });
@@ -118,7 +119,7 @@ export const calculateWeeklyLeaders = (
                           const existing = uniqueInnings.get(p.id);
                           if (!existing || score > existing.score) {
                               const fullName = `${p.name}${p.lastName ? ' ' + p.lastName[0] + '.' : ''}`;
-                              uniqueInnings.set(p.id, { name: fullName, team: team.name, score });
+                              uniqueInnings.set(p.id, { playerId: p.id, name: fullName, team: team.name, score });
                           }
                       }
                   });

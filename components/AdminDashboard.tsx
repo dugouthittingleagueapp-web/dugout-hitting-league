@@ -5,11 +5,13 @@ import * as storage from '../services/storageService';
 import { Team, League } from '../types';
 import { UserGuide } from './UserGuide';
 import { ScheduleImportModal } from './ScheduleImportModal';
+import { AdminSchedule } from './AdminSchedule';
+import { AdminRosters } from './AdminRosters';
 
 export const AdminDashboard: React.FC<{ 
   onBack: () => void; 
   onBrowseArchive?: (season: string) => void;
-  onSeasonUpdated?: () => void;
+  onSeasonUpdated?: () => void | Promise<void>;
   onStartPractice?: () => void;
 }> = ({ onBack, onBrowseArchive, onSeasonUpdated, onStartPractice }) => {
   const [data, setData] = useState('');
@@ -17,6 +19,13 @@ export const AdminDashboard: React.FC<{
   const [newLeagueName, setNewLeagueName] = useState('');
   const [creatingLeague, setCreatingLeague] = useState(false);
   const [showScheduleImportModal, setShowScheduleImportModal] = useState(false);
+  const [adminTab, setAdminTab] = useState<'overview' | 'schedule' | 'rosters'>('overview');
+  const [rosterDirty, setRosterDirty] = useState(false);
+  const [rosterSaving, setRosterSaving] = useState(false);
+  const leaveRoster = () => !rosterDirty || window.confirm('Leave without saving this roster?');
+  const switchAdminTab = (tab: typeof adminTab) => { if (tab === adminTab || rosterSaving || !leaveRoster()) return; setAdminTab(tab); };
+  const [scheduleRefreshToken, setScheduleRefreshToken] = useState(0);
+  const [scheduleLeagues, setScheduleLeagues] = useState<League[]>([]);
   
   // Settings State
   const [currentSeason, setCurrentSeason] = useState<string>(() => {
@@ -124,7 +133,7 @@ export const AdminDashboard: React.FC<{
             const seasons = Array.from(new Set([...fetchedSeasons, targetSeason, '2026', '2025'])).sort((a, b) => b.localeCompare(a, undefined, { numeric: true }));
             setLeagues(newLeagues);
             setAllSeasons(seasons);
-            if (onSeasonUpdated) onSeasonUpdated();
+            if (onSeasonUpdated) await onSeasonUpdated();
             alert(`Season ${targetSeason} is now active.`);
         } catch (e: any) {
             alert('Failed to set active season: ' + (e?.message || 'Unknown error'));
@@ -160,7 +169,7 @@ export const AdminDashboard: React.FC<{
   };
 
   const handleDeleteLeague = async (leagueId: string) => {
-    if (confirm(`Are you sure you want to delete the "${leagueId}" league in ${selectedSeason}? WARNING: All teams and matches associated with this league will be permanently deleted.`)) {
+    if (confirm(`Delete "${leagueId}" from ${selectedSeason}? This removes its teams and unplayed scheduled games. Any league with started or scored games is protected.`)) {
         setLoading(true);
         try {
             await storage.deleteLeague(leagueId, selectedSeason);
@@ -168,8 +177,8 @@ export const AdminDashboard: React.FC<{
             const newLeagues = await storage.getLeagues(selectedSeason);
             setLeagues(newLeagues);
             alert('League deleted.');
-        } catch (e) {
-            alert('Failed to delete league.');
+        } catch (e: any) {
+            alert(e?.message || 'Could not delete league. Please try again.');
         } finally {
             setLoading(false);
         }
@@ -192,7 +201,7 @@ export const AdminDashboard: React.FC<{
               setLeagues(newLeagues);
               setAllSeasons(seasons);
               setNewSeasonInput('');
-              if (onSeasonUpdated) onSeasonUpdated();
+              if (onSeasonUpdated) await onSeasonUpdated();
               alert(`Season ${targetSeason} is now active with clean league divisions ready for teams.`);
           } catch (e: any) {
               alert('Failed to update season: ' + (e?.message || 'Unknown error'));
@@ -276,7 +285,8 @@ export const AdminDashboard: React.FC<{
           <div className="flex items-center gap-2 self-start sm:self-auto flex-wrap">
               {onStartPractice && (
                   <button 
-                      onClick={onStartPractice} 
+                      disabled={rosterSaving}
+                      onClick={() => { if (leaveRoster()) onStartPractice?.(); }}
                       className="px-3 py-1.5 sm:px-4 sm:py-2 bg-amber-500 hover:bg-amber-600 text-slate-950 rounded-lg text-xs sm:text-sm font-bold font-sans transition-colors cursor-pointer shadow-sm flex items-center gap-1.5"
                   >
                       <span>🧪</span>
@@ -292,7 +302,8 @@ export const AdminDashboard: React.FC<{
               </button>
               <button 
                   type="button"
-                  onClick={(event) => { event.preventDefault(); event.stopPropagation(); onBack(); }} 
+                  disabled={rosterSaving}
+                  onClick={(event) => { if (rosterSaving || !leaveRoster()) return; event.preventDefault(); event.stopPropagation(); onBack(); }}
                   className="relative z-[1201] pointer-events-auto px-3 py-1.5 sm:px-4 sm:py-2 bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 rounded-lg text-slate-700 dark:text-slate-300 text-xs sm:text-sm font-bold font-sans transition-colors cursor-pointer"
               >
                   ← Exit Admin
@@ -300,6 +311,23 @@ export const AdminDashboard: React.FC<{
           </div>
       </div>
 
+      <nav className="mb-5 flex flex-wrap gap-2 border-b border-slate-200 dark:border-slate-800 pb-3" aria-label="Admin dashboard tabs">
+        <button type="button" disabled={rosterSaving} onClick={() => switchAdminTab('overview')}
+          aria-current={adminTab === 'overview' ? 'page' : undefined}
+          className={`px-5 py-2.5 rounded-xl font-bold text-sm transition-colors ${adminTab === 'overview' ? 'bg-blue-600 text-white' : 'bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-200'}`}>Dashboard</button>
+        <button type="button" disabled={rosterSaving} onClick={() => switchAdminTab('schedule')}
+          aria-current={adminTab === 'schedule' ? 'page' : undefined}
+          className={`px-5 py-2.5 rounded-xl font-bold text-sm transition-colors ${adminTab === 'schedule' ? 'bg-blue-600 text-white' : 'bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-200'}`}>Schedule</button>
+        <button type="button" disabled={rosterSaving} onClick={() => switchAdminTab('rosters')}
+          aria-current={adminTab === 'rosters' ? 'page' : undefined}
+          className={`px-5 py-2.5 rounded-xl font-bold text-sm transition-colors ${adminTab === 'rosters' ? 'bg-blue-600 text-white' : 'bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-200'}`}>Rosters</button>
+      </nav>
+      {adminTab === 'schedule' ? (
+        <AdminSchedule season={currentSeason}
+          refreshToken={scheduleRefreshToken} onImport={activeLeagues => { setScheduleLeagues(activeLeagues); setShowScheduleImportModal(true); }} />
+      ) : adminTab === 'rosters' ? (
+        <AdminRosters season={currentSeason} onDirtyChange={setRosterDirty} onBusyChange={setRosterSaving} />
+      ) : (
       <div className="space-y-4 sm:space-y-6">
         
         {/* 1. League Year Selector & Division Configuration (Exclusive to Admin) */}
@@ -603,28 +631,9 @@ export const AdminDashboard: React.FC<{
             </div>
         </section>
 
-        {/* 4. Schedule & Data Management */}
+        {/* 4. Database backup */}
         <section className="bg-white/70 dark:bg-slate-900/70 backdrop-blur-xl p-4 sm:p-6 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800 space-y-4">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-200/60 dark:border-slate-800 pb-4">
-                <div>
-                    <div className="flex items-center gap-2">
-                      <h3 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white font-sans">Season Schedule Importer (CSV)</h3>
-                      <span className="bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 text-[10px] font-extrabold px-2 py-0.5 rounded-full uppercase tracking-wider">Automated</span>
-                    </div>
-                    <p className="text-xs text-slate-500 dark:text-slate-400 font-sans mt-0.5">
-                      Upload or load any season schedule CSV to provision games, match dates, start/end times, and tunnel assignments instantly with duplicate protection.
-                    </p>
-                </div>
-                <button 
-                    onClick={() => setShowScheduleImportModal(true)} 
-                    className="flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-500 text-white px-4 py-2.5 rounded-xl font-bold text-xs sm:text-sm shadow-md transition-all font-sans cursor-pointer self-start sm:self-auto shrink-0"
-                >
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
-                    <span>Import CSV Schedule</span>
-                </button>
-            </div>
-
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-1">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div>
                     <h4 className="text-sm font-bold text-slate-800 dark:text-slate-200 font-sans">Full Database Backup</h4>
                     <p className="text-xs text-slate-500 dark:text-slate-400 font-sans mt-0.5">Download a complete JSON export of all leagues, teams, rosters, and completed matches.</p>
@@ -639,6 +648,7 @@ export const AdminDashboard: React.FC<{
             </div>
         </section>
       </div>
+      )}
 
       {showGuide && createPortal(<UserGuide onClose={() => setShowGuide(false)} />, document.body)}
       
@@ -655,13 +665,13 @@ export const AdminDashboard: React.FC<{
             setLeagues(ls);
             setAllTeams(ts);
             setData(d);
-            if (onSeasonUpdated) onSeasonUpdated();
-            alert(`Schedule Import Complete!\n• ${summary.createdMatches} matches scheduled\n• ${summary.skippedDuplicates} duplicates avoided\n• ${summary.createdTeams.length} teams created\n• ${summary.createdLeagues.length} divisions created`);
+            setScheduleRefreshToken(value => value + 1);
+            if (onSeasonUpdated) await onSeasonUpdated();
+            alert(summary.alreadyImported ? 'This CSV was already imported. No additional games were created.' : `Schedule Import Complete!\n• ${summary.createdMatches} matches scheduled\n• ${summary.skippedDuplicates} duplicates avoided\n• ${summary.createdTeams.length} teams created\n• ${summary.createdLeagues.length} divisions created`);
             setShowScheduleImportModal(false);
           }}
-          currentSeason={selectedSeason}
-          availableSeasons={allSeasons}
-          availableLeagues={leagues}
+          currentSeason={currentSeason}
+          availableLeagues={scheduleLeagues}
         />
       )}
     </div>

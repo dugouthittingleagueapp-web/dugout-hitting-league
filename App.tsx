@@ -1,3 +1,4 @@
+import {displayBookingTime} from './utils/scheduleConflictPresentation';
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { AgeGroup, AppState, Match, Team, Player, League, PlayerStats } from './types';
@@ -901,7 +902,7 @@ const App: React.FC = () => {
         )}
         
         {/* Scrollable Main Content Area */}
-        <main className="relative flex-1 w-full overflow-y-auto overflow-x-hidden scroll-touch">
+        <main className="relative flex-1 min-h-0 w-full overflow-y-auto overflow-x-hidden scroll-touch">
             {/* Dashboard Toast / Finalize Success Notification */}
             {dashboardToast && (
                 <div className="bg-emerald-600 text-white px-4 py-3 flex items-center justify-between shadow-lg z-[1150] sticky top-0 animate-in fade-in slide-in-from-top-2 duration-200">
@@ -1050,6 +1051,7 @@ const App: React.FC = () => {
                             const merged = Array.from(new Set([...seasonsList, '2026', '2025', newActive])).sort((a, b) => b.localeCompare(a, undefined, { numeric: true }));
                             setActiveSeason(newActive);
                             setAvailableSeasons(merged);
+                            setLeagues(await storage.getLeagues(newActive));
                             setState(s => ({ ...s, season: newActive, currentLeague: null }));
                         }}
                     />
@@ -1079,7 +1081,7 @@ const App: React.FC = () => {
 
             {/* SCORING VIEW */}
             {state.view === 'scoring' && state.currentMatchId && (
-                <div className="flex-1 bg-slate-100 dark:bg-slate-950 text-slate-800 dark:text-slate-200 w-full overflow-hidden">
+                <div className="flex-1 bg-slate-100 dark:bg-slate-950 text-slate-800 dark:text-slate-200 w-full">
                     <Scoreboard matchId={state.currentMatchId} onExit={handleScoreboardExit} isReadOnly={userRole === 'fan' || (userRole === 'umpire' && matches.some(m => m.id === state.currentMatchId && (m.isComplete || m.status === 'FINAL')))} userRole={userRole} onPlayerClick={setSelectedCareerPlayer} />
                 </div>
             )}
@@ -1214,7 +1216,7 @@ const App: React.FC = () => {
                                                                 <span className="font-bold bg-white text-indigo-600 w-5 h-5 sm:w-6 sm:h-6 flex items-center justify-center rounded-full text-[10px] sm:text-xs font-sans shadow tabular-nums shrink-0">{idx+1}</span>
                                                                 <button 
                                                                     type="button"
-                                                                    onClick={() => setSelectedCareerPlayer(s.name)} 
+                                                                    onClick={() => setSelectedCareerPlayer(s.playerId)}
                                                                     className="font-semibold font-sans text-xs sm:text-base hover:underline hover:text-yellow-300 text-left cursor-pointer transition-colors truncate"
                                                                     title="View career batting record"
                                                                 >
@@ -1238,7 +1240,7 @@ const App: React.FC = () => {
                                                                 <span className="font-bold bg-white text-purple-600 w-5 h-5 sm:w-6 sm:h-6 flex items-center justify-center rounded-full text-[10px] sm:text-xs font-sans shadow tabular-nums shrink-0">{idx+1}</span>
                                                                 <button 
                                                                     type="button"
-                                                                    onClick={() => setSelectedCareerPlayer(s.name)} 
+                                                                    onClick={() => setSelectedCareerPlayer(s.playerId)}
                                                                     className="font-semibold font-sans text-xs sm:text-base hover:underline hover:text-yellow-300 text-left cursor-pointer transition-colors truncate"
                                                                     title="View career batting record"
                                                                 >
@@ -1336,7 +1338,7 @@ const App: React.FC = () => {
                                                                 {match.startTime && (
                                                                     <span className="inline-flex items-center gap-1 font-bold text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/40 px-2 py-0.5 rounded-md">
                                                                         <svg className="w-3 h-3 text-blue-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                                                                        {match.startTime}{match.endTime ? ` - ${match.endTime}` : ''}
+                                                                        {displayBookingTime(match.startTime)}{match.endTime ? ` - ${displayBookingTime(match.endTime)}` : ''}
                                                                     </span>
                                                                 )}
                                                                 {match.location && (
@@ -1553,7 +1555,7 @@ const App: React.FC = () => {
                                                         <td className="px-2 sm:px-6 py-2 sm:py-3 font-bold text-slate-900 dark:text-white font-sans text-xs sm:text-base">
                                                             <button
                                                                 type="button"
-                                                                onClick={() => setSelectedCareerPlayer(stat.name)}
+                                                                onClick={() => setSelectedCareerPlayer(stat.playerId)}
                                                                 className="text-left font-bold text-slate-900 dark:text-white hover:text-blue-600 dark:hover:text-blue-400 hover:underline cursor-pointer transition-colors"
                                                                 title="View career batting record"
                                                             >
@@ -1747,7 +1749,7 @@ const App: React.FC = () => {
                                             <td className="px-2 sm:px-6 py-2 sm:py-3 font-bold text-slate-900 dark:text-white font-sans text-xs sm:text-base">
                                                 <button
                                                     type="button"
-                                                    onClick={() => setSelectedCareerPlayer(stat.name)}
+                                                    onClick={() => setSelectedCareerPlayer(stat.playerId)}
                                                     className="text-left font-bold text-slate-900 dark:text-white hover:text-blue-600 dark:hover:text-blue-400 hover:underline cursor-pointer transition-colors"
                                                     title="View career batting record"
                                                 >
@@ -1815,7 +1817,7 @@ const App: React.FC = () => {
         {/* Player Career Stats Modal */}
         <PlayerCareerModal
             isOpen={!!selectedCareerPlayer}
-            playerName={selectedCareerPlayer}
+            playerId={selectedCareerPlayer}
             onClose={() => setSelectedCareerPlayer(null)}
         />
 

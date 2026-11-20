@@ -3,7 +3,7 @@ import {createPortal} from 'react-dom';
 import type {ScheduleImportDestination,ScheduleImportSummary} from '../types';
 import {scheduleConflicts} from '../utils/scheduleConflicts';
 import {bookingFields,changedBooking,resolutionGameError,type ResolutionGame,type ResolutionWorkspace} from '../utils/scheduleResolution';
-import {conflictPairCount,conflictWarnings,displayBookingTime,displayScheduleDate,scheduleTimeOptions,scheduleTimeValue} from '../utils/scheduleConflictPresentation';
+import {conflictPairCount,conflictWarnings,displayBookingTime,displayScheduleDate,scheduleTimeOptions,scheduleTimeValue,oneHourEndTime} from '../utils/scheduleConflictPresentation';
 import {CAGE_LOCATIONS} from '../utils/scheduleValidation';
 import {generateUUID,requestScheduleResolution} from '../services/storageService';
 interface Props {
@@ -96,7 +96,7 @@ export const ScheduleResolutionModal:React.FC<Props>=({season,initial,importing,
     return()=>{disposed=true;controller.abort();window.clearInterval(timer);};
   },[season,importInput]);
   const update=(id:string,key:keyof ResolutionGame,value:string)=>{
-    setError('');setState(current=>({...current,drafts:{...current.drafts,[id]:{...current.drafts[id],[key]:value}}}));
+    setError('');setState(current=>({...current,drafts:{...current.drafts,[id]:{...current.drafts[id],...(key==='startTime'?{startTime:value,endTime:oneHourEndTime(value)||''}:{[key]:value})}}}));
   };
   const save=async()=>{
     if(saving.current||unavailable||conflicts.length||invalid.length||!changed.length)return;
@@ -147,7 +147,7 @@ export const ScheduleResolutionModal:React.FC<Props>=({season,initial,importing,
             <div className="p-3 sm:p-4 bg-slate-50 dark:bg-slate-800/70 border-b border-slate-200 dark:border-slate-700">
               <div className="flex flex-wrap items-center gap-2 mb-2 text-xs font-bold">
                 <span className="rounded-md px-2 py-1 bg-slate-800 text-white dark:bg-slate-200 dark:text-slate-900">Game {index+1}</span>
-                <span className="text-slate-600 dark:text-slate-300">{workspace.rootIds.includes(game.id)?game.kind==='import'?'From your CSV':game.kind==='new'?'New game':'Game you opened':'Also affected'}</span>
+                <span className="text-slate-600 dark:text-slate-300">{workspace.rootIds.includes(game.id)?game.kind==='import'?'From your CSV':game.kind==='new'?'New game':workspace.rootIds.length>1?'Selected for review':'Game you opened':'Also affected'}</span>
                 <span className={`rounded-full px-2 py-1 ${game.lockedReason?'bg-slate-200 dark:bg-slate-700':info||gameError?'bg-amber-100 text-amber-900 dark:bg-amber-900 dark:text-amber-100':'bg-green-100 text-green-900 dark:bg-green-900 dark:text-green-100'}`}>{game.lockedReason?'Read-only':info?'Overlapping':gameError?'Needs details':'No overlap'}</span>
               </div>
               <h4 className="font-bold text-lg leading-snug"><span>{teamName(game.homeTeamId)} vs {teamName(game.awayTeamId)}</span></h4>
@@ -167,7 +167,7 @@ export const ScheduleResolutionModal:React.FC<Props>=({season,initial,importing,
               {game.kind==='new'&&<label className="text-sm font-bold">League<select aria-label="League" value={game.league} onChange={e=>update(game.id,'league',e.target.value)} className={cls('league')}>{workspace.leagues.map(l=><option key={l.id} value={l.id}>{l.id}</option>)}</select></label>}
               <div><h5 className="text-xs font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400 mb-2">Date, time &amp; tunnels</h5><div className="grid grid-cols-2 gap-3">
               <label className="text-sm font-bold col-span-2">Date<input type="date" value={game.date} onChange={e=>update(game.id,'date',e.target.value)} aria-invalid={highlighted.has('date')||undefined} className={cls('date')+' [color-scheme:light] dark:[color-scheme:dark]'}/></label>
-              <label className="text-sm font-bold">Start time<select aria-label="Start time" value={scheduleTimeValue(game.startTime)} onChange={e=>update(game.id,'startTime',e.target.value)} aria-invalid={highlighted.has('startTime')||undefined} className={cls('startTime')}><option value="" disabled>Select time...</option>{scheduleTimeOptions(game.startTime,baseline.get(game.id)?.startTime).map(option=><option key={option.value} value={option.value}>{option.label}</option>)}</select></label>
+              <label className="text-sm font-bold">Start time<select aria-label="Start time" value={scheduleTimeValue(game.startTime)} onChange={e=>update(game.id,'startTime',e.target.value)} aria-invalid={highlighted.has('startTime')||undefined} className={cls('startTime')}><option value="" disabled>Select time...</option>{scheduleTimeOptions(game.startTime,baseline.get(game.id)?.startTime).map(option=><option key={option.value} value={option.value} disabled={!oneHourEndTime(option.value)}>{option.label}</option>)}</select><span className="block mt-1 text-xs font-normal text-slate-500 dark:text-slate-400">End time updates to one hour later.</span></label>
               <label className="text-sm font-bold">End time<select aria-label="End time" value={scheduleTimeValue(game.endTime)} onChange={e=>update(game.id,'endTime',e.target.value)} aria-invalid={highlighted.has('endTime')||undefined} className={cls('endTime')}><option value="" disabled>Select time...</option>{scheduleTimeOptions(game.endTime,baseline.get(game.id)?.endTime).map(option=><option key={option.value} value={option.value}>{option.label}</option>)}</select></label>
               <label className="text-sm font-bold col-span-2">Cage / location<select value={game.location} onChange={e=>update(game.id,'location',e.target.value)} aria-invalid={highlighted.has('location')||undefined} className={cls('location')}><option value="">Select cage...</option>{CAGE_LOCATIONS.map(c=><option key={c.value} value={c.value}>{c.label}</option>)}</select></label>
               </div></div>

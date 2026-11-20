@@ -37,3 +37,9 @@ export const scheduleTimeOptions=(current:string,existing?:string)=>{
  }
  return extras.size?[...quarterHours,...extras.values()].sort((a,b)=>a.value.localeCompare(b.value)):quarterHours;
 };
+
+/** The schedule stores same-day bookings; never wrap an end time to an earlier clock time. */
+export const oneHourEndTime=(start:string):string|null=>{
+ const minutes=scheduleTimeMinutes(start);
+ return minutes===null||minutes+60>=1440?null:scheduleTimeValue(`${Math.floor((minutes+60)/60)}:${String((minutes+60)%60).padStart(2,'0')}`);
+};

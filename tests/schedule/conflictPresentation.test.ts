@@ -31,3 +31,7 @@ it('preserves an existing off-grid booking instead of silently rounding it',()=>
  expect(scheduleTimeValue('6:10 pm')).toBe('18:10');
  expect(scheduleTimeOptions('18:15','6:10 pm').some(option=>option.value==='18:10')).toBe(true);
 });
+
+import {oneHourEndTime} from '../../utils/scheduleConflictPresentation';
+it.each([['18:00','19:00'],['18:15','19:15'],['6:10 pm','19:10'],['11:45 am','12:45'],['22:45','23:45']])('sets a one-hour end for %s', (start,end)=>{expect(oneHourEndTime(start)).toBe(end);});
+it('does not wrap late-night or invalid starts into an earlier end time',()=>{expect(oneHourEndTime('23:00')).toBeNull();expect(oneHourEndTime('23:45')).toBeNull();expect(oneHourEndTime('bad')).toBeNull();});

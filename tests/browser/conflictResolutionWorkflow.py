@@ -20,15 +20,15 @@ with sync_playwright() as p:
  before=games();d=edit_a();a=section(d,'Eagles vs Panthers')
  expect(a.get_by_label('Start time',exact=True)).to_have_value('18:10')
  expect(a.get_by_label('Start time',exact=True).get_by_role('option',name='6:10 PM (current)',exact=True)).to_have_count(1)
- a.get_by_label('Start time',exact=True).select_option('19:00');a.get_by_label('End time',exact=True).select_option('20:00')
+ a.get_by_label('Start time',exact=True).select_option('19:00');expect(a.get_by_label('End time',exact=True)).to_have_value('20:00')
  expect(d.get_by_role('heading',name='Resolve schedule conflicts',exact=True)).to_be_visible();expect(d.get_by_role('button',name='Save Changes',exact=True)).to_be_disabled()
  expect(d.get_by_text('2 games overlap',exact=True)).to_be_visible()
  expect(a.get_by_text('Overlaps Game 2: Wolves vs Raptors',exact=True)).to_be_visible()
  expect(a.get_by_text('Tunnels 5/6 is booked twice',exact=True)).to_be_visible()
  d.screenshot(path='work/browser/conflict-clarity-desktop.png');page.set_viewport_size({'width':393,'height':852});d.screenshot(path='work/browser/conflict-clarity-mobile.png');assert page.evaluate('document.documentElement.scrollWidth<=innerWidth');page.set_viewport_size({'width':1440,'height':1000})
  expect(a.get_by_label('Cage / location')).to_have_attribute('aria-invalid','true')
- other=section(d,'Wolves vs Raptors');expect(other).to_be_visible();other.get_by_label('Start time').select_option('20:00');other.get_by_label('End time').select_option('21:00')
- chain=section(d,'Storm vs Mavericks');expect(chain).to_be_visible();chain.get_by_label('Start time').select_option('21:00');chain.get_by_label('End time').select_option('22:00')
+ other=section(d,'Wolves vs Raptors');expect(other).to_be_visible();other.get_by_label('Start time').select_option('20:00');expect(other.get_by_label('End time')).to_have_value('21:00')
+ chain=section(d,'Storm vs Mavericks');expect(chain).to_be_visible();chain.get_by_label('Start time').select_option('21:00');expect(chain.get_by_label('End time')).to_have_value('22:00')
  expect(d.get_by_text('Ready to save — no overlaps',exact=True)).to_be_visible();save(d)
  after=games();assert after['a']['start_time']=='19:00' and after['b']['start_time']=='20:00' and after['c']['start_time']=='21:00'
  for k in before:assert before[k]['innings']==after[k]['innings'] and before[k]['status']==after[k]['status']

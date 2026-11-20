@@ -6,7 +6,7 @@ base=os.environ.get('DUGOUT_BROWSER_BASE_URL','http://127.0.0.1:4100');assert ur
 f=json.load(open('work/browser/conflict-fixtures.json'))
 with sync_playwright() as p:
  browser=p.chromium.launch(executable_path='/usr/bin/chromium',headless=True,args=['--no-sandbox'])
- for mode,start,end,day in [('partial','19:30','20:30','2027-11-10'),('full','23:00','23:30','2027-11-11')]:
+ for mode,start,end,day in [('partial','19:30','20:30','2027-11-10'),('full','22:15','23:15','2027-11-11')]:
   page=browser.new_page(viewport={'width':1200,'height':1000});page.set_default_timeout(12000)
   token=page.request.get(base+'/test-session').json()['token'];headers={'Authorization':'Bearer '+token}
   page.add_init_script('('+'''x=>{localStorage.setItem('userRole','admin');localStorage.setItem('dugout_auth_token',x);sessionStorage.setItem('dugout_auth_token',x);localStorage.setItem('lastActivity',String(Date.now()));localStorage.setItem('dugout_app_state',JSON.stringify({view:'admin',season:'2027'}));}'''+')('+json.dumps(token)+');')

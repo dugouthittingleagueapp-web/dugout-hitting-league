@@ -6,6 +6,8 @@ import { sortMatchesChronologically } from '../utils/matchSort';
 import { scheduleLockedReason } from '../utils/schedulePolicy';
 import { ScheduleResolutionModal } from './ScheduleResolutionModal';
 import type {ResolutionWorkspace,ResolutionGame} from '../utils/scheduleResolution';
+import {scheduleConflicts} from '../utils/scheduleConflicts';
+import {conflictPairCount} from '../utils/scheduleConflictPresentation';
 import {generateUUID} from '../services/storageService';
 import { CAGE_LOCATIONS, canonicalCage } from '../utils/scheduleValidation';
 
@@ -66,6 +68,12 @@ export const AdminSchedule: React.FC<Props> = ({ season, onImport, refreshToken 
     const q = search.toLowerCase().trim();
     return !q || [game.league, home, away, game.location || '', dateKey(game.date)].join(' ').toLowerCase().includes(q);
   })), [games, teams, leagueFilter, search]);
+  const overlaps=useMemo(()=>scheduleConflicts(games),[games]);
+  const overlapIds=useMemo(()=>new Set(overlaps.flatMap(c=>[c.firstId,c.secondId])),[overlaps]);
+  const overlapPairs=useMemo(()=>conflictPairCount(overlaps),[overlaps]);
+  const overlappingGames=useMemo(()=>sortMatchesChronologically(games.filter(g=>overlapIds.has(g.id))),[games,overlapIds]);
+  const editableOverlapIds=overlappingGames.filter(editable).map(g=>g.id);
+  const calendar=useMemo<ResolutionGame[]>(()=>games.map(m=>({id:m.id,league:m.league,kind:'existing',revision:m.revision||0,date:dateKey(m.date),startTime:m.startTime||'',endTime:m.endTime||'',location:canonicalCage(m.location)||m.location||'',homeTeamId:m.homeTeamId,awayTeamId:m.awayTeamId,notes:m.notes||undefined,lockedReason:lockedReason(m)})),[games]);
   const scheduled = games.filter(editable).length;
 
   const post = async (payload: Record<string, unknown>) => {
@@ -84,11 +92,12 @@ export const AdminSchedule: React.FC<Props> = ({ season, onImport, refreshToken 
 
   const beginEdit = (game?: Match) => {
     setError(''); setSuccess('');
-    const calendar:ResolutionGame[]=games.map(m=>({id:m.id,league:m.league,kind:'existing',revision:m.revision||0,date:dateKey(m.date),startTime:m.startTime||'',endTime:m.endTime||'',location:canonicalCage(m.location)||m.location||'',homeTeamId:m.homeTeamId,awayTeamId:m.awayTeamId,notes:m.notes||undefined,lockedReason:lockedReason(m)}));
+    const draftCalendar=[...calendar];
     const root=game?.id||generateUUID();
-    if(!game)calendar.push({id:root,kind:'new',league:leagues[0]?.id||'',revision:0,date:season+'-'+new Date().toISOString().slice(5,10),startTime:'6:00 pm',endTime:'7:00 pm',location:CAGE_LOCATIONS[0].value,homeTeamId:'',awayTeamId:''});
-    setResolution({games:calendar,teams,leagues,rootIds:[root]});
+    if(!game)draftCalendar.push({id:root,kind:'new',league:leagues[0]?.id||'',revision:0,date:season+'-'+new Date().toISOString().slice(5,10),startTime:'6:00 pm',endTime:'7:00 pm',location:CAGE_LOCATIONS[0].value,homeTeamId:'',awayTeamId:''});
+    setResolution({games:draftCalendar,teams,leagues,rootIds:[root]});
   };
+  const reviewOverlaps=()=>{setError('');setSuccess('');setResolution({games:calendar,teams,leagues,rootIds:editableOverlapIds.length?editableOverlapIds:overlappingGames.map(g=>g.id)});};
   const removeGame = async (game: Match) => {
     setWorkingId(game.id);
     setError('');
@@ -132,6 +141,14 @@ export const AdminSchedule: React.FC<Props> = ({ season, onImport, refreshToken 
           <button onClick={() => onImport(leagues)} disabled={busy || !!error} className="rounded-lg bg-blue-600 hover:bg-blue-500 text-white px-4 py-2.5 font-bold text-sm">+ Import Schedule CSV</button>
         </div>
       </div>
+      {!busy&&overlapIds.size>0&&<div role="alert" aria-label="Schedule overlap warning" className="rounded-xl border-2 border-amber-500 bg-amber-50 dark:bg-amber-950/60 text-amber-950 dark:text-amber-100 p-4 flex flex-col sm:flex-row gap-3 sm:items-center justify-between">
+        <div>
+          <h4 className="font-black text-lg">{overlapIds.size} games overlap</h4>
+          <p className="text-sm mt-1">{overlapPairs} booking overlap{overlapPairs===1?'':'s'} found across the full {season} season, including games hidden by your filters.</p>
+          <p className="text-sm mt-1">{editableOverlapIds.length?'Adjust unplayed games to clear their overlaps. Played games and games open for scoring stay locked.':'These games are protected. You can review their bookings, but their results cannot be changed here.'}</p>
+        </div>
+        <button type="button" onClick={reviewOverlaps} className="min-h-11 rounded-lg bg-amber-700 hover:bg-amber-800 text-white px-4 py-2.5 font-bold text-sm shrink-0">{editableOverlapIds.length?'Review unplayed games':'View overlaps'}</button>
+      </div>}
       <div className="bg-white/80 dark:bg-slate-900/80 rounded-xl border border-slate-200 dark:border-slate-800 p-3 space-y-3">
         <h4 className="font-bold text-sm text-slate-900 dark:text-white">Find games</h4>
         <div className="flex flex-col sm:flex-row gap-2">
@@ -181,6 +198,7 @@ export const AdminSchedule: React.FC<Props> = ({ season, onImport, refreshToken 
                 <span className="font-bold text-sm text-slate-900 dark:text-white">{formatDay(game.date)} · {game.startTime || 'Time TBA'}</span>
                 <span className="text-xs font-bold text-blue-600 dark:text-blue-400">{game.league}</span>
                 <span className="text-xs text-slate-500 dark:text-slate-400">{game.isComplete ? 'FINAL' : (game.status || 'SCHEDULED')}</span>
+                {overlapIds.has(game.id)&&<span className="rounded-full bg-amber-100 dark:bg-amber-900 text-amber-900 dark:text-amber-100 px-2 py-0.5 text-xs font-bold">Schedule overlap</span>}
               </div>
               <div className="font-semibold text-sm text-slate-800 dark:text-slate-100">{name(game.homeTeamId)} vs {name(game.awayTeamId)}</div>
               <div className="text-xs text-slate-500 dark:text-slate-400">{game.location || 'Location TBA'} · {game.startTime || ''}–{game.endTime || ''}</div>

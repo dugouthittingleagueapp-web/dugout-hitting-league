@@ -1,3 +1,5 @@
+import {identityReleaseSql} from '../../scripts/player-identity-release-plan';
+import {planPlayerIdentities} from '../../utils/playerIdentity';
 import { beforeAll, beforeEach, afterAll, describe, it, expect, vi } from 'vitest';
 import { readFileSync } from 'node:fs';
 import {randomUUID} from 'node:crypto';
@@ -600,6 +602,41 @@ describe.skipIf(!process.env.DUGOUT_TEST_DATABASE_URL)('Schedule workflows on di
     const result=await request(teams,'GET',{}, {adminRoster:'1',season:'2027'});
     const candidate=result.body.playerHistory.find((p:any)=>p.personId===person);
     expect(candidate.teams).toHaveLength(2);expect(candidate.teams.map((t:any)=>t.league).sort()).toEqual(['11U','9U']);expect(new Set(candidate.teams.map((t:any)=>t.teamId)).size).toBe(2);
+  });
+
+  it('blocks a stale legacy team payload from removing a member whose ID can be referenced by games',async()=>{
+    const team=await rosterTeam(),sub={id:randomUUID(),name:'Retained substitute',lastName:'Test'};
+    expect((await request(teams,'PUT',{...team,subs:[...team.subs,sub]})).statusCode).toBe(200);
+    const before=(await pool.query('SELECT * FROM teams WHERE id=$1',[team.id])).rows[0],games=await gameRows();
+    const rejected=await request(teams,'PUT',team);expect(rejected.statusCode).toBe(409);expect(rejected.body.error).toContain('protect their game history');
+    expect((await pool.query('SELECT * FROM teams WHERE id=$1',[team.id])).rows[0]).toEqual(before);expect(await gameRows()).toEqual(games);
+  });
+
+  const releasePlan = async () => {
+    // Reproduce Production's absent identity data, after creating synthetic rosters.
+    await pool.query('TRUNCATE player_identity_links, league_players');
+    const stored=(await pool.query('SELECT * FROM teams ORDER BY id')).rows.map(mapTeamFromDB);
+    return {teams:stored,...planPlayerIdentities(stored,randomUUID)};
+  };
+  const migrationDdl=readFileSync(new URL('../../migrations/player-identities.sql',import.meta.url),'utf8');
+  it('rehearses additive identities twice without changing any roster or saved game',async()=>{
+    await rosterTeam();const plan=await releasePlan(),beforeTeams=(await pool.query('SELECT * FROM teams ORDER BY id')).rows,beforeGames=await gameRows();
+    const sql=identityReleaseSql(plan,migrationDdl);await pool.query(sql);await pool.query(sql);
+    expect((await pool.query('SELECT COUNT(*)::int AS count FROM player_identity_links')).rows[0].count).toBe(plan.links.length);
+    expect((await pool.query('SELECT * FROM teams ORDER BY id')).rows).toEqual(beforeTeams);expect(await gameRows()).toEqual(beforeGames);
+  });
+  it('rolls back an identity release when the reviewed roster snapshot has changed',async()=>{
+    await rosterTeam();const plan=await releasePlan();await pool.query("UPDATE teams SET name=name || ' changed'");
+    const db=await pool.connect();try {await expect(db.query(identityReleaseSql(plan,migrationDdl))).rejects.toThrow('Roster snapshot changed');await db.query('ROLLBACK');} finally {db.release();}
+    expect((await pool.query('SELECT COUNT(*)::int AS count FROM league_players')).rows[0].count).toBe(0);
+  });
+  it('rolls back a reviewed identity release rather than replacing an existing conflicting identity',async()=>{
+    await rosterTeam();const plan=await releasePlan(),different=randomUUID();
+    await pool.query("INSERT INTO league_players(id,name,last_name) VALUES($1,'Existing','Person')",[different]);
+    await pool.query("INSERT INTO player_identity_links(roster_player_id,player_id,resolution) VALUES($1,$2,'new')",[plan.links[0].rosterPlayerId,different]);
+    const db=await pool.connect();try {await expect(db.query(identityReleaseSql(plan,migrationDdl))).rejects.toThrow('Existing identity differs');await db.query('ROLLBACK');} finally {db.release();}
+    expect((await pool.query('SELECT id FROM league_players')).rows).toEqual([{id:different}]);
+    expect((await pool.query('SELECT player_id FROM player_identity_links')).rows).toEqual([{player_id:different}]);
   });
 
 });

@@ -1506,7 +1506,7 @@ const requestScheduleImport = async (csvText: string, options: ScheduleImportOpt
   }
   let data;
   try { data = await res.json(); } catch { throw new Error('Could not confirm the result. Refresh and retry the same CSV safely.'); }
-  if (!res.ok) throw new Error([data.error || 'Could not import this schedule.', ...(data.errors || []).slice(0, 5)].join(' '));
+  if (!res.ok) throw Object.assign(new Error([data.error || 'Could not import this schedule.', ...(data.errors || []).slice(0, 5)].join(' ')),{resolution:data.resolution});
   return data;
 };
 export const previewScheduleImport = (csvText: string, options: ScheduleImportOptions, signal?: AbortSignal): Promise<ScheduleImportPreview> =>
@@ -1560,4 +1560,18 @@ export const createAdminTeamRoster = async (team: Team, identityChoices: Record<
   const saved = mapTeamFromDB(teamData);
   if (typeof window !== 'undefined') { try { cacheConfirmedTeam(localStorage,saved); } catch {} }
   return {...saved,identityLinks};
+};
+
+export const requestScheduleResolution = async (season:string,payload:Record<string,unknown>,signal?:AbortSignal) => {
+  return withRequestDeadline(async deadlineSignal=>{
+    const response=await apiFetch('/api/schedule-admin',{method:'POST',headers:{'Content-Type':'application/json'},signal:signal||deadlineSignal,body:JSON.stringify({...payload,season})});
+    const data=await response.json();
+    if(!response.ok)throw Object.assign(new Error(data?.error||'Could not save these changes.'),{resolution:data?.resolution,status:response.status});
+    if(payload.action==='resolve_schedule'&&data?.saved!==true&&data?.alreadySaved!==true)throw new Error('The save could not be confirmed.');
+    if(payload.action==='preview_resolution'&&(!data||!['games','teams','leagues','rootIds'].every(key=>Array.isArray(data[key]))))throw new Error('The full schedule could not be loaded.');
+    return data;
+  },15000).catch(error=>{
+    if(error?.resolution||error?.status)throw error;
+    throw new Error(error?.message||'Could not confirm the save. Your changes are still here. Reconnect and try again.');
+  });
 };

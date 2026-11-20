@@ -2,6 +2,8 @@ import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { League, ScheduleImportSummary, ScheduleImportDestination, ScheduleImportPreview } from '../types';
 import * as storage from '../services/storageService';
 import { parseScheduleCsv } from '../utils/scheduleImporter';
+import {ScheduleResolutionModal} from './ScheduleResolutionModal';
+import type {ResolutionWorkspace} from '../utils/scheduleResolution';
 import { FileDropzone } from './FileDropzone';
 
 interface ScheduleImportModalProps {
@@ -19,6 +21,7 @@ export const ScheduleImportModal: React.FC<ScheduleImportModalProps> = ({
   currentSeason,
   availableLeagues
 }) => {
+  const [resolution,setResolution]=useState<ResolutionWorkspace|null>(null);
   const [activeTab, setActiveTab] = useState<'upload' | 'paste'>('upload');
   const [csvText, setCsvText] = useState('');
   const [leagueChoices, setLeagueChoices] = useState<Record<string, string>>({});
@@ -34,6 +37,7 @@ export const ScheduleImportModal: React.FC<ScheduleImportModalProps> = ({
   const submitting = useRef(false);
 
   const handleReset = () => {
+    setResolution(null);
     fileReadVersion.current++;
     setActiveTab('upload'); setCsvText(''); setLeagueChoices({}); setNewLeagueNames({});
     setSelectedFileName(null); setCheckedPlan(null); setImportSummary(null); setExecutionError(null);
@@ -64,7 +68,7 @@ export const ScheduleImportModal: React.FC<ScheduleImportModalProps> = ({
     setPreviewLoading(true);
     const timer = window.setTimeout(() => {
       storage.previewScheduleImport(csvText, { defaultSeason: currentSeason, leagueDestinations: destinations }, controller.signal)
-        .then(result => { if (!controller.signal.aborted) setCheckedPlan({ key: requestKey, value: result }); })
+        .then(result => { if (!controller.signal.aborted) {setCheckedPlan({ key: requestKey, value: result });if(result.resolution)setResolution(result.resolution);} })
         .catch(error => { if (!controller.signal.aborted) setPreviewError(error.message || 'Could not check this schedule.'); })
         .finally(() => { if (!controller.signal.aborted) setPreviewLoading(false); });
     }, 200);
@@ -85,6 +89,7 @@ export const ScheduleImportModal: React.FC<ScheduleImportModalProps> = ({
 
   const handleExecuteImport = async () => {
     if (submitting.current || !plan || parsed.errors.length || unresolvedGroups.length) return;
+    if(plan.resolution){setResolution(plan.resolution);return;}
     submitting.current = true; setLoading(true); setExecutionError(null);
     try {
       const summary = await storage.importScheduleFromCsv(csvText, { defaultSeason: currentSeason, leagueDestinations: destinations });
@@ -92,7 +97,7 @@ export const ScheduleImportModal: React.FC<ScheduleImportModalProps> = ({
       // A refresh failure after a committed import must not be presented as a failed import.
       try { await onSuccess(summary); }
       catch { setExecutionError('The schedule was saved. Close this window and refresh to see it.'); }
-    } catch (error) { setExecutionError((error as Error).message || 'No games were imported. Please try again.'); }
+    } catch (error:any) { if(error.resolution)setResolution(error.resolution);else setExecutionError(error.message || 'No games were imported. Please try again.'); }
     finally { submitting.current = false; setLoading(false); }
   };
 
@@ -101,6 +106,11 @@ export const ScheduleImportModal: React.FC<ScheduleImportModalProps> = ({
   const errorMessage = executionError || (parsed.errors.length ? `${parsed.errors.length} row problem(s): ${parsed.errors.slice(0, 5).join(' | ')} Fix these before importing; nothing has been saved.` : previewError);
 
   if (!isOpen) return null;
+  if(resolution)return <ScheduleResolutionModal season={currentSeason} initial={resolution} importing={{csvText,leagueDestinations:destinations}} onCancel={()=>setResolution(null)} onSaved={async summary=>{
+    const completed:ScheduleImportSummary=summary||{totalRows:parsed.games.length,createdMatches:0,skippedDuplicates:parsed.games.length,createdTeams:[],createdLeagues:[],errors:[],alreadyImported:true};
+    setResolution(null);setImportSummary(completed);await onSuccess(completed);
+  }}/>;
+
 
   const distinctTeams = previewGames
     ? Array.from(new Set(previewGames.flatMap(g => [g.homeTeamName, g.awayTeamName].map(name =>

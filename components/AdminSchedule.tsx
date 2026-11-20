@@ -4,16 +4,11 @@ import { League, Match, Team } from '../types';
 import * as storage from '../services/storageService';
 import { sortMatchesChronologically } from '../utils/matchSort';
 import { scheduleLockedReason } from '../utils/schedulePolicy';
-import { scheduleDateTimeError, CAGE_LOCATIONS, canonicalCage } from '../utils/scheduleValidation';
+import { ScheduleResolutionModal } from './ScheduleResolutionModal';
+import type {ResolutionWorkspace,ResolutionGame} from '../utils/scheduleResolution';
+import {generateUUID} from '../services/storageService';
+import { CAGE_LOCATIONS, canonicalCage } from '../utils/scheduleValidation';
 
-type ScheduleEdit = {
-  date: string;
-  startTime: string;
-  endTime: string;
-  location: string;
-  homeTeamId: string;
-  awayTeamId: string;
-};
 const dateKey = (date: string) => String(date || '').slice(0, 10);
 const formatDay = (date: string) => dateKey(date) || 'Unscheduled';
 const editable = (game: Match) => !scheduleLockedReason(game);
@@ -41,9 +36,8 @@ export const AdminSchedule: React.FC<Props> = ({ season, onImport, refreshToken 
   const [success, setSuccess] = useState('');
   const [leagueFilter, setLeagueFilter] = useState('all');
   const [search, setSearch] = useState('');
-  const [editing, setEditing] = useState<Match | null>(null);
+  const [resolution,setResolution]=useState<ResolutionWorkspace|null>(null);
   const [removing, setRemoving] = useState<Match | null>(null);
-  const [draft, setDraft] = useState<ScheduleEdit | null>(null);
   const [renaming, setRenaming] = useState<Team | null>(null);
   const [newName, setNewName] = useState('');
   const [showTeams, setShowTeams] = useState(false);
@@ -88,30 +82,12 @@ export const AdminSchedule: React.FC<Props> = ({ season, onImport, refreshToken 
     return res.json();
   };
 
-  const beginEdit = (game: Match) => {
-    setError('');
-    setSuccess('');
-    setEditing(game);
-    setDraft({
-      date: dateKey(game.date), startTime: game.startTime || '6:00 pm',
-      endTime: game.endTime || '7:00 pm', location: canonicalCage(game.location) || '',
-      homeTeamId: game.homeTeamId, awayTeamId: game.awayTeamId
-    });
-  };
-  const save = async () => {
-    if (!editing || !draft) return;
-    const validationError = scheduleDateTimeError(draft.date, draft.startTime, draft.endTime);
-    if (validationError) { setError(validationError); return; }
-    setWorkingId(editing.id);
-    setError('');
-    try {
-      const result = await post({ action: 'update_game', id: editing.id, revision: editing.revision, ...draft });
-      setEditing(null);
-      setDraft(null);
-      setSuccess(result.warning || 'Game updated on the league dashboard.');
-      await load();
-    } catch (err: any) { setError(err?.message || 'Could not update the game.'); }
-    finally { setWorkingId(''); }
+  const beginEdit = (game?: Match) => {
+    setError(''); setSuccess('');
+    const calendar:ResolutionGame[]=games.map(m=>({id:m.id,league:m.league,kind:'existing',revision:m.revision||0,date:dateKey(m.date),startTime:m.startTime||'',endTime:m.endTime||'',location:canonicalCage(m.location)||m.location||'',homeTeamId:m.homeTeamId,awayTeamId:m.awayTeamId,notes:m.notes||undefined,lockedReason:lockedReason(m)}));
+    const root=game?.id||generateUUID();
+    if(!game)calendar.push({id:root,kind:'new',league:leagues[0]?.id||'',revision:0,date:season+'-'+new Date().toISOString().slice(5,10),startTime:'6:00 pm',endTime:'7:00 pm',location:CAGE_LOCATIONS[0].value,homeTeamId:'',awayTeamId:''});
+    setResolution({games:calendar,teams,leagues,rootIds:[root]});
   };
   const removeGame = async (game: Match) => {
     setWorkingId(game.id);
@@ -152,6 +128,7 @@ export const AdminSchedule: React.FC<Props> = ({ season, onImport, refreshToken 
           <button onClick={() => void load()} disabled={busy} className="rounded-lg bg-slate-200 dark:bg-slate-700 text-slate-900 dark:text-white px-4 py-2.5 font-bold text-sm disabled:opacity-50">
             {busy ? 'Refreshing...' : 'Refresh'}
           </button>
+          <button onClick={()=>beginEdit()} disabled={busy||!!error||!leagues.length} className="rounded-lg bg-blue-600 text-white px-4 py-2.5 font-bold text-sm disabled:opacity-50">+ Add game</button>
           <button onClick={() => onImport(leagues)} disabled={busy || !!error} className="rounded-lg bg-blue-600 hover:bg-blue-500 text-white px-4 py-2.5 font-bold text-sm">+ Import Schedule CSV</button>
         </div>
       </div>
@@ -223,41 +200,7 @@ export const AdminSchedule: React.FC<Props> = ({ season, onImport, refreshToken 
           </div>
         )}
       </div>
-      {editing && draft && createPortal(
-        <div className="fixed inset-0 z-[9999] bg-slate-950/80 p-3 flex items-center justify-center" role="dialog" aria-modal="true" aria-label="Edit scheduled game">
-          <div className="bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl p-5 w-full max-w-lg max-h-[90vh] overflow-y-auto space-y-3">
-            <h3 className="font-black text-lg text-slate-900 dark:text-white">Edit scheduled game · {editing.league}</h3>
-            {error && <div className="p-2 text-sm bg-red-50 dark:bg-red-950/40 text-red-700 dark:text-red-300 rounded">{error}</div>}
-            <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">Date
-              <input type="date" value={draft.date} onChange={e => setDraft({ ...draft, date: e.target.value })} className={inputClass}/>
-            </label>
-            <div className="grid grid-cols-2 gap-2">
-              <label className="text-xs font-bold text-slate-700 dark:text-slate-300">Start time<input value={draft.startTime} onChange={e => setDraft({ ...draft, startTime: e.target.value })} className={inputClass}/></label>
-              <label className="text-xs font-bold text-slate-700 dark:text-slate-300">End time<input value={draft.endTime} onChange={e => setDraft({ ...draft, endTime: e.target.value })} className={inputClass}/></label>
-            </div>
-            <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">Cage / location
-              <select value={draft.location} onChange={e => setDraft({ ...draft, location: e.target.value })} className={inputClass} required>
-                <option value="" disabled>Select cage...</option>
-                {CAGE_LOCATIONS.map(cage => <option key={cage.value} value={cage.value}>{cage.label}</option>)}
-              </select>
-            </label>
-            <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">Home team
-              <select value={draft.homeTeamId} onChange={e => setDraft({ ...draft, homeTeamId: e.target.value })} className={inputClass}>
-                {leagueTeams(editing.league).map(team => <option key={team.id} value={team.id}>{team.name}</option>)}
-              </select>
-            </label>
-            <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">Away team
-              <select value={draft.awayTeamId} onChange={e => setDraft({ ...draft, awayTeamId: e.target.value })} className={inputClass}>
-                {leagueTeams(editing.league).map(team => <option key={team.id} value={team.id}>{team.name}</option>)}
-              </select>
-            </label>
-            <div className="flex justify-end gap-2">
-              <button onClick={() => { setEditing(null); setDraft(null); setError(''); }} className="rounded-lg px-4 py-2 bg-slate-200 dark:bg-slate-700 text-slate-900 dark:text-white">Cancel</button>
-              <button onClick={() => void save()} disabled={!!workingId || !draft.location || draft.homeTeamId === draft.awayTeamId} className="rounded-lg px-4 py-2 bg-blue-600 text-white font-bold disabled:opacity-50">{workingId ? 'Saving...' : 'Save changes'}</button>
-            </div>
-          </div>
-        </div>, document.body
-      )}
+      {resolution&&<ScheduleResolutionModal season={season} initial={resolution} onCancel={()=>{setResolution(null);setError('');}} onSaved={async()=>{setResolution(null);await load();setSuccess('Schedule changes saved on the league dashboards.');}}/>}
       {renaming && createPortal(
         <div className="fixed inset-0 z-[9999] bg-slate-950/80 p-3 flex items-center justify-center" role="dialog" aria-modal="true" aria-label="Rename team">
           <div className="bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl p-5 w-full max-w-md space-y-3">

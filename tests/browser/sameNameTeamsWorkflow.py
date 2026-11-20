@@ -33,7 +33,7 @@ with sync_playwright() as p:
  for game in data['matches']:assert game['home_team_id']==ids[game['league']]
  for league in ['9U','11U']:
   page.get_by_label('Filter by league',exact=True).select_option(league);page.get_by_role('button',name='Edit',exact=True).click();dialog=page.get_by_role('dialog',name='Edit scheduled game',exact=True)
-  expect(dialog.get_by_role('heading',name='Edit scheduled game · '+league,exact=True)).to_be_visible()
+  expect(dialog.get_by_role('heading',name='Edit scheduled game',exact=True)).to_be_visible()
   home=dialog.get_by_role('combobox',name=re.compile('^Home team'));expect(home).to_have_value(ids[league]);expect(home.locator('option[value="'+ids['11U' if league=='9U' else '9U']+'"]')).to_have_count(0)
   dialog.get_by_role('button',name='Cancel',exact=True).click()
  print('PASS: import counts four league-specific teams; both Eagles reuse the correct ID; game editor excludes the other league',flush=True)

@@ -4,6 +4,8 @@ import { readFileSync } from 'node:fs';
 const uiFiles = [
   'App.tsx',
   'components/AdminDashboard.tsx',
+  'components/AdminSchedule.tsx',
+  'components/ScheduleResolutionModal.tsx',
   'components/AdminRosters.tsx',
   'components/FileDropzone.tsx',
   'components/MatchSetup.tsx',

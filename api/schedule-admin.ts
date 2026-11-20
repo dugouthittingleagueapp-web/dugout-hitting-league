@@ -5,6 +5,8 @@ import { withActiveSeason, ScheduleError, assertScheduleGamesUnlocked } from '..
 import { planScheduleImport, executeScheduleImport, importReceiptKey, previousImport } from '../server/scheduleImport.js';
 import pool from './db.js';
 import { createEmptyInning } from '../utils/inningTemplate.js';
+import {ResolutionError,resolutionWorkspace,saveScheduleResolution} from '../server/scheduleResolution.js';
+import {scheduleConflicts,conflictDescription} from '../utils/scheduleConflicts.js';
 import { scheduleConflict } from '../utils/scheduleConflicts.js';
 
 // Admin-only calendar maintenance. Do not route this through the normal scoring
@@ -32,13 +34,21 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(200).json({ season, leagues: leagues.rows, teams: teams.rows, matches: games.rows });
     }
     const result = await withActiveSeason(season, async (client, activeSeason) => {
+      if(action==='resolve_schedule')return saveScheduleResolution(client,activeSeason,req.body);
+      if(action==='preview_resolution'){
+        const plan=req.body.import?await planScheduleImport(client,activeSeason,req.body.import.csvText,req.body.import.leagueDestinations,true):undefined;
+        return resolutionWorkspace(client,activeSeason,plan);
+      }
       if (req.method === 'POST') {
         if (!['preview_import', 'import_schedule'].includes(action)) throw new ScheduleError(400, 'Unknown schedule action.');
         const key = importReceiptKey(activeSeason, req.body.csvText, req.body.leagueDestinations);
         const previous = await previousImport(client, key);
         if (previous) return action === 'preview_import' ? previous : previous.summary;
-        const plan = await planScheduleImport(client, activeSeason, req.body.csvText, req.body.leagueDestinations);
-        if (action === 'preview_import') return { games: plan.games, summary: plan.summary };
+        const plan = await planScheduleImport(client, activeSeason, req.body.csvText, req.body.leagueDestinations,true);
+        const workspace=await resolutionWorkspace(client,activeSeason,plan);
+        const conflicts=scheduleConflicts(workspace.games,new Set(workspace.rootIds));
+        if (action === 'preview_import') return { games: plan.games, summary: plan.summary, resolution:conflicts.length?workspace:undefined };
+        if(conflicts.length)throw new ResolutionError(conflictDescription(conflicts[0],id=>workspace.teams.find(t=>t.id===id)?.name||'This team')+' Adjust these games before importing. Nothing has been saved.',workspace);
         await executeScheduleImport(client, plan);
         await client.query('INSERT INTO app_settings (key, value) VALUES ($1, $2)', [key, JSON.stringify({ games: plan.games, summary: plan.summary })]);
         return plan.summary;
@@ -67,7 +77,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         throw new ScheduleError(400, 'Choose a game first.');
       }
       const existing = await client.query(
-        'SELECT id, season, league, status, is_complete, is_practice, revision, innings, tie_breaker, notes FROM matches WHERE id::text = $1 AND season = $2 FOR UPDATE',
+        'SELECT id, season, league, status, is_complete, is_practice, revision, innings, tie_breaker, notes, is_forfeit FROM matches WHERE id::text = $1 AND season = $2 FOR UPDATE',
         [id, season]
       );
       if (!existing.rows.length) {
@@ -112,17 +122,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         WHERE season=$1 AND (is_practice IS FALSE OR is_practice IS NULL)`,[season]);
       const conflict = scheduleConflict({id,date,startTime,endTime,location,homeTeamId,awayTeamId},
         calendar.rows.map(row=>({...row,date:row.date instanceof Date ? row.date.toISOString() : String(row.date)})));
-      const original = calendar.rows.find(row => String(row.id) === id);
-      const bookingUnchanged = original &&
-        scheduleDateKey(original.date instanceof Date ? original.date.toISOString() : String(original.date)) === date &&
-        scheduleTimeMinutes(original.startTime || '') === scheduleTimeMinutes(startTime) &&
-        scheduleTimeMinutes(original.endTime || '') === scheduleTimeMinutes(endTime) &&
-        canonicalCage(original.location) === canonicalCage(location) &&
-        original.homeTeamId === homeTeamId && original.awayTeamId === awayTeamId;
-      if (bookingUnchanged) {
-        const updated = await client.query('UPDATE matches SET notes=$2, revision=revision+1 WHERE id=$1 RETURNING id,revision',[id,savedNotes]);
-        return {game:updated.rows[0], warning:conflict ? 'Saved. This game still overlaps another game. Adjust its schedule to resolve the conflict.' : undefined};
-      }
       if (conflict) throw new ScheduleError(409, conflict);
       // Keep the inning template consistent with the selected players. Never carry
       // inning player IDs from a previous matchup into a newly assigned team.
@@ -149,7 +148,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     });
     return res.status(200).json(result);
   } catch (error) {
-    if (error instanceof ScheduleError) return res.status(error.status).json({ error: error.message, errors: error.errors });
+    if (error instanceof ScheduleError) return res.status(error.status).json({ error: error.message, errors: error.errors, resolution:error instanceof ResolutionError?error.resolution:undefined });
     console.error('[schedule-admin]', error);
     return res.status(500).json({ error: 'Could not confirm the save. Refresh before trying again; the same CSV can be retried safely.' });
   }

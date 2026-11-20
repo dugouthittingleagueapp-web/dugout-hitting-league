@@ -1,4 +1,4 @@
-import { randomUUID, createHash } from 'node:crypto';
+import { createHash } from 'node:crypto';
 import type { PoolClient } from 'pg';
 import type { League, Match, Team, ScheduleImportDestination, ScheduleImportPreview } from '../types';
 import { parseScheduleCsv, isDuplicateMatch } from '../utils/scheduleImporter.js';
@@ -8,17 +8,21 @@ import { ScheduleError } from './scheduleTransaction.js';
 import { scheduleConflict } from '../utils/scheduleConflicts.js';
 
 export interface ImportPlan extends ScheduleImportPreview {
+  replacements:Record<string,string>;
+  teamReplacements:Record<string,string>;
   leaguesToCreate: League[];
   teamsToCreate: Team[];
   matchesToCreate: Match[];
 }
 
 /** Same planner for preflight and commit. No writes occur while making a plan. */
-export const planScheduleImport = async (client: PoolClient, season: string, csvText: unknown, destinations: unknown): Promise<ImportPlan> => {
+export const planScheduleImport = async (client: PoolClient, season: string, csvText: unknown, destinations: unknown, allowConflicts = false): Promise<ImportPlan> => {
   if (typeof csvText !== 'string' || !csvText.trim() || Buffer.byteLength(csvText, 'utf8') > 1_000_000)
     throw new ScheduleError(400, 'Choose a schedule CSV smaller than 1 MB.');
   if (!destinations || typeof destinations !== 'object' || Array.isArray(destinations))
     throw new ScheduleError(400, 'Choose a destination league for every CSV group.');
+  const seed=importReceiptKey(season,csvText,destinations);
+  const stableId=(label:string)=>{const hex=createHash('sha256').update(seed+label).digest('hex');return `${hex.slice(0,8)}-${hex.slice(8,12)}-4${hex.slice(13,16)}-8${hex.slice(17,20)}-${hex.slice(20,32)}`;};
   const parsed = parseScheduleCsv(csvText, { defaultSeason: season });
   if (parsed.errors.length) throw new ScheduleError(400, 'Fix the CSV rows below. No games were imported.', parsed.errors);
   if (!parsed.games.length || parsed.games.length > 1000)
@@ -40,7 +44,7 @@ export const planScheduleImport = async (client: PoolClient, season: string, csv
     'SELECT id, league, season, home_team_id AS "homeTeamId", away_team_id AS "awayTeamId", date, start_time AS "startTime", end_time AS "endTime", location, is_practice FROM matches WHERE season = $1 AND (is_practice IS FALSE OR is_practice IS NULL)', [season]
   )).rows.map(row => ({ ...row, date: row.date instanceof Date ? row.date.toISOString() : String(row.date) }));
   const plan: ImportPlan = {
-    games: [], leaguesToCreate: [], teamsToCreate: [], matchesToCreate: [],
+    replacements:{},teamReplacements:{},games: [], leaguesToCreate: [], teamsToCreate: [], matchesToCreate: [],
     summary: { totalRows: parsed.games.length, createdMatches: 0, skippedDuplicates: 0, createdLeagues: [], createdTeams: [], errors: [] }
   };
   const resolved = new Map<string, string>();
@@ -62,20 +66,24 @@ export const planScheduleImport = async (client: PoolClient, season: string, csv
   const teamFor = (name: string, league: string): Team => {
     const candidates = teams.filter(team => normalizeLeague(team.league) === normalizeLeague(league) && team.name.trim().toLowerCase() === name.trim().toLowerCase());
     if (candidates.length > 1) throw new ScheduleError(409, `More than one team is named "${name}" in ${league}. Ask an admin to review it.`);
-    if (candidates[0]) return candidates[0];
-    const team: Team = { id: randomUUID(), name: name.trim(), league, season, subs: [], players: [] };
+    if (candidates[0]) {plan.teamReplacements[stableId('team:'+normalizeLeague(league)+':'+name.trim().toLowerCase())]=candidates[0].id;return candidates[0];}
+    const team: Team = { id: stableId('team:'+normalizeLeague(league)+':'+name.trim().toLowerCase()), name: name.trim(), league, season, subs: [], players: [] };
     teams.push(team);
     plan.teamsToCreate.push(team);
     plan.summary.createdTeams.push(team.name);
     return team;
   };
-  for (const source of parsed.games) {
+  for (const [rowIndex,source] of parsed.games.entries()) {
     const game = { ...source, group: resolved.get(source.csvGroup || source.group)!, season };
     const home = teamFor(game.homeTeamName, game.group);
     const away = teamFor(game.awayTeamName, game.group);
     const duplicate = isDuplicateMatch(game, home.id, away.id, matches);
     plan.games.push({ ...game, duplicate });
-    if (duplicate) { plan.summary.skippedDuplicates++; continue; }
+    if (duplicate) {
+      const existing=matches.find(match=>isDuplicateMatch(game,home.id,away.id,[match]))!;
+      plan.replacements[stableId('game:'+rowIndex)]=existing.id;
+      plan.summary.skippedDuplicates++; continue;
+    }
     const players = (team: Team): string[] => {
       const roster = typeof team.players === 'string' ? JSON.parse(team.players) : team.players;
       if (!Array.isArray(roster) || roster.some(player => typeof player?.id !== 'string'))
@@ -85,13 +93,13 @@ export const planScheduleImport = async (client: PoolClient, season: string, csv
     const homeIds = players(home);
     const awayIds = players(away);
     const match: Match = {
-      id: randomUUID(), league: game.group, season, homeTeamId: home.id, awayTeamId: away.id,
+      id: stableId('game:'+rowIndex), league: game.group, season, homeTeamId: home.id, awayTeamId: away.id,
       date: game.scheduledIsoDate, startTime: game.startTime, endTime: game.endTime,
       location: game.location, notes: game.notes, status: 'SCHEDULED', isComplete: false, is_practice: false,
       innings: Array.from({ length: 6 }, (_, i) => createEmptyInning(i + 1, homeIds, awayIds))
     };
     const conflict = scheduleConflict(match, matches);
-    if (conflict) throw new ScheduleError(409, conflict);
+    if (conflict && !allowConflicts) throw new ScheduleError(409, conflict);
     matches.push(match);
     plan.matchesToCreate.push(match);
     plan.summary.createdMatches++;

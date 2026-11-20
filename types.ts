@@ -104,6 +104,7 @@ export interface ScheduleImportDestination {
 }
 
 export interface ScheduleImportPreview {
+  resolution?: import('./utils/scheduleResolution').ResolutionWorkspace;
   games: (ScheduledGameRecord & { duplicate: boolean })[];
   summary: ScheduleImportSummary;
 }

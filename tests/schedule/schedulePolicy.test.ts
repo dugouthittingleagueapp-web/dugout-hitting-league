@@ -12,7 +12,7 @@ describe('Shared schedule protection', () => {
     expect(scheduleLockedReason({ status: 'SCHEDULED', innings: [{ home: { playerScores: [{ pitches: [{ points }] }] } }] })).not.toBeNull();
   });
   it.each([
-    { is_complete: true }, { status: 'FINAL' }, { status: 'IN_PROGRESS' },
+    { is_complete: true }, { status: 'FINAL' }, { status: 'IN_PROGRESS' }, {is_forfeit:true}, {isForfeit:true},
     { innings: '{broken' }, { innings: { unexpected: [] } }, { tie_breaker: [{}] },
   ])('fails closed for completed, started or unrecognized records: %j', data => {
     expect(scheduleLockedReason({ status: 'SCHEDULED', innings: blank, ...data })).not.toBeNull();

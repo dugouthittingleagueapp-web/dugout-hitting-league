@@ -468,7 +468,7 @@ describe.skipIf(!process.env.DUGOUT_TEST_DATABASE_URL)('Schedule workflows on di
   it('rejects a replacement CSV in an occupied slot with guidance to edit, without creating its team or changing games',async()=>{
     await importFile();const before=await gameRows(),beforeCounts=await counts();
     const result=await request(schedule,'POST',{...payload,csvText:file.replace('Eagles','Replacement Team')});
-    expect(result.statusCode).toBe(409);expect(result.body.error).toContain('Schedule → Edit');
+    expect(result.statusCode).toBe(409);expect(result.body.error).toContain('Tunnels 5/6');
     expect(await gameRows()).toEqual(before);expect(await counts()).toEqual(beforeCounts);
   });
   it('retries a lost-response team creation without creating another team or identity',async()=>{
@@ -528,15 +528,15 @@ describe.skipIf(!process.env.DUGOUT_TEST_DATABASE_URL)('Schedule workflows on di
     expect(result.statusCode).toBe(400);expect((await pool.query('SELECT * FROM matches WHERE id=$1',[game.id])).rows[0]).toEqual(game);
   });
 
-  it('saves notes on an already overlapping schedule without changing any booking or pitch fields',async()=>{
+  it('requires existing overlaps to be resolved even when saving only notes',async()=>{
     await importFile();const game=(await gameRows())[0];
     await pool.query(`INSERT INTO matches(id,league,season,home_team_id,away_team_id,date,start_time,end_time,location,status,is_complete,innings)
       SELECT $1,league,season,home_team_id,away_team_id,date,start_time,end_time,location,status,is_complete,innings FROM matches WHERE id=$2`,[randomUUID(),game.id]);
     const body={action:'update_game',season:'2027',id:game.id,revision:Number(game.revision),date:'2027-11-01',startTime:'18:00',endTime:'19:00',location:'Tunnels 5/6',notes:'Bring helmets',homeTeamId:game.home_team_id,awayTeamId:game.away_team_id};
     const result=await request(schedule,'PATCH',body);
-    expect(result.statusCode).toBe(200);expect(result.body.warning).toContain('still overlaps');
+    expect(result.statusCode).toBe(409);
     const saved=(await pool.query('SELECT * FROM matches WHERE id=$1',[game.id])).rows[0];
-    expect(saved).toEqual({...game,notes:'Bring helmets',revision:String(Number(game.revision)+1)});
+    expect(saved).toEqual(game);
     const conflicting=await request(schedule,'PATCH',{...body,revision:Number(saved.revision),startTime:'6:05 pm'});
     expect(conflicting.statusCode).toBe(409);expect((await pool.query('SELECT * FROM matches WHERE id=$1',[game.id])).rows[0]).toEqual(saved);
     const resolved=await request(schedule,'PATCH',{...body,revision:Number(saved.revision),startTime:'7:00 pm',endTime:'8:00 pm'});
@@ -637,6 +637,147 @@ describe.skipIf(!process.env.DUGOUT_TEST_DATABASE_URL)('Schedule workflows on di
     const db=await pool.connect();try {await expect(db.query(identityReleaseSql(plan,migrationDdl))).rejects.toThrow('Existing identity differs');await db.query('ROLLBACK');} finally {db.release();}
     expect((await pool.query('SELECT id FROM league_players')).rows).toEqual([{id:different}]);
     expect((await pool.query('SELECT player_id FROM player_identity_links')).rows).toEqual([{player_id:different}]);
+  });
+
+  const calendarFixture=async()=>{
+    await importFile();const a=(await gameRows())[0],b=randomUUID(),c=randomUUID();
+    for(const [id,start,end] of [[b,'19:00','20:00'],[c,'20:00','21:00']])await pool.query(`INSERT INTO matches(id,league,season,home_team_id,away_team_id,date,start_time,end_time,location,status,is_complete,innings)
+      SELECT $1,league,season,home_team_id,away_team_id,date,$3,$4,location,status,is_complete,innings FROM matches WHERE id=$2`,[id,a.id,start,end]);
+    return {a:a.id,b,c};
+  };
+  const workspace=async()=> (await request(schedule,'POST',{action:'preview_resolution',season:'2027'})).body;
+  const resolutionPayload=(changes:any[],extra:any={})=>({action:'resolve_schedule',season:'2027',requestId:randomUUID(),changes,...extra});
+  it('reports every cage/team overlap and permits chained three-game resolution in one save',async()=>{
+    const ids=await calendarFixture(),w=await workspace(),base=await gameRows();
+    const a={...w.games.find((g:any)=>g.id===ids.a),startTime:'19:00',endTime:'20:00'};
+    const b={...w.games.find((g:any)=>g.id===ids.b),startTime:'20:00',endTime:'21:00'};
+    const c={...w.games.find((g:any)=>g.id===ids.c),startTime:'21:00',endTime:'22:00'};
+    const blocked=await request(schedule,'POST',resolutionPayload([a,b]));expect(blocked.statusCode).toBe(409);expect(blocked.body.resolution.games).toHaveLength(3);expect(await gameRows()).toEqual(base);
+    const body=resolutionPayload([a,b,c]);expect((await request(schedule,'POST',body)).statusCode).toBe(200);
+    const saved=await gameRows();expect(saved.map(g=>g.innings)).toEqual(base.map(g=>g.innings));expect(saved.every(g=>Number(g.revision)===1)).toBe(true);
+    expect((await request(schedule,'POST',body)).statusCode).toBe(200);expect(await gameRows()).toEqual(saved);
+  });
+  it('previews conflicts without saving anything, including a cancelled import with new leagues and teams',async()=>{
+    await importFile();const before=await counts(),games=await gameRows();
+    const importBody={action:'preview_import',season:'2027',csvText:csv(['2027-11-01,6:00 pm,7:00 pm,Tunnels 5/6,New Group,New Home,New Away,']),leagueDestinations:{'New Group':{mode:'new',name:'Another League'}}};
+    const preview=await request(schedule,'POST',importBody);expect(preview.statusCode).toBe(200);expect(preview.body.resolution.rootIds).toHaveLength(1);expect(preview.body.resolution.games).toHaveLength(2);
+    expect(await counts()).toEqual(before);expect(await gameRows()).toEqual(games);
+    const imported=preview.body.resolution.games.find((g:any)=>g.kind==='import');
+    const rejected=await request(schedule,'POST',resolutionPayload([imported],{import:{csvText:importBody.csvText,leagueDestinations:importBody.leagueDestinations}}));
+    expect(rejected.statusCode).toBe(409);expect(await counts()).toEqual(before);expect(await gameRows()).toEqual(games);
+    const result=await request(schedule,'POST',resolutionPayload([{...imported,startTime:'21:00',endTime:'22:00'}],{import:{csvText:importBody.csvText,leagueDestinations:importBody.leagueDestinations}}));
+    expect(result.statusCode).toBe(200);expect(result.body.summary.createdMatches).toBe(1);expect((await counts()).matches).toBe(2);
+  });
+  it('atomically imports adjusted rows together with changes to an existing game',async()=>{
+    await importFile();const w=await workspace(),existing=w.games[0];
+    const input={csvText:csv(['2027-11-01,6:00 pm,7:00 pm,Tunnels 5/6,CSV Group,Third,Fourth,']),leagueDestinations:payload.leagueDestinations};
+    const preview=await request(schedule,'POST',{action:'preview_import',season:'2027',...input});const imported=preview.body.resolution.games.find((g:any)=>g.kind==='import');
+    const result=await request(schedule,'POST',resolutionPayload([{...existing,startTime:'19:00',endTime:'20:00'},imported],{import:input}));
+    expect(result.statusCode).toBe(200);expect((await pool.query('SELECT start_time FROM matches WHERE id=$1',[existing.id])).rows[0].start_time).toBe('19:00');
+    const again=await request(schedule,'POST',{action:'import_schedule',season:'2027',...input});expect(again.body.alreadyImported).toBe(true);expect((await counts()).matches).toBe(2);
+  });
+  it('rejects a stale multi-game edit and supplies refreshed games without partial changes',async()=>{
+    const ids=await calendarFixture(),w=await workspace(),a=w.games.find((g:any)=>g.id===ids.a),b=w.games.find((g:any)=>g.id===ids.b);
+    expect((await request(schedule,'POST',resolutionPayload([{...b,startTime:'22:00',endTime:'23:00'}]))).statusCode).toBe(200);
+    const before=await gameRows();const rejected=await request(schedule,'POST',resolutionPayload([{...a,startTime:'19:00',endTime:'20:00'},{...b,startTime:'20:00',endTime:'21:00'}]));
+    expect(rejected.statusCode).toBe(409);expect(rejected.body.resolution.games.find((g:any)=>g.id===ids.b).startTime).toBe('22:00');expect(await gameRows()).toEqual(before);
+  });
+  it.each(['FINAL','IN_PROGRESS','zero','lock','forfeit'])('shows %s games read-only and cannot mutate them through a batch',async protection=>{
+    const ids=await calendarFixture();
+    if(protection==='zero')await pool.query('UPDATE matches SET innings=$2 WHERE id=$1',[ids.b,JSON.stringify([{number:1,home:{playerScores:[{playerId:'protected',pitches:[{points:0}]}]},away:{playerScores:[]}}])]);
+    else if(protection==='forfeit')await pool.query('UPDATE matches SET is_forfeit=TRUE WHERE id=$1',[ids.b]);
+    else if(protection==='lock')await pool.query("INSERT INTO scoring_locks(match_id,token_hash) VALUES($1,'owned')",[ids.b]);
+    else await pool.query('UPDATE matches SET status=$2 WHERE id=$1',[ids.b,protection]);
+    const w=await workspace(),b=w.games.find((g:any)=>g.id===ids.b),before=await gameRows();expect(b.lockedReason).toBeTruthy();
+    expect((await request(schedule,'POST',resolutionPayload([{...b,startTime:'22:00',endTime:'23:00',lockedReason:null}]))).statusCode).toBe(409);expect(await gameRows()).toEqual(before);
+    expect((await request(schedule,'POST',resolutionPayload([{...w.games.find((g:any)=>g.id===ids.a),startTime:'21:00',endTime:'22:00'}]))).statusCode).toBe(200);
+    expect((await pool.query('SELECT * FROM matches WHERE id=$1',[ids.b])).rows[0]).toEqual(before.find(g=>g.id===ids.b));
+  });
+  it('rolls back earlier game updates and all import provisioning when a later insert fails',async()=>{
+    await importFile();const w=await workspace(),existing=w.games[0],before=await gameRows(),beforeCounts=await counts();
+    const input={csvText:csv(['2027-11-01,9:00 pm,10:00 pm,Tunnels 5/6,New Group,Third,Fourth,fail-insert']),leagueDestinations:{'New Group':{mode:'new',name:'Rollback League'}}};
+    const preview=await request(schedule,'POST',{action:'preview_import',season:'2027',...input});
+    // This input has no conflict, so request the editable workspace directly.
+    const importW=(await request(schedule,'POST',{action:'preview_resolution',season:'2027',import:input})).body;
+    const result=await request(schedule,'POST',resolutionPayload([{...existing,startTime:'19:00',endTime:'20:00'},...importW.games.filter((g:any)=>g.kind==='import')],{import:input}));
+    expect(result.statusCode).toBe(500);expect(await counts()).toEqual(beforeCounts);expect(await gameRows()).toEqual(before);
+  });
+  it('validates new single-game creation and rejects duplicate IDs, wrong leagues and archived edits',async()=>{
+    await importFile();const w=await workspace(),base={...w.games[0],id:randomUUID(),kind:'new',revision:0,startTime:'19:00',endTime:'20:00'};
+    expect((await request(schedule,'POST',resolutionPayload([{...base,homeTeamId:base.awayTeamId}]))).statusCode).toBe(400);
+    expect((await request(schedule,'POST',resolutionPayload([base,base]))).statusCode).toBe(400);
+    expect((await request(schedule,'POST',resolutionPayload([{...base,league:'Wrong'}]))).statusCode).toBe(409);
+    expect((await request(schedule,'POST',{...resolutionPayload([base]),season:'2025'})).statusCode).toBe(403);
+    expect((await request(schedule,'POST',resolutionPayload([base]),{},'umpire')).statusCode).toBe(403);
+    expect((await request(schedule,'POST',resolutionPayload([base]))).statusCode).toBe(200);
+    const saved=(await pool.query('SELECT * FROM matches WHERE id=$1',[base.id])).rows[0];expect(saved.status).toBe('SCHEDULED');expect(saved.is_complete).toBe(false);
+  });
+
+  it('serializes simultaneous edits of one booking so one stale writer is rejected',async()=>{
+    await importFile();const w=await workspace(),game=w.games[0];
+    const results=await Promise.all([request(schedule,'POST',resolutionPayload([{...game,startTime:'19:00',endTime:'20:00'}])),request(schedule,'POST',resolutionPayload([{...game,startTime:'20:00',endTime:'21:00'}]))]);
+    expect(results.map(r=>r.statusCode).sort()).toEqual([200,409]);
+    expect(Number((await gameRows())[0].revision)).toBe(1);
+  });
+  it('rechecks an umpire lock acquired while the calendar row locks were waiting',async()=>{
+    await importFile();const w=await workspace(),game=w.games[0],owner=await pool.connect();
+    try{
+      await owner.query('BEGIN');await owner.query('SELECT id FROM matches WHERE id=$1 FOR UPDATE',[game.id]);
+      const save=request(schedule,'POST',resolutionPayload([{...game,startTime:'19:00',endTime:'20:00'}]));
+      let waiting=false;
+      for(let i=0;i<50;i++){
+        const blocked=(await pool.query("SELECT 1 FROM pg_stat_activity WHERE datname=current_database() AND wait_event_type='Lock' AND query LIKE '%FOR UPDATE OF m%' AND pid<>pg_backend_pid()" )).rows;
+        if(blocked.length){waiting=true;break;}await new Promise(resolve=>setTimeout(resolve,10));
+      }
+      expect(waiting).toBe(true);
+      await owner.query("INSERT INTO scoring_locks(match_id,token_hash) VALUES($1,'new-owner')",[game.id]);await owner.query('COMMIT');
+      const result=await save;expect(result.statusCode).toBe(409);expect(result.body.resolution.games[0].lockedReason).toContain('umpire');
+      expect((await gameRows())[0].start_time).toBe('6:00 pm');
+    }finally{await owner.query('ROLLBACK');owner.release();}
+  });
+
+  it('updates an unplayed matchup template from the selected rosters and preserves metadata',async()=>{
+    await importFile();const replacement=createPayload('Replacement');expect((await request(teams,'POST',replacement)).statusCode).toBe(201);
+    const w=await workspace(),game=w.games[0];
+    expect((await request(schedule,'POST',resolutionPayload([{...game,homeTeamId:replacement.id}]))).statusCode).toBe(200);
+    const saved=(await gameRows())[0];expect(saved.home_team_id).toBe(replacement.id);expect(saved.notes).toBe('Bring balls');
+    expect(saved.innings[0].home.playerScores.map((p:any)=>p.playerId)).toEqual(replacement.players.map(p=>p.id));expect(saved.status).toBe('SCHEDULED');
+  });
+  it('rejects scoring fields in a schedule-only payload without changing saved history',async()=>{
+    await importFile();const w=await workspace(),before=await gameRows();
+    expect((await request(schedule,'POST',resolutionPayload([{...w.games[0],innings:[],status:'FINAL',startTime:'19:00',endTime:'20:00'}]))).statusCode).toBe(400);expect(await gameRows()).toEqual(before);
+  });
+  it('does not create unused CSV teams when imported matchups are edited to existing teams',async()=>{
+    await importFile();const w=await workspace(),existing=w.games[0],input={csvText:csv(['2027-11-02,6:00 pm,7:00 pm,Tunnels 5/6,CSV Group,Unused Home,Unused Away,']),leagueDestinations:payload.leagueDestinations};
+    const importW=(await request(schedule,'POST',{action:'preview_resolution',season:'2027',import:input})).body,imported=importW.games.find((g:any)=>g.kind==='import');
+    const result=await request(schedule,'POST',resolutionPayload([{...imported,homeTeamId:existing.homeTeamId,awayTeamId:existing.awayTeamId}],{import:input}));
+    expect(result.statusCode).toBe(200);expect(result.body.summary.createdTeams).toEqual([]);expect((await counts()).teams).toBe(2);
+    const retry=await request(schedule,'POST',{action:'preview_import',season:'2027',...input});expect(retry.body.games[0].homeTeamName).toBe('Eagles');expect(retry.body.summary.alreadyImported).toBe(true);
+  });
+
+  it('does not silently discard an admin edit when another admin imported the same CSV first',async()=>{
+    await importFile();const w=await workspace(),existing=w.games[0],input={csvText:csv(['2027-11-02,6:00 pm,7:00 pm,Tunnels 5/6,CSV Group,Third,Fourth,']),leagueDestinations:payload.leagueDestinations};
+    const planned=(await request(schedule,'POST',{action:'preview_resolution',season:'2027',import:input})).body;
+    const imported=planned.games.find((g:any)=>g.kind==='import');
+    expect((await request(schedule,'POST',{action:'import_schedule',season:'2027',...input})).statusCode).toBe(200);
+    const before=await gameRows();
+    const rejected=await request(schedule,'POST',resolutionPayload([{...existing,startTime:'19:00',endTime:'20:00'},imported],{import:input}));
+    expect(rejected.statusCode).toBe(409);expect(rejected.body.resolution.importAlreadySaved).toBe(true);expect(await gameRows()).toEqual(before);
+    const retry=await request(schedule,'POST',resolutionPayload([{...existing,startTime:'19:00',endTime:'20:00'}]));expect(retry.statusCode).toBe(200);expect((await counts()).matches).toBe(2);
+  });
+
+  it('reconciles a partially imported CSV to real game IDs and preserves the remaining edits',async()=>{
+    await importFile();
+    const rows=['2027-11-02,6:00 pm,7:00 pm,Tunnels 5/6,CSV Group,Third,Fourth,','2027-11-03,6:00 pm,7:00 pm,Tunnels 5/6,CSV Group,Fifth,Sixth,'];
+    const input={csvText:csv(rows),leagueDestinations:payload.leagueDestinations};
+    const old=(await request(schedule,'POST',{action:'preview_resolution',season:'2027',import:input})).body.games.filter((g:any)=>g.kind==='import');
+    expect((await request(schedule,'POST',{action:'import_schedule',season:'2027',csvText:csv([rows[0]]),leagueDestinations:input.leagueDestinations})).statusCode).toBe(200);
+    const rejected=await request(schedule,'POST',resolutionPayload([{...old[0],startTime:'19:00',endTime:'20:00'},old[1]],{import:input}));
+    expect(rejected.statusCode).toBe(409);const fresh=rejected.body.resolution;
+    const actualId=fresh.replacements[old[0].id];expect(actualId).toBeTruthy();expect(actualId).not.toBe(old[0].id);
+    const saved=await request(schedule,'POST',resolutionPayload([{...fresh.games.find((g:any)=>g.id===actualId),startTime:'19:00',endTime:'20:00'},...fresh.games.filter((g:any)=>g.kind==='import')],{import:input}));
+    expect(saved.statusCode).toBe(200);expect(saved.body.summary.createdMatches).toBe(1);expect(saved.body.summary.skippedDuplicates).toBe(1);
+    expect((await counts()).matches).toBe(3);expect((await pool.query('SELECT start_time FROM matches WHERE id=$1',[actualId])).rows[0].start_time).toBe('19:00');
   });
 
 });

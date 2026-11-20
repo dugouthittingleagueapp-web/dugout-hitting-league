@@ -20,10 +20,14 @@ with sync_playwright() as p:
  before=games();d=edit_a();a=section(d,'Eagles vs Panthers')
  a.get_by_label('Start time',exact=True).fill('19:00');a.get_by_label('End time',exact=True).fill('20:00')
  expect(d.get_by_role('heading',name='Resolve schedule conflicts',exact=True)).to_be_visible();expect(d.get_by_role('button',name='Save Changes',exact=True)).to_be_disabled()
+ expect(d.get_by_text('2 games overlap',exact=True)).to_be_visible()
+ expect(a.get_by_text('Overlaps Game 2: Wolves vs Raptors',exact=True)).to_be_visible()
+ expect(a.get_by_text('Tunnels 5/6 is booked twice',exact=True)).to_be_visible()
+ d.screenshot(path='work/browser/conflict-clarity-desktop.png');page.set_viewport_size({'width':393,'height':852});d.screenshot(path='work/browser/conflict-clarity-mobile.png');assert page.evaluate('document.documentElement.scrollWidth<=innerWidth');page.set_viewport_size({'width':1440,'height':1000})
  expect(a.get_by_label('Cage / location')).to_have_attribute('aria-invalid','true')
  other=section(d,'Wolves vs Raptors');expect(other).to_be_visible();other.get_by_label('Start time').fill('20:00');other.get_by_label('End time').fill('21:00')
  chain=section(d,'Storm vs Mavericks');expect(chain).to_be_visible();chain.get_by_label('Start time').fill('21:00');chain.get_by_label('End time').fill('22:00')
- expect(d.get_by_text('No scheduling conflicts. All games are ready to save.',exact=True)).to_be_visible();save(d)
+ expect(d.get_by_text('Ready to save — no overlaps',exact=True)).to_be_visible();save(d)
  after=games();assert after['a']['start_time']=='19:00' and after['b']['start_time']=='20:00' and after['c']['start_time']=='21:00'
  for k in before:assert before[k]['innings']==after[k]['innings'] and before[k]['status']==after[k]['status']
  print('PASS: immediate conflicts, highlighted fields, editable neighbors, chained game discovery and one atomic three-game save',flush=True)
@@ -36,7 +40,7 @@ with sync_playwright() as p:
    response=route.fetch();assert response.status==200;route.abort('internetdisconnected')
   else:route.continue_()
  page.route('**/api/schedule-admin',lose_response);d.get_by_role('button',name='Save Changes',exact=True).click()
- expect(d.get_by_role('alert')).to_contain_text('Could not confirm the save');expect(d.get_by_label('Date',exact=True)).to_be_disabled()
+ expect(d.get_by_role('alert')).to_contain_text('Could not confirm the save');expect(d.get_by_text('Save needs confirmation',exact=True)).to_be_visible();expect(d.get_by_label('Date',exact=True)).to_be_disabled()
  page.unroute('**/api/schedule-admin',lose_response);save(d)
  created=[g for g in page.request.get(base+'/api/matches?season=2027').json() if g['date'].startswith('2027-11-05') and g['league']==f['league']]
  assert len(created)==1
@@ -45,12 +49,12 @@ with sync_playwright() as p:
  expect(section(d,'Wolves vs Raptors')).to_be_visible();d.get_by_role('button',name='Cancel',exact=True).click();assert games()==before
  print('PASS: Cancel changes no game, score, revision or status',flush=True)
  d=edit_a();a=section(d,'Eagles vs Panthers');a.get_by_label('Start time').fill('18:00');a.get_by_label('End time').fill('19:00');a.get_by_label('Cage / location').select_option('The Dugout: Tunnels 7/8')
- protected=section(d,'Final Home vs Final Away');expect(protected.get_by_label('Date',exact=True)).to_be_disabled();expect(protected.get_by_text('Read-only',exact=False)).to_be_visible()
+ protected=section(d,'Final Home vs Final Away');expect(protected.get_by_label('Date',exact=True)).to_be_disabled();expect(protected.get_by_text('Read-only',exact=True)).to_be_visible()
  a.get_by_label('Start time').fill('22:00');a.get_by_label('End time').fill('23:00');save(d);assert games()['protected']==before['protected']
  print('PASS: completed conflicting game stays read-only; eligible game resolves conflict without changing protected history',flush=True)
  # A conflicting team remains a conflict even in another cage.
  d=edit_a();a=section(d,'Eagles vs Panthers');a.get_by_label('Start time').fill('20:00');a.get_by_label('End time').fill('21:00');a.get_by_label('Home team').select_option(f['teams'][2]['id'])
- expect(d.get_by_text('Wolves is scheduled in both games',exact=False).first).to_be_visible();expect(d.get_by_role('button',name='Save Changes',exact=True)).to_be_disabled();d.get_by_role('button',name='Cancel',exact=True).click()
+ expect(d.get_by_text('Wolves is playing in two games at once',exact=False).first).to_be_visible();expect(d.get_by_role('button',name='Save Changes',exact=True)).to_be_disabled();d.get_by_role('button',name='Cancel',exact=True).click()
  print('PASS: team conflict identifies the team and blocks save across separate cages',flush=True)
  # A game hidden by the league filter is still included in validation.
  d=edit_a();a=section(d,'Eagles vs Panthers');a.get_by_label('Date',exact=True).fill('2027-11-02');a.get_by_label('Start time').fill('18:30');a.get_by_label('End time').fill('19:30');a.get_by_label('Cage / location').select_option('The Dugout: Tunnels 5/6')

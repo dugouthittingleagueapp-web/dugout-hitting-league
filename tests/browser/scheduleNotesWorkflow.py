@@ -11,7 +11,7 @@ with sync_playwright() as p:
  before=[page.request.get(base+'/api/matches?id='+id).json() for id in fixture['ids']]
  page.get_by_role('button',name='Edit',exact=True).first.click();dialog=page.get_by_role('dialog')
  expect(dialog.get_by_role('heading',name='Resolve schedule conflicts',exact=True)).to_be_visible()
- root=dialog.get_by_role('region').filter(has=page.get_by_role('heading',name=re.compile('^Game being edited')))
+ root=dialog.get_by_role('region').filter(has=page.get_by_text('Game you opened',exact=True))
  expect(root.get_by_role('textbox',name='Notes',exact=True)).to_have_value('Original notes')
  expect(dialog.get_by_role('button',name='Save Changes',exact=True)).to_be_disabled()
  root.get_by_label('Start time',exact=True).fill('6:05 pm')

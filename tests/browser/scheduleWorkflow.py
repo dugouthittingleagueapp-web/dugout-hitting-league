@@ -64,7 +64,7 @@ with sync_playwright() as p:
  root.get_by_role('textbox',name='End time',exact=True).fill('7:10 pm')
  root.get_by_role('combobox',name='Cage / location',exact=True).select_option('The Dugout: Tunnels 7/8')
  expect(edit.get_by_role('button',name='Save Changes',exact=True)).to_be_disabled()
- expect(edit.get_by_text('Both games are scheduled in Tunnels 7/8',exact=False).first).to_be_visible()
+ expect(edit.get_by_text('Tunnels 7/8 is booked twice',exact=False).first).to_be_visible()
  root.get_by_role('combobox',name='Cage / location',exact=True).select_option('The Dugout: Tunnels 5/6')
  edit.get_by_role('button',name='Save Changes',exact=True).click()
  expect(edit).not_to_be_visible()

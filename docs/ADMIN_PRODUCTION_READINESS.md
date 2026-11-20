@@ -1,4 +1,4 @@
-# Admin release readiness — November 19, 2026
+# Admin release readiness — November 20, 2026
 
 Production has not been changed. PR #11 remains a draft pending owner acceptance and release approval.
 
@@ -8,6 +8,7 @@ Base: Production `778ef94584096ebde90911d539b90f33e06ae2b3`.
 Candidate branch: `fix/schedule-import-league-provisioning`.
 
 Included:
+- Unified conflict-resolution editor for scheduled games and CSV imports: editable affected games, live whole-season checks, protected read-only context and atomic multi-game saves (see `SCHEDULE_CONFLICT_RESOLUTION.md`).
 - Central Admin Schedule: active-season CSV mapping, league/team provisioning, duplicate receipts and cage/team conflict checks; protected edit/remove and team rename.
 - Admin Rosters: create a team with three initial player fields, manage substitutes, preserve roster IDs, match returning players during or after entry, and autofill both names on selection.
 - Separate teams with the same name in different leagues or seasons; schedule imports reuse only the correct league/season team.

@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { League, ScheduleImportSummary, ScheduleImportDestination, ScheduleImportPreview } from '../types';
 import * as storage from '../services/storageService';
+import {displayBookingTime} from '../utils/scheduleConflictPresentation';
 import { parseScheduleCsv } from '../utils/scheduleImporter';
 import {ScheduleResolutionModal} from './ScheduleResolutionModal';
 import type {ResolutionWorkspace} from '../utils/scheduleResolution';
@@ -332,7 +333,7 @@ export const ScheduleImportModal: React.FC<ScheduleImportModalProps> = ({
                         >
                           <td className="p-2 sm:p-2.5 whitespace-nowrap font-medium text-slate-900 dark:text-white">
                             <div>{game.date}</div>
-                            <div className="text-[10px] text-slate-500">{game.startTime} - {game.endTime}</div>
+                            <div className="text-[10px] text-slate-500">{displayBookingTime(game.startTime)} - {displayBookingTime(game.endTime)}</div>
                           </td>
                           <td className="p-2 sm:p-2.5 whitespace-nowrap text-slate-600 dark:text-slate-300">
                             {game.location}

@@ -7,7 +7,7 @@ import { scheduleLockedReason } from '../utils/schedulePolicy';
 import { ScheduleResolutionModal } from './ScheduleResolutionModal';
 import type {ResolutionWorkspace,ResolutionGame} from '../utils/scheduleResolution';
 import {scheduleConflicts} from '../utils/scheduleConflicts';
-import {conflictPairCount} from '../utils/scheduleConflictPresentation';
+import {conflictPairCount,displayBookingTime} from '../utils/scheduleConflictPresentation';
 import {generateUUID} from '../services/storageService';
 import { CAGE_LOCATIONS, canonicalCage } from '../utils/scheduleValidation';
 
@@ -141,13 +141,13 @@ export const AdminSchedule: React.FC<Props> = ({ season, onImport, refreshToken 
           <button onClick={() => onImport(leagues)} disabled={busy || !!error} className="rounded-lg bg-blue-600 hover:bg-blue-500 text-white px-4 py-2.5 font-bold text-sm">+ Import Schedule CSV</button>
         </div>
       </div>
-      {!busy&&overlapIds.size>0&&<div role="alert" aria-label="Schedule overlap warning" className="rounded-xl border-2 border-amber-500 bg-amber-50 dark:bg-amber-950/60 text-amber-950 dark:text-amber-100 p-4 flex flex-col sm:flex-row gap-3 sm:items-center justify-between">
+      {!busy&&overlapIds.size>0&&<div role="alert" aria-label="Schedule overlap warning" className="rounded-xl border-2 border-red-500 bg-red-50 dark:bg-red-950/60 text-red-950 dark:text-red-100 p-4 flex flex-col sm:flex-row gap-3 sm:items-center justify-between">
         <div>
           <h4 className="font-black text-lg">{overlapIds.size} games overlap</h4>
           <p className="text-sm mt-1">{overlapPairs} booking overlap{overlapPairs===1?'':'s'} found across the full {season} season, including games hidden by your filters.</p>
           <p className="text-sm mt-1">{editableOverlapIds.length?'Adjust unplayed games to clear their overlaps. Played games and games open for scoring stay locked.':'These games are protected. You can review their bookings, but their results cannot be changed here.'}</p>
         </div>
-        <button type="button" onClick={reviewOverlaps} className="min-h-11 rounded-lg bg-amber-700 hover:bg-amber-800 text-white px-4 py-2.5 font-bold text-sm shrink-0">{editableOverlapIds.length?'Review unplayed games':'View overlaps'}</button>
+        <button type="button" onClick={reviewOverlaps} className="min-h-11 rounded-lg bg-red-700 hover:bg-red-800 text-white px-4 py-2.5 font-bold text-sm shrink-0">{editableOverlapIds.length?'Review unplayed games':'View overlaps'}</button>
       </div>}
       <div className="bg-white/80 dark:bg-slate-900/80 rounded-xl border border-slate-200 dark:border-slate-800 p-3 space-y-3">
         <h4 className="font-bold text-sm text-slate-900 dark:text-white">Find games</h4>
@@ -195,13 +195,13 @@ export const AdminSchedule: React.FC<Props> = ({ season, onImport, refreshToken 
           <div key={game.id} className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white/80 dark:bg-slate-900/80 p-3.5 flex flex-col sm:flex-row gap-3 sm:items-center justify-between">
             <div className="min-w-0 space-y-1">
               <div className="flex flex-wrap gap-2 items-center">
-                <span className="font-bold text-sm text-slate-900 dark:text-white">{formatDay(game.date)} · {game.startTime || 'Time TBA'}</span>
+                <span className="font-bold text-sm text-slate-900 dark:text-white">{formatDay(game.date)} · {game.startTime ? displayBookingTime(game.startTime) : 'Time TBA'}</span>
                 <span className="text-xs font-bold text-blue-600 dark:text-blue-400">{game.league}</span>
                 <span className="text-xs text-slate-500 dark:text-slate-400">{game.isComplete ? 'FINAL' : (game.status || 'SCHEDULED')}</span>
-                {overlapIds.has(game.id)&&<span className="rounded-full bg-amber-100 dark:bg-amber-900 text-amber-900 dark:text-amber-100 px-2 py-0.5 text-xs font-bold">Schedule overlap</span>}
+                {overlapIds.has(game.id)&&<span className="rounded-full bg-red-100 dark:bg-red-900 text-red-900 dark:text-red-100 px-2 py-0.5 text-xs font-bold">Schedule overlap</span>}
               </div>
               <div className="font-semibold text-sm text-slate-800 dark:text-slate-100">{name(game.homeTeamId)} vs {name(game.awayTeamId)}</div>
-              <div className="text-xs text-slate-500 dark:text-slate-400">{game.location || 'Location TBA'} · {game.startTime || ''}–{game.endTime || ''}</div>
+              <div className="text-xs text-slate-500 dark:text-slate-400">{game.location || 'Location TBA'} · {game.startTime ? displayBookingTime(game.startTime) : 'Time TBA'}–{game.endTime ? displayBookingTime(game.endTime) : 'Time TBA'}</div>
             </div>
             {editable(game) ? (
               <div className="flex gap-2 shrink-0">

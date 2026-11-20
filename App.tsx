@@ -1,3 +1,4 @@
+import {displayBookingTime} from './utils/scheduleConflictPresentation';
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { AgeGroup, AppState, Match, Team, Player, League, PlayerStats } from './types';
@@ -1337,7 +1338,7 @@ const App: React.FC = () => {
                                                                 {match.startTime && (
                                                                     <span className="inline-flex items-center gap-1 font-bold text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/40 px-2 py-0.5 rounded-md">
                                                                         <svg className="w-3 h-3 text-blue-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                                                                        {match.startTime}{match.endTime ? ` - ${match.endTime}` : ''}
+                                                                        {displayBookingTime(match.startTime)}{match.endTime ? ` - ${displayBookingTime(match.endTime)}` : ''}
                                                                     </span>
                                                                 )}
                                                                 {match.location && (

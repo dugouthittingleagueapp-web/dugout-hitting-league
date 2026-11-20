@@ -170,8 +170,8 @@ export const TeamManagement: React.FC<TeamManagementProps> = ({ league, season, 
         
         await loadTeams();
         cancelEdit();
-    } catch (e) {
-        alert("Failed to save team");
+    } catch (e: any) {
+        alert(e?.message || 'Could not save the team. Please try again.');
     }
     
     setLoading(false);
@@ -180,9 +180,12 @@ export const TeamManagement: React.FC<TeamManagementProps> = ({ league, season, 
   const handleDelete = async (id: string, name: string) => {
     if(confirm(`Delete team "${name}"?`)) {
         setLoading(true);
-        await storage.deleteTeam(id);
-        if (selectedTeam?.id === id) setSelectedTeam(null);
-        await loadTeams();
+        try {
+          await storage.deleteTeam(id);
+          if (selectedTeam?.id === id) setSelectedTeam(null);
+          await loadTeams();
+        } catch (error: any) { alert(error?.message || 'Could not remove this team.'); }
+        finally { setLoading(false); }
     }
   };
 

@@ -156,9 +156,6 @@ export const MatchSetup: React.FC<MatchSetupProps> = ({ homeTeam, awayTeam, onSt
     const updater = (list: Player[]) =>
       list.map(p => (p.id === editingPlayer.id ? { ...p, name: trimmed, lastName: editingPlayer.lastName?.trim() || undefined } : p));
 
-    setHomeLineup(updater);
-    setAwayLineup(updater);
-
     // Also update team roster permanently
     try {
       if (homeTeam.players.some(p => p.id === editingPlayer.id)) {
@@ -169,10 +166,12 @@ export const MatchSetup: React.FC<MatchSetupProps> = ({ homeTeam, awayTeam, onSt
         const updated = { ...awayTeam, players: updater(awayTeam.players) };
         await storage.updateTeam(updated);
       }
-    } catch (e) {
-      console.warn('Failed to persist renamed player to team roster', e);
+    } catch (e: any) {
+      alert(e?.message || 'Could not save this player name. Reconnect and try again.');
+      return;
     }
-
+    setHomeLineup(updater);
+    setAwayLineup(updater);
     setEditingPlayer(null);
   };
 
@@ -269,7 +268,10 @@ export const MatchSetup: React.FC<MatchSetupProps> = ({ homeTeam, awayTeam, onSt
     try {
       if (homeTeam) await storage.updateTeam({ ...homeTeam, players: teamHomePlayers });
       if (awayTeam) await storage.updateTeam({ ...awayTeam, players: teamAwayPlayers });
-    } catch (e) {}
+    } catch (e: any) {
+      alert(e?.message || 'Could not save the player names. Reconnect and try again.');
+      return;
+    }
 
     setShowPlaceholderPrompt(false);
     executeMatchStart(updatedHome, updatedAway);

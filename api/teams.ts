@@ -190,6 +190,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const duplicates = await client.query('SELECT id FROM teams WHERE season = $1 AND LOWER(TRIM(league)) = LOWER(TRIM($2)) AND LOWER(TRIM(name)) = LOWER(TRIM($3)) AND id <> $4', [season, current.league, name, id]);
       if (duplicates.rows.length) throw new ScheduleError(409, 'A team with this name already exists in that league.');
       const previousTeam = mapTeamFromDB(current);
+      const submittedIds = [...players,...subs].map(player => player?.id);
+      if (new Set(submittedIds).size !== submittedIds.length)
+        throw new ScheduleError(400, 'Each player can appear only once on this roster.');
+      if ([...previousTeam.players,...(previousTeam.subs || [])].some(player => !submittedIds.includes(player.id)))
+        throw new ScheduleError(409, 'Keep existing players to protect their game history. Use Admin Dashboard → Rosters to move them to substitutes.');
       await registerUnlinkedRosterPlayers(client, {players,subs}, new Set([...previousTeam.players, ...(previousTeam.subs || [])].map(p => p.id)));
       return (await client.query('UPDATE teams SET name = $2, players = $3, subs = $4 WHERE id = $1 RETURNING *', [id, name.trim(), JSON.stringify(players), JSON.stringify(subs)])).rows[0];
     });

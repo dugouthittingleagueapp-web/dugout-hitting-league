@@ -418,96 +418,28 @@ export const createTeam = async (name: string, league: AgeGroup, players: {name:
     subs: subs.map(s => ({ id: generateUUID(), name: s.name, lastName: s.lastName }))
   };
 
-  // Cache locally
-  if (typeof window !== 'undefined') {
-    try {
-      localStorage.setItem(`dugout_team_${newTeam.id}`, JSON.stringify(newTeam));
-      const cached = localStorage.getItem('dugout_all_teams_cache');
-      if (cached) {
-        const list: Team[] = JSON.parse(cached);
-        list.push(newTeam);
-        localStorage.setItem('dugout_all_teams_cache', JSON.stringify(list));
-      }
-    } catch (e) {}
-  }
-
-  const res = await apiFetch('/api/teams', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(newTeam)
-  });
-  if (!res.ok) throw new Error('Failed to save team');
-  const data = await res.json();
-  return mapTeamFromDB(data);
+  return persistTeam('POST',newTeam);
 };
 
-export const saveTeam = async (team: Team): Promise<Team> => {
-  if (typeof window !== 'undefined') {
-    try {
-      localStorage.setItem(`dugout_team_${team.id}`, JSON.stringify(team));
-      const cached = localStorage.getItem('dugout_all_teams_cache');
-      if (cached) {
-        const list: Team[] = JSON.parse(cached);
-        const idx = list.findIndex(t => t.id === team.id);
-        if (idx !== -1) list[idx] = team;
-        else list.push(team);
-        localStorage.setItem('dugout_all_teams_cache', JSON.stringify(list));
-      }
-    } catch (e) {}
+/** Every roster caller needs server confirmation; a stale whole-team payload is never queued. */
+const persistTeam = async (method: 'POST' | 'PUT', team: Team): Promise<Team> => {
+  let result: {response:Response;data:any};
+  try { result = await withRequestDeadline(async signal => {
+    const response = await apiFetch('/api/teams',{method,headers:{'Content-Type':'application/json'},body:JSON.stringify(team),signal});
+    const data = await response.json().catch(error => { if (response.ok) throw error; return {}; });
+    return {response,data};
+  },15000); } catch { throw new Error('Could not confirm the roster save. Keep this window open, reconnect and try again.'); }
+  if (!result.response.ok) throw new Error(result.data?.error || `Roster update rejected (HTTP ${result.response.status})`);
+  if (!result.data || result.data.id !== team.id || !Array.isArray(result.data.players) || !Array.isArray(result.data.subs)) {
+    throw new Error('Could not confirm the roster save. Keep this window open, reconnect and try again.');
   }
-
-  try {
-    const res = await apiFetch('/api/teams', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(team)
-    });
-    if (res.ok) {
-      const data = await res.json();
-      return mapTeamFromDB(data);
-    }
-  } catch (err) {}
-  return team;
+  const saved = mapTeamFromDB(result.data);
+  if(typeof window !== 'undefined') { try { cacheConfirmedTeam(localStorage,saved); } catch {} }
+  return saved;
 };
 
-export const updateTeam = async (team: Team, options?: { requireServerSave?: boolean }): Promise<Team> => {
-  // Do not show an unpersisted substitute as saved. The server must confirm
-  // official roster edits before the lineup can refer to the new player ID.
-  try {
-    const res = await apiFetch('/api/teams', {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(team)
-    });
-    if (!res.ok) {
-      const body = await res.json().catch(() => ({}));
-      // All HTTP rejections (including 400/403/500) are real failures, not offline.
-      throw new Error(body.error || `Roster update rejected (HTTP ${res.status})`);
-    }
-    const saved = mapTeamFromDB(await res.json());
-    if (typeof window !== 'undefined') {
-      try {
-        localStorage.setItem(`dugout_team_${saved.id}`, JSON.stringify(saved));
-        const cached = localStorage.getItem('dugout_all_teams_cache');
-        if (cached) {
-          const list: Team[] = JSON.parse(cached);
-          const idx = list.findIndex(t => t.id === saved.id);
-          if (idx !== -1) list[idx] = saved;
-          else list.push(saved);
-          localStorage.setItem('dugout_all_teams_cache', JSON.stringify(list));
-        }
-      } catch (e) {}
-    }
-    return saved;
-  } catch (err) {
-    // Official umpire workflows must never proceed with a substitute that
-    // exists only in browser cache. Other callers retain offline queueing.
-    if (options?.requireServerSave) throw err;
-    if (err instanceof Error && /rejected \(HTTP|Unauthorized|Forbidden|permissions|only add substitutes/i.test(err.message)) throw err;
-    enqueuePendingTeamSync(team);
-    return team;
-  }
-};
+export const saveTeam = async (team:Team):Promise<Team> => persistTeam('POST',team);
+export const updateTeam = async (team:Team, _options?:{requireServerSave?:boolean}):Promise<Team> => persistTeam('PUT',team);
 
 export const moveTeams = async (teamIds: string[], targetLeague: string): Promise<void> => {
   const res = await apiFetch('/api/teams', {
@@ -515,11 +447,12 @@ export const moveTeams = async (teamIds: string[], targetLeague: string): Promis
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ action: 'move_teams', teamIds, targetLeague })
   });
-  if (!res.ok) throw new Error('Failed to move teams');
+  if (!res.ok) { const data=await res.json().catch(()=>({})); throw new Error(data.error || 'Could not move the teams.'); }
 };
 
 export const deleteTeam = async (teamId: string) => {
-  await apiFetch(`/api/teams?id=${teamId}`, { method: 'DELETE' });
+  const response=await apiFetch(`/api/teams?id=${encodeURIComponent(teamId)}`, { method: 'DELETE' });
+  if(!response.ok) { const data=await response.json().catch(()=>({})); throw new Error(data.error || 'Could not remove this team.'); }
 };
 
 // Match Methods
@@ -1263,7 +1196,8 @@ export const getAvailableSeasons = async (): Promise<string[]> => {
 };
 
 export const updateCurrentSeason = async (season: string) => {
-    await apiFetch('/api/settings', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'update_season', season }) });
+    const response=await apiFetch('/api/settings', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'update_season', season }) });
+    if(!response.ok) { const data=await response.json().catch(()=>({})); throw new Error(data.error || 'Could not change the active season.'); }
     if (typeof window !== 'undefined') {
         try { 
             localStorage.setItem('dugout_current_season', season);

@@ -98,11 +98,10 @@ export const DiagnosticHistory: React.FC<{
   };
   return (
     <section className="rounded-2xl border border-slate-700 bg-slate-900 p-4 sm:p-6 text-slate-100">
-      <h3 className="text-xl font-bold">Diagnostics</h3>
+      <h3 className="text-xl font-bold">Recent issues</h3>
       <p className="mt-1 text-sm text-slate-300">
-        Recent issues and recovery reports. Date filters use league time. Device
-        reports cover only devices that reported a problem. A saved recovery
-        copy stays on the scoring device.
+        See reported saving problems and what happened afterward. Saved score
+        copies stay on the phone that recorded them. Date filters use league time.
       </p>
       <div className="my-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
         {[

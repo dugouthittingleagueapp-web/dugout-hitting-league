@@ -44,63 +44,66 @@ export const AdminSystemStatus: React.FC<{
   }, [season, refresh]);
   const items = [
     [
-      "Database Connection",
+      "Saved game data",
       status
         ? status.database === "available"
-          ? "Available"
-          : "Unavailable"
-        : "Unable to verify",
+          ? "Connection working"
+          : "Connection problem"
+        : "Couldn’t check",
       status?.database === "available",
     ],
     [
-      "Scoring Service",
+      "Scoring connection",
       scoring === "responding"
-        ? "Responding"
+        ? "Connection working"
         : scoring === "error"
-          ? "Experiencing an error"
-          : "Unable to verify",
+          ? "Connection problem"
+          : "Couldn’t check",
       scoring === "responding",
     ],
     [
-      "Game Synchronization",
+      "Reported save problems",
       status?.synchronization === "no_known_problems"
-        ? "No known synchronization problems reported"
+        ? "No problems reported"
         : status?.synchronization === "reported_problems"
-          ? "One or more reported problems"
-          : "Unable to determine",
+          ? "Saved scores need review"
+          : "Couldn’t check reports",
       status?.synchronization === "no_known_problems",
     ],
     [
-      "Recent Errors · 24 hours",
+      "Issues in the last 24 hours",
       status?.recentErrors === null || !status
-        ? "Unable to verify"
+        ? "Couldn’t check"
         : status.recentErrors === 0
-          ? "No recorded issues"
-          : "Issues recorded — View Details",
+          ? "None recorded"
+          : "Issues recorded — see recent issues",
       status?.recentErrors === 0,
     ],
   ] as const;
   return (
     <section className="rounded-2xl border border-slate-700 bg-slate-900 p-4 sm:p-6 text-slate-100">
       <div className="flex flex-wrap justify-between gap-3">
-        <h3 className="text-xl font-bold">System Status</h3>
+        <h3 className="text-xl font-bold">App connection</h3>
         <button
           type="button"
           disabled={busy}
           onClick={() => setRefresh((v) => v + 1)}
           className="rounded-lg bg-blue-700 px-4 py-2 font-bold disabled:opacity-50"
         >
-          {busy ? "Checking…" : "Refresh status"}
+          {busy ? "Checking…" : "Check connection"}
         </button>
       </div>
-      <dl className="my-4 grid gap-3 sm:grid-cols-2">
+      <dl className="my-4 divide-y divide-slate-700">
         {items.map(([label, value, good]) => (
-          <div key={label} className="rounded-lg border border-slate-700 p-3">
+          <div
+            key={label}
+            className="flex flex-wrap justify-between gap-2 py-3"
+          >
             <dt className="text-sm text-slate-300">{label}</dt>
             <dd
-              className={`mt-1 font-bold ${good ? "text-emerald-300" : "text-amber-200"}`}
+              className={`font-bold ${busy ? "text-slate-300" : good ? "text-emerald-300" : "text-amber-200"}`}
             >
-              {value}
+              {busy ? "Checking…" : value}
             </dd>
           </div>
         ))}
@@ -111,26 +114,26 @@ export const AdminSystemStatus: React.FC<{
           scoring !== "responding" ||
           status.history === "unavailable") && (
           <p role="alert" className="mb-3 text-sm text-amber-200">
-            Some checks could not be verified. Refresh before game time. Keep
-            any scoring device with unsynced pitches open.
+            We couldn’t confirm everything is working. Check again. Keep any
+            phone with scores waiting to send open.
           </p>
         )}
       <p className="text-xs text-slate-400">
         {status
-          ? `Last check: ${new Date(status.checkedAt).toLocaleString()}. `
+          ? `Checked ${new Date(status.checkedAt).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}. `
           : ""}
-        {lastSuccess
-          ? `Last successful database check: ${new Date(lastSuccess).toLocaleString()}. `
+        {status?.database !== "available" && lastSuccess
+          ? `Last working data connection: ${new Date(lastSuccess).toLocaleString()}. `
           : ""}
-        These checks cannot confirm every device has synchronized. No test
-        scores are written.
+        A phone can still have scores waiting to send, even when no problems
+        have been reported. Check that phone’s saved-scores message.
       </p>
       <button
         type="button"
         onClick={onIssues}
         className="mt-3 font-bold text-blue-300 underline"
       >
-        View diagnostics
+        See recent issues
       </button>
     </section>
   );

@@ -88,7 +88,7 @@ Production traffic. Healthy scoring generates no routine-pitch log volume.
 
 ## Validation results
 
-- **601 automated tests passed in 71 files**, including real disposable
+- **607 automated tests passed in 72 files**, including real disposable
   PostgreSQL integration tests; TypeScript and production build passed.
 - Existing scoring regressions cover normal/rapid scoring, durable backups,
   hanging/lost responses, offline replay, stale revisions, concurrent users,
@@ -148,7 +148,7 @@ Use the dedicated deployment URL in the release handoff and your normal admin
 login. Protected Vercel login may be required.
 
 1. Open Admin Dashboard. Confirm today's no-game state where appropriate, then
-   choose December 31, 2027 in Game-Day Readiness.
+   choose December 31, 2027 in Before games.
 2. Expand each QC game. Confirm Ready, lineup reminder, roster review and overlap
    explanations. A three-player attendance requirement must not appear.
 3. Follow Open Schedule from the overlap. Filter to Game-Day QC. Move the
@@ -204,3 +204,21 @@ login. Protected Vercel login may be required.
    Do not drop identity or diagnostics tables or restore old scores as an app
    rollback. No Production migration, deployment, merge or writes are authorized
    by this handoff.
+
+## Preview wording and layout refinement
+
+The readiness section is labeled **Before games** with one Game day selector.
+Game cards show Ready for setup, Lineup at game time, Check before playing or
+Fix before playing. Routine lineup confirmation stays a calm umpire task rather
+than counting as an admin problem; genuine safety warnings remain visible.
+Schedule/roster/game actions appear directly on the card, with checks under
+See details. The selected day is kept when visiting another Admin tab.
+Connection indicators use plain language in a compact App connection section;
+Diagnostics is labeled Recent issues. The same uncertainty about unreported
+phones remains explicit. Presentation changes only: no server assessment,
+scoring behavior, database schema or cloud fixture changes.
+
+Six additional regression tests cover these display decisions, genuine warnings
+alongside lineup reminders, priority of blocked checks, completed/active games
+and unknown safety checks. Actual local browser checks cover direct action
+buttons, real roster/conflict warnings, date retention and mobile layout.

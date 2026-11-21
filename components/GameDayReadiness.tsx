@@ -2,13 +2,34 @@ import React, { useEffect, useState } from "react";
 import { getAdminOperations } from "../services/storageService";
 import type { ReadinessResult } from "../server/gameDayReadiness";
 import { leagueToday } from "../utils/leagueClock";
-import { displayBookingTime } from "../utils/scheduleConflictPresentation";
+import {
+  displayBookingTime,
+  displayScheduleDate,
+} from "../utils/scheduleConflictPresentation";
+import {
+  gameDayPresentation,
+  gameDayOverview,
+  simpleReadinessCheck,
+} from "../utils/readinessPresentation";
 
+const toneClasses = {
+  good: "bg-emerald-950 text-emerald-300",
+  calm: "bg-blue-950 text-blue-200",
+  review: "bg-amber-950 text-amber-200",
+  fix: "bg-red-950 text-red-200",
+};
+const actionLabels = {
+  schedule: "Fix schedule",
+  rosters: "Edit roster",
+  game: "Review game",
+};
 export const GameDayReadiness: React.FC<{
   season: string;
+  date: string;
+  onDateChange: (date: string) => void;
   onNavigate: (screen: "schedule" | "rosters" | "game") => void;
-}> = ({ season, onNavigate }) => {
-  const [date, setDate] = useState(leagueToday);
+}> = ({ season, date, onDateChange: setDate, onNavigate }) => {
+  const [dates, setDates] = useState<string[]>([]);
   const [data, setData] = useState<ReadinessResult | null>(null);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
@@ -20,12 +41,15 @@ export const GameDayReadiness: React.FC<{
     setData(null);
     getAdminOperations<ReadinessResult>("readiness", season, { date })
       .then((result) => {
-        if (active) setData(result);
+        if (active) {
+          setData(result);
+          setDates(result.dates);
+        }
       })
       .catch(() => {
         if (active)
           setError(
-            "Readiness could not be checked. Refresh to try again. Games have not been changed.",
+            "We couldn’t check these games. Choose Check again to retry.",
           );
       })
       .finally(() => {
@@ -35,6 +59,7 @@ export const GameDayReadiness: React.FC<{
       active = false;
     };
   }, [season, date, refresh]);
+  const days = [...new Set([leagueToday(), date, ...dates])].sort();
   return (
     <section
       className="rounded-2xl border border-slate-700 bg-slate-900 p-4 sm:p-6 text-slate-100"
@@ -43,10 +68,10 @@ export const GameDayReadiness: React.FC<{
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h3 id="readiness-title" className="text-xl font-bold">
-            Game-Day Readiness
+            Before games
           </h3>
-          <p className="text-sm text-slate-300">
-            Season {season} · Times are local to the league.
+          <p className="mt-1 text-sm text-slate-300">
+            Check the schedule and player lists for the day.
           </p>
         </div>
         <button
@@ -55,115 +80,124 @@ export const GameDayReadiness: React.FC<{
           onClick={() => setRefresh((v) => v + 1)}
           className="rounded-lg bg-blue-700 px-4 py-2 font-bold disabled:opacity-50"
         >
-          {busy ? "Checking…" : "Refresh readiness"}
+          {busy ? "Checking…" : "Check again"}
         </button>
       </div>
-      <div className="my-4 flex flex-wrap gap-3">
-        <label className="text-sm">
-          Game date
-          <input
-            aria-label="Readiness game date"
-            type="date"
-            value={date}
-            onChange={(e) => setDate(e.target.value)}
-            className="ml-2 rounded-lg border border-slate-600 bg-slate-950 p-2 text-white"
-          />
-        </label>
-        {!!data?.dates.length && (
-          <label className="text-sm">
-            Scheduled days
-            <select
-              aria-label="Scheduled game days"
-              value={data.dates.includes(date) ? date : ""}
-              onChange={(e) => {
-                if (e.target.value) setDate(e.target.value);
-              }}
-              className="ml-2 rounded-lg border border-slate-600 bg-slate-950 p-2 text-white"
-            >
-              <option value="">Choose a game day</option>
-              {data.dates.map((d) => (
-                <option key={d} value={d}>
-                  {d}
-                </option>
-              ))}
-            </select>
-          </label>
-        )}
-      </div>
+      <label className="my-4 block text-sm">
+        Game day
+        <select
+          aria-label="Game day"
+          value={date}
+          onChange={(e) => setDate(e.target.value)}
+          className="ml-2 max-w-full rounded-lg border border-slate-600 bg-slate-950 p-2 text-white"
+        >
+          {days.map((day) => (
+            <option key={day} value={day}>
+              {day === leagueToday() ? "Today · " : ""}
+              {displayScheduleDate(day)}
+            </option>
+          ))}
+        </select>
+      </label>
       {error && (
-        <p role="alert" className="text-amber-300">
+        <p role="alert" className="text-amber-200">
           {error}
         </p>
       )}
       {data && (
         <>
-          <p className="mb-3 text-xs text-slate-400">
-            Checked {new Date(data.checkedAt).toLocaleString()}
-          </p>
-          {!data.games.length && <p>No games scheduled for this date.</p>}
-          <div className="space-y-3">
-            {data.games.map((game) => (
-              <details
-                key={game.id}
-                className="rounded-xl border border-slate-700 bg-slate-950 p-3"
-              >
-                <summary className="cursor-pointer">
-                  <span
-                    className={`mr-2 inline-block rounded px-2 py-1 text-sm font-bold ${game.state === "ready" ? "bg-emerald-950 text-emerald-300" : game.state === "blocked" ? "bg-red-950 text-red-300" : "bg-amber-950 text-amber-200"}`}
-                  >
-                    {game.state === "ready"
-                      ? "Ready"
-                      : game.state === "blocked"
-                        ? "Blocked"
-                        : "Needs Attention"}
-                  </span>
-                  <strong>
-                    {game.home} vs {game.away}
-                  </strong>
-                  <span className="mt-2 block text-sm text-slate-300">
-                    {displayBookingTime(game.startTime)}–
-                    {displayBookingTime(game.endTime)} ·{" "}
-                    {game.location.replace("The Dugout: ", "")} · {game.league}{" "}
-                    · {game.status.replace("_", " ")}
-                  </span>
-                  {game.issues.length > 0 && (
-                    <span className="mt-2 block text-sm text-amber-200">
-                      {game.issues[0].message}
-                      {game.issues.length > 1
-                        ? ` (${game.issues.length} checks need review)`
-                        : ""}
-                    </span>
-                  )}
-                </summary>
-                <ul className="mt-3 space-y-2">
-                  {game.issues.map((issue, i) => (
-                    <li
-                      key={issue.code + i}
-                      className="rounded-lg bg-slate-900 p-3 text-sm"
+          {!data.games.length ? (
+            <p>No games on this day. Choose another game day above.</p>
+          ) : (
+            <>
+              <p className="mb-4 font-bold" role="status">
+                {gameDayOverview(data.games)}
+              </p>
+              <div className="space-y-3">
+                {data.games.map((game) => {
+                  const view = gameDayPresentation(game);
+                  return (
+                    <article
+                      key={game.id}
+                      aria-label={`${game.home} vs ${game.away}`}
+                      className="rounded-xl border border-slate-700 bg-slate-950 p-4"
                     >
-                      <p>{issue.message}</p>
-                      <button
-                        type="button"
-                        onClick={() => onNavigate(issue.screen)}
-                        className="mt-2 font-bold text-blue-300 underline"
+                      <div className="flex flex-wrap items-start justify-between gap-2">
+                        <h4 className="font-bold">
+                          {game.home} vs {game.away}
+                        </h4>
+                        <span
+                          className={`inline-block rounded-lg px-2 py-1 text-xs font-bold ${toneClasses[view.tone]}`}
+                        >
+                          {view.label}
+                        </span>
+                      </div>
+                      <p className="mt-2 text-sm text-slate-300">
+                        {displayBookingTime(game.startTime)}–
+                        {displayBookingTime(game.endTime)} ·{" "}
+                        {game.location.replace("The Dugout: ", "")}
+                      </p>
+                      <p className="mt-1 text-xs text-slate-400">
+                        {game.league}
+                      </p>
+                      <p
+                        className={`mt-3 text-sm ${view.tone === "fix" ? "text-red-200" : view.tone === "review" ? "text-amber-200" : "text-slate-200"}`}
                       >
-                        {issue.screen === "schedule"
-                          ? "Open Schedule"
-                          : issue.screen === "rosters"
-                            ? "Open Rosters"
-                            : "Open league games"}
-                      </button>
-                    </li>
-                  ))}
-                  {game.checks.map((check) => (
-                    <li key={check} className="text-sm text-emerald-300">
-                      ✓ {check}
-                    </li>
-                  ))}
-                </ul>
-              </details>
-            ))}
-          </div>
+                        {view.message}
+                      </p>
+                      {view.screens.length > 0 && (
+                        <div className="mt-3 flex flex-wrap gap-2">
+                          {view.screens.map((screen) => (
+                            <button
+                              type="button"
+                              key={screen}
+                              onClick={() => onNavigate(screen)}
+                              className="rounded-lg bg-blue-700 px-3 py-2 text-sm font-bold text-white"
+                            >
+                              {actionLabels[screen]}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                      <details className="mt-3 border-t border-slate-800 pt-3">
+                        <summary className="cursor-pointer text-sm text-slate-400">
+                          See details
+                        </summary>
+                        {view.adminIssues.length > 0 && (
+                          <ul className="mt-3 space-y-2 text-sm text-slate-300">
+                            {[
+                              ...new Set(
+                                view.adminIssues.map((issue) => issue.message),
+                              ),
+                            ].map((message) => (
+                              <li key={message}>{message}</li>
+                            ))}
+                          </ul>
+                        )}
+                        {!!game.checks.length && (
+                          <ul className="mt-3 space-y-1 text-xs text-slate-400">
+                            {game.checks.map((check) => (
+                              <li key={check}>
+                                ✓ {simpleReadinessCheck(check)}
+                              </li>
+                            ))}
+                          </ul>
+                        )}
+                      </details>
+                    </article>
+                  );
+                })}
+              </div>
+            </>
+          )}
+          <p className="mt-4 text-xs text-slate-400">
+            Last checked{" "}
+            {new Date(data.checkedAt).toLocaleTimeString([], {
+              hour: "numeric",
+              minute: "2-digit",
+            })}{" "}
+            · Season {season}. Umpires confirm lineups at game time.
+          </p>
         </>
       )}
     </section>

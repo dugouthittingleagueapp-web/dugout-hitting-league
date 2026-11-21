@@ -165,8 +165,19 @@ export const assessGameDay = (
         checks.push(
           "Roster player references are usable, including substitutes.",
         );
+      const status = m.status || (m.isComplete ? "FINAL" : "SCHEDULED");
+      if (
+        !m.status ||
+        !["SCHEDULED", "IN_PROGRESS", "FINAL"].includes(m.status)
+      )
+        add(
+          "STATUS_UNKNOWN",
+          "attention",
+          "Confirm this game’s status before scoring. No saved results were changed.",
+          "game",
+        );
       const scored = hasRecordedScores(m.innings, m.tieBreaker);
-      if (m.status === "SCHEDULED" && (m.isComplete || scored))
+      if (status === "SCHEDULED" && (m.isComplete || scored))
         add(
           "SCHEDULED_RESULTS",
           "attention",
@@ -193,7 +204,7 @@ export const assessGameDay = (
                   i[side as "home" | "away"].playerScores.length === 0,
               ),
           );
-        if (allEmpty && !scored && !m.isComplete && m.status === "SCHEDULED")
+        if (allEmpty && !scored && !m.isComplete && status === "SCHEDULED")
           add(
             "LINEUP_UNCONFIRMED",
             "attention",
@@ -223,7 +234,7 @@ export const assessGameDay = (
         league: m.league,
         home: home?.name || "Missing home team",
         away: away?.name || "Missing away team",
-        status: m.status || (m.isComplete ? "FINAL" : "SCHEDULED"),
+        status,
         state: issues.some((i) => i.state === "blocked")
           ? ("blocked" as const)
           : issues.length

@@ -76,6 +76,11 @@ describe("Read-only game-day readiness", () => {
     const codes = check(f).games[0].issues.map((i) => i.code);
     expect(codes).toContain("SCHEDULED_RESULTS");
     expect(codes).toContain("STATUS_MISMATCH");
+    f.game.status = undefined as any;
+    f.game.isComplete = false;
+    const inferred = check(f).games[0].issues.map((i) => i.code);
+    expect(inferred).toContain("STATUS_UNKNOWN");
+    expect(inferred).toContain("SCHEDULED_RESULTS");
   });
   it("checks overlaps across divisions but isolates seasons and practice games", () => {
     const f = fixture();

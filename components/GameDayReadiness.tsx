@@ -14,7 +14,6 @@ import {
 
 const toneClasses = {
   good: "bg-emerald-950 text-emerald-300",
-  calm: "bg-blue-950 text-blue-200",
   review: "bg-amber-950 text-amber-200",
   fix: "bg-red-950 text-red-200",
 };
@@ -196,7 +195,7 @@ export const GameDayReadiness: React.FC<{
               hour: "numeric",
               minute: "2-digit",
             })}{" "}
-            · Season {season}. Umpires confirm lineups at game time.
+            · Season {season}.
           </p>
         </>
       )}

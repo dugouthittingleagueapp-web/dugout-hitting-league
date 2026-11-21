@@ -56,8 +56,43 @@ describe("Read-only game-day readiness", () => {
       createEmptyInning(i + 1),
     );
     const result = check(f).games[0];
-    expect(result.state).toBe("attention");
-    expect(result.issues.map((i) => i.code)).toContain("LINEUP_UNCONFIRMED");
+    expect(result.state).toBe("ready");
+    expect(result.issues).toEqual([]);
+  });
+  it("leaves partial blank lineup choices to umpires when team players are listed", () => {
+    const f = fixture();
+    for (const inning of f.game.innings)
+      inning.home.playerScores = inning.home.playerScores.slice(0, 1);
+    const before = JSON.stringify(f);
+    expect(check(f).games[0].state).toBe("ready");
+    expect(check(f).games[0].issues).toEqual([]);
+    expect(JSON.stringify(f)).toBe(before);
+  });
+  it("alerts admin when a saved player cannot be found even with three team members listed", () => {
+    const f = fixture();
+    f.game.innings[0].home.playerScores[0].playerId = "missing-player-record";
+    const result = check(f).games[0];
+    expect(f.home.players).toHaveLength(3);
+    expect(result.state).toBe("blocked");
+    expect(result.issues.map((i) => i.code)).toContain("PLAYER_NOT_FOUND");
+    expect(
+      result.issues.find((i) => i.code === "PLAYER_NOT_FOUND")?.message,
+    ).toContain(f.home.name);
+  });
+  it("does not mistake broken pitch data or recorded scores for normal lineup selection", () => {
+    const f = fixture();
+    f.game.innings[0].home.playerScores[0].pitches.pop();
+    expect(check(f).games[0].issues.map((i) => i.code)).toContain(
+      "SCORING_STRUCTURE",
+    );
+    const scored = fixture();
+    scored.game.innings[0].home.playerScores[0].pitches[0].points = 0;
+    scored.game.innings[0].home.playerScores[0].playerId = "missing";
+    const before = JSON.stringify(scored);
+    expect(check(scored).games[0].issues.map((i) => i.code)).toContain(
+      "PLAYER_NOT_FOUND",
+    );
+    expect(JSON.stringify(scored)).toBe(before);
   });
   it("blocks missing lineup players, duplicated IDs and invalid scoring structures", () => {
     const f = fixture();

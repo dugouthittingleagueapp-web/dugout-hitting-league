@@ -17,8 +17,7 @@ release. Older experimental atomic-sync branches were not merged.
   dates, expandable game checks, Ready / Needs Attention / Blocked, manual refresh
   and links to existing Schedule, Rosters and league-game screens. Uses a
   consistent read-only snapshot of the active season. Calendar metadata covers
-  the whole season; pitch histories are read only for the selected day. Missing weekly selections
-  are advisory; no new three-regular-player rule or start restriction was added.
+  the whole season; pitch histories are read only for the selected day. Routine weekly lineup selection produces no admin issue; no new three-regular-player rule or start restriction was added.
 - **Diagnostics:** authenticated, persistent, bounded event history with league,
   date, severity and reported-game filters, pagination, per-page JSON export and
   explicit expired-history cleanup. Fixed summaries and safe codes replace raw
@@ -88,7 +87,7 @@ Production traffic. Healthy scoring generates no routine-pitch log volume.
 
 ## Validation results
 
-- **607 automated tests passed in 72 files**, including real disposable
+- **610 automated tests passed in 72 files**, including real disposable
   PostgreSQL integration tests; TypeScript and production build passed.
 - Existing scoring regressions cover normal/rapid scoring, durable backups,
   hanging/lost responses, offline replay, stale revisions, concurrent users,
@@ -103,7 +102,7 @@ Production traffic. Healthy scoring generates no routine-pitch log volume.
 - Health tests cover normal response, database failure/timeout, unavailable
   monitoring, reported problems and unknown/unreported device state.
 - Actual Chromium UI → real API → disposable PostgreSQL passed readiness,
-  manual refresh, warning-only weekly lineups, independent service failure,
+  manual refresh, no admin warnings for routine weekly lineups, independent service failure,
   monitoring outage, diagnostic report/recovery/filter/export, authorization,
   and mobile layout.
 - Actual scoring browser regressions passed hanging requests + refresh, lost
@@ -133,7 +132,7 @@ copied teams. Added only four synthetic games and five synthetic teams under
 **Game-Day QC**, active season **2027**, date **December 31, 2027**:
 
 1. QC Eagles vs QC Panthers: Ready, 1–2 PM, Tunnels 5/6.
-2. QC Wolves vs QC Raptors: unconfirmed lineup, 1–2 PM, Tunnels 7/8.
+2. QC Wolves vs QC Raptors: team players listed; the umpire handles lineup selection, 1–2 PM, Tunnels 7/8.
 3. QC Roster Review vs QC Eagles: empty roster needing review, 2–3 PM, Tunnels 5/6.
 4. QC Wolves vs QC Raptors: deliberate overlap, 1:30–2:30 PM, Tunnels 7/8.
 
@@ -149,7 +148,7 @@ login. Protected Vercel login may be required.
 
 1. Open Admin Dashboard. Confirm today's no-game state where appropriate, then
    choose December 31, 2027 in Before games.
-2. Expand each QC game. Confirm Ready, lineup reminder, roster review and overlap
+2. Expand each QC game. Confirm ready player lists, roster review and overlap
    explanations. A three-player attendance requirement must not appear.
 3. Follow Open Schedule from the overlap. Filter to Game-Day QC. Move the
    1:30 PM game to a clear later time; save once. Return to Dashboard and reselect
@@ -208,17 +207,25 @@ login. Protected Vercel login may be required.
 ## Preview wording and layout refinement
 
 The readiness section is labeled **Before games** with one Game day selector.
-Game cards show Ready for setup, Lineup at game time, Check before playing or
-Fix before playing. Routine lineup confirmation stays a calm umpire task rather
-than counting as an admin problem; genuine safety warnings remain visible.
+Game cards show Ready for setup, Check before playing or Fix before playing.
+Routine lineup selection produces no admin reminder, warning or action. When
+team players are available, blank or intact partial pregame lineups stay ready
+for umpire setup. A missing saved player reference produces a specific admin
+warning; malformed game data remains protected.
 Schedule/roster/game actions appear directly on the card, with checks under
 See details. The selected day is kept when visiting another Admin tab.
 Connection indicators use plain language in a compact App connection section;
 Diagnostics is labeled Recent issues. The same uncertainty about unreported
-phones remains explicit. Presentation changes only: no server assessment,
-scoring behavior, database schema or cloud fixture changes.
+phones remains explicit. The read-only assessment now distinguishes pending umpire selections from
+missing player records and damaged game data. Actual scoring/start validation,
+database schema and cloud fixtures are unchanged.
 
 Six additional regression tests cover these display decisions, genuine warnings
-alongside lineup reminders, priority of blocked checks, completed/active games
+alongside unselected lineups, priority of blocked checks, completed/active games
 and unknown safety checks. Actual local browser checks cover direct action
 buttons, real roster/conflict warnings, date retention and mobile layout.
+
+Additional roster-availability regressions cover ordinary partial blank lineups,
+missing player references despite three listed team members, and preservation of
+zero-valued pitches and invalid-template warnings. Valid smaller rosters and
+substitutes remain supported; no three-player attendance rule was introduced.

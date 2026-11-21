@@ -9,7 +9,7 @@ export const gameDayPresentation = (game: ReadyGame) => {
     adminIssues.find((issue) => issue.state === "blocked") || adminIssues[0];
   const finished = game.status === "FINAL";
   let label = "Ready for setup",
-    tone: "good" | "calm" | "review" | "fix" = "good";
+    tone: "good" | "review" | "fix" = "good";
   let message = "The schedule and player lists look good.";
   if (primary) {
     tone = game.state === "blocked" ? "fix" : "review";
@@ -25,8 +25,8 @@ export const gameDayPresentation = (game: ReadyGame) => {
       ROSTER_INVALID: "Check the player lists for these teams.",
       ROSTER_IDENTIFIERS:
         "Check the team rosters for missing names or duplicate players.",
-      SCORING_STRUCTURE:
-        "This game’s saved lineup needs to be checked before scoring.",
+      SCORING_STRUCTURE: "This game’s saved information needs to be checked.",
+      PLAYER_NOT_FOUND: primary.message,
       STATUS_UNKNOWN: "Check this game’s saved status before continuing.",
       STATUS_MISMATCH:
         "The game’s status and saved result need to be reviewed.",
@@ -40,11 +40,6 @@ export const gameDayPresentation = (game: ReadyGame) => {
   } else if (game.status === "IN_PROGRESS") {
     label = "Under way";
     message = "This game has started.";
-  } else if (game.issues.some((issue) => issue.code === "LINEUP_UNCONFIRMED")) {
-    label = "Lineup at game time";
-    tone = "calm";
-    message =
-      "The umpire chooses who is playing when starting the game. No admin change is needed.";
   }
   const screens = [...new Set(adminIssues.map((issue) => issue.screen))];
   return { label, tone, message, adminIssues, screens };
@@ -67,5 +62,5 @@ export const simpleReadinessCheck = (text: string): string =>
     "Roster player references are usable, including substitutes.":
       "Player lists checked, including substitutes.",
     "Saved lineup and scoring structure are compatible.":
-      "Saved lineup checked.",
+      "Saved game data checked.",
   })[text] || text;

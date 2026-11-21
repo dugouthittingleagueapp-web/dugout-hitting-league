@@ -1,3 +1,7 @@
+import {
+  unavailableLineupTeams,
+  isUnselectedLineup,
+} from "./readinessLineup.js";
 export { leagueToday } from "../utils/leagueClock.js";
 import type { Match, Team, League } from "../types";
 import {
@@ -192,39 +196,32 @@ export const assessGameDay = (
           "game",
         );
       if (home && away && validRosters) {
-        const allEmpty =
-          Array.isArray(m.innings) &&
-          m.innings.length === 6 &&
-          m.innings.every(
-            (i, n) =>
-              i?.number === n + 1 &&
-              ["home", "away"].every(
-                (side) =>
-                  Array.isArray(i[side as "home" | "away"]?.playerScores) &&
-                  i[side as "home" | "away"].playerScores.length === 0,
-              ),
-          );
-        if (allEmpty && !scored && !m.isComplete && status === "SCHEDULED")
+        const missing = unavailableLineupTeams(m, home, away);
+        if (missing.length) {
           add(
-            "LINEUP_UNCONFIRMED",
-            "attention",
-            "The umpire can confirm the weekly lineup when starting this game.",
-            "game",
+            "PLAYER_NOT_FOUND",
+            "blocked",
+            `A player saved in this game isn’t listed on ${missing.join(" or ")}. Check the team roster.`,
+            "rosters",
           );
-        else {
+        } else {
           try {
             validateScoreState(m, home, away);
             checks.push("Saved lineup and scoring structure are compatible.");
           } catch {
-            add(
-              "SCORING_STRUCTURE",
-              "blocked",
-              "The saved lineup or scoring structure is invalid. Review the lineup before scoring; recorded pitches must be preserved.",
-              "game",
-            );
+            if (!scored && status === "SCHEDULED" && isUnselectedLineup(m))
+              checks.push("Team players are available.");
+            else
+              add(
+                "SCORING_STRUCTURE",
+                "blocked",
+                "This game’s saved data needs review before continuing. Recorded pitches must be preserved.",
+                "game",
+              );
           }
         }
       }
+
       return {
         id: m.id,
         date,

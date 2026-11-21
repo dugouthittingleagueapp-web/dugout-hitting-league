@@ -1,8 +1,10 @@
+import {captureMutationDiagnostics} from '../server/diagnostics.js';
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import matches from './matches.js';
 
 /** A separate versioned route fails closed against older deployed backends. */
 export default async function handler(req: VercelRequest, res: VercelResponse) {
+  captureMutationDiagnostics(req,res,'/api/scoring');
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
   const body = req.body;
   if (!body || body.protocol !== 1 || !body.command ||

@@ -1,3 +1,4 @@
+import {createDiagnosticReporter} from './diagnosticReporter';
 
 import { AgeGroup, Match, Team, Inning, League, PlayerStats, PlayerSeasonStatRow, PlayerCareerSummary, ScheduleImportSummary } from '../types';
 import { ARCHIVE_2025_LEAGUES, ARCHIVE_2025_TEAMS, ARCHIVE_2025_MATCHES } from './archive2025Data';
@@ -83,6 +84,23 @@ const apiFetch = async (url: string, init?: RequestInit): Promise<Response> => {
   }
   return fetch(fullUrl, enhancedInit);
 };
+
+// Diagnostic reporting has its own small timeout and queue. It never shares
+// the scoring journal or pending-match storage.
+const diagnosticReporter = createDiagnosticReporter(async event => {
+  if(typeof window==='undefined' || typeof window.addEventListener!=='function')return;
+  const controller=new AbortController();const timer=setTimeout(()=>controller.abort(),3000);
+  try {
+    const result=await apiFetch('/api/schedule-admin',{method:'POST',signal:controller.signal,headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'report_diagnostic',event})});
+    if(!result.ok)throw new Error('Diagnostic report unavailable');
+  } finally {clearTimeout(timer);}
+},generateUUID);
+if(typeof window!=='undefined'){
+ window.addEventListener('dugout:scoring-save-state',((event:CustomEvent)=>{
+  diagnosticReporter.scoringState(event.detail?.matchId,event.detail?.state);
+ }) as EventListener);
+ window.addEventListener('online',()=>{void diagnosticReporter.flush();});
+}
 
 // League Methods
 export const getLeagues = async (season?: string): Promise<League[]> => {
@@ -233,6 +251,7 @@ export const syncOfflineData = async () => {
   catch (error) { console.warn('Recovery needs checking; saved copies were retained.', error); }
 };
 export const retrySavedScoring = async (id: string) => {
+  diagnosticReporter.report(id,'recovery_started');
   try {
     inspectScoringRecovery(id);
     // Restore this device's access before replay. Never take over or rebase.
@@ -243,7 +262,9 @@ export const retrySavedScoring = async (id: string) => {
     if (!hasJournalPending(id)) await syncLegacyData(id);
     if (hasPendingMatchSync(id) || getScoringSyncWarning(id))
       throw new Error(getScoringSyncWarning(id) || 'Your scores are still saved on this device. Check the connection and try again.');
+    diagnosticReporter.report(id,'recovery_completed');
   } catch (error) {
+    diagnosticReporter.report(id,'recovery_failed');
     markScoringSyncWarning(id, getScoringSyncWarning(id) || (error instanceof Error ? error.message : 'Your saved scores need checking. Keep this page open and ask for help.'));
     throw error;
   }
@@ -1586,3 +1607,10 @@ export const getAdminOperations = async <T>(action: string, season: string, para
     return await response.json();
   } finally { clearTimeout(timer); }
 };
+
+export const cleanupDiagnosticHistory = async () => {
+ const response=await apiFetch('/api/schedule-admin',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'cleanup_diagnostics'})});
+ if(!response.ok)throw new Error('History cleanup could not finish. Try again.');
+ return response.json() as Promise<{removed:number;retentionDays:number}>;
+};
+

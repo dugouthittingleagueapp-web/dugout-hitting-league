@@ -1,3 +1,4 @@
+import {captureMutationDiagnostics} from '../server/diagnostics.js';
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import crypto from 'crypto';
 import {changesOfficialBooking,validateLegacyBooking} from '../server/legacyScheduleGuard.js';
@@ -20,6 +21,7 @@ function cleanMatchId(id: any): { rawId: string; strippedId: string; isPracticeP
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
+  captureMutationDiagnostics(req,res,'/api/matches');
   try {
     if (req.method === 'GET') {
       const { league, id, season, excludePractice } = req.query;

@@ -1,3 +1,4 @@
+import {DiagnosticHistory} from './DiagnosticHistory';
 import {GameDayReadiness} from './GameDayReadiness';
 
 import React, { useState, useEffect } from 'react';
@@ -20,7 +21,7 @@ export const AdminDashboard: React.FC<{
   const [newLeagueName, setNewLeagueName] = useState('');
   const [creatingLeague, setCreatingLeague] = useState(false);
   const [showScheduleImportModal, setShowScheduleImportModal] = useState(false);
-  const [adminTab, setAdminTab] = useState<'overview' | 'schedule' | 'rosters'>('overview');
+  const [adminTab, setAdminTab] = useState<'overview' | 'schedule' | 'rosters' | 'diagnostics'>('overview');
   const [rosterDirty, setRosterDirty] = useState(false);
   const [rosterSaving, setRosterSaving] = useState(false);
   const leaveRoster = () => !rosterDirty || window.confirm('Leave without saving this roster?');
@@ -322,8 +323,9 @@ export const AdminDashboard: React.FC<{
         <button type="button" disabled={rosterSaving} onClick={() => switchAdminTab('rosters')}
           aria-current={adminTab === 'rosters' ? 'page' : undefined}
           className={`px-5 py-2.5 rounded-xl font-bold text-sm transition-colors ${adminTab === 'rosters' ? 'bg-blue-600 text-white' : 'bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-200'}`}>Rosters</button>
+        <button type="button" disabled={rosterSaving} onClick={() => switchAdminTab('diagnostics')} aria-current={adminTab === 'diagnostics' ? 'page' : undefined} className={`px-5 py-2.5 rounded-xl font-bold text-sm ${adminTab === 'diagnostics' ? 'bg-blue-600 text-white' : 'bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-200'}`}>Diagnostics</button>
       </nav>
-      {adminTab === 'schedule' ? (
+      {adminTab === 'diagnostics' ? (<DiagnosticHistory season={currentSeason} onReviewGame={onBack} />) : adminTab === 'schedule' ? (
         <AdminSchedule season={currentSeason}
           refreshToken={scheduleRefreshToken} onImport={activeLeagues => { setScheduleLeagues(activeLeagues); setShowScheduleImportModal(true); }} />
       ) : adminTab === 'rosters' ? (

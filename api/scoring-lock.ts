@@ -1,3 +1,4 @@
+import {captureMutationDiagnostics} from '../server/diagnostics.js';
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import crypto from 'crypto';
 import pool from './db.js';
@@ -10,6 +11,7 @@ const validToken = (v: unknown): v is string => typeof v === 'string' && /^[a-f0
 const canonicalId = (id: unknown) => String(id || '').replace(/^practice-/, '').trim();
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
+  captureMutationDiagnostics(req,res,'/api/scoring-lock');
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
   const role = requireRole(req, res, ['admin', 'umpire']);
   if (!role) return;

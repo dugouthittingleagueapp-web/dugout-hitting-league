@@ -1,3 +1,5 @@
+import {validateDiagnosticInput} from '../utils/diagnosticEvents.js';
+import {recordDiagnostic,readDiagnostics,cleanupDiagnostics,captureMutationDiagnostics} from '../server/diagnostics.js';
 import { readGameDay } from '../server/readinessEndpoint.js';
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { requireRole } from './auth.js';
@@ -13,8 +15,22 @@ import { scheduleConflict } from '../utils/scheduleConflicts.js';
 // Admin-only calendar maintenance. Do not route this through the normal scoring
 // PUT endpoint: a schedule correction must not rewrite inning/pitch histories.
 export default async function handler(req: VercelRequest, res: VercelResponse) {
+  if(req.method==='POST' && req.body?.action==='report_diagnostic'){
+    if(!requireRole(req,res,['admin','umpire']))return;
+    let event;try{event=validateDiagnosticInput(req.body.event);}catch{return res.status(400).json({error:'This diagnostic report is invalid.'});}
+    const saved=await recordDiagnostic(event,'device','/api/scoring');
+    return res.status(saved?202:503).json({recorded:saved});
+  }
   const role = requireRole(req, res, ['admin']);
   if (!role) return;
+  if(req.method==='GET' && req.query.action==='diagnostics'){
+    try {res.setHeader('Cache-Control','no-store');return res.status(200).json(await readDiagnostics(req.query));}
+    catch{return res.status(503).json({error:'Diagnostic history is unavailable. Refresh to try again.'});}
+  }
+  if(req.method==='POST' && req.body?.action==='cleanup_diagnostics'){
+    try{return res.status(200).json(await cleanupDiagnostics());}catch{return res.status(503).json({error:'History cleanup could not finish. Try again.'});}
+  }
+  captureMutationDiagnostics(req,res,'/api/schedule-admin');
   if (!['GET', 'PATCH', 'POST'].includes(req.method || '')) return res.status(405).json({ error: 'Method not allowed' });
 
   const { action, season, id, revision, date, startTime, endTime, location, notes,
@@ -23,7 +39,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(400).json({ error: 'Select a valid season.' });
 
   try {
-    if (req.method === 'GET' && action === 'readiness') return res.status(200).json(await readGameDay(season,req.query.date));
+    if (req.method === 'GET' && action === 'readiness') {res.setHeader('Cache-Control','no-store');return res.status(200).json(await readGameDay(season,req.query.date));}
     if (req.method === 'GET') {
       // Strict admin read: never replace a failed server load with cached/empty data.
       const active = await pool.query("SELECT value FROM app_settings WHERE key = 'current_season'");

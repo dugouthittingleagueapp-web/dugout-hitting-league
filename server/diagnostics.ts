@@ -64,7 +64,7 @@ export const recordDiagnostic = async (
     await client.query(
       `INSERT INTO diagnostic_events
    (event_id,operation_id,correlation_id,event_type,severity,resolution,summary,code,route,source,game_id,league,season)
-   SELECT $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,m.league,m.season FROM (SELECT 1) seed
+   SELECT $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,LEFT(m.league,100),m.season FROM (SELECT 1) seed
    LEFT JOIN matches m ON m.id::text=$11
    ON CONFLICT (operation_id,event_type,source) DO UPDATE SET last_seen_at=NOW(),occurrences=LEAST(1000000,diagnostic_events.occurrences+1)`,
       [

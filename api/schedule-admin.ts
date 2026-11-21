@@ -1,4 +1,5 @@
 import {validateDiagnosticInput} from '../utils/diagnosticEvents.js';
+import {systemStatus} from '../server/systemStatus.js';
 import {recordDiagnostic,readDiagnostics,cleanupDiagnostics,captureMutationDiagnostics} from '../server/diagnostics.js';
 import { readGameDay } from '../server/readinessEndpoint.js';
 import type { VercelRequest, VercelResponse } from '@vercel/node';
@@ -23,6 +24,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
   const role = requireRole(req, res, ['admin']);
   if (!role) return;
+  if(req.method==='GET' && req.query.action==='system_status'){
+    res.setHeader('Cache-Control','no-store');
+    try{return res.status(200).json(await systemStatus());}catch{return res.status(503).json({error:'System checks are unavailable. Try again.'});}
+  }
   if(req.method==='GET' && req.query.action==='diagnostics'){
     try {res.setHeader('Cache-Control','no-store');return res.status(200).json(await readDiagnostics(req.query));}
     catch{return res.status(503).json({error:'Diagnostic history is unavailable. Refresh to try again.'});}

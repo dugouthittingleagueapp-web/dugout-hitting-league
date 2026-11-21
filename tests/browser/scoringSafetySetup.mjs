@@ -3,7 +3,7 @@ import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { randomUUID } from 'node:crypto';
 const connectionString = process.env.DUGOUT_BROWSER_DATABASE_URL || '';
 const url = new URL(connectionString);
-if (url.hostname !== '127.0.0.1' || !['/dugout_test_phase2_browser', '/dugout_test_fan_scroll_browser'].includes(url.pathname)) throw new Error('Scoring browser fixtures require the disposable localhost database.');
+if (url.hostname !== '127.0.0.1' || !['/dugout_test_phase2_browser', '/dugout_test_fan_scroll_browser', '/dugout_test_operations_browser'].includes(url.pathname)) throw new Error('Scoring browser fixtures require the disposable localhost database.');
 const db = new pg.Client({ connectionString, ssl: false }); await db.connect();
 await db.query(readFileSync(new URL('../../schema.sql', import.meta.url), 'utf8'));
 await db.query(`ALTER TABLE matches ADD COLUMN IF NOT EXISTS revision BIGINT NOT NULL DEFAULT 0,

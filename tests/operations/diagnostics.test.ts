@@ -81,6 +81,19 @@ describe("Safe diagnostic boundaries", () => {
   });
 });
 describe("Nonblocking device reports", () => {
+  it("does not duplicate completion when journal and retry both confirm it", async () => {
+    const send = vi.fn().mockResolvedValue(undefined);
+    const reporter = createDiagnosticReporter(send, randomUUID);
+    reporter.report("game", "recovery_started");
+    reporter.report("game", "recovery_completed");
+    reporter.report("game", "recovery_completed");
+    await new Promise((r) => setTimeout(r, 0));
+    expect(send.mock.calls.map((c) => c[0].type)).toEqual([
+      "recovery_started",
+      "recovery_completed",
+    ]);
+  });
+
   it("records interruption, manual review and correlated recovery success without storage", async () => {
     const send = vi.fn().mockResolvedValue(undefined);
     const reporter = createDiagnosticReporter(send, randomUUID);

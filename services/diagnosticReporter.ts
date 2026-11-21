@@ -50,6 +50,7 @@ export const createDiagnosticReporter = (
   const report = (gameId: string, type: DiagnosticType) => {
     try {
       let episode = episodes.get(gameId);
+      if (type === "recovery_completed" && !episode) return;
       if (!episode) {
         episode = { id: uuid(), state: "", count: 0, last: 0 };
         episodes.set(gameId, episode);

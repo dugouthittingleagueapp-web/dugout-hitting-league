@@ -2,7 +2,7 @@ import pg from 'pg';
 import {randomUUID} from 'node:crypto';
 import {writeFileSync,mkdirSync} from 'node:fs';
 const url=new URL(process.env.DUGOUT_BROWSER_DATABASE_URL||'');
-if(url.hostname!=='127.0.0.1'||url.pathname!=='/dugout_test_admin_browser')throw Error('Disposable localhost Admin database only');
+if(url.hostname!=='127.0.0.1'||!['/dugout_test_admin_browser','/dugout_test_operations_browser'].includes(url.pathname))throw Error('Disposable localhost Admin database only');
 const db=new pg.Client({connectionString:url.href,ssl:false});await db.connect();
 const league='Conflict Test '+randomUUID(),otherLeague='Other Conflict League '+randomUUID();
 for(const name of [league,otherLeague])await db.query('INSERT INTO leagues(id,season) VALUES($1,$2)',[name,'2027']);

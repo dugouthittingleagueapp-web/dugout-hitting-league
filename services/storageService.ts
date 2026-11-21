@@ -10,7 +10,7 @@ import { mapMatchFromDB, mapTeamFromDB } from '../utils/dbMappers';
 import { calculateMatchStats } from '../utils/matchStatistics';
 import { aggregateTeamPlayerStats } from '../utils/teamPlayerStats';
 import { mergeAvailableSeasons } from '../utils/availableSeasons';
-import { createScoringJournal, recoverJournal, journalRevisionFor, journalToken, hasJournalPending, exportScoringRecovery } from './scoringJournal';
+import { createScoringJournal, journalEntries, recoverJournal, journalRevisionFor, journalToken, hasJournalPending, exportScoringRecovery } from './scoringJournal';
 import { sameScores, type PitchCommand } from '../utils/scoringProtocol';
 import type { SnapshotIntent } from '../server/scoringValidation';
 export { exportScoringRecovery } from './scoringJournal';
@@ -247,8 +247,18 @@ export const inspectScoringRecovery = (id: string) => {
   }
 };
 export const syncOfflineData = async () => {
+  const attempts=new Set<string>();
+  try {
+    for(const entry of journalEntries())if(!entry.ack && attempts.size<50)attempts.add(entry.matchId);
+    const legacy=JSON.parse(localStorage.getItem(PENDING_MATCHES_KEY) || '{}');
+    for(const id of Object.keys(legacy).slice(0,50))if(attempts.size<50)attempts.add(id);
+    for(const id of attempts)diagnosticReporter.report(id,'recovery_started');
+  } catch {/* Reporting must not change recovery behavior. */}
   try { await scoringJournal.syncAll(); await syncLegacyData(); }
   catch (error) { console.warn('Recovery needs checking; saved copies were retained.', error); }
+  for(const id of attempts){
+    try {diagnosticReporter.report(id,hasPendingMatchSync(id) || getScoringSyncWarning(id)?'recovery_failed':'recovery_completed');}catch{/* Saved recovery records stay untouched. */}
+  }
 };
 export const retrySavedScoring = async (id: string) => {
   diagnosticReporter.report(id,'recovery_started');
@@ -1614,3 +1624,12 @@ export const cleanupDiagnosticHistory = async () => {
  return response.json() as Promise<{removed:number;retentionDays:number}>;
 };
 
+export const getScoringServiceHealth = async ():Promise<{scoring:'responding'|'error';checkedAt:string}> => {
+ const controller=new AbortController();const timer=setTimeout(()=>controller.abort(),8000);
+ try {
+  const res=await apiFetch('/api/scoring?action=health',{signal:controller.signal});
+  const body=await res.json();
+  if((!res.ok && res.status!==503) || !['responding','error'].includes(body?.scoring) || typeof body.checkedAt!=='string')throw new Error('Unable to verify scoring');
+  return body;
+ } finally {clearTimeout(timer);}
+};

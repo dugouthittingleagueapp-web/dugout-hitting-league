@@ -1,0 +1,60 @@
+import json, os, uuid
+from pathlib import Path
+from playwright.sync_api import sync_playwright, expect
+base=os.environ.get('DUGOUT_BROWSER_URL','http://127.0.0.1:4200')
+with sync_playwright() as p:
+ browser=p.chromium.launch(executable_path='/usr/bin/chromium',headless=True,args=['--no-sandbox'])
+ context=browser.new_context(viewport={'width':1280,'height':1000},accept_downloads=True)
+ page=context.new_page()
+ token=page.request.get(base+'/test-session').json()['token']
+ page.add_init_script('('+'''t=>{localStorage.setItem('userRole','admin');localStorage.setItem('dugout_auth_token',t);sessionStorage.setItem('dugout_auth_token',t);localStorage.setItem('lastActivity',String(Date.now()));localStorage.setItem('dugout_current_season','2027');localStorage.setItem('dugout_app_state',JSON.stringify({view:'admin',season:'2027'}));}'''+')('+json.dumps(token)+');')
+ page.goto(base)
+ expect(page.get_by_role('heading',name='Game-Day Readiness')).to_be_visible()
+ expect(page.get_by_text('Responding',exact=True)).to_be_visible()
+ expect(page.get_by_text('No known synchronization problems reported',exact=True)).to_be_visible()
+ page.get_by_label('Readiness game date').fill('2027-11-01')
+ ready=page.locator('details').filter(has_text='Operations Eagles vs Operations Panthers')
+ expect(ready).to_contain_text('Ready')
+ lineup=page.locator('details').filter(has_text='Operations Wolves vs Operations Raptors')
+ expect(lineup).to_contain_text('Needs Attention')
+ expect(lineup).not_to_contain_text('Blocked')
+ lineup.locator('summary').click()
+ expect(lineup.locator('p').get_by_text('The umpire can confirm the weekly lineup when starting this game.',exact=True)).to_be_visible()
+ headers={'Authorization':'Bearer '+token}
+ op=str(uuid.uuid4())
+ event={'eventId':str(uuid.uuid4()),'operationId':op,'correlationId':op,'type':'recovery_failed','gameId':'operations-ready'}
+ r=page.request.post(base+'/api/schedule-admin',headers=headers,data={'action':'report_diagnostic','event':event});assert r.status==202,r.text()
+ page.get_by_role('button',name='Refresh status',exact=True).click()
+ expect(page.get_by_text('One or more reported problems',exact=True)).to_be_visible()
+ page.get_by_role('button',name='View diagnostics',exact=True).click()
+ expect(page.get_by_text('A device could not complete scoring recovery. Keep its saved copy for review.',exact=True)).to_be_visible()
+ page.get_by_label('Diagnostic severity').select_option('critical')
+ expect(page.get_by_text('No recorded issues in this period. Unreported device problems cannot be ruled out.',exact=True)).to_be_visible()
+ page.get_by_label('Diagnostic severity').select_option('warning')
+ expect(page.get_by_text('A device could not complete scoring recovery. Keep its saved copy for review.',exact=True)).to_be_visible()
+ with page.expect_download() as info:page.get_by_role('button',name='Download these results',exact=True).click()
+ path=info.value.path();report=json.loads(Path(path).read_text());assert report['events'][0]['game_id']=='operations-ready'
+ assert not any(s in json.dumps(report) for s in ['scoringToken','password','Authorization','innings'])
+ event={**event,'eventId':str(uuid.uuid4()),'type':'recovery_completed'}
+ assert page.request.post(base+'/api/schedule-admin',headers=headers,data={'action':'report_diagnostic','event':event}).status==202
+ page.get_by_role('button',name='Dashboard',exact=True).click()
+ expect(page.get_by_text('No known synchronization problems reported',exact=True)).to_be_visible()
+ assert page.request.get(base+'/api/schedule-admin?action=diagnostics',headers={'Authorization':'Bearer invalid'}).status==401
+ page.route('**/api/scoring?action=health',lambda route:route.fulfill(status=503,content_type='application/json',body=json.dumps({'scoring':'error','checkedAt':'2026-11-21T00:00:00Z'})))
+ page.get_by_role('button',name='Refresh status',exact=True).click()
+ expect(page.get_by_text('Experiencing an error',exact=True)).to_be_visible()
+ page.route('**/api/schedule-admin?action=system_status*',lambda route:route.abort())
+ page.get_by_role('button',name='Refresh status',exact=True).click()
+ expect(page.get_by_text('Unable to determine',exact=True)).to_be_visible()
+ page.unroute('**/api/scoring?action=health');page.unroute('**/api/schedule-admin?action=system_status*')
+ page.get_by_role('button',name='Refresh status',exact=True).click();expect(page.get_by_text('Responding',exact=True)).to_be_visible()
+ page.set_viewport_size({'width':390,'height':844})
+ page.get_by_label('Readiness game date').fill('2027-11-01')
+ expect(page.locator('details').filter(has_text='Operations Eagles vs Operations Panthers')).to_be_visible()
+ page.screenshot(path='work/browser/operations-mobile.png',full_page=True)
+ page.get_by_role('button',name='Diagnostics',exact=True).click()
+ expect(page.get_by_role('heading',name='Diagnostics',exact=True)).to_be_visible()
+ page.screenshot(path='work/browser/operations-diagnostics.png',full_page=True)
+ assert page.evaluate('document.documentElement.scrollWidth <= window.innerWidth+1')
+ browser.close()
+print('PASS: actual UI/API/database readiness, weekly lineup reminder, health failure, monitoring outage, reporting/recovery, filtering, export, authorization and mobile checks.')

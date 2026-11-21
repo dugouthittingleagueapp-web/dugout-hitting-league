@@ -6,7 +6,8 @@ import { priorPlayerCandidates, playerHistoryTeamLabel, type PlayerIdentityLink,
 const freshPlayer = (): Player => ({ id: storage.generateUUID(), name: '', lastName: '' });
 const copy = (players: Player[]) => players.map(p => ({ ...p }));
 
-export const AdminRosters: React.FC<{ season: string; onDirtyChange: (dirty: boolean) => void; onBusyChange: (busy: boolean) => void }> = ({ season, onDirtyChange, onBusyChange }) => {
+export const AdminRosters: React.FC<{ season: string; initialTeamId?:string; onDirtyChange: (dirty: boolean) => void; onBusyChange: (busy: boolean) => void }> = ({ season, initialTeamId, onDirtyChange, onBusyChange }) => {
+  const pendingTarget=useRef(initialTeamId);
   const [leagues, setLeagues] = useState<League[]>([]);
   const [teams, setTeams] = useState<Team[]>([]);
   const [league, setLeague] = useState('');
@@ -55,7 +56,12 @@ export const AdminRosters: React.FC<{ season: string; onDirtyChange: (dirty: boo
       if (!active) return;
       setTeams(data.teams); setLeagues(data.leagues);
       setIdentityLinks(data.identityLinks); setPlayerHistory(data.playerHistory); setIdentityChoices({});
-      if (data.leagues.length === 1) setLeague(data.leagues[0].id);
+      if(pendingTarget.current){
+        const team=data.teams.find(t=>t.id===pendingTarget.current && t.season===season);
+        const destination=team && data.leagues.find(l=>storage.leaguesMatch(l.id,team.league));
+        if(team && destination){setLeague(destination.id);openTeam(team);pendingTarget.current=undefined;}
+        else setError('This team or its league is no longer available in the active season. Return to Before games and check again.');
+      }else if (data.leagues.length === 1) setLeague(data.leagues[0].id);
     }).catch(err => { if (active) setError(err.message || 'Could not load rosters. Try again.'); })
       .finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
@@ -72,7 +78,9 @@ export const AdminRosters: React.FC<{ season: string; onDirtyChange: (dirty: boo
   const selectTeam = (id: string) => {
     const openingExistingEmptyDraft = creating && matchingExistingTeam?.id === id && !hasPlayerEntries && !Object.keys(identityChoices).length;
     if (!openingExistingEmptyDraft && !canLeave()) return;
-    const team = teams.find(t => t.id === id) || null;
+    openTeam(teams.find(t => t.id === id) || null);
+  };
+  const openTeam=(team:Team|null)=>{
     setSelected(team); setCreating(false); setPlayers(copy(team?.players || [])); setSubs(copy(team?.subs || [])); setIdentityChoices({}); setHistorySearch({}); setOpenSearch({}); setOpenMatches({}); setError(''); setSuccess('');
   };
   const startCreate = () => {
@@ -237,7 +245,7 @@ export const AdminRosters: React.FC<{ season: string; onDirtyChange: (dirty: boo
   return (
     <section aria-label="Roster management" className="space-y-5 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white/80 dark:bg-slate-900/80 p-4 sm:p-6">
       <div><h2 className="text-2xl font-bold text-slate-900 dark:text-white">{creating ? 'Create team' : 'Rosters'}</h2>
-        <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">{creating ? `Enter the team and its three players for ${season}. Returning players appear as you type.` : `Manage teams and players for ${season}. Choose a team or create a new one.`}</p></div>
+        <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">{creating ? `Enter the team and its three players for ${season}. Returning players appear as you type.` : selected ? `Editing ${selected.name} · ${selected.league} · ${season}.` : `Manage teams and players for ${season}. Choose a team or create a new one.`}</p></div>
       {loading && <p role="status">Loading rosters…</p>}
       {error && <div role="alert" className="rounded-xl bg-rose-50 dark:bg-rose-950 p-3 text-rose-800 dark:text-rose-200">{error}
         <button type="button" disabled={saving} className="ml-3 font-bold underline" onClick={() => { if (canLeave()) setReload(value => value + 1); }}>Reload rosters</button>

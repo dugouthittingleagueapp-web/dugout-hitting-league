@@ -25,10 +25,11 @@ export const AdminDashboard: React.FC<{
   const [showScheduleImportModal, setShowScheduleImportModal] = useState(false);
   const [adminTab, setAdminTab] = useState<'overview' | 'schedule' | 'rosters' | 'diagnostics'>('overview');
   const [readinessDate,setReadinessDate]=useState(leagueToday);
+  const [rosterTarget,setRosterTarget]=useState<string|undefined>();
   const [rosterDirty, setRosterDirty] = useState(false);
   const [rosterSaving, setRosterSaving] = useState(false);
   const leaveRoster = () => !rosterDirty || window.confirm('Leave without saving this roster?');
-  const switchAdminTab = (tab: typeof adminTab) => { if (tab === adminTab || rosterSaving || !leaveRoster()) return; setAdminTab(tab); };
+  const switchAdminTab = (tab: typeof adminTab) => { if (tab === adminTab || rosterSaving || !leaveRoster()) return; if(tab==='rosters')setRosterTarget(undefined); setAdminTab(tab); };
   const [scheduleRefreshToken, setScheduleRefreshToken] = useState(0);
   const [scheduleLeagues, setScheduleLeagues] = useState<League[]>([]);
   
@@ -332,10 +333,10 @@ export const AdminDashboard: React.FC<{
         <AdminSchedule season={currentSeason}
           refreshToken={scheduleRefreshToken} onImport={activeLeagues => { setScheduleLeagues(activeLeagues); setShowScheduleImportModal(true); }} />
       ) : adminTab === 'rosters' ? (
-        <AdminRosters season={currentSeason} onDirtyChange={setRosterDirty} onBusyChange={setRosterSaving} />
+        <AdminRosters initialTeamId={rosterTarget} season={currentSeason} onDirtyChange={setRosterDirty} onBusyChange={setRosterSaving} />
       ) : (
       <div className="space-y-4 sm:space-y-6">
-        <GameDayReadiness date={readinessDate} onDateChange={setReadinessDate} season={currentSeason} onNavigate={screen=>screen==='game'?onBack():switchAdminTab(screen)} />
+        <GameDayReadiness date={readinessDate} onDateChange={setReadinessDate} season={currentSeason} onNavigate={(screen,teamId)=>{if(screen==='rosters'){if(rosterSaving || !leaveRoster())return;setRosterTarget(teamId);setAdminTab('rosters');}else if(screen==='game')onBack();else switchAdminTab(screen);}} />
         <AdminSystemStatus season={currentSeason} onIssues={()=>switchAdminTab('diagnostics')} />
         
         {/* 1. League Year Selector & Division Configuration (Exclusive to Admin) */}

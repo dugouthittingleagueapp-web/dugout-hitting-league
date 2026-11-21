@@ -24,6 +24,67 @@ const ready = () => {
   ).games[0];
 };
 describe("Simple game-day explanations keep all safety warnings", () => {
+  it("carries the affected away roster ID instead of guessing from a team name", () => {
+    const f = scoringFixture();
+    f.away.players = [];
+    const game = {
+      ...f.game,
+      status: "SCHEDULED" as const,
+      startTime: "18:00",
+      endTime: "19:00",
+      location: "Tunnels 5/6",
+      innings: Array.from({ length: 6 }, (_, i) => createEmptyInning(i + 1)),
+    };
+    const assessment = assessGameDay(
+      "2026",
+      "2026-11-17",
+      [game],
+      [f.home, f.away],
+      [{ id: "QC", season: "2026" }],
+    ).games[0];
+    const view = gameDayPresentation(assessment);
+    expect(view.actions.filter((a) => a.screen === "rosters")).toEqual([
+      { screen: "rosters", teamId: f.away.id, label: "Edit roster" },
+    ]);
+    expect(assessment.issues.find((i) => i.screen === "rosters")).toMatchObject(
+      { teamId: f.away.id, teamName: f.away.name },
+    );
+  });
+  it("keeps both affected roster targets distinct and deduplicates repeated issues", () => {
+    const g = ready();
+    g.state = "blocked";
+    g.issues = [
+      {
+        code: "ROSTER_IDENTIFIERS",
+        state: "blocked",
+        message: "Home missing players",
+        screen: "rosters",
+        teamId: "home",
+        teamName: "Eagles",
+      },
+      {
+        code: "PLAYER_NOT_FOUND",
+        state: "blocked",
+        message: "Home missing saved player",
+        screen: "rosters",
+        teamId: "home",
+        teamName: "Eagles",
+      },
+      {
+        code: "ROSTER_IDENTIFIERS",
+        state: "blocked",
+        message: "Away missing players",
+        screen: "rosters",
+        teamId: "away",
+        teamName: "Panthers",
+      },
+    ];
+    expect(gameDayPresentation(g).actions).toEqual([
+      { screen: "rosters", teamId: "home", label: "Edit Eagles roster" },
+      { screen: "rosters", teamId: "away", label: "Edit Panthers roster" },
+    ]);
+  });
+
   it("describes checked scheduling and rosters without promising every phone is synced", () => {
     const view = gameDayPresentation(ready());
     expect(view.label).toBe("Ready");

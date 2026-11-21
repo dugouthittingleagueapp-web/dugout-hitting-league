@@ -28,6 +28,40 @@ with sync_playwright() as p:
  expect(roster.get_by_role('button',name='Edit roster',exact=True)).to_be_visible()
  expect(roster.get_by_role('button',name='Fix schedule',exact=True)).to_be_visible()
  expect(page.get_by_text('2 games need your attention.',exact=True)).to_be_visible()
+ roster_requests={'count':0}
+ def fail_first_roster_load(route):
+  roster_requests['count']+=1
+  if roster_requests['count']==1:route.fulfill(status=503,content_type='application/json',body='{"error":"Temporary roster connection failure"}')
+  else:route.continue_()
+ page.route('**/api/teams?adminRoster=1&season=2027',fail_first_roster_load)
+ before_roster_open=page.request.get(base+'/api/matches?id=operations-roster').json()
+ roster.get_by_role('button',name='Edit roster',exact=True).click()
+ expect(page.get_by_role('button',name='Reload rosters',exact=True)).to_be_visible()
+ expect(page.get_by_label('Team',exact=True)).to_have_value('')
+ page.get_by_role('button',name='Reload rosters',exact=True).click()
+ expect(page.get_by_label('League',exact=True)).to_have_value('Operations QC')
+ expect(page.get_by_label('Team',exact=True)).to_have_value('operations-team-4')
+ page.unroute('**/api/teams?adminRoster=1&season=2027')
+ expect(page.get_by_role('button',name='Set up three players',exact=True)).to_be_visible()
+ assert page.request.get(base+'/api/matches?id=operations-roster').json()==before_roster_open
+ page.get_by_role('button',name='Set up three players',exact=True).click()
+ for i,name in enumerate(['DirectlinkOne','DirectlinkTwo','DirectlinkThree'],1):
+  page.get_by_label(f'Team player {i} first name',exact=True).fill(name)
+ page.once('dialog',lambda dialog:dialog.dismiss())
+ page.get_by_role('button',name='Dashboard',exact=True).click()
+ expect(page.get_by_label('Team',exact=True)).to_have_value('operations-team-4')
+ expect(page.get_by_label('Team player 1 first name',exact=True)).to_have_value('DirectlinkOne')
+ page.get_by_role('button',name='Save roster',exact=True).click()
+ expect(page.get_by_text('Roster saved. Recorded games and scores are preserved.',exact=True)).to_be_visible()
+ saved_target=page.request.get(base+'/api/teams?ids=operations-team-4').json()
+ assert len(saved_target[0]['players'])==3
+ other=page.request.get(base+'/api/teams?ids=operations-same-name-other').json()
+ assert other[0]['players'][0]['name']!='DirectlinkOne'
+ page.get_by_role('button',name='Dashboard',exact=True).click()
+ expect(page.get_by_label('Game day',exact=True)).to_have_value('2027-11-02')
+ roster=page.get_by_role('article',name='Operations Roster Review vs Operations Eagles',exact=True)
+ expect(roster).not_to_contain_text('Fix before playing')
+ expect(roster.get_by_role('button',name='Edit roster',exact=True)).to_have_count(0)
  roster.get_by_role('button',name='Fix schedule',exact=True).click()
  expect(page.get_by_role('heading',name='Season Schedule · 2027',exact=True)).to_be_visible()
  page.get_by_role('button',name='Dashboard',exact=True).click()
@@ -70,4 +104,4 @@ with sync_playwright() as p:
  page.screenshot(path='work/browser/operations-diagnostics.png',full_page=True)
  assert page.evaluate('document.documentElement.scrollWidth <= window.innerWidth+1')
  browser.close()
-print('PASS: actual UI/API/database readiness, no admin lineup reminders, health failure, monitoring outage, reporting/recovery, filtering, export, authorization and mobile checks.')
+print('PASS: actual UI/API/database readiness, no admin lineup reminders, direct roster selection and save, health failure, monitoring outage, reporting/recovery, filtering, export, authorization and mobile checks.')

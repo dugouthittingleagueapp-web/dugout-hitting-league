@@ -75,6 +75,7 @@ describe("Read-only game-day readiness", () => {
     expect(f.home.players).toHaveLength(3);
     expect(result.state).toBe("blocked");
     expect(result.issues.map((i) => i.code)).toContain("PLAYER_NOT_FOUND");
+    expect(result.issues.find(i=>i.code==='PLAYER_NOT_FOUND')?.teamId).toBe(f.home.id);
     expect(
       result.issues.find((i) => i.code === "PLAYER_NOT_FOUND")?.message,
     ).toContain(f.home.name);

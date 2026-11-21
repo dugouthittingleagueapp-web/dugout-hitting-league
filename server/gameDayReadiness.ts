@@ -23,6 +23,8 @@ export type ReadinessIssue = {
   state: "attention" | "blocked";
   message: string;
   screen: "schedule" | "rosters" | "game";
+  teamId?: string;
+  teamName?: string;
 };
 export type ReadyGame = {
   id: string;
@@ -74,7 +76,15 @@ export const assessGameDay = (
         state: ReadinessIssue["state"],
         message: string,
         screen: ReadinessIssue["screen"],
-      ) => issues.push({ code, state, message, screen });
+        team?: Team,
+      ) =>
+        issues.push({
+          code,
+          state,
+          message,
+          screen,
+          ...(team ? { teamId: team.id, teamName: team.name } : {}),
+        });
       if (!home || !away || home.id === away.id)
         add(
           "TEAMS_MISSING",
@@ -134,6 +144,7 @@ export const assessGameDay = (
             "blocked",
             `${t.name} has an unreadable roster. Review it before starting.`,
             "rosters",
+            t,
           );
           continue;
         }
@@ -156,6 +167,7 @@ export const assessGameDay = (
             "blocked",
             `${t.name} needs a roster with named players and different player IDs.`,
             "rosters",
+            t,
           );
         } else if (roster.length < 2)
           add(
@@ -163,6 +175,7 @@ export const assessGameDay = (
             "attention",
             `${t.name} has one player listed. Confirm a substitute or the game arrangement before starting.`,
             "rosters",
+            t,
           );
       }
       if (validRosters)
@@ -198,12 +211,14 @@ export const assessGameDay = (
       if (home && away && validRosters) {
         const missing = unavailableLineupTeams(m, home, away);
         if (missing.length) {
-          add(
-            "PLAYER_NOT_FOUND",
-            "blocked",
-            `A player saved in this game isn’t listed on ${missing.join(" or ")}. Check the team roster.`,
-            "rosters",
-          );
+          for (const team of missing)
+            add(
+              "PLAYER_NOT_FOUND",
+              "blocked",
+              `A player saved in this game isn’t listed on ${team.name}. Check the team roster.`,
+              "rosters",
+              team,
+            );
         } else {
           try {
             validateScoreState(m, home, away);

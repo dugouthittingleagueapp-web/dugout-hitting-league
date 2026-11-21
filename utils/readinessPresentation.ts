@@ -42,7 +42,32 @@ export const gameDayPresentation = (game: ReadyGame) => {
     message = "This game has started.";
   }
   const screens = [...new Set(adminIssues.map((issue) => issue.screen))];
-  return { label, tone, message, adminIssues, screens };
+  const rosterTeams = new Set(
+    adminIssues
+      .filter((issue) => issue.screen === "rosters" && issue.teamId)
+      .map((issue) => issue.teamId),
+  );
+  const actions = [
+    ...new Map(
+      adminIssues.map((issue) => {
+        const label =
+          issue.screen === "rosters"
+            ? rosterTeams.size > 1
+              ? `Edit ${issue.teamName || "team"} roster`
+              : "Edit roster"
+            : issue.screen === "schedule"
+              ? "Fix schedule"
+              : "Review game";
+        const action = {
+          screen: issue.screen,
+          teamId: issue.screen === "rosters" ? issue.teamId : undefined,
+          label,
+        };
+        return [`${action.screen}:${action.teamId || ""}`, action] as const;
+      }),
+    ).values(),
+  ];
+  return { label, tone, message, adminIssues, screens, actions };
 };
 export const gameDayOverview = (games: ReadyGame[]) => {
   const count = games.filter(

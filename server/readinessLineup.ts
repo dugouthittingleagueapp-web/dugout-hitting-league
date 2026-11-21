@@ -5,8 +5,8 @@ export const unavailableLineupTeams = (
   match: Match,
   home: Team,
   away: Team,
-): string[] => {
-  const missing = new Set<string>();
+): Team[] => {
+  const missing = new Map<string, Team>();
   for (const [side, team] of [
     ["home", home],
     ["away", away],
@@ -22,16 +22,16 @@ export const unavailableLineupTeams = (
           (p) => !p || typeof p.playerId !== "string" || !ids.has(p.playerId),
         )
       )
-        missing.add(team.name);
+        missing.set(team.id, team);
     }
     for (const round of Array.isArray(match.tieBreaker)
       ? match.tieBreaker
       : []) {
       const id = side === "home" ? round?.homePlayerId : round?.awayPlayerId;
-      if (typeof id !== "string" || !ids.has(id)) missing.add(team.name);
+      if (typeof id !== "string" || !ids.has(id)) missing.set(team.id, team);
     }
   }
-  return [...missing];
+  return [...missing.values()];
 };
 
 /** Accept only intact, blank pregame templates whose missing choices an umpire

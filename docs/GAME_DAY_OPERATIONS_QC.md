@@ -87,7 +87,7 @@ Production traffic. Healthy scoring generates no routine-pitch log volume.
 
 ## Validation results
 
-- **610 automated tests passed in 72 files**, including real disposable
+- **612 automated tests passed in 72 files**, including real disposable
   PostgreSQL integration tests; TypeScript and production build passed.
 - Existing scoring regressions cover normal/rapid scoring, durable backups,
   hanging/lost responses, offline replay, stale revisions, concurrent users,
@@ -229,3 +229,21 @@ Additional roster-availability regressions cover ordinary partial blank lineups,
 missing player references despite three listed team members, and preservation of
 zero-valued pitches and invalid-template warnings. Valid smaller rosters and
 substitutes remain supported; no three-player attendance rule was introduced.
+
+## Direct roster corrections from readiness
+
+Edit roster carries the affected team's stable ID and opens that exact roster
+with its current league selected. Names are never used to identify the team.
+If both teams need attention, each has its own named action. Multiple issues on
+one team share one roster button. Opening the editor makes no saved changes.
+The game day stays selected when returning to the dashboard; saving a roster
+clears its readiness issue after the dashboard reloads the checks.
+
+A failed first load retains the requested team for Retry/Reload. A team or league
+removed in the meantime produces an explanatory error instead of opening some
+other team. Manual team selection and unsaved-change confirmation remain intact.
+The browser regression uses duplicate team names in different leagues and mixed
+league capitalization, retries an interrupted load, opens the correct team,
+checks unsaved-change protection, saves three synthetic players, confirms the
+other roster is unchanged and returns to the selected game day. No migrations,
+Production data/settings changes or scoring API changes were made.

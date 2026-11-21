@@ -17,16 +17,14 @@ const toneClasses = {
   review: "bg-amber-950 text-amber-200",
   fix: "bg-red-950 text-red-200",
 };
-const actionLabels = {
-  schedule: "Fix schedule",
-  rosters: "Edit roster",
-  game: "Review game",
-};
 export const GameDayReadiness: React.FC<{
   season: string;
   date: string;
   onDateChange: (date: string) => void;
-  onNavigate: (screen: "schedule" | "rosters" | "game") => void;
+  onNavigate: (
+    screen: "schedule" | "rosters" | "game",
+    teamId?: string,
+  ) => void;
 }> = ({ season, date, onDateChange: setDate, onNavigate }) => {
   const [dates, setDates] = useState<string[]>([]);
   const [data, setData] = useState<ReadinessResult | null>(null);
@@ -144,16 +142,18 @@ export const GameDayReadiness: React.FC<{
                       >
                         {view.message}
                       </p>
-                      {view.screens.length > 0 && (
+                      {view.actions.length > 0 && (
                         <div className="mt-3 flex flex-wrap gap-2">
-                          {view.screens.map((screen) => (
+                          {view.actions.map((action) => (
                             <button
                               type="button"
-                              key={screen}
-                              onClick={() => onNavigate(screen)}
+                              key={`${action.screen}:${action.teamId || ""}`}
+                              onClick={() =>
+                                onNavigate(action.screen, action.teamId)
+                              }
                               className="rounded-lg bg-blue-700 px-3 py-2 text-sm font-bold text-white"
                             >
-                              {actionLabels[screen]}
+                              {action.label}
                             </button>
                           ))}
                         </div>

@@ -26,7 +26,7 @@ const ready = () => {
 describe("Simple game-day explanations keep all safety warnings", () => {
   it("describes checked scheduling and rosters without promising every phone is synced", () => {
     const view = gameDayPresentation(ready());
-    expect(view.label).toBe("Ready for setup");
+    expect(view.label).toBe("Ready");
     expect(view.message).toContain("player lists");
     expect(view.screens).toEqual([]);
   });
@@ -49,7 +49,7 @@ describe("Simple game-day explanations keep all safety warnings", () => {
     ).games[0];
     expect(result.state).toBe("ready");
     const view = gameDayPresentation(result);
-    expect(view.label).toBe("Ready for setup");
+    expect(view.label).toBe("Ready");
     expect(view.tone).toBe("good");
     expect(view.screens).toEqual([]);
     expect(gameDayOverview([result])).toContain("No admin changes needed");

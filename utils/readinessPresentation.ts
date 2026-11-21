@@ -8,7 +8,7 @@ export const gameDayPresentation = (game: ReadyGame) => {
   const primary =
     adminIssues.find((issue) => issue.state === "blocked") || adminIssues[0];
   const finished = game.status === "FINAL";
-  let label = "Ready for setup",
+  let label = "Ready",
     tone: "good" | "review" | "fix" = "good";
   let message = "The schedule and player lists look good.";
   if (primary) {

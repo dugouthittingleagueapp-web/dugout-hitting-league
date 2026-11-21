@@ -207,7 +207,7 @@ login. Protected Vercel login may be required.
 ## Preview wording and layout refinement
 
 The readiness section is labeled **Before games** with one Game day selector.
-Game cards show Ready for setup, Check before playing or Fix before playing.
+Game cards show Ready, Check before playing or Fix before playing.
 Routine lineup selection produces no admin reminder, warning or action. When
 team players are available, blank or intact partial pregame lineups stay ready
 for umpire setup. A missing saved player reference produces a specific admin

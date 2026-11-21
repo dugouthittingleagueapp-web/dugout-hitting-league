@@ -78,6 +78,7 @@ export const AdminRosters: React.FC<{ season: string; initialTeamId?:string; onD
   const selectTeam = (id: string) => {
     const openingExistingEmptyDraft = creating && matchingExistingTeam?.id === id && !hasPlayerEntries && !Object.keys(identityChoices).length;
     if (!openingExistingEmptyDraft && !canLeave()) return;
+    pendingTarget.current=undefined;
     openTeam(teams.find(t => t.id === id) || null);
   };
   const openTeam=(team:Team|null)=>{
@@ -95,6 +96,7 @@ export const AdminRosters: React.FC<{ season: string; initialTeamId?:string; onD
       setError(''); setSuccess(''); return;
     }
     if (!canLeave()) return;
+    pendingTarget.current=undefined;
     setLeague(value); setSelected(null); setError(''); setSuccess('');
   };
   const edit = (kind: 'players' | 'subs', id: string, field: 'name' | 'lastName', value: string) => {

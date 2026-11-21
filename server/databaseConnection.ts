@@ -86,6 +86,8 @@ export const selectDatabaseConnectionString = (environment: DatabaseEnvironment)
     } else if (vercelEnvironment === 'preview' &&
         environment.VERCEL_GIT_COMMIT_REF === SCHEDULE_PREVIEW_BRANCH) {
       assertExpectedHost(scopedUrl, SCHEDULE_PREVIEW_HOST, 'Schedule Preview');
+    } else if (vercelEnvironment === 'preview' && environment.VERCEL_GIT_COMMIT_REF === 'feature/game-day-operations') {
+      assertExpectedHost(scopedUrl, 'ep-holy-term-a4520vi1.us-east-1.aws.neon.tech', 'Game-day Operations Preview');
     } else if (vercelEnvironment === 'preview' &&
         (environment.VERCEL_GIT_COMMIT_REF === SCORING_RELEASE_BRANCH ||
           environment.VERCEL_GIT_COMMIT_REF === 'fix/game-day-reliability' ||

@@ -1,3 +1,4 @@
+import {createDiagnosticReporter} from './diagnosticReporter';
 
 import { AgeGroup, Match, Team, Inning, League, PlayerStats, PlayerSeasonStatRow, PlayerCareerSummary, ScheduleImportSummary } from '../types';
 import { ARCHIVE_2025_LEAGUES, ARCHIVE_2025_TEAMS, ARCHIVE_2025_MATCHES } from './archive2025Data';
@@ -9,7 +10,7 @@ import { mapMatchFromDB, mapTeamFromDB } from '../utils/dbMappers';
 import { calculateMatchStats } from '../utils/matchStatistics';
 import { aggregateTeamPlayerStats } from '../utils/teamPlayerStats';
 import { mergeAvailableSeasons } from '../utils/availableSeasons';
-import { createScoringJournal, recoverJournal, journalRevisionFor, journalToken, hasJournalPending, exportScoringRecovery } from './scoringJournal';
+import { createScoringJournal, journalEntries, recoverJournal, journalRevisionFor, journalToken, hasJournalPending, exportScoringRecovery } from './scoringJournal';
 import { sameScores, type PitchCommand } from '../utils/scoringProtocol';
 import type { SnapshotIntent } from '../server/scoringValidation';
 export { exportScoringRecovery } from './scoringJournal';
@@ -83,6 +84,23 @@ const apiFetch = async (url: string, init?: RequestInit): Promise<Response> => {
   }
   return fetch(fullUrl, enhancedInit);
 };
+
+// Diagnostic reporting has its own small timeout and queue. It never shares
+// the scoring journal or pending-match storage.
+const diagnosticReporter = createDiagnosticReporter(async event => {
+  if(typeof window==='undefined' || typeof window.addEventListener!=='function')return;
+  const controller=new AbortController();const timer=setTimeout(()=>controller.abort(),3000);
+  try {
+    const result=await apiFetch('/api/schedule-admin',{method:'POST',signal:controller.signal,headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'report_diagnostic',event})});
+    if(!result.ok)throw new Error('Diagnostic report unavailable');
+  } finally {clearTimeout(timer);}
+},generateUUID);
+if(typeof window!=='undefined'){
+ window.addEventListener('dugout:scoring-save-state',((event:CustomEvent)=>{
+  diagnosticReporter.scoringState(event.detail?.matchId,event.detail?.state);
+ }) as EventListener);
+ window.addEventListener('online',()=>{void diagnosticReporter.flush();});
+}
 
 // League Methods
 export const getLeagues = async (season?: string): Promise<League[]> => {
@@ -229,10 +247,21 @@ export const inspectScoringRecovery = (id: string) => {
   }
 };
 export const syncOfflineData = async () => {
+  const attempts=new Set<string>();
+  try {
+    for(const entry of journalEntries())if(!entry.ack && attempts.size<50)attempts.add(entry.matchId);
+    const legacy=JSON.parse(localStorage.getItem(PENDING_MATCHES_KEY) || '{}');
+    for(const id of Object.keys(legacy).slice(0,50))if(attempts.size<50)attempts.add(id);
+    for(const id of attempts)diagnosticReporter.report(id,'recovery_started');
+  } catch {/* Reporting must not change recovery behavior. */}
   try { await scoringJournal.syncAll(); await syncLegacyData(); }
   catch (error) { console.warn('Recovery needs checking; saved copies were retained.', error); }
+  for(const id of attempts){
+    try {diagnosticReporter.report(id,hasPendingMatchSync(id) || getScoringSyncWarning(id)?'recovery_failed':'recovery_completed');}catch{/* Saved recovery records stay untouched. */}
+  }
 };
 export const retrySavedScoring = async (id: string) => {
+  diagnosticReporter.report(id,'recovery_started');
   try {
     inspectScoringRecovery(id);
     // Restore this device's access before replay. Never take over or rebase.
@@ -243,7 +272,9 @@ export const retrySavedScoring = async (id: string) => {
     if (!hasJournalPending(id)) await syncLegacyData(id);
     if (hasPendingMatchSync(id) || getScoringSyncWarning(id))
       throw new Error(getScoringSyncWarning(id) || 'Your scores are still saved on this device. Check the connection and try again.');
+    diagnosticReporter.report(id,'recovery_completed');
   } catch (error) {
+    diagnosticReporter.report(id,'recovery_failed');
     markScoringSyncWarning(id, getScoringSyncWarning(id) || (error instanceof Error ? error.message : 'Your saved scores need checking. Keep this page open and ask for help.'));
     throw error;
   }
@@ -1574,4 +1605,31 @@ export const requestScheduleResolution = async (season:string,payload:Record<str
     if(error?.resolution||error?.status)throw error;
     throw new Error(error?.message||'Could not confirm the save. Your changes are still here. Reconnect and try again.');
   });
+};
+
+/** Strict, uncached admin operations reads; failures must never look healthy. */
+export const getAdminOperations = async <T>(action: string, season: string, params: Record<string,string> = {}): Promise<T> => {
+  const controller = new AbortController();
+  const timer = setTimeout(()=>controller.abort(),10000);
+  try {
+    const response = await apiFetch('/api/schedule-admin?'+new URLSearchParams({action,season,...params}),{signal:controller.signal});
+    if (!response.ok) throw new Error('The checks could not finish. Refresh to try again.');
+    return await response.json();
+  } finally { clearTimeout(timer); }
+};
+
+export const cleanupDiagnosticHistory = async () => {
+ const response=await apiFetch('/api/schedule-admin',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'cleanup_diagnostics'})});
+ if(!response.ok)throw new Error('History cleanup could not finish. Try again.');
+ return response.json() as Promise<{removed:number;retentionDays:number}>;
+};
+
+export const getScoringServiceHealth = async ():Promise<{scoring:'responding'|'error';checkedAt:string}> => {
+ const controller=new AbortController();const timer=setTimeout(()=>controller.abort(),8000);
+ try {
+  const res=await apiFetch('/api/scoring?action=health',{signal:controller.signal});
+  const body=await res.json();
+  if((!res.ok && res.status!==503) || !['responding','error'].includes(body?.scoring) || typeof body.checkedAt!=='string')throw new Error('Unable to verify scoring');
+  return body;
+ } finally {clearTimeout(timer);}
 };

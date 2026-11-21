@@ -1,8 +1,10 @@
 """Real app/API/localhost PostgreSQL fault tests. Never point this at a deployment."""
 from playwright.sync_api import sync_playwright, expect
-import json, re
+import json, re, os
+from urllib.parse import urlparse
 
-base = 'http://127.0.0.1:3700'
+base = os.environ.get('DUGOUT_BROWSER_BASE_URL','http://127.0.0.1:3700')
+assert urlparse(base).hostname=='127.0.0.1'
 fixture = json.load(open('work/browser/scoring-fixtures.json'))
 
 with sync_playwright() as p:
@@ -64,6 +66,7 @@ with sync_playwright() as p:
     assert saved['innings'][0]['away']['playerScores'][0]['pitches'][:2] == [{'points': 4}, {'points': 3}]
     assert int(saved['revision']) == 2
     print('PASS P0-01: two rapid pitches survive hanging request + page refresh + retry', flush=True)
+    page.context.close()
 
     page = open_game('lost-response')
     count = [0]
@@ -80,6 +83,7 @@ with sync_playwright() as p:
     assert int(server(page, 'lost-response')['revision']) == 1
     assert count[0] == 2
     print('PASS: server-committed lost response retries exactly once without duplicate scoring', flush=True)
+    page.context.close()
 
     page = open_game('storage', width=390)
     puts = []
@@ -94,6 +98,7 @@ with sync_playwright() as p:
     close_score(page)
     assert server(page, 'storage')['innings'][0]['away']['playerScores'][0]['pitches'][0]['points'] is None
     print('PASS P0-01: unavailable storage blocks acknowledgement and sends no score', flush=True)
+    page.context.close()
 
     page = open_game('stale-profile')
     page.get_by_role('button', name='Pitch 1, Score: None', exact=True).first.click()
@@ -121,6 +126,7 @@ with sync_playwright() as p:
     assert 'scoringToken' not in exported and token not in exported
     assert '"points": 2' in exported
     print('PASS P0-02: profile read cannot rebase stale board; rejected intent remains downloadable without credentials', flush=True)
+    page.context.close()
 
     # Two independent tabs share browser storage and copied session ownership.
     context = browser.new_context(viewport={'width': 1440, 'height': 1000})
@@ -138,6 +144,7 @@ with sync_playwright() as p:
     assert saved['innings'][0]['away']['playerScores'][0]['pitches'][0]['points'] == 4
     assert saved['innings'][0]['away']['playerScores'][0]['pitches'][1]['points'] is None
     print('PASS: copied-tab ownership cannot overwrite another accepted score', flush=True)
+    context.close()
 
     for scenario in ['extras-five', 'extras-three', 'extras-one']:
         page = open_game(scenario)
@@ -159,6 +166,7 @@ with sync_playwright() as p:
         assert saved['tie_breaker'][-1]['awayScores'][0] == 2
         assert int(saved['revision']) == 2
         print('PASS P0-03: '+scenario+' survives offline refresh, edit and replay', flush=True)
+        page.context.close()
 
     page = open_game('two-player', width=390)
     page.get_by_role('button', name='Pitch 15, Score: None', exact=True).first.click()
@@ -174,6 +182,7 @@ with sync_playwright() as p:
     saved = server(page, 'two-player')
     assert saved['innings'][0]['home']['playerScores'][0]['pitches'][14]['points'] == 4
     print('PASS: mobile two-player fifteenth pitch remains intact across another edit', flush=True)
+    page.context.close()
 
     page = open_game('finalize')
     page.get_by_role('button', name='Inning 6', exact=True).click()

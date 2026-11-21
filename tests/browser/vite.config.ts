@@ -1,3 +1,4 @@
+import {diagnosticPool} from '../../server/diagnostics';
 import pg from 'pg';
 import pool from '../../api/db';
 import { defineConfig } from 'vite';
@@ -14,12 +15,14 @@ import { signSessionToken } from '../../api/auth';
 
 const localUrl = process.env.DUGOUT_BROWSER_DATABASE_URL || '';
 const local = new URL(localUrl);
-if (local.hostname !== '127.0.0.1' || !['/dugout_test_browser', '/dugout_test_admin_browser', '/dugout_test_phase2_browser', '/dugout_test_fan_scroll_browser'].includes(local.pathname)) throw new Error('Browser test server must use the disposable local database.');
+if (local.hostname !== '127.0.0.1' || !['/dugout_test_browser', '/dugout_test_admin_browser', '/dugout_test_phase2_browser', '/dugout_test_fan_scroll_browser', '/dugout_test_operations_browser'].includes(local.pathname)) throw new Error('Browser test server must use the disposable local database.');
 // Rebind only this test process to the explicitly chosen local pool. The
 // deployed TLS/database selector is never weakened for browser tests.
 const testPool = new pg.Pool({connectionString:localUrl,ssl:false});
 pool.query = testPool.query.bind(testPool);
 pool.connect = testPool.connect.bind(testPool);
+diagnosticPool.query=testPool.query.bind(testPool);
+diagnosticPool.connect=testPool.connect.bind(testPool);
 process.env.SESSION_SECRET = 'local-only-browser-test-session-secret-not-production';
 const handlers: Record<string, any> = { '/api/settings': settings, '/api/leagues': leagues, '/api/teams': teams, '/api/matches': matches, '/api/scoring': scoring, '/api/schedule-admin': schedule, '/api/matches-delta': delta, '/api/scoring-lock': scoringLock };
 export default defineConfig({plugins:[react(),{

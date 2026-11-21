@@ -1,3 +1,7 @@
+import {leagueToday} from '../utils/leagueClock';
+import {AdminSystemStatus} from './AdminSystemStatus';
+import {DiagnosticHistory} from './DiagnosticHistory';
+import {GameDayReadiness} from './GameDayReadiness';
 
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
@@ -19,11 +23,13 @@ export const AdminDashboard: React.FC<{
   const [newLeagueName, setNewLeagueName] = useState('');
   const [creatingLeague, setCreatingLeague] = useState(false);
   const [showScheduleImportModal, setShowScheduleImportModal] = useState(false);
-  const [adminTab, setAdminTab] = useState<'overview' | 'schedule' | 'rosters'>('overview');
+  const [adminTab, setAdminTab] = useState<'overview' | 'schedule' | 'rosters' | 'diagnostics'>('overview');
+  const [readinessDate,setReadinessDate]=useState(leagueToday);
+  const [rosterTarget,setRosterTarget]=useState<string|undefined>();
   const [rosterDirty, setRosterDirty] = useState(false);
   const [rosterSaving, setRosterSaving] = useState(false);
   const leaveRoster = () => !rosterDirty || window.confirm('Leave without saving this roster?');
-  const switchAdminTab = (tab: typeof adminTab) => { if (tab === adminTab || rosterSaving || !leaveRoster()) return; setAdminTab(tab); };
+  const switchAdminTab = (tab: typeof adminTab) => { if (tab === adminTab || rosterSaving || !leaveRoster()) return; if(tab==='rosters')setRosterTarget(undefined); setAdminTab(tab); };
   const [scheduleRefreshToken, setScheduleRefreshToken] = useState(0);
   const [scheduleLeagues, setScheduleLeagues] = useState<League[]>([]);
   
@@ -321,14 +327,17 @@ export const AdminDashboard: React.FC<{
         <button type="button" disabled={rosterSaving} onClick={() => switchAdminTab('rosters')}
           aria-current={adminTab === 'rosters' ? 'page' : undefined}
           className={`px-5 py-2.5 rounded-xl font-bold text-sm transition-colors ${adminTab === 'rosters' ? 'bg-blue-600 text-white' : 'bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-200'}`}>Rosters</button>
+        <button type="button" disabled={rosterSaving} onClick={() => switchAdminTab('diagnostics')} aria-current={adminTab === 'diagnostics' ? 'page' : undefined} className={`px-5 py-2.5 rounded-xl font-bold text-sm ${adminTab === 'diagnostics' ? 'bg-blue-600 text-white' : 'bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-200'}`}>Recent issues</button>
       </nav>
-      {adminTab === 'schedule' ? (
+      {adminTab === 'diagnostics' ? (<DiagnosticHistory season={currentSeason} onReviewGame={onBack} />) : adminTab === 'schedule' ? (
         <AdminSchedule season={currentSeason}
           refreshToken={scheduleRefreshToken} onImport={activeLeagues => { setScheduleLeagues(activeLeagues); setShowScheduleImportModal(true); }} />
       ) : adminTab === 'rosters' ? (
-        <AdminRosters season={currentSeason} onDirtyChange={setRosterDirty} onBusyChange={setRosterSaving} />
+        <AdminRosters initialTeamId={rosterTarget} season={currentSeason} onDirtyChange={setRosterDirty} onBusyChange={setRosterSaving} />
       ) : (
       <div className="space-y-4 sm:space-y-6">
+        <GameDayReadiness date={readinessDate} onDateChange={setReadinessDate} season={currentSeason} onNavigate={(screen,teamId)=>{if(screen==='rosters'){if(rosterSaving || !leaveRoster())return;setRosterTarget(teamId);setAdminTab('rosters');}else if(screen==='game')onBack();else switchAdminTab(screen);}} />
+        <AdminSystemStatus season={currentSeason} onIssues={()=>switchAdminTab('diagnostics')} />
         
         {/* 1. League Year Selector & Division Configuration (Exclusive to Admin) */}
         <section className="bg-white/70 dark:bg-slate-900/70 backdrop-blur-xl p-4 sm:p-6 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800">

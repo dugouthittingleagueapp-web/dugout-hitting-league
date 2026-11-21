@@ -27,6 +27,7 @@ describe('Game-day reliability',()=>{
   const g=scoringFixture().game;let online=false,owned=false;const calls:string[]=[];
   sessionStorage.setItem('dugout_scoring_token_'+g.id,'11111111-1111-4111-8111-111111111111');
   const fetcher=vi.fn(async(url:string,init?:RequestInit)=>{
+   if(url==='/api/schedule-admin')return new Response('{"recorded":true}');
    if(!online)throw new Error('offline');calls.push(url);
    if(url==='/api/scoring-lock'){owned=true;return new Response('{"owned":true,"locked":true}');}
    if(!owned)return new Response('{"error":"Scoring access is not ready"}',{status:423});
@@ -64,7 +65,7 @@ describe('Game-day reliability',()=>{
   const g={...scoringFixture().game,id:'legacy-retry'};
   localStorage.setItem('dugout_pending_sync_matches',JSON.stringify({[g.id]:g}));markScoringSyncWarning(g.id,'Check access');
   const calls:string[]=[];
-  vi.stubGlobal('fetch',vi.fn(async(url:string,init?:RequestInit)=>{calls.push(url);
+  vi.stubGlobal('fetch',vi.fn(async(url:string,init?:RequestInit)=>{if(url==='/api/schedule-admin')return new Response('{"recorded":true}');calls.push(url);
    if(url==='/api/scoring-lock')return new Response('{"owned":true,"locked":true}');
    expect(JSON.parse(init!.body as string).revision).toBe(0);return new Response(JSON.stringify({...g,revision:1}));
   }));

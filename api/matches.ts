@@ -1,5 +1,7 @@
+import {captureMutationDiagnostics} from '../server/diagnostics.js';
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import crypto from 'crypto';
+import {changesOfficialBooking,validateLegacyBooking} from '../server/legacyScheduleGuard.js';
 import pool from './db.js';
 import { changesPracticeClassification, hasRecordedScores } from '../server/matchWritePolicy.js';
 import { requireRole, getAuthFromRequest } from './auth.js';
@@ -19,6 +21,7 @@ function cleanMatchId(id: any): { rawId: string; strippedId: string; isPracticeP
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
+  captureMutationDiagnostics(req,res,'/api/matches');
   try {
     if (req.method === 'GET') {
       const { league, id, season, excludePractice } = req.query;
@@ -194,6 +197,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         validateScoreState({ ...req.body, is_practice: matchIsPractice, tieBreaker: req.body.tieBreaker },
           mapTeamFromDB(teams.rows.find(t => t.id === homeTeamId)), mapTeamFromDB(teams.rows.find(t => t.id === awayTeamId)));
 
+        await validateLegacyBooking(client, matchSeason, req.body, matchIsPractice);
         const matchStatus = status || (isComplete ? 'FINAL' : 'SCHEDULED');
 
         const { rawId, strippedId, isPracticePrefix, isStrippedUuid } = cleanMatchId(id);
@@ -321,6 +325,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           return res.status(404).json({ error: 'Game not found. No changes were saved.' });
         }
         const current = mapMatchFromDB(target.rows[0]);
+        if (changesOfficialBooking(current, req.body || {})) throw new MatchCreationError(400, 'Use Admin Schedule to change the date, time, tunnels or teams. No changes were saved.');
         const command = req.body.command === undefined ? undefined : validatePitchCommand(req.body.command);
         const writeId = req.body.writeId;
         if ((command && (typeof writeId !== 'string' || !UUID_REGEX.test(writeId))) ||

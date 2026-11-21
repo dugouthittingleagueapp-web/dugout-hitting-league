@@ -7,6 +7,8 @@ describe('Every official scheduling entry uses calendar rules',()=>{
   expect(changesOfficialBooking(game,{...game,startTime:'18:00',location:'Tunnels 5/6'})).toBe(false);
   expect(changesOfficialBooking({...game,date:new Date(game.date)} as any,{...game,date:new Date(game.date)})).toBe(false);
   expect(changesOfficialBooking({...game,location:undefined},{location:null})).toBe(false);
+  expect(changesOfficialBooking({...game,startTime:'invalid'},{startTime:'another invalid time'})).toBe(true);
+  expect(changesOfficialBooking({...game,startTime:'invalid'},{startTime:'invalid'})).toBe(false);
  });
  it.each([{startTime:'18:30'},{homeTeamId:'other'},{date:'2027-11-02'},{location:'Tunnels 7/8'}])('detects schedule changes in legacy scoring payloads %j',body=>expect(changesOfficialBooking(game,body)).toBe(true));
  it('keeps ad-hoc and practice game creation available',async()=>{

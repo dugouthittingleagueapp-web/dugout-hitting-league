@@ -31,7 +31,7 @@ export const readGameDay = async (season: string, requestedDate: unknown) => {
       [season],
     );
     const matches = await client.query(
-      "SELECT * FROM matches WHERE season=$1 AND (is_practice IS FALSE OR is_practice IS NULL) LIMIT 5001",
+      "SELECT id,league,season,home_team_id,away_team_id,date,start_time,end_time,location,status,is_complete,is_practice FROM matches WHERE season=$1 AND (is_practice IS FALSE OR is_practice IS NULL) LIMIT 5001",
       [season],
     );
     if (matches.rows.length > 5000)
@@ -39,10 +39,17 @@ export const readGameDay = async (season: string, requestedDate: unknown) => {
         503,
         "This schedule is too large to check safely. Ask for help reviewing it.",
       );
+    // All-season calendar metadata is needed for overlaps. Pitch histories are
+    // fetched only for the selected day, never every historical game on refresh.
+    const details=await client.query(`SELECT id,innings,tie_breaker FROM matches
+      WHERE season=$1 AND (is_practice IS FALSE OR is_practice IS NULL)
+      AND date>=($2::date::timestamp AT TIME ZONE 'UTC')
+      AND date<(($2::date+1)::timestamp AT TIME ZONE 'UTC')`,[season,date]);
+    const detailsById=new Map(details.rows.map(row=>[row.id,row]));
     const result = assessGameDay(
       season,
       date,
-      matches.rows.map(mapMatchFromDB),
+      matches.rows.map(row=>mapMatchFromDB({...row,...detailsById.get(row.id)})),
       teams.rows.map(mapTeamFromDB),
       leagues.rows,
     );

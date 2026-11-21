@@ -41,11 +41,11 @@ export const changesOfficialBooking = (
     )
       return false;
     if (typeof b !== "string") return b !== a;
-    if (key === "startTime" || key === "endTime")
-      return (
-        scheduleTimeMinutes(String(a || "")) !== scheduleTimeMinutes(b) ||
-        (!a && !!b)
-      );
+    if (key === "startTime" || key === "endTime") {
+      const before=scheduleTimeMinutes(String(a || ""));
+      const after=scheduleTimeMinutes(b);
+      return before===null || after===null ? String(a || "").trim()!==b.trim() : before!==after;
+    }
     if (key === "location")
       return (
         (canonicalCage(String(a || "")) || a || "") !== (canonicalCage(b) || b)

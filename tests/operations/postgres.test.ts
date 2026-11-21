@@ -187,6 +187,20 @@ describe.skipIf(!process.env.DUGOUT_TEST_DATABASE_URL)(
         ).events.length,
       ).toBe(1);
     });
+    it('records rejected scoring requests without changing stored pitches',async()=>{
+      const before=(await pool.query('SELECT md5(row_to_json(m)::text) AS hash FROM matches m')).rows;
+      const response=await call(scoring,'umpire','POST',{protocol:0,id:'synthetic'});
+      expect(response.statusCode).toBe(400);
+      let rows:any[]=[];
+      for(let i=0;i<30;i++){
+        rows=(await pool.query("SELECT * FROM diagnostic_events WHERE source='server' AND game_id='synthetic' AND event_type='scoring_rejected'")).rows;
+        if(rows.length)break;
+        await new Promise(resolve=>setTimeout(resolve,20));
+      }
+      expect(rows).toHaveLength(1);
+      expect(rows[0].route).toBe('/api/scoring');
+      expect((await pool.query('SELECT md5(row_to_json(m)::text) AS hash FROM matches m')).rows).toEqual(before);
+    });
     it("authorizes reports separately from admin history and health", async () => {
       for (const role of [null, "umpire"] as const) {
         expect(

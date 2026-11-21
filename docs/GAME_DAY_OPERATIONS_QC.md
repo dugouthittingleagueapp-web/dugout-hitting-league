@@ -16,7 +16,8 @@ release. Older experimental atomic-sync branches were not merged.
 - **Readiness:** Admin Dashboard shows today in league time, selectable scheduled
   dates, expandable game checks, Ready / Needs Attention / Blocked, manual refresh
   and links to existing Schedule, Rosters and league-game screens. Uses a
-  consistent read-only snapshot of the active season. Missing weekly selections
+  consistent read-only snapshot of the active season. Calendar metadata covers
+  the whole season; pitch histories are read only for the selected day. Missing weekly selections
   are advisory; no new three-regular-player rule or start restriction was added.
 - **Diagnostics:** authenticated, persistent, bounded event history with league,
   date, severity and reported-game filters, pagination, per-page JSON export and
@@ -87,7 +88,7 @@ Production traffic. Healthy scoring generates no routine-pitch log volume.
 
 ## Validation results
 
-- **600 automated tests passed in 71 files**, including real disposable
+- **601 automated tests passed in 71 files**, including real disposable
   PostgreSQL integration tests; TypeScript and production build passed.
 - Existing scoring regressions cover normal/rapid scoring, durable backups,
   hanging/lost responses, offline replay, stale revisions, concurrent users,

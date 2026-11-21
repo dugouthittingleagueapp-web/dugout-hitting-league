@@ -1,3 +1,4 @@
+import { readGameDay } from '../server/readinessEndpoint.js';
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { requireRole } from './auth.js';
 import { scheduleDateTimeError, canonicalCage, scheduleDateKey, scheduleTimeMinutes } from '../utils/scheduleValidation.js';
@@ -22,6 +23,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(400).json({ error: 'Select a valid season.' });
 
   try {
+    if (req.method === 'GET' && action === 'readiness') return res.status(200).json(await readGameDay(season,req.query.date));
     if (req.method === 'GET') {
       // Strict admin read: never replace a failed server load with cached/empty data.
       const active = await pool.query("SELECT value FROM app_settings WHERE key = 'current_season'");

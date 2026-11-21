@@ -1575,3 +1575,14 @@ export const requestScheduleResolution = async (season:string,payload:Record<str
     throw new Error(error?.message||'Could not confirm the save. Your changes are still here. Reconnect and try again.');
   });
 };
+
+/** Strict, uncached admin operations reads; failures must never look healthy. */
+export const getAdminOperations = async <T>(action: string, season: string, params: Record<string,string> = {}): Promise<T> => {
+  const controller = new AbortController();
+  const timer = setTimeout(()=>controller.abort(),10000);
+  try {
+    const response = await apiFetch('/api/schedule-admin?'+new URLSearchParams({action,season,...params}),{signal:controller.signal});
+    if (!response.ok) throw new Error('The checks could not finish. Refresh to try again.');
+    return await response.json();
+  } finally { clearTimeout(timer); }
+};

@@ -1,3 +1,4 @@
+import {GameDayReadiness} from './GameDayReadiness';
 
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
@@ -329,6 +330,7 @@ export const AdminDashboard: React.FC<{
         <AdminRosters season={currentSeason} onDirtyChange={setRosterDirty} onBusyChange={setRosterSaving} />
       ) : (
       <div className="space-y-4 sm:space-y-6">
+        <GameDayReadiness season={currentSeason} onNavigate={screen=>screen==='game'?onBack():switchAdminTab(screen)} />
         
         {/* 1. League Year Selector & Division Configuration (Exclusive to Admin) */}
         <section className="bg-white/70 dark:bg-slate-900/70 backdrop-blur-xl p-4 sm:p-6 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800">

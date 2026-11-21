@@ -7,6 +7,13 @@ const consolidatedUrl = 'postgresql://user:test@ep-divine-smoke-a4lyo8af-pooler.
 const sharedIntegrationUrl = 'postgresql://user:test@ep-purple-sea-a42guhf9.us-east-1.aws.neon.tech/neondb';
 
 describe('Environment-isolated Neon database routing', () => {
+  it('pins game-day operations to its separate Preview endpoint',()=>{
+    const env={VERCEL_ENV:'preview',VERCEL_GIT_COMMIT_REF:'feature/game-day-operations'};
+    const url='postgresql://user:test@ep-holy-term-a4520vi1-pooler.us-east-1.aws.neon.tech/neondb';
+    expect(selectDatabaseConnectionString({...env,Database_url:url})).toBe(url);
+    for(const Database_url of [productionUrl,previewUrl,consolidatedUrl])expect(()=>selectDatabaseConnectionString({...env,Database_url})).toThrow();
+    expect(()=>selectDatabaseConnectionString({...env,DATABASE_URL:productionUrl})).toThrow();
+  });
   it('pins Schedule Preview to its isolated endpoint and rejects Production or other previews', () => {
     const environment = { VERCEL_ENV: 'preview', VERCEL_GIT_COMMIT_REF: 'fix/schedule-import-league-provisioning' };
     for (const host of ['ep-bold-term-a4y8a4nu', 'ep-bold-term-a4y8a4nu-pooler']) {
